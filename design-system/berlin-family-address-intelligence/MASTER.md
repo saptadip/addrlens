@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** Berlin Family Address Intelligence (`addrlens`)
+**Project:** Berlin Address Lens (`addrlens`) — public brand name; the repo/design-system folder keeps the older "berlin-family-address-intelligence" slug for URL stability.
 **Last update:** 2026-08-03
 **Chosen style:** **Micro-interactions** (selected after comparing 9 style variants — Glassmorphism, Claymorphism, Brutalism, Neumorphism, Skeuomorphism, Soft UI Evolution, Vibrant & Block-based, Micro-interactions, Material You)
 **Why this style:** restrained visual base (near-white background, subtle multi-layer shadows, clean sans-serif) so **personality lives in the interactions** — this reads professional and trustworthy, matches the "consequential-decision tool" positioning, and never gets in the way of the data.
