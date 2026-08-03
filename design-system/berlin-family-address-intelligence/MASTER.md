@@ -46,6 +46,19 @@
 }
 ```
 
+### Amenity category colours
+
+Applied to map pins and any category-specific accents. Each category has one
+canonical colour, used everywhere it appears (pin, active-card accent, etc.):
+
+| Category | Colour | Hex |
+|---|---|---|
+| Playgrounds | green | `#22C55E` |
+| Pharmacies | red | `#EF4444` |
+| Supermarkets | amber | `#F59E0B` |
+| GPs / Doctors | teal | `#14B8A6` |
+| Transit stops | violet | `#8B5CF6` |
+
 **Non-negotiable palette rules:**
 1. **Hero card** (contains the search input) uses `--hero-bg`. It has **no hover state**. It's the fixed anchor.
 2. **All result cards** (address, school, kita, intl, map — every child of the results grid) use `--result-bg`. They must all use the **same colour** so they read as one coherent result set.
@@ -76,7 +89,9 @@ Standard density. Gap 14px between cards; page gutter 22px on desktop; max page 
 
 ## Layout Pattern — non-negotiable
 
-**Left-stack + height-synced map**, chosen after explicit user comparison:
+**Left-stack + height-synced map**, chosen after explicit user comparison.
+Applies to both the Education tab and the Amenities tab — same shape, same
+`.grid` / `.stack` / `.map-cell` classes.
 
 ```css
 .grid { display: flex; flex-direction: column; gap: 14px; }
@@ -88,10 +103,76 @@ Standard density. Gap 14px between cards; page gutter 22px on desktop; max page 
 }
 ```
 
-- Left column: address → assigned-school(s) → kita metric → nearest-international, stacked vertically.
+- Left column: cards, stacked vertically.
+  - Education: address → assigned-school(s) → kita metric → nearest-international.
+  - Amenities: playgrounds → pharmacies → supermarkets → GPs → transit.
 - Right column: single map cell. Its height must equal the exact sum of the left stack (flex `align-items: stretch` at the parent, `#map { flex: 1; height: 100%; min-height: 0 }` inside).
 - **After the map is drawn**, call `requestAnimationFrame(() => mapRef.invalidateSize())` so Leaflet remeasures the stretched container.
+- **After any card expand/collapse** (Amenities), call `mapRef.invalidateSize()` again in a `requestAnimationFrame` — the stack height just changed, and Leaflet won't re-render tiles until told.
 - Mobile (<900px): single column, map gets explicit `min-height: 340px`.
+
+---
+
+## Expandable card pattern (Amenities tab)
+
+Cards on the Amenities tab collapse to a scannable overview by default and
+expand on click. Rationale: five categories with detail lists would flood
+the viewport; collapsed cards read like a dashboard, expanded cards read
+like a directory. Only **one** card is expanded at a time — expansion is
+the same event as map selection (click card → expand + plot that
+category's pins in its colour; click again → collapse + clear pins).
+
+- **Collapsed** shows: icon-badge + label + chevron (▾) on the head row, then the count metric (`N within ~800 m`). Nothing else.
+- **Expanded** adds the item list, "+N more within 800 m" overflow line, and per-card provenance line. Chevron rotates 180° with a 200ms transition.
+- **Active/expanded state** shares `.active` class with map selection — icon badge flips to brand gradient, background steps to `--result-bg-hover`, brand accent bar (`::before`) scales in from top.
+- Clicks on the tooltip trigger (`.info-tip`) must NOT bubble to the card's expand handler.
+
+### List-row alignment
+
+List rows use a 3-column grid so the distance column ends at the same
+x-position regardless of whether an item carries an info tooltip:
+
+```css
+.amen-list li {
+  display: grid;
+  grid-template-columns: 1fr auto 20px;  /* name | distance | tooltip slot */
+  align-items: center;
+  gap: 10px;
+}
+```
+
+Items without info still occupy the third column as empty — never fall back
+to `justify-content: space-between`; that shifts the distance mid-row when
+the tooltip is absent.
+
+### Info tooltip
+
+Each item that has useful OSM tag data shows a small circle "ⓘ" (info SVG,
+20px hit area). Built with native `<details>` + `<summary>` — no popover
+library. Panel positions absolute below-right, 240px wide, white surface
+with `--sh-2`-ish drop shadow. Parent card **must** use
+`overflow: visible` or the panel will clip.
+
+Content is a single short line built server-side by `_summarize(cat, tags)`,
+so the frontend renders whatever the backend produces without any per-category
+formatting logic. Empty string = no tooltip rendered (no useful tags).
+
+---
+
+## Tabs
+
+Two tabs at the top of the results area: `Education` (default) · `Amenities`.
+Segmented pill control (`.tabs` / `.tab.active` on the periwinkle result
+surface). Panels fade in on switch (`panelIn` keyframe, 300ms ease-out).
+
+**Lazy load with eager fetch:** the Amenities Overpass fetch fires
+immediately after `/api/lookup` returns, in parallel with the user reading
+the Education panel. When the user clicks the Amenities tab, the data is
+almost always already there — the tab click is not gated on network I/O.
+
+**Tab switch must call `mapRef.invalidateSize()` for the tab it's revealing**
+(both maps live inside hidden panels; hidden Leaflet containers report zero
+dimensions until re-measured).
 
 ---
 
@@ -123,7 +204,16 @@ Personality lives here. Restraint on visuals, delight on gestures.
 
 Inline SVG only. Stroke-based (Lucide-style), `stroke-width: 2`, `stroke-linecap: round`, `stroke-linejoin: round`. Never emoji as icons.
 
-Set defined inline in `index.html` under `const ico = {...}`. Currently: `home`, `school`, `baby`, `globe`.
+Set defined inline in `index.html` under `const ico = {...}`. Currently:
+- Education icons: `home`, `school`, `baby`, `globe`
+- Amenity icons: `playground`, `pharmacy`, `cart` (supermarkets), `gp` (stethoscope), `transit` (train)
+- Utility: `info` (ⓘ, inside tooltip trigger), `chev` (▾, chevron rotates 180° when a card is expanded)
+
+The **same SVG** that fronts each amenity card is reused as the map pin glyph
+for that category — so users can visually match "the transit card" to "the
+purple pins on the map" at a glance. Map pin construction: a 30px circle
+filled with the category colour, 2.5px white border, drop shadow, category
+SVG stroked in white inside.
 
 ---
 
@@ -150,7 +240,12 @@ Set defined inline in `index.html` under `const ico = {...}`. Currently: `home`,
 
 ## Component recipes
 
-The final HTML is `phase1/index.html` — treat it as the reference implementation. Copy patterns from there rather than re-deriving. Component classes: `.hero`, `.cell`, `.map-cell`, `.icon-badge`, `.badges` / `.badge`, `.b-public` / `.b-dist` / `.b-sesb`, `.metric-big` / `.metric-big .n`, `.chip`, `.btn`, `.loading` / `.spinner`, `.error`, `.empty`.
+The final HTML is `phase1/index.html` — treat it as the reference implementation. Copy patterns from there rather than re-deriving. Component classes:
+
+- Base: `.hero`, `.cell`, `.map-cell`, `.icon-badge`, `.metric-big` / `.metric-big .n`, `.chip`, `.btn`, `.loading` / `.spinner`, `.error`, `.empty`
+- Education badges: `.badges` / `.badge`, `.b-public` / `.b-dist` / `.b-sesb`
+- Tabs: `.tabs` / `.tab` / `.tab.active` / `.panel` / `.panel.active`
+- Amenities: `.amen-cell` (with `.active` for expanded/selected), `.amen-map-cell`, `.amen-map-hint`, `.amen-body`, `.amen-list` / `.amen-list li .nm` / `.amen-list li .dist`, `.amen-pin` (map marker), `.info-tip` / `.info-body` (tooltip), `.chev` (chevron)
 
 ---
 
@@ -160,7 +255,11 @@ The final HTML is `phase1/index.html` — treat it as the reference implementati
 - [ ] Every result card uses `--result-bg`, hovers to `--result-bg-hover`.
 - [ ] Map cell obeys the same colour rules as other result cards.
 - [ ] Icon badge sits on white at rest, flips to brand gradient on card hover.
-- [ ] `mapRef.invalidateSize()` called in a `requestAnimationFrame` after `drawMap`.
+- [ ] `mapRef.invalidateSize()` called in a `requestAnimationFrame` after `drawMap` AND after every card expand/collapse AND on tab switch.
+- [ ] Amenity map pins use category icon + category colour (not plain dots).
+- [ ] Amenity cards use `overflow: visible` (info tooltip needs to escape).
+- [ ] Amenity list rows use `grid-template-columns: 1fr auto 20px` (distances aligned).
+- [ ] Amenities Overpass fetch fires eagerly right after `/api/lookup` returns.
 - [ ] All icons inline SVG (no emoji).
 - [ ] Focus visible on every interactive element.
 - [ ] `prefers-reduced-motion` respected.
