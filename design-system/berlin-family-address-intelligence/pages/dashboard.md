@@ -10,7 +10,7 @@
 
 ## Page structure (top → bottom)
 
-1. **Header row** — logo (indigo gradient tile) + brand name + tiny subtitle · right side: style pill (`Style · Micro-interactions`). This row is NOT a card, it sits on the page background.
+1. **Header row** — logo (indigo gradient tile) + brand name ("Berlin Address Lens") + tiny subtitle ("for families in Berlin") · right side: provenance pill (`Open Data · Berlin`) — signals the trust angle that the whole app rests on. This row is NOT a card, it sits on the page background.
 2. **Hero card** (search) — `.hero` — warm ivory `#FEF7F0`, always. Contains: H1, one-line lede, search form (icon-in-field input + gradient button), row of three example chips.
 3. **Tabs** — segmented pill control below the hero: `Education` (default) · `Amenities`. Panels below.
 4. **Result grid** (in each panel) — appears only after a lookup. Flex-row on desktop.
