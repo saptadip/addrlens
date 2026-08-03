@@ -11,7 +11,8 @@ Deps: shapely  (pip3 install --user shapely)
 Data:
   - Geoportal Berlin: schulen_esb (catchments), schulen (all schools),
     adressen_berlin (geocoder)               [dl-de/zero-2.0 / dl-de/by-2.0]
-  - OSM Overpass: kindergartens near a point [ODbL, kept in its own panel]
+  - OSM Overpass: kindergartens + amenities (playgrounds, pharmacies,
+    supermarkets, GPs, transit stops) around a point   [ODbL]
 
 ponytail: proto-server. Production would move polygons into PostGIS with a
           nightly refresh, put a real framework in front, and rate-limit
@@ -25,7 +26,11 @@ from shapely.geometry import shape, Point, mapping
 HERE          = Path(__file__).parent
 WFS_SCHULEN   = "https://gdi.berlin.de/services/wfs/schulen"
 WFS_ADR       = "https://gdi.berlin.de/services/wfs/adressen_berlin"
-OVERPASS      = "https://overpass-api.de/api/interpreter"
+OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
 PORT          = int(os.environ.get("PORT", "8000"))
 
 # Public SESB Grundschule strands (source: berlin.de/sen/bjf/schulen/besondere-schulen/sesb).
@@ -146,6 +151,22 @@ class Index:
         return None
 
 
+# -- OSM Overpass helper (falls back through public mirrors on failure) ------
+
+def overpass(ql, timeout_s=60):
+    """Try Overpass mirrors in order; return parsed JSON or raise last error."""
+    err = None
+    for url in OVERPASS_ENDPOINTS:
+        try:
+            req = urllib.request.Request(
+                url, data=urllib.parse.urlencode({"data": ql}).encode(),
+                headers={"User-Agent": "berlin-family-address-intel/0.1"})
+            return json.loads(urllib.request.urlopen(req, timeout=timeout_s).read())
+        except Exception as e:
+            err = e
+    raise err
+
+
 # -- OSM Kita count (Overpass, small in-memory cache) ------------------------
 
 _kita_cache, _kita_lock = {}, threading.Lock()
@@ -156,14 +177,11 @@ def kitas_near(lon, lat, radius_m=800):
     with _kita_lock:
         if key in _kita_cache:
             return _kita_cache[key]
-    ql = (f'[out:json][timeout:25];'
+    ql = (f'[out:json][timeout:60];'
           f'(nwr["amenity"="kindergarten"](around:{radius_m},{lat},{lon}););'
           f'out center;')
     try:
-        req = urllib.request.Request(OVERPASS, data=urllib.parse.urlencode({"data": ql}).encode(),
-                                     headers={"User-Agent": "berlin-family-address-intel/0.1"})
-        raw = urllib.request.urlopen(req, timeout=30).read()
-        d = json.loads(raw)
+        d = overpass(ql, timeout_s=75)
     except Exception as e:
         return {"count": None, "items": [], "error": str(e)}
     items = []
@@ -177,6 +195,108 @@ def kitas_near(lon, lat, radius_m=800):
     with _kita_lock:
         _kita_cache[key] = out
     return out
+
+
+# -- OSM amenities (playgrounds, pharmacies, supermarkets, GPs, transit) -----
+
+AMENITIES = [
+    ("playgrounds",  '["leisure"="playground"]',                     "Playground"),
+    ("pharmacies",   '["amenity"="pharmacy"]',                       "Pharmacy"),
+    ("supermarkets", '["shop"="supermarket"]',                       "Supermarket"),
+    ("gps",          '["amenity"="doctors"]',                        "Doctor's office"),
+    ("transit",      '["public_transport"~"^(platform|station)$"]',  "Transit stop"),
+]
+
+_amen_cache, _amen_lock = {}, threading.Lock()
+
+def _classify_amenity(tags):
+    if tags.get("leisure") == "playground":                        return "playgrounds"
+    if tags.get("amenity") == "pharmacy":                          return "pharmacies"
+    if tags.get("shop") == "supermarket":                          return "supermarkets"
+    if tags.get("amenity") == "doctors":                           return "gps"
+    if tags.get("public_transport") in ("platform", "station"):    return "transit"
+    return None
+
+def _short_hours(oh):
+    return oh if len(oh) <= 42 else oh[:39] + "…"
+
+def _summarize(cat, tags):
+    """One short human-readable line built from OSM tags. Empty = no useful data."""
+    parts = []
+    if cat == "transit":
+        modes = []
+        if tags.get("subway") == "yes" or tags.get("station") == "subway":   modes.append("U-Bahn")
+        if tags.get("light_rail") == "yes" or tags.get("station") == "light_rail": modes.append("S-Bahn")
+        if tags.get("tram") == "yes":  modes.append("Tram")
+        if tags.get("bus") == "yes":   modes.append("Bus")
+        if tags.get("train") == "yes": modes.append("Train")
+        if modes: parts.append(" · ".join(modes))
+        if tags.get("operator"):       parts.append(tags["operator"])
+        if tags.get("wheelchair") == "yes": parts.append("Step-free")
+    elif cat == "pharmacies":
+        if tags.get("dispensing") == "yes":       parts.append("Prescriptions")
+        if tags.get("opening_hours"):             parts.append(_short_hours(tags["opening_hours"]))
+        if tags.get("phone"):                     parts.append("☎ " + tags["phone"])
+        if tags.get("wheelchair") == "yes":       parts.append("Step-free")
+    elif cat == "supermarkets":
+        if tags.get("brand"):                     parts.append(tags["brand"])
+        if tags.get("organic") == "yes":          parts.append("Organic")
+        if tags.get("opening_hours"):             parts.append(_short_hours(tags["opening_hours"]))
+    elif cat == "gps":
+        spec = tags.get("healthcare:speciality") or tags.get("healthcare:specialty")
+        if spec:                                  parts.append(spec.replace(";", ", ").replace("_", " ").title())
+        if tags.get("phone"):                     parts.append("☎ " + tags["phone"])
+        if tags.get("wheelchair") == "yes":       parts.append("Step-free")
+    elif cat == "playgrounds":
+        a_min = tags.get("min_age") or tags.get("age:min")
+        a_max = tags.get("max_age") or tags.get("age:max")
+        if a_min or a_max:                        parts.append(f"Ages {a_min or '?'}–{a_max or '?'}")
+        if tags.get("surface"):                   parts.append("Surface: " + tags["surface"])
+        if tags.get("fee") == "yes":              parts.append("Fee")
+        if tags.get("wheelchair") == "yes":       parts.append("Step-free")
+        if tags.get("fenced") == "yes":           parts.append("Fenced")
+    return " · ".join(parts)
+
+def amenities_near(lon, lat, radius_m=800):
+    """One Overpass round-trip for all categories.
+    ponytail: tried per-category parallel (5×requests) but Overpass per-IP slot
+    limit made it slower + flaky. Combined query wins; frontend fetches eagerly
+    so the user perceives no wait."""
+    key = (round(lon, 4), round(lat, 4), radius_m)
+    with _amen_lock:
+        if key in _amen_cache:
+            return _amen_cache[key]
+    parts = "".join(f"nwr{flt}(around:{radius_m},{lat},{lon});" for _, flt, _ in AMENITIES)
+    ql = f"[out:json][timeout:60];({parts});out center tags;"
+    try:
+        d = overpass(ql, timeout_s=75)
+    except Exception as e:
+        return {k: {"count": None, "items": [], "error": str(e)} for k, _, _ in AMENITIES}
+
+    fallback = {k: lbl for k, _, lbl in AMENITIES}
+    buckets  = {k: [] for k, _, _ in AMENITIES}
+    seen     = {k: set() for k, _, _ in AMENITIES}
+    for el in d.get("elements", []):
+        tags = el.get("tags") or {}
+        cat = _classify_amenity(tags)
+        if not cat: continue
+        lat_, lon_ = (el.get("lat"), el.get("lon")) if el["type"] == "node" \
+                    else (el.get("center", {}).get("lat"), el.get("center", {}).get("lon"))
+        if lat_ is None: continue
+        name = tags.get("name") or fallback[cat]
+        # ponytail: dedupe transit by name (platform+station nodes share names);
+        # ceiling: two same-name stops within 800m collapse — rare in Berlin.
+        dkey = (name,) if cat == "transit" else (name, round(lat_, 5), round(lon_, 5))
+        if dkey in seen[cat]: continue
+        seen[cat].add(dkey)
+        buckets[cat].append({"name": name, "lat": lat_, "lon": lon_,
+                             "distance_m": round(haversine_m(lon, lat, lon_, lat_)),
+                             "info": _summarize(cat, tags)})
+    result = {k: {"count": len(v), "items": sorted(v, key=lambda x: x["distance_m"])[:25]}
+              for k, v in buckets.items()}
+    with _amen_lock:
+        _amen_cache[key] = result
+    return result
 
 
 # -- HTTP handler ------------------------------------------------------------
@@ -241,7 +361,20 @@ class H(http.server.BaseHTTPRequestHandler):
             return self._json({"ok": True, "polygons": len(INDEX.esbs)})
         if u.path == "/api/lookup":
             return self._lookup(qs)
+        if u.path == "/api/amenities":
+            return self._amenities(qs)
         self.send_error(404)
+
+    def _amenities(self, qs):
+        try:
+            lat = float((qs.get("lat") or [""])[0])
+            lon = float((qs.get("lon") or [""])[0])
+        except ValueError:
+            return self._json({"error": "lat and lon required"}, 400)
+        return self._json({
+            "amenities": amenities_near(lon, lat, 800),
+            "provenance": "© OpenStreetMap contributors (ODbL)",
+        })
 
     def _lookup(self, qs):
         addr = (qs.get("address") or [""])[0].strip()
@@ -323,6 +456,12 @@ def _selfcheck():
     intl = idx.nearest_intl(geo["lon"], geo["lat"])
     assert intl and intl["distance_m"] < 10_000
     assert idx.sesb_strand("Joan-Miró-Grundschule") == "German-Spanish"
+    assert _classify_amenity({"amenity": "pharmacy"}) == "pharmacies"
+    assert _classify_amenity({"public_transport": "platform"}) == "transit"
+    assert _classify_amenity({"amenity": "restaurant"}) is None
+    assert _summarize("transit", {"subway": "yes", "tram": "yes", "operator": "BVG"}) == "U-Bahn · Tram · BVG"
+    assert _summarize("playgrounds", {"min_age": "3", "max_age": "12", "surface": "sand"}) == "Ages 3–12 · Surface: sand"
+    assert _summarize("supermarkets", {}) == ""
     print("selfcheck: OK")
 
 
@@ -331,6 +470,7 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == "test":
         return _selfcheck()
     INDEX = Index()
+    socketserver.ThreadingTCPServer.allow_reuse_address = True  # ponytail: instant restart, no TIME_WAIT wait
     with socketserver.ThreadingTCPServer(("", PORT), H) as srv:
         print(f"→ http://localhost:{PORT}")
         try:
