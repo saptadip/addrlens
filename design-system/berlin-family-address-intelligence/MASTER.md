@@ -78,11 +78,14 @@ canonical colour, used everywhere it appears (pin, active-card accent, etc.).
 
 ### Typography
 
-- **Body + display:** Inter (400/500/600/700/800) — Google Fonts.
+- **Body + display:** Plus Jakarta Sans (400/500/600/700/800) — Google Fonts.
+  Geometric-humanist hybrid: warmer than Inter, higher x-height for reading at
+  15px, slightly more character in the display weights. Fallbacks:
+  `system-ui, sans-serif`.
 - **Display voice:** tighter tracking (`letter-spacing: -.02em`) at large sizes; no serif.
 - **CSS import:**
   ```css
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
   ```
 - **Base size:** 15px (results-dense reading); line-height 1.55.
 
