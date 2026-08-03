@@ -68,15 +68,15 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .chip:active{transform:translateY(0) scale(.95)}
 
 /* --- tabs (segmented pill control) */
-.tabs{display:inline-flex;gap:4px;padding:6px;background:#fff;border:1px solid var(--border);
+.tabs{display:inline-flex;gap:4px;padding:6px;background:var(--ink);border:1px solid var(--ink);
   border-radius:12px;box-shadow:var(--sh-1);margin:22px 0 0}
 .tab{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border:0;background:transparent;
-  border-radius:8px;font:inherit;font-weight:600;font-size:14px;color:var(--muted);cursor:pointer;
+  border-radius:8px;font:inherit;font-weight:600;font-size:14px;color:rgba(255,255,255,.65);cursor:pointer;
   transition:background .18s,color .18s,transform .12s}
 .tab svg{width:16px;height:16px}
-.tab:hover:not(.active){color:var(--ink);background:var(--result-bg)}
-.tab.active{background:var(--result-bg);color:var(--brand)}
-.tab:focus-visible{outline:none;box-shadow:var(--focus)}
+.tab:hover:not(.active){color:#fff;background:rgba(255,255,255,.08)}
+.tab.active{background:#fff;color:var(--brand)}
+.tab:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
 .panel{display:none}
 .panel.active{display:block}
 /* soft fade when switching panels */
