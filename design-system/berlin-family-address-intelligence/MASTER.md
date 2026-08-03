@@ -195,8 +195,11 @@ formatting logic. Empty string = no tooltip rendered (no useful tags).
 ## Tabs
 
 Two tabs at the top of the results area: `Education` (default) · `Amenities`.
-Segmented pill control (`.tabs` / `.tab.active` on the periwinkle result
-surface). Panels fade in on switch (`panelIn` keyframe, 300ms ease-out).
+Segmented pill control (`.tabs` / `.tab.active`) with a **dark ink container**
+(`--ink`, #111827) so the bar reads as clearly foregrounded against the
+near-white page. Inactive tabs use `rgba(255,255,255,.65)` text so they
+recede but stay legible; the active tab is solid white with brand-indigo
+text. Panels fade in on switch (`panelIn` keyframe, 300ms ease-out).
 
 **Lazy load with eager fetch:** the Amenities Overpass fetch fires
 immediately after `/api/lookup` returns, in parallel with the user reading
