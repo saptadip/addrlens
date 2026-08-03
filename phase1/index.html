@@ -149,6 +149,33 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
 .empty p{font-weight:600;font-size:16px;color:var(--ink);max-width:520px;margin:0 auto}
 
+.amen-map-cell{position:relative}
+#map-amen{flex:1;min-height:0;height:100%}
+@media(max-width:899px){.amen-map-cell{min-height:340px}#map-amen{min-height:340px;height:340px}}
+.amen-map-hint{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,.94);padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:var(--sh-1);pointer-events:none}
+.amen-pin{width:30px;height:30px;border-radius:99px;display:grid;place-items:center;border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.28);color:#fff}
+.amen-pin svg{width:16px;height:16px;stroke:currentColor}
+.amen-cell{overflow:visible}
+.info-tip{position:relative;flex-shrink:0}
+.info-tip>summary{list-style:none;cursor:pointer;width:20px;height:20px;border-radius:99px;display:grid;place-items:center;color:var(--muted);background:#fff;border:1px solid var(--border);transition:color .15s,border-color .15s,background .15s}
+.info-tip>summary::-webkit-details-marker{display:none}
+.info-tip>summary svg{width:12px;height:12px}
+.info-tip>summary:hover,.info-tip[open]>summary{color:var(--brand);border-color:var(--brand-2);background:var(--result-bg)}
+.info-body{position:absolute;top:26px;right:0;z-index:30;width:240px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--ink-2);font-weight:500;white-space:normal;box-shadow:0 8px 22px rgba(17,24,39,.14)}
+.amen-cell{cursor:pointer}
+.amen-cell.active{background:var(--result-bg-hover);box-shadow:0 0 0 2px rgba(79,70,229,.25),var(--sh-2)}
+.amen-cell.active::before{transform:scaleY(1)}
+.amen-cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
+.amen-cell .metric-big{margin:6px 0 4px}
+.amen-cell .metric-big .n{font-size:44px}
+.amen-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.amen-list li{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-2);padding:4px 0;border-bottom:1px dashed rgba(107,114,128,.18)}
+.amen-list li:last-child{border-bottom:0}
+.amen-list li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--ink)}
+.amen-list li .dist{color:var(--muted);font-size:12px;font-weight:500;white-space:nowrap;flex-shrink:0}
+.amen-list li.none{color:var(--muted);font-style:italic;border-bottom:0}
+.amen-more{margin:8px 0 0;font-size:12px;color:var(--muted);font-weight:500}
+
 footer{max-width:1240px;margin:22px auto 40px;padding:0 22px;color:var(--muted);font-size:12px;line-height:1.7}
 footer a{color:var(--brand)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}.cell{opacity:1;transform:none}}
@@ -197,20 +224,7 @@ footer a{color:var(--brand)}
 </section>
 
 <section id="panel-amen" class="panel" role="tabpanel" aria-labelledby="tab-amen" hidden>
-  <div class="empty" style="margin-top:14px">
-    <div class="row">
-      <div class="icon-badge">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10l7-6 7 6v11M9 21v-6h6v6"/></svg>
-      </div>
-      <div class="icon-badge">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5 8 12 8 12s8-7 8-12a8 8 0 0 0-8-8z"/></svg>
-      </div>
-      <div class="icon-badge">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22V8M5 12l7-8 7 8"/><path d="M5 16l7-8 7 8"/></svg>
-      </div>
-    </div>
-    <p>Amenities are coming next: kitas beyond 800 m, playgrounds, pharmacies, supermarkets, GPs, and public-transport stops within walking distance — all sourced from open data.</p>
-  </div>
+  <div id="amen"></div>
 </section>
 </div>
 
@@ -225,8 +239,24 @@ footer a{color:var(--brand)}
 const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg>',
   school:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',
   baby:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12h.01M15 12h.01M10 16c1 1 3 1 4 0"/></svg>',
-  globe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>'};
-const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out');
+  globe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>',
+  playground:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21l4-9 4 9M8 12V4M4 4h8M14 21V10a3 3 0 0 1 6 0v11M14 15h6"/></svg>',
+  pharmacy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>',
+  cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12h11l2-8H6"/></svg>',
+  gp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a4 4 0 0 0 8 0V3M6 3h2M12 3h2M10 13v3a4 4 0 0 0 8 0v-2"/><circle cx="18" cy="14" r="2"/></svg>',
+  transit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v2M16 18v2"/><circle cx="8" cy="14.5" r="1"/><circle cx="16" cy="14.5" r="1"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'};
+const AMEN=[
+  ['playgrounds','Playgrounds',ico.playground,'#22C55E'],
+  ['pharmacies','Pharmacies',ico.pharmacy,'#EF4444'],
+  ['supermarkets','Supermarkets',ico.cart,'#F59E0B'],
+  ['gps','GPs / Doctors',ico.gp,'#14B8A6'],
+  ['transit','Transit stops',ico.transit,'#8B5CF6'],
+];
+const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
+const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen');
+let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
+let mapAmenRef=null, amenLayer=null, amenData=null, selectedCat=null;
 
 // tabs
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -235,6 +265,9 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.panel').forEach(p=>{const on=p.id==='panel-'+target;p.classList.toggle('active',on);p.hidden=!on});
   // Leaflet was hidden — force a remeasure so tiles fill the container
   if(target==='edu' && mapRef) requestAnimationFrame(()=>mapRef.invalidateSize());
+  // lazy: only fetch amenities when the user actually opens the tab
+  if(target==='amen' && lastCoord && !$amen.dataset.loaded) fetchAmenities(lastCoord.lat,lastCoord.lon);
+  if(target==='amen' && mapAmenRef) requestAnimationFrame(()=>mapAmenRef.invalidateSize());
 }));
 
 // button ripple effect
@@ -247,7 +280,10 @@ document.querySelector('.btn').addEventListener('mousemove',e=>{
 function empty(){$out.innerHTML=`<div class="empty">
   <div class="row"><div class="icon-badge">${ico.home}</div><div class="icon-badge">${ico.school}</div><div class="icon-badge">${ico.baby}</div></div>
   <p>Enter an address above — we'll build the family picture for that flat.</p></div>`;}
-empty();
+function emptyAmen(){$amen.innerHTML=`<div class="empty" style="margin-top:14px">
+  <div class="row"><div class="icon-badge">${ico.playground}</div><div class="icon-badge">${ico.cart}</div><div class="icon-badge">${ico.transit}</div></div>
+  <p>Look up an address to see playgrounds, pharmacies, supermarkets, GPs, and transit stops within an 800 m walk.</p></div>`;}
+empty();emptyAmen();
 document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q.value=c.dataset.q;$f.dispatchEvent(new Event('submit'))}));
 $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.trim();if(!q)return;
   $out.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin's open data…</div>`;
@@ -269,7 +305,7 @@ function render(d){
     <div class="badges"><span class="badge b-public">Public · öffentlich</span>${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${s.sesb_strand?`<span class="badge b-sesb">SESB · ${esc(s.sesb_strand)}</span>`:''}</div>
     <div class="prov">Assigned by Einschulbereich · Schuljahr ${esc(s.school_year||'')}</div></div>`).join(''):'';
   const kita=k.count==null?'':`<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span></div>
-    <div class="metric-big"><span class="n" id="kitaN">0</span><span class="cap">within ~800 m<br>from OpenStreetMap</span></div>
+    <div class="metric-big"><span class="n" id="kitaN">0</span><span class="cap">within ~800 m</span></div>
     <div class="prov">Availability isn't in any open dataset — call to check spots.</div></div>`;
   const intl=i?`<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.globe}</div><span class="cell-label">Nearest international / bilingual</span></div>
     <h3>${esc(i.name)}</h3><p class="sub">${(i.distance_m/1000).toFixed(1)} km · ~${walkMin(i.distance_m)} min walk${i.website?` · <a href="${esc(i.website)}" target="_blank" rel="noopener">website</a>`:''}</p></div>`:'';
@@ -277,6 +313,94 @@ function render(d){
     <div class="map-legend"><span><span class="dot" style="background:#4F46E5"></span>Catchment</span><span><span class="dot" style="background:#EC4899"></span>Address</span><span><span class="dot" style="background:#22C55E"></span>10-min ring</span><span><span class="dot" style="background:#F59E0B"></span>International</span><span><span class="dot" style="background:#94A3B8"></span>Kita</span></div></div>`;
   $out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
   drawMap(d); const kn=document.getElementById('kitaN'); if(kn&&k.count!=null)countUp(kn,k.count);
+  lastCoord={lat:a.lat,lon:a.lon}; $amen.dataset.loaded=''; emptyAmenPending();
+  fetchAmenities(a.lat,a.lon); // eager: loads in parallel with user reading Education panel
+}
+
+function emptyAmenPending(){
+  if(mapAmenRef){mapAmenRef.remove();mapAmenRef=null}
+  $amen.innerHTML=`<div class="empty" style="margin-top:14px">
+  <div class="row"><div class="icon-badge">${ico.playground}</div><div class="icon-badge">${ico.pharmacy}</div><div class="icon-badge">${ico.transit}</div></div>
+  <p>Open the Amenities tab to load playgrounds, pharmacies, supermarkets, GPs, and transit stops within 800 m.</p></div>`;
+}
+
+let amenFetching=false;
+async function fetchAmenities(lat,lon){
+  if(amenFetching) return;
+  amenFetching=true;
+  $amen.innerHTML=`<div class="loading"><span class="spinner"></span> Reading OpenStreetMap…</div>`;
+  try{
+    const r=await fetch(`/api/amenities?lat=${lat}&lon=${lon}`);
+    const d=await r.json();
+    if(!r.ok){$amen.innerHTML=`<div class="error">${esc(d.error||'Failed to load amenities.')}</div>`;return}
+    renderAmenities(d); $amen.dataset.loaded='1';
+  }catch(e){$amen.innerHTML=`<div class="error">Network error: ${esc(e.message)}</div>`}
+  finally{amenFetching=false}
+}
+
+function renderAmenities(d){
+  amenData=d.amenities||{}; selectedCat=null;
+  const cards=AMEN.map(([k,label,icon])=>{
+    const b=amenData[k]||{count:0,items:[]};
+    if(b.error) return `<div class="cell amen-cell" data-cat="${k}" style="cursor:default">
+      <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
+      <p class="sub" style="color:var(--danger)">Overpass error: ${esc(b.error)}</p></div>`;
+    const items=(b.items||[]).slice(0,6).map(it=>{
+      const tip=it.info?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body">${esc(it.info)}</div></details>`:'';
+      return `<li><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
+    }).join('') || '<li class="none">None within 800 m.</li>';
+    const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within 800 m</p>`:'';
+    const disabled=!(b.count>0);
+    return `<div class="cell amen-cell" data-cat="${k}"${disabled?' style="cursor:default"':''}>
+      <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
+      <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">within ~800 m</span></div>
+      <ul class="amen-list">${items}</ul>${more}
+      <div class="prov">© OpenStreetMap contributors (ODbL)</div></div>`;
+  }).join('');
+  $amen.innerHTML=`<div class="grid">
+    <div class="stack">${cards}</div>
+    <div class="map-cell amen-map-cell"><div class="amen-map-hint" id="amenHint">Click a card to plot its locations</div><div id="map-amen"></div></div>
+  </div>`;
+  drawAmenMap();
+  $amen.querySelectorAll('.amen-cell').forEach(cell=>cell.addEventListener('click',()=>{
+    const cat=cell.dataset.cat, b=amenData[cat];
+    if(!b || !(b.count>0)) return;
+    selectAmenCategory(cat);
+  }));
+}
+
+function drawAmenMap(){
+  if(mapAmenRef){mapAmenRef.remove();mapAmenRef=null}
+  if(!lastCoord) return;
+  const {lat,lon}=lastCoord;
+  mapAmenRef=L.map('map-amen',{scrollWheelZoom:false}).setView([lat,lon],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap · © CARTO'}).addTo(mapAmenRef);
+  L.circle([lat,lon],{radius:800,color:'#22C55E',weight:1.5,fillColor:'#22C55E',fillOpacity:.05,dashArray:'5 6'}).addTo(mapAmenRef);
+  L.marker([lat,lon],{icon:pin('#EC4899',15)}).addTo(mapAmenRef).bindPopup('Your address');
+  amenLayer=null;
+  requestAnimationFrame(()=>mapAmenRef&&mapAmenRef.invalidateSize());
+}
+
+function selectAmenCategory(cat){
+  if(!mapAmenRef) return;
+  if(amenLayer){mapAmenRef.removeLayer(amenLayer);amenLayer=null}
+  const wasSelected=selectedCat===cat;
+  selectedCat=wasSelected?null:cat;
+  $amen.querySelectorAll('.amen-cell').forEach(c=>c.classList.toggle('active',c.dataset.cat===selectedCat));
+  const hint=document.getElementById('amenHint');
+  if(wasSelected){
+    if(hint) hint.textContent='Click a card below to plot its locations';
+    mapAmenRef.setView([lastCoord.lat,lastCoord.lon],14);
+    return;
+  }
+  const items=(amenData[cat]?.items)||[];
+  const label=AMEN.find(a=>a[0]===cat)[1];
+  if(hint) hint.textContent=`${label}: ${items.length} shown · ${amenData[cat].count} total`;
+  const markers=items.map(it=>L.marker([it.lat,it.lon],{icon:amenPin(cat)})
+    .bindPopup(`<b>${esc(it.name)}</b><br>${it.distance_m} m · ~${walkMin(it.distance_m)} min walk${it.info?`<br><span style="color:#6B7280">${esc(it.info)}</span>`:''}`));
+  amenLayer=L.featureGroup(markers).addTo(mapAmenRef);
+  const b=L.latLngBounds(items.map(i=>[i.lat,i.lon])); b.extend([lastCoord.lat,lastCoord.lon]);
+  try{mapAmenRef.fitBounds(b.pad(0.15))}catch(e){}
 }
 function drawMap(d){if(mapRef){mapRef.remove();mapRef=null}const a=d.address;
   mapRef=L.map('map',{scrollWheelZoom:false}).setView([a.lat,a.lon],14);
@@ -290,6 +414,8 @@ function drawMap(d){if(mapRef){mapRef.remove();mapRef=null}const a=d.address;
   requestAnimationFrame(()=>mapRef&&mapRef.invalidateSize());
 }
 function pin(color,size){return L.divIcon({className:'',html:`<div style="width:${size}px;height:${size}px;border-radius:99px;background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.25)"></div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]})}
+function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);const svg=meta[2],color=meta[3];
+  return L.divIcon({className:'',html:`<div class="amen-pin" style="background:${color}">${svg}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})}
 </script>
 </body>
 </html>
