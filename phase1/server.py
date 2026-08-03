@@ -115,7 +115,7 @@ class Index:
         self.esb_to_gs = {}
         for props, geom in self.esbs:
             self.esb_to_gs[props["esb"]] = [
-                p for p, c in self.gs_public if geom.contains(Point(c))
+                (p, c) for p, c in self.gs_public if geom.contains(Point(c))
             ]
         print(f"{len(self.gs_public)} public Grundschulen · {len(self.gs_intl)} intl/bilingual")
 
@@ -402,7 +402,7 @@ class H(http.server.BaseHTTPRequestHandler):
         esb_props, polygon, schools = INDEX.catchment(lon, lat)
 
         out_schools = []
-        for s in schools:
+        for s, c in schools:
             out_schools.append({
                 "name": s["schulname"], "bsn": s["bsn"],
                 "street": s.get("strasse", "").strip(),
@@ -411,6 +411,7 @@ class H(http.server.BaseHTTPRequestHandler):
                 "phone": s.get("telefon"), "website": s.get("internet"),
                 "sesb_strand": INDEX.sesb_strand(s["schulname"]),
                 "school_year": s.get("schuljahr"),
+                "lon": c[0], "lat": c[1],
             })
 
         intl = INDEX.nearest_intl(lon, lat)
@@ -452,7 +453,8 @@ def _selfcheck():
     assert geo, "known Prenzlauer Berg address must geocode"
     props, poly, schools = idx.catchment(geo["lon"], geo["lat"])
     assert props and props["bezname"] == "Pankow"
-    assert any("Senefelderplatz" in s["schulname"] for s in schools)
+    assert any("Senefelderplatz" in s["schulname"] for s, _ in schools)
+    assert all(isinstance(c, list) and len(c) == 2 for _, c in schools), "schools carry [lon,lat]"
     intl = idx.nearest_intl(geo["lon"], geo["lat"])
     assert intl and intl["distance_m"] < 10_000
     assert idx.sesb_strand("Joan-Miró-Grundschule") == "German-Spanish"
