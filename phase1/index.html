@@ -127,13 +127,11 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   background:linear-gradient(135deg,#4F46E5,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .metric-big .cap{color:var(--ink-2);font-size:14px;font-weight:500;line-height:1.35}
 
-.map-cell{padding:0;overflow:hidden;background:var(--result-bg);border:1px solid var(--border);border-radius:14px;
+.map-cell{position:relative;padding:0;overflow:hidden;background:var(--result-bg);border:1px solid var(--border);border-radius:14px;
   display:flex;flex-direction:column;min-height:0;box-shadow:var(--sh-1);transition:box-shadow .25s,background .2s ease}
 .map-cell:hover{box-shadow:var(--sh-2);background:var(--result-bg-hover)}
 #map{flex:1;min-height:0;height:100%}
 @media(max-width:899px){.map-cell{min-height:340px}#map{min-height:340px;height:340px}}
-.map-legend{padding:12px 18px;font-size:12px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:14px;font-weight:600;border-top:1px solid var(--border)}
-.dot{display:inline-block;width:10px;height:10px;border-radius:99px;margin-right:6px;vertical-align:middle}
 
 .loading{margin-top:22px;padding:18px 22px;background:var(--card);border:1px solid var(--border);border-radius:12px;
   box-shadow:var(--sh-1);display:flex;align-items:center;gap:14px;color:var(--ink-2);font-weight:500;font-size:14px}
@@ -149,10 +147,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
 .empty p{font-weight:600;font-size:16px;color:var(--ink);max-width:520px;margin:0 auto}
 
-.amen-map-cell{position:relative}
 #map-amen{flex:1;min-height:0;height:100%}
 @media(max-width:899px){.amen-map-cell{min-height:340px}#map-amen{min-height:340px;height:340px}}
-.amen-map-hint{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,.94);padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:var(--sh-1);pointer-events:none}
+.map-hint{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,.94);padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:var(--sh-1);pointer-events:none}
 .amen-pin{width:30px;height:30px;border-radius:99px;display:grid;place-items:center;border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.28);color:#fff}
 .amen-pin svg{width:16px;height:16px;stroke:currentColor}
 .amen-cell{overflow:visible}
@@ -162,10 +159,10 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .info-tip>summary svg{width:12px;height:12px}
 .info-tip>summary:hover,.info-tip[open]>summary{color:var(--brand);border-color:var(--brand-2);background:var(--result-bg)}
 .info-body{position:absolute;top:26px;right:0;z-index:30;width:240px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--ink-2);font-weight:500;white-space:normal;box-shadow:0 8px 22px rgba(17,24,39,.14)}
-.amen-cell{cursor:pointer}
-.amen-cell.active{background:var(--result-bg-hover);box-shadow:0 0 0 2px rgba(79,70,229,.25),var(--sh-2)}
-.amen-cell.active::before{transform:scaleY(1)}
-.amen-cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
+.amen-cell,.edu-cell{cursor:pointer}
+.cell.active{background:var(--result-bg-hover);box-shadow:0 0 0 2px rgba(79,70,229,.25),var(--sh-2)}
+.cell.active::before{transform:scaleY(1)}
+.cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
 .amen-cell .cell-head .chev{margin-left:auto;color:var(--muted);transition:transform .2s ease,color .2s}
 .amen-cell .cell-head .chev svg{width:16px;height:16px;display:block}
 .amen-cell.active .cell-head .chev{transform:rotate(180deg);color:var(--brand)}
@@ -263,6 +260,8 @@ const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
 let mapAmenRef=null, amenLayer=null, amenData=null, selectedCat=null;
+let eduData=null, eduLayer=null, eduSelected=null;
+const EDU_STYLE={school:{icon:'school',color:'#4F46E5'},kita:{icon:'baby',color:'#94A3B8'},intl:{icon:'globe',color:'#F59E0B'}};
 
 // tabs
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -302,23 +301,26 @@ function countUp(el,to,dur=900){if(matchMedia('(prefers-reduced-motion:reduce)')
   const t0=performance.now();(function step(t){const p=Math.min(1,(t-t0)/dur);el.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(step)})(t0);}
 let mapRef=null;
 function render(d){
+  eduData=d; eduSelected=null;
   const a=d.address,c=d.catchment||{},ss=d.schools||[],i=d.intl_grundschule,k=d.kitas||{};
-  const addr=`<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
+  const addr=`<div class="cell edu-cell" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
     <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin · ${esc(c.district||'—')}${c.esb?` · ESB ${esc(c.esb)}`:''}</p></div>`;
-  const schools=ss.length?ss.map(s=>`<div class="cell">
+  const schools=ss.length?ss.map((s,idx)=>`<div class="cell edu-cell" data-edu-cat="school-${idx}">
     <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">Assigned Grundschule</span></div>
     <h3>${esc(s.name)}</h3><p class="sub">${esc((s.street||'')+' '+(s.hnr||''))}, ${esc(s.plz||'')}${s.website?` · <a href="${esc(s.website)}" target="_blank" rel="noopener">website</a>`:''}</p>
     <div class="badges"><span class="badge b-public">Public · öffentlich</span>${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${s.sesb_strand?`<span class="badge b-sesb">SESB · ${esc(s.sesb_strand)}</span>`:''}</div>
     <div class="prov">Assigned by Einschulbereich · Schuljahr ${esc(s.school_year||'')}</div></div>`).join(''):'';
-  const kita=k.count==null?'':`<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span></div>
+  const kita=k.count==null?'':`<div class="cell edu-cell" data-edu-cat="kita"><div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span></div>
     <div class="metric-big"><span class="n" id="kitaN">0</span><span class="cap">within ~800 m</span></div>
     <div class="prov">Availability isn't in any open dataset — call to check spots.</div></div>`;
-  const intl=i?`<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.globe}</div><span class="cell-label">Nearest international / bilingual</span></div>
+  const intl=i?`<div class="cell edu-cell" data-edu-cat="intl"><div class="cell-head"><div class="icon-badge">${ico.globe}</div><span class="cell-label">Nearest international / bilingual</span></div>
     <h3>${esc(i.name)}</h3><p class="sub">${(i.distance_m/1000).toFixed(1)} km · ~${walkMin(i.distance_m)} min walk${i.website?` · <a href="${esc(i.website)}" target="_blank" rel="noopener">website</a>`:''}</p></div>`:'';
-  const map=`<div class="map-cell"><div id="map"></div>
-    <div class="map-legend"><span><span class="dot" style="background:#4F46E5"></span>Catchment</span><span><span class="dot" style="background:#EC4899"></span>Address</span><span><span class="dot" style="background:#22C55E"></span>10-min ring</span><span><span class="dot" style="background:#F59E0B"></span>International</span><span><span class="dot" style="background:#94A3B8"></span>Kita</span></div></div>`;
+  const map=`<div class="map-cell"><div class="map-hint" id="eduHint">Click a card to plot its location</div><div id="map"></div></div>`;
   $out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
   drawMap(d); const kn=document.getElementById('kitaN'); if(kn&&k.count!=null)countUp(kn,k.count);
+  $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',()=>{
+    selectEduCategory(cell.dataset.eduCat);
+  }));
   lastCoord={lat:a.lat,lon:a.lon}; $amen.dataset.loaded=''; emptyAmenPending();
   fetchAmenities(a.lat,a.lon); // eager: loads in parallel with user reading Education panel
 }
@@ -367,7 +369,7 @@ function renderAmenities(d){
   }).join('');
   $amen.innerHTML=`<div class="grid">
     <div class="stack">${cards}</div>
-    <div class="map-cell amen-map-cell"><div class="amen-map-hint" id="amenHint">Click a card to plot its locations</div><div id="map-amen"></div></div>
+    <div class="map-cell amen-map-cell"><div class="map-hint" id="amenHint">Click a card to plot its locations</div><div id="map-amen"></div></div>
   </div>`;
   drawAmenMap();
   $amen.querySelectorAll('.amen-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
@@ -417,20 +419,68 @@ function selectAmenCategory(cat){
     try{mapAmenRef.fitBounds(b.pad(0.15))}catch(e){}
   });
 }
-function drawMap(d){if(mapRef){mapRef.remove();mapRef=null}const a=d.address;
+function drawMap(d){
+  if(mapRef){mapRef.remove();mapRef=null}
+  eduLayer=null;
+  const a=d.address;
   mapRef=L.map('map',{scrollWheelZoom:false}).setView([a.lat,a.lon],14);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap · © CARTO'}).addTo(mapRef);
   const p=d.catchment&&d.catchment.polygon;
   if(p){const l=L.geoJSON(p,{style:{color:'#4F46E5',weight:2.5,fillColor:'#4F46E5',fillOpacity:.10}}).addTo(mapRef);try{mapRef.fitBounds(l.getBounds().pad(0.1))}catch(e){}}
   L.circle([a.lat,a.lon],{radius:800,color:'#22C55E',weight:1.5,fillColor:'#22C55E',fillOpacity:.05,dashArray:'5 6'}).addTo(mapRef);
   L.marker([a.lat,a.lon],{icon:pin('#EC4899',15)}).addTo(mapRef).bindPopup(`<b>${esc(a.street)} ${esc(a.hnr)}</b>`);
-  if(d.intl_grundschule){const i=d.intl_grundschule;L.marker([i.lat,i.lon],{icon:pin('#F59E0B',13)}).addTo(mapRef).bindPopup(esc(i.name))}
-  (d.kitas&&d.kitas.items||[]).forEach(kk=>L.marker([kk.lat,kk.lon],{icon:pin('#94A3B8',8)}).addTo(mapRef).bindPopup(esc(kk.name)));
   requestAnimationFrame(()=>mapRef&&mapRef.invalidateSize());
 }
+
+function selectEduCategory(cat){
+  if(!mapRef || !eduData) return;
+  if(eduLayer){mapRef.removeLayer(eduLayer);eduLayer=null}
+  const wasSelected=eduSelected===cat;
+  eduSelected=wasSelected?null:cat;
+  $out.querySelectorAll('.edu-cell').forEach(c=>c.classList.toggle('active',c.dataset.eduCat===eduSelected));
+  const hint=document.getElementById('eduHint');
+  const a=eduData.address;
+  requestAnimationFrame(()=>{
+    if(!mapRef) return;
+    mapRef.invalidateSize();
+    if(wasSelected){
+      if(hint) hint.textContent='Click a card to plot its location';
+      const poly=eduData.catchment&&eduData.catchment.polygon;
+      if(poly){try{mapRef.fitBounds(L.geoJSON(poly).getBounds().pad(0.1))}catch(e){mapRef.setView([a.lat,a.lon],14)}}
+      else mapRef.setView([a.lat,a.lon],14);
+      return;
+    }
+    // address = just re-focus the map on the pink address pin
+    if(cat==='address'){
+      if(hint) hint.textContent='Your address';
+      mapRef.setView([a.lat,a.lon],16);
+      return;
+    }
+    // resolve points: schools indexed by 'school-N'; kita = all; intl = single
+    let points=[], style, label;
+    if(cat.startsWith('school-')){
+      const s=(eduData.schools||[])[+cat.slice(7)];
+      if(!s || s.lat==null) return;
+      points=[{lat:s.lat,lon:s.lon,name:s.name}]; style=EDU_STYLE.school; label='Assigned Grundschule';
+    } else if(cat==='kita'){
+      points=(eduData.kitas&&eduData.kitas.items||[]).map(k=>({lat:k.lat,lon:k.lon,name:k.name}));
+      style=EDU_STYLE.kita; label='Kitas';
+    } else if(cat==='intl'){
+      const i=eduData.intl_grundschule;
+      if(!i) return;
+      points=[{lat:i.lat,lon:i.lon,name:i.name}]; style=EDU_STYLE.intl; label='International';
+    } else return;
+    if(hint) hint.textContent=points.length>1?`${label}: ${points.length} plotted`:label;
+    const markers=points.map(pt=>L.marker([pt.lat,pt.lon],{icon:iconPin(ico[style.icon],style.color)})
+      .bindPopup(`<b>${esc(pt.name)}</b>`));
+    eduLayer=L.featureGroup(markers).addTo(mapRef);
+    const b=L.latLngBounds(points.map(pt=>[pt.lat,pt.lon])); b.extend([a.lat,a.lon]);
+    try{mapRef.fitBounds(b.pad(0.2))}catch(e){}
+  });
+}
 function pin(color,size){return L.divIcon({className:'',html:`<div style="width:${size}px;height:${size}px;border-radius:99px;background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.25)"></div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]})}
-function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);const svg=meta[2],color=meta[3];
-  return L.divIcon({className:'',html:`<div class="amen-pin" style="background:${color}">${svg}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})}
+function iconPin(svg,color){return L.divIcon({className:'',html:`<div class="amen-pin" style="background:${color}">${svg}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})}
+function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);return iconPin(meta[2],meta[3])}
 </script>
 </body>
 </html>

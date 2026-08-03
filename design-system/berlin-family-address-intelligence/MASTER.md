@@ -46,10 +46,21 @@
 }
 ```
 
-### Amenity category colours
+### Category colours (map pins)
 
 Applied to map pins and any category-specific accents. Each category has one
-canonical colour, used everywhere it appears (pin, active-card accent, etc.):
+canonical colour, used everywhere it appears (pin, active-card accent, etc.).
+
+**Education tab:**
+
+| Category | Colour | Hex |
+|---|---|---|
+| Address (always-on) | pink | `#EC4899` |
+| Assigned Grundschule | brand indigo | `#4F46E5` |
+| Kitas | slate | `#94A3B8` |
+| Nearest international | amber | `#F59E0B` |
+
+**Amenities tab:**
 
 | Category | Colour | Hex |
 |---|---|---|
@@ -113,14 +124,33 @@ Applies to both the Education tab and the Amenities tab — same shape, same
 
 ---
 
-## Expandable card pattern (Amenities tab)
+## Click-to-plot card pattern (both tabs)
 
-Cards on the Amenities tab collapse to a scannable overview by default and
-expand on click. Rationale: five categories with detail lists would flood
-the viewport; collapsed cards read like a dashboard, expanded cards read
-like a directory. Only **one** card is expanded at a time — expansion is
-the same event as map selection (click card → expand + plot that
-category's pins in its colour; click again → collapse + clear pins).
+Every result card is clickable. Click = select the card AND plot its
+associated location(s) on the map as icon-pins in the card's colour.
+Click the same card again = deselect + clear pins. Only **one** card
+is active at a time across the whole tab (single-selection keeps the
+map readable and keeps state simple).
+
+The `.cell.active` class is shared between tabs and drives the same
+visual treatment: brighter background (`--result-bg-hover`), 2px
+brand-tinted ring, indigo accent bar (`::before`) scaled in from top,
+icon-badge flipped to the brand gradient. Same class also controls
+"expanded" on Amenities cards (see below).
+
+**Default map state (both tabs):** address pin (pink) + 800m walk
+ring + catchment polygon (Education only). No category pins until a
+card is clicked. A `.map-hint` overlay top-left of the map tells the
+user what to do (`"Click a card to plot its location"` idle; category
+label + count when active).
+
+### Amenity-specific: collapsed cards
+
+Amenities cards additionally **collapse** to a scannable overview by
+default. Rationale: five categories with detail lists would flood
+the viewport; collapsed cards read like a dashboard, expanded cards
+read like a directory. The `.active` class drives BOTH the expanded
+body AND the map selection — they are one variable, not two.
 
 - **Collapsed** shows: icon-badge + label + chevron (▾) on the head row, then the count metric (`N within ~800 m`). Nothing else.
 - **Expanded** adds the item list, "+N more within 800 m" overflow line, and per-card provenance line. Chevron rotates 180° with a 200ms transition.
@@ -256,7 +286,10 @@ The final HTML is `phase1/index.html` — treat it as the reference implementati
 - [ ] Map cell obeys the same colour rules as other result cards.
 - [ ] Icon badge sits on white at rest, flips to brand gradient on card hover.
 - [ ] `mapRef.invalidateSize()` called in a `requestAnimationFrame` after `drawMap` AND after every card expand/collapse AND on tab switch.
-- [ ] Amenity map pins use category icon + category colour (not plain dots).
+- [ ] Both tabs: map pins use category icon + category colour (not plain dots).
+- [ ] Both tabs: cards clickable, `.cell.active` for the currently plotted category.
+- [ ] Both tabs: default map is minimal (address + ring + catchment); category pins appear only on click.
+- [ ] Both tabs: `.map-hint` overlay top-left tells user what to do / what's plotted.
 - [ ] Amenity cards use `overflow: visible` (info tooltip needs to escape).
 - [ ] Amenity list rows use `grid-template-columns: 1fr auto 20px` (distances aligned).
 - [ ] Amenities Overpass fetch fires eagerly right after `/api/lookup` returns.
