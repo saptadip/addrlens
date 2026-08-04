@@ -230,13 +230,20 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .map-hint{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,.94);padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:var(--sh-1);pointer-events:none}
 .amen-pin{width:30px;height:30px;border-radius:99px;display:grid;place-items:center;border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.28);color:#fff}
 .amen-pin svg{width:16px;height:16px;stroke:currentColor}
-.amen-cell{overflow:visible}
+.amen-cell,.edu-cell{overflow:visible}   /* let tooltips escape the card */
 .info-tip{position:relative;flex-shrink:0}
 .info-tip>summary{list-style:none;cursor:pointer;width:20px;height:20px;border-radius:99px;display:grid;place-items:center;color:var(--muted);background:#fff;border:1px solid var(--border);transition:color .15s,border-color .15s,background .15s}
 .info-tip>summary::-webkit-details-marker{display:none}
 .info-tip>summary svg{width:12px;height:12px}
 .info-tip>summary:hover,.info-tip[open]>summary{color:var(--brand);border-color:var(--brand-2);background:var(--result-bg)}
-.info-body{position:absolute;top:26px;right:0;z-index:30;width:240px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--ink-2);font-weight:500;white-space:normal;box-shadow:0 8px 22px rgba(17,24,39,.14)}
+.info-body{position:absolute;top:26px;right:0;z-index:30;width:240px;max-height:70vh;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--ink-2);font-weight:500;white-space:normal;box-shadow:0 8px 22px rgba(17,24,39,.14)}
+.info-body.details-block{width:320px;padding:12px 14px}
+.info-body.details-block .det-row{display:grid;grid-template-columns:82px 1fr;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(107,114,128,.15)}
+.info-body.details-block .det-row:last-child{border-bottom:0}
+.info-body.details-block .det-label{color:var(--muted);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;line-height:1.5;padding-top:1px}
+.info-body.details-block .det-val{color:var(--ink);font-weight:500;overflow-wrap:anywhere}
+.info-body.details-block .det-val a{color:var(--brand);font-weight:600}
+.info-body.details-block .dim{color:var(--muted);font-weight:500;font-size:11.5px}
 .amen-cell,.edu-cell{cursor:pointer}
 .cell.active{background:var(--result-bg-hover);box-shadow:0 0 0 2px rgba(79,70,229,.25),var(--sh-2)}
 .cell.active::before{transform:scaleY(1)}
@@ -466,11 +473,152 @@ $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.tri
 });
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function walkMin(m){return Math.round(m/80);}
+function shortUrl(u){ try{ return new URL(u).hostname.replace(/^www\./,''); } catch(e){ return u.length>40?u.slice(0,40)+'…':u; } }
+
+// Kita detail rows for the ⓘ tooltip on each list item.
+// Availability is intentionally NOT here — Berlin's open data doesn't publish
+// live spots, so "capacity" means total places, not open ones. Product doc §6.
+function kitaDetailHtml(it){
+  const p = it.props || {};
+  const streetLine = [p.e_strasse, p.e_hnr].filter(Boolean).join(' ').trim() + (p.e_zusatz ? p.e_zusatz.trim() : '');
+  const fullAddr = [streetLine.trim(), (p.e_plz||'').trim()].filter(Boolean).join(', ');
+  const approaches = [p.ang_1, p.ang_2].map(x=>x&&x.trim()).filter(Boolean).join(' · ');
+  const rows = [];
+  if(fullAddr)    rows.push(['Address', esc(fullAddr)]);
+  if(p.e_tel)     rows.push(['Phone',   `<a href="tel:${esc(p.e_tel.replace(/\s+/g,''))}">${esc(p.e_tel)}</a>`]);
+  if(p.e_web)     rows.push(['Website', `<a href="${esc(p.e_web)}" target="_blank" rel="noopener">${esc(shortUrl(p.e_web))}</a>`]);
+  if(p.t_name)    rows.push(['Träger',  esc(p.t_name) + (p.t_art?` <span class="dim">(${esc(p.t_art)})</span>`:'')]);
+  if(approaches)  rows.push(['Approach', esc(approaches)]);
+  if(p.e_platz)   rows.push(['Capacity', `${esc(p.e_platz)} places <span class="dim">(total, not availability)</span>`]);
+  return rows.map(([l,v])=>`<div class="det-row"><span class="det-label">${l}</span><span class="det-val">${v}</span></div>`).join('');
+}
+
+// Rich detail rows for an amenity item, per category.
+// Uses OSM tags when it.source==='osm', BOD props for BOD polygon items
+// (playgrounds/parks). Only populated fields become rows — no empty labels.
+function amenDetailHtml(cat, it){
+  const isOsm = it.source === 'osm';
+  const t = it.tags || {};
+  const p = it.props || {};
+  const rows = [];
+  const push = (l,v) => v && rows.push([l,v]);
+  const telLink = (v) => `<a href="tel:${esc(String(v).replace(/\s+/g,''))}">${esc(v)}</a>`;
+  const webLink = (v) => `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(shortUrl(v))}</a>`;
+
+  // Address — OSM addr:* or BOD district/neighborhood
+  if(isOsm){
+    const street = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ').trim();
+    const addr = [street, t['addr:postcode']].filter(Boolean).join(', ');
+    if(addr) push('Address', esc(addr));
+  } else if(p.bezirkname){
+    push('Location', esc([p.ortstlname, p.bezirkname].filter(x=>x&&x.trim()).join(' · ')));
+  }
+
+  const phone = (t.phone || t['contact:phone']);
+  const web   = (t.website || t['contact:website']);
+
+  if(cat === 'pharmacies'){
+    if(t.dispensing === 'yes')       push('Prescriptions', 'Yes');
+    if(t.opening_hours)              push('Opening hours', esc(t.opening_hours));
+    if(phone)                        push('Phone', telLink(phone));
+    if(web)                          push('Website', webLink(web));
+    if(t.level)                      push('Floor', esc(t.level));
+    if(t.wheelchair === 'yes')       push('Access', 'Step-free');
+    if(t.operator)                   push('Operator', esc(t.operator));
+  }
+  else if(cat === 'supermarkets'){
+    if(t.brand)                      push('Brand', esc(t.brand));
+    if(t.opening_hours)              push('Opening hours', esc(t.opening_hours));
+    if(t.organic === 'yes')          push('Organic', 'Yes');
+    const pays = [];
+    if(t['payment:cash']         === 'yes') pays.push('Cash');
+    if(t['payment:credit_cards'] === 'yes') pays.push('Credit');
+    if(t['payment:debit_cards']  === 'yes' || t['payment:ec'] === 'yes') pays.push('Debit / EC');
+    if(pays.length)                  push('Payment', pays.join(' · '));
+    if(phone)                        push('Phone', telLink(phone));
+    if(t.wheelchair === 'yes')       push('Access', 'Step-free');
+  }
+  else if(cat === 'gps'){
+    const spec = t['healthcare:speciality'] || t['healthcare:specialty'];
+    if(spec)                         push('Speciality', esc(spec.replace(/;/g,', ').replace(/_/g,' ')));
+    if(t.opening_hours)              push('Opening hours', esc(t.opening_hours));
+    if(phone)                        push('Phone', telLink(phone));
+    if(web)                          push('Website', webLink(web));
+    if(t.wheelchair === 'yes')       push('Access', 'Step-free');
+  }
+  else if(cat === 'transit'){
+    const modes = [];
+    if(t.subway === 'yes' || t.station === 'subway')             modes.push('U-Bahn');
+    if(t.light_rail === 'yes' || t.station === 'light_rail')     modes.push('S-Bahn');
+    if(t.tram === 'yes')  modes.push('Tram');
+    if(t.bus === 'yes')   modes.push('Bus');
+    if(t.train === 'yes') modes.push('Train');
+    if(modes.length)                 push('Modes', modes.join(' · '));
+    if(t.operator)                   push('Operator', esc(t.operator));
+    if(t.network && t.network !== t.operator) push('Network', esc(t.network));
+    if(t.ref)                        push('Platform', esc(t.ref));
+    const facilities = [];
+    if(t.shelter === 'yes')          facilities.push('Shelter');
+    if(t.bench === 'yes')            facilities.push('Bench');
+    if(t.lit === 'yes')              facilities.push('Lit at night');
+    if(t.passenger_information_display === 'yes') facilities.push('Live board');
+    if(facilities.length)            push('Facilities', facilities.join(' · '));
+    const access = [];
+    if(t.wheelchair === 'yes')       access.push('Step-free');
+    if(t.tactile_paving === 'yes')   access.push('Tactile paving');
+    if(access.length)                push('Access', access.join(' · '));
+  }
+  else if(cat === 'playgrounds'){
+    if(isOsm){
+      const aMin = t.min_age || t['age:min'];
+      const aMax = t.max_age || t['age:max'];
+      if(aMin || aMax)               push('Ages', `${esc(aMin||'?')}–${esc(aMax||'?')}`);
+      if(t.surface)                  push('Surface', esc(t.surface));
+      if(t.playground)               push('Equipment', esc(t.playground.replace(/;/g,', ')));
+      if(t.fenced === 'yes')         push('Fenced', 'Yes');
+      if(t.fee === 'yes')            push('Fee', 'Yes');
+      if(t.access && t.access !== 'yes') push('Access', esc(t.access));
+      if(t.wheelchair === 'yes')     push('Wheelchair', 'Step-free');
+    } else {
+      if(p.katasterfl)               push('Area', `${(+p.katasterfl).toLocaleString('en-US')} m²`);
+      if(p.baujahr && p.baujahr.trim())     push('Built',     esc(p.baujahr.trim()));
+      if(p.sanierjahr && p.sanierjahr.trim()) push('Renovated', esc(p.sanierjahr.trim()));
+      if(p.widmung)                  push('Status', esc(p.widmung));
+    }
+  }
+  else if(cat === 'parks'){
+    if(isOsm){
+      if(t.opening_hours)            push('Opening hours', esc(t.opening_hours));
+      if(t.access && t.access !== 'yes') push('Access', esc(String(t.access).replace(/^./,c=>c.toUpperCase())));
+      if(t.dog)                      push('Dogs', esc(t.dog === 'leashed' ? 'On leash' : t.dog));
+      if(t.wheelchair === 'yes')     push('Wheelchair', 'Step-free');
+      if(t.protection_title)         push('Status', esc(t.protection_title));
+      if(t.wikipedia){
+        const parts = t.wikipedia.split(':');
+        const lang = parts.length > 1 ? parts[0] : 'en';
+        const title = parts.slice(1).join(':') || parts[0];
+        push('More', `<a href="https://${esc(lang)}.wikipedia.org/wiki/${encodeURIComponent(title)}" target="_blank" rel="noopener">Wikipedia</a>`);
+      }
+    } else {
+      if(p.katasterfl){
+        const a = +p.katasterfl;
+        push('Area', a >= 10_000 ? `${(a/10_000).toFixed(1)} ha` : `${a.toLocaleString('en-US')} m²`);
+      }
+      if(p.baujahr && p.baujahr.trim())     push('Built', esc(p.baujahr.trim()));
+      if(p.sanierjahr && p.sanierjahr.trim()) push('Renovated', esc(p.sanierjahr.trim()));
+      if(p.widmung)                  push('Status', esc(p.widmung));
+      if(p.namezusatz && p.namezusatz.trim() && p.namezusatz.trim() !== p.namenr) push('Also', esc(p.namezusatz.trim()));
+    }
+  }
+
+  return rows.map(([l,v])=>`<div class="det-row"><span class="det-label">${l}</span><span class="det-val">${v}</span></div>`).join('');
+}
 function countUp(el,to,dur=900){if(matchMedia('(prefers-reduced-motion:reduce)').matches){el.textContent=to;return}
   const t0=performance.now();(function step(t){const p=Math.min(1,(t-t0)/dur);el.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(step)})(t0);}
 let mapRef=null;
 function render(d){
   showResults();          // reveal tabs + panels now that a lookup has real data
+  dropOrphanTooltips();   // any popover portaled from the previous lookup goes away
   eduData=d; eduSelected=null;
   const a=d.address,c=d.catchment||{},ss=d.schools||[],i=d.intl_grundschule,k=d.kitas||{};
   const addr=`<div class="cell edu-cell" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
@@ -482,7 +630,8 @@ function render(d){
     <div class="badges"><span class="badge b-public">Public · öffentlich</span>${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${s.sesb_strand?`<span class="badge b-sesb">SESB · ${esc(s.sesb_strand)}</span>`:''}</div>
     <div class="prov">Assigned by Einschulbereich · Schuljahr ${esc(s.school_year||'')}</div></div>`).join(''):'';
   const kitaItems=(k.items||[]).slice(0,6).map((it,idx)=>{
-    const tip=it.info?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body">${esc(it.info)}</div></details>`:'';
+    const details=kitaDetailHtml(it);
+    const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
     return `<li data-idx="${idx}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
   }).join('') || '<li class="none">None within 800 m.</li>';
   const kitaMore=(k.count||0)>6?`<p class="amen-more">+${k.count-6} more within 800 m</p>`:'';
@@ -800,6 +949,68 @@ function renderCompare(){
   });
 }
 
+// Tooltip portal: when an <details class="info-tip"> opens, move its
+// .info-body out of the details and into <body> with position:fixed. This
+// escapes every ancestor stacking context — .cell creates one via its
+// entry-animation transform, so a z-index:30 tooltip nested inside would
+// otherwise be painted below the next sibling card. The tooltip is also
+// flipped upward when there's more room above the ⓘ, and its max-height
+// is capped to the actual free space so long content scrolls inside the
+// tooltip, not off the page.
+function _reposTooltip(det){
+  const body = det._portaledBody;
+  if(!body) return;
+  const sum = det.querySelector('summary').getBoundingClientRect();
+  const spaceBelow = window.innerHeight - sum.bottom - 12;
+  const spaceAbove = sum.top - 12;
+  const needed = body.scrollHeight;
+  body.style.position = 'fixed';
+  body.style.left = 'auto';
+  body.style.right = (window.innerWidth - sum.right) + 'px';
+  body.style.zIndex = '9999';
+  if(needed > spaceBelow && spaceAbove > spaceBelow){
+    body.style.top = 'auto';
+    body.style.bottom = (window.innerHeight - sum.top + 6) + 'px';
+    body.style.maxHeight = (spaceAbove - 6) + 'px';
+  } else {
+    body.style.top = (sum.bottom + 6) + 'px';
+    body.style.bottom = 'auto';
+    body.style.maxHeight = (spaceBelow - 6) + 'px';
+  }
+}
+document.addEventListener('toggle', (e) => {
+  const det = e.target;
+  if(!det.classList || !det.classList.contains('info-tip')) return;
+  if(det.open){
+    // Close any other open tooltip first — one open at a time keeps the
+    // portal cleanup deterministic and matches expected popover UX.
+    document.querySelectorAll('details.info-tip[open]').forEach(other => {
+      if(other !== det) other.open = false;
+    });
+    const body = det.querySelector('.info-body');
+    if(body){
+      document.body.appendChild(body);
+      det._portaledBody = body;
+    }
+    _reposTooltip(det);
+  } else if(det._portaledBody){
+    const b = det._portaledBody;
+    b.removeAttribute('style');       // reset inline positioning
+    if(det.isConnected) det.appendChild(b);   // put it back inside the <details>
+    else b.remove();                          // details already gone (re-render) → drop the orphan
+    det._portaledBody = null;
+  }
+}, true);
+// Safety net: any orphaned .info-body left in <body> from a previous render is
+// dropped as soon as a fresh lookup starts.
+function dropOrphanTooltips(){
+  document.body.querySelectorAll(':scope > .info-body').forEach(b => b.remove());
+}
+// Keep the open tooltip anchored to its ⓘ during scroll/resize.
+['scroll','resize'].forEach(ev => window.addEventListener(ev, () => {
+  document.querySelectorAll('details.info-tip[open]').forEach(_reposTooltip);
+}, {passive:true}));
+
 function bindStrollerForm(){
   const f=document.getElementById('stroller-floor'), l=document.getElementById('stroller-lift'), k=document.getElementById('stroller-kwr');
   if(!f) return;
@@ -840,6 +1051,7 @@ async function fetchAmenities(lat,lon,isRetry){
 }
 
 function renderAmenities(d){
+  dropOrphanTooltips();
   amenData=d.amenities||{}; selectedCat=null;
   const cards=AMEN.map(([k,label,icon])=>{
     const b=amenData[k]||{count:0,items:[]};
@@ -847,7 +1059,8 @@ function renderAmenities(d){
       <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
       <p class="sub" style="color:var(--danger)">Overpass error: ${esc(b.error)}</p></div>`;
     const items=(b.items||[]).slice(0,6).map((it,i)=>{
-      const tip=it.info?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body">${esc(it.info)}</div></details>`:'';
+      const details=amenDetailHtml(k, it);
+      const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
       return `<li data-idx="${i}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
     }).join('') || '<li class="none">None within 800 m.</li>';
     const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within 800 m</p>`:'';
