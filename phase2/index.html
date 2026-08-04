@@ -160,6 +160,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .badge:hover{transform:translateY(-1px) scale(1.03)}
 .b-public{background:#DCFCE7;color:#166534}
 .b-dist{background:#DBEAFE;color:#1E40AF}
+.b-esb{background:#EEF2FF;color:#4338CA;font-variant-numeric:tabular-nums}
 .b-sesb{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;
   border:1px solid #F9A8D4;position:relative;overflow:visible}
 .b-sesb::after{content:"";position:absolute;inset:-1px;border-radius:99px;
@@ -367,7 +368,7 @@ const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.querySelector('.tabs');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
 let mapAmenRef=null, amenLayer=null, amenMarkers=[], amenData=null, selectedCat=null;
-let eduData=null, eduLayer=null, eduSelected=null, kitaMarkers=[];
+let eduData=null, eduLayer=null, eduSelected=null, kitaMarkers=[], addressMarker=null;
 let envData=null;
 const EDU_STYLE={school:{icon:'school',color:'#4F46E5'},kita:{icon:'baby',color:'#94A3B8'},intl:{icon:'globe',color:'#F59E0B'}};
 const NOISE_TIER_LABEL={green:'Quiet',amber:'Moderate',orange:'Loud',red:'Very loud',unknown:'Unknown'};
@@ -440,7 +441,8 @@ function render(d){
   eduData=d; eduSelected=null;
   const a=d.address,c=d.catchment||{},ss=d.schools||[],i=d.intl_grundschule,k=d.kitas||{};
   const addr=`<div class="cell edu-cell" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
-    <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin · ${esc(c.district||'—')}${c.esb?` · ESB ${esc(c.esb)}`:''}</p></div>`;
+    <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin</p>
+    <div class="badges">${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}</div></div>`;
   const schools=ss.length?ss.map((s,idx)=>`<div class="cell edu-cell" data-edu-cat="school-${idx}">
     <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">Assigned Grundschule</span></div>
     <h3>${esc(s.name)}</h3><p class="sub">${esc((s.street||'')+' '+(s.hnr||''))}, ${esc(s.plz||'')}${s.website?` · <a href="${esc(s.website)}" target="_blank" rel="noopener">website</a>`:''}</p>
@@ -833,7 +835,7 @@ function drawAmenMap(){
   mapAmenRef=L.map('map-amen',{scrollWheelZoom:false}).setView([lat,lon],14);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap · © CARTO'}).addTo(mapAmenRef);
   L.circle([lat,lon],{radius:800,color:'#22C55E',weight:1.5,fillColor:'#22C55E',fillOpacity:.05,dashArray:'5 6'}).addTo(mapAmenRef);
-  L.marker([lat,lon],{icon:pin('#EC4899',15)}).addTo(mapAmenRef).bindPopup('Your address');
+  L.marker([lat,lon],{icon:iconPin(ico.home,'#EC4899')}).addTo(mapAmenRef).bindPopup('Your address');
   amenLayer=null;
   requestAnimationFrame(()=>mapAmenRef&&mapAmenRef.invalidateSize());
 }
@@ -893,7 +895,8 @@ function drawMap(d){
   const p=d.catchment&&d.catchment.polygon;
   if(p){const l=L.geoJSON(p,{style:{color:'#4F46E5',weight:2.5,fillColor:'#4F46E5',fillOpacity:.10}}).addTo(mapRef);try{mapRef.fitBounds(l.getBounds().pad(0.1))}catch(e){}}
   L.circle([a.lat,a.lon],{radius:800,color:'#22C55E',weight:1.5,fillColor:'#22C55E',fillOpacity:.05,dashArray:'5 6'}).addTo(mapRef);
-  L.marker([a.lat,a.lon],{icon:pin('#EC4899',15)}).addTo(mapRef).bindPopup(`<b>${esc(a.street)} ${esc(a.hnr)}</b>`);
+  addressMarker=L.marker([a.lat,a.lon],{icon:iconPin(ico.home,'#EC4899')}).addTo(mapRef)
+    .bindPopup(`<b>${esc(a.street)} ${esc(a.hnr)}</b><br>${esc(a.plz)} Berlin`);
   requestAnimationFrame(()=>mapRef&&mapRef.invalidateSize());
 }
 
@@ -910,15 +913,17 @@ function selectEduCategory(cat){
     mapRef.invalidateSize();
     if(wasSelected){
       if(hint) hint.textContent='Click a card to plot its location';
+      if(addressMarker) addressMarker.closePopup();
       const poly=eduData.catchment&&eduData.catchment.polygon;
       if(poly){try{mapRef.fitBounds(L.geoJSON(poly).getBounds().pad(0.1))}catch(e){mapRef.setView([a.lat,a.lon],14)}}
       else mapRef.setView([a.lat,a.lon],14);
       return;
     }
-    // address = just re-focus the map on the pink address pin
+    // address = focus the pink address pin and open its popup
     if(cat==='address'){
       if(hint) hint.textContent='Your address';
       mapRef.setView([a.lat,a.lon],16);
+      if(addressMarker) addressMarker.openPopup();
       return;
     }
     // resolve points: schools indexed by 'school-N'; kita = all; intl = single
@@ -926,14 +931,17 @@ function selectEduCategory(cat){
     if(cat.startsWith('school-')){
       const s=(eduData.schools||[])[+cat.slice(7)];
       if(!s || s.lat==null) return;
-      points=[{lat:s.lat,lon:s.lon,name:s.name}]; style=EDU_STYLE.school; label='Assigned Grundschule';
+      const addrStr=[s.street,s.hnr].filter(Boolean).join(' ').trim();
+      const info=[addrStr, s.plz].filter(Boolean).join(', ');
+      points=[{lat:s.lat,lon:s.lon,name:s.name,info}]; style=EDU_STYLE.school; label='Assigned Grundschule';
     } else if(cat==='kita'){
       points=(eduData.kitas&&eduData.kitas.items||[]).map(k=>({lat:k.lat,lon:k.lon,name:k.name,distance_m:k.distance_m,info:k.info}));
       style=EDU_STYLE.kita; label='Kitas';
     } else if(cat==='intl'){
       const i=eduData.intl_grundschule;
       if(!i) return;
-      points=[{lat:i.lat,lon:i.lon,name:i.name}]; style=EDU_STYLE.intl; label='International';
+      points=[{lat:i.lat,lon:i.lon,name:i.name,distance_m:i.distance_m}];
+      style=EDU_STYLE.intl; label='International';
     } else return;
     if(hint) hint.textContent=points.length>1?`${label}: ${points.length} plotted`:label;
     const markers=points.map(pt=>L.marker([pt.lat,pt.lon],{icon:iconPin(ico[style.icon],style.color)})
@@ -942,6 +950,10 @@ function selectEduCategory(cat){
     if(cat==='kita') kitaMarkers=markers;
     const b=L.latLngBounds(points.map(pt=>[pt.lat,pt.lon])); b.extend([a.lat,a.lon]);
     try{mapRef.fitBounds(b.pad(0.2))}catch(e){}
+    // Single-item cards (school, intl) auto-open the popup so the user
+    // doesn't have to click the pin — matches the amenities pattern where
+    // clicking a list item opens its popup.
+    if(markers.length===1) markers[0].openPopup();
   });
 }
 
