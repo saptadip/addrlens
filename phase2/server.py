@@ -558,7 +558,8 @@ def amenities_near(lon, lat, radius_m=800):
         seen[cat].add(dkey)
         buckets[cat].append({"name": name, "lat": lat_, "lon": lon_,
                              "distance_m": round(haversine_m(lon, lat, lon_, lat_)),
-                             "info": _summarize(cat, tags), "source": "osm"})
+                             "info": _summarize(cat, tags), "source": "osm",
+                             "tags": tags})
 
     # --- BOD supplement (playgrounds, parks) --------------------------------
     result = {}
