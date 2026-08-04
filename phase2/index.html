@@ -275,15 +275,15 @@ footer a{color:var(--brand)}
     <div class="brand-name">Berlin Address Lens<small>for families in Berlin</small></div>
   </div>
   <div class="header-actions">
-    <button id="save-btn" class="pill-btn" hidden>+ Save to comparison</button>
+    <button id="save-btn" class="pill-btn" hidden>+ Add to Compare</button>
     <a id="compare-pill" class="pill-btn pill-btn-brand" href="#compare" hidden>Compare (<span id="compare-count">0</span>)</a>
     <span class="style-pill">Open Data · Berlin</span>
   </div>
 </header>
 
 <div id="view-main"><section class="hero">
-  <h1>Turn a Berlin address into <span class="grad">the whole family picture.</span></h1>
-  <p>Assigned Grundschule, bilingual (SESB) strand, kitas at stroller distance, and the nearest international option — sourced, timestamped, in English.</p>
+  <h1>See what a Berlin flat <span class="grad">actually means for your family.</span></h1>
+  <p>Before you sign the Mietvertrag: assigned Grundschule, façade noise day + night, kitas within a stroller walk, and a stroller-access score for the building. Save up to five and compare side by side — all from Berlin's own open data, in English.</p>
   <form id="f" autocomplete="off">
     <div class="field">
       <input id="q" type="text" placeholder="Try: Kastanienallee 12, 10435" aria-label="Berlin address">
@@ -637,7 +637,9 @@ function buildSnapshot(){
     catchment: {esb:c.esb, district:c.district},
     school: s ? {name:s.name, sesb_strand:s.sesb_strand, school_year:s.school_year, distance_m:schoolDist} : null,
     intl: i ? {name:i.name, distance_m:i.distance_m} : null,
-    counts: {kitas:k.count, playgrounds:cnt('playgrounds'), parks:cnt('parks'), transit:cnt('transit')},
+    counts: {kitas:k.count, playgrounds:cnt('playgrounds'), parks:cnt('parks'),
+             pharmacies:cnt('pharmacies'), supermarkets:cnt('supermarkets'),
+             gps:cnt('gps'), transit:cnt('transit')},
     noise: (envData && !envData.unavailable) ? {
       l_den: envData.l_den?.total, l_night: envData.l_night?.total, tier_den: envData.tier,
     } : null,
@@ -658,10 +660,10 @@ function refreshSaveBtn(){
   if(!snap){ btn.hidden=true; return; }
   btn.hidden=false;
   const already=compareLoad().find(x=>x.id===snap.id);
-  if(already){ btn.textContent='✓ Saved to comparison'; btn.disabled=true; return; }
+  if(already){ btn.textContent='✓ Added to Compare'; btn.disabled=true; return; }
   // Ready if both fetches landed AND (no OSM errors OR we've already retried once).
   const ready = amenData && envData && (!amenHasErrors() || amenAttempts>=2);
-  btn.textContent = ready ? '+ Save to comparison' : 'Loading data…';
+  btn.textContent = ready ? '+ Add to Compare' : 'Loading data…';
   btn.disabled = !ready;
 }
 document.getElementById('save-btn').addEventListener('click', saveCurrent);
@@ -724,10 +726,14 @@ function renderCompare(){
     row('Catchment Grundschule', list.map(schoolCell).join('')),
     row('SESB bilingual',  list.map(s=>cell(s.school&&s.school.sesb_strand?`<span class="sesb-cell">${esc(s.school.sesb_strand)}</span>`:null)).join('')),
     row('Nearest international', list.map(s=>cell(s.intl?`${esc(s.intl.name)} <span style="color:var(--muted);font-weight:500">(${(s.intl.distance_m/1000).toFixed(1)} km)</span>`:null)).join('')),
-    sect('Kids & amenities within 800 m'),
+    sect('Kids & family within 800 m walk'),
     row('Kitas (registered)',    list.map(s=>cell(s.counts.kitas,'metric-num')).join('')),
     row('Playgrounds',           list.map(s=>cell(s.counts.playgrounds,'metric-num')).join('')),
     row('Parks / green',         list.map(s=>cell(s.counts.parks,'metric-num')).join('')),
+    sect('Daily essentials within 800 m walk'),
+    row('Pharmacies',            list.map(s=>cell(s.counts.pharmacies,'metric-num')).join('')),
+    row('Supermarkets',          list.map(s=>cell(s.counts.supermarkets,'metric-num')).join('')),
+    row('GPs / Doctors',         list.map(s=>cell(s.counts.gps,'metric-num')).join('')),
     row('Transit stops',         list.map(s=>cell(s.counts.transit,'metric-num')).join('')),
     sect('Street noise (Berlin 2022 façade)'),
     row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
