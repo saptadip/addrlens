@@ -240,11 +240,11 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .cell.active{background:var(--result-bg-hover);box-shadow:0 0 0 2px rgba(79,70,229,.25),var(--sh-2)}
 .cell.active::before{transform:scaleY(1)}
 .cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
-.amen-cell .cell-head .chev{margin-left:auto;color:var(--muted);transition:transform .2s ease,color .2s}
-.amen-cell .cell-head .chev svg{width:16px;height:16px;display:block}
-.amen-cell.active .cell-head .chev{transform:rotate(180deg);color:var(--brand)}
+.cell-head .chev{margin-left:auto;color:var(--muted);transition:transform .2s ease,color .2s}
+.cell-head .chev svg{width:16px;height:16px;display:block}
+.cell.active .cell-head .chev{transform:rotate(180deg);color:var(--brand)}
 .amen-body{display:none}
-.amen-cell.active .amen-body{display:block}
+.cell.active .amen-body{display:block}
 .amen-cell .metric-big{margin:6px 0 4px}
 .amen-cell .metric-big .n{font-size:44px}
 .amen-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
@@ -367,7 +367,7 @@ const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.querySelector('.tabs');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
 let mapAmenRef=null, amenLayer=null, amenMarkers=[], amenData=null, selectedCat=null;
-let eduData=null, eduLayer=null, eduSelected=null;
+let eduData=null, eduLayer=null, eduSelected=null, kitaMarkers=[];
 let envData=null;
 const EDU_STYLE={school:{icon:'school',color:'#4F46E5'},kita:{icon:'baby',color:'#94A3B8'},intl:{icon:'globe',color:'#F59E0B'}};
 const NOISE_TIER_LABEL={green:'Quiet',amber:'Moderate',orange:'Loud',red:'Very loud',unknown:'Unknown'};
@@ -446,16 +446,33 @@ function render(d){
     <h3>${esc(s.name)}</h3><p class="sub">${esc((s.street||'')+' '+(s.hnr||''))}, ${esc(s.plz||'')}${s.website?` · <a href="${esc(s.website)}" target="_blank" rel="noopener">website</a>`:''}</p>
     <div class="badges"><span class="badge b-public">Public · öffentlich</span>${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${s.sesb_strand?`<span class="badge b-sesb">SESB · ${esc(s.sesb_strand)}</span>`:''}</div>
     <div class="prov">Assigned by Einschulbereich · Schuljahr ${esc(s.school_year||'')}</div></div>`).join(''):'';
-  const kita=k.count==null?'':`<div class="cell edu-cell" data-edu-cat="kita"><div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span></div>
-    <div class="metric-big"><span class="n" id="kitaN">0</span><span class="cap">within ~800 m</span></div>
-    <div class="prov">Availability isn't in any open dataset — call to check spots.</div></div>`;
+  const kitaItems=(k.items||[]).slice(0,6).map((it,idx)=>{
+    const tip=it.info?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body">${esc(it.info)}</div></details>`:'';
+    return `<li data-idx="${idx}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
+  }).join('') || '<li class="none">None within 800 m.</li>';
+  const kitaMore=(k.count||0)>6?`<p class="amen-more">+${k.count-6} more within 800 m</p>`:'';
+  const kitaProv=k.provenance?esc(k.provenance)+' · ':'';
+  const kita=k.count==null?'':`<div class="cell edu-cell" data-edu-cat="kita">
+    <div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span>${k.count>0?`<span class="chev">${ico.chev}</span>`:''}</div>
+    <div class="metric-big"><span class="n" id="kitaN">0</span><span class="cap">registered within ~800 m</span></div>
+    <div class="amen-body">
+      <ul class="amen-list" style="margin-top:12px">${kitaItems}</ul>${kitaMore}
+      <div class="prov">${kitaProv}Availability isn't in any open dataset — call to check spots.</div>
+    </div></div>`;
   const intl=i?`<div class="cell edu-cell" data-edu-cat="intl"><div class="cell-head"><div class="icon-badge">${ico.globe}</div><span class="cell-label">Nearest international / bilingual</span></div>
     <h3>${esc(i.name)}</h3><p class="sub">${(i.distance_m/1000).toFixed(1)} km · ~${walkMin(i.distance_m)} min walk${i.website?` · <a href="${esc(i.website)}" target="_blank" rel="noopener">website</a>`:''}</p></div>`:'';
   const map=`<div class="map-cell"><div class="map-hint" id="eduHint">Click a card to plot its location</div><div id="map"></div></div>`;
   $out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
   drawMap(d); const kn=document.getElementById('kitaN'); if(kn&&k.count!=null)countUp(kn,k.count);
-  $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',()=>{
+  $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
+    if(e.target.closest('.info-tip')) return;                       // tooltip toggles its own state
+    if(e.target.closest('.amen-list li[data-idx]')) return;         // per-item click handled below
     selectEduCategory(cell.dataset.eduCat);
+  }));
+  // Per-Kita click → focus that specific pin on the education map.
+  $out.querySelectorAll('.edu-cell[data-edu-cat="kita"] .amen-list li[data-idx]').forEach(li=>li.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    highlightEduKita(+li.dataset.idx);
   }));
   lastCoord={lat:a.lat,lon:a.lon}; $amen.dataset.loaded=''; emptyAmenPending();
   $env.dataset.loaded=''; emptyEnvPending();
@@ -882,7 +899,7 @@ function drawMap(d){
 
 function selectEduCategory(cat){
   if(!mapRef || !eduData) return;
-  if(eduLayer){mapRef.removeLayer(eduLayer);eduLayer=null}
+  if(eduLayer){mapRef.removeLayer(eduLayer);eduLayer=null;kitaMarkers=[];}
   const wasSelected=eduSelected===cat;
   eduSelected=wasSelected?null:cat;
   $out.querySelectorAll('.edu-cell').forEach(c=>c.classList.toggle('active',c.dataset.eduCat===eduSelected));
@@ -911,7 +928,7 @@ function selectEduCategory(cat){
       if(!s || s.lat==null) return;
       points=[{lat:s.lat,lon:s.lon,name:s.name}]; style=EDU_STYLE.school; label='Assigned Grundschule';
     } else if(cat==='kita'){
-      points=(eduData.kitas&&eduData.kitas.items||[]).map(k=>({lat:k.lat,lon:k.lon,name:k.name}));
+      points=(eduData.kitas&&eduData.kitas.items||[]).map(k=>({lat:k.lat,lon:k.lon,name:k.name,distance_m:k.distance_m,info:k.info}));
       style=EDU_STYLE.kita; label='Kitas';
     } else if(cat==='intl'){
       const i=eduData.intl_grundschule;
@@ -920,11 +937,27 @@ function selectEduCategory(cat){
     } else return;
     if(hint) hint.textContent=points.length>1?`${label}: ${points.length} plotted`:label;
     const markers=points.map(pt=>L.marker([pt.lat,pt.lon],{icon:iconPin(ico[style.icon],style.color)})
-      .bindPopup(`<b>${esc(pt.name)}</b>`));
+      .bindPopup(`<b>${esc(pt.name)}</b>${pt.distance_m?`<br>${pt.distance_m} m · ~${walkMin(pt.distance_m)} min walk`:''}${pt.info?`<br><span style="color:#6B7280">${esc(pt.info)}</span>`:''}`));
     eduLayer=L.featureGroup(markers).addTo(mapRef);
+    if(cat==='kita') kitaMarkers=markers;
     const b=L.latLngBounds(points.map(pt=>[pt.lat,pt.lon])); b.extend([a.lat,a.lon]);
     try{mapRef.fitBounds(b.pad(0.2))}catch(e){}
   });
+}
+
+function highlightEduKita(idx){
+  const openIt = () => {
+    const m = kitaMarkers[idx];
+    if(!m || !mapRef) return;
+    mapRef.setView(m.getLatLng(), Math.max(mapRef.getZoom(), 16), {animate:true});
+    m.openPopup();
+  };
+  if(eduSelected === 'kita'){
+    openIt();
+  } else {
+    selectEduCategory('kita');
+    requestAnimationFrame(()=>requestAnimationFrame(openIt));
+  }
 }
 function pin(color,size){return L.divIcon({className:'',html:`<div style="width:${size}px;height:${size}px;border-radius:99px;background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.25)"></div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]})}
 function iconPin(svg,color){return L.divIcon({className:'',html:`<div class="amen-pin" style="background:${color}">${svg}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})}
