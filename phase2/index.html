@@ -265,6 +265,38 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 footer{max-width:1240px;margin:22px auto 40px;padding:0 22px;color:var(--muted);font-size:12px;line-height:1.7}
 footer a{color:var(--brand)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}.cell{opacity:1;transform:none}}
+
+/* --- PDF export via native print. User clicks "Export PDF" → window.print() →
+       browser dialog with Save-as-PDF. Landscape by default so 3–5 columns fit. */
+.print-only{display:none}
+@media print {
+  @page { size: A4 landscape; margin: 12mm 10mm; }
+  /* Force Chrome/Safari/Firefox to keep colored backgrounds instead of stripping
+     them to save toner. Without this, section headers, thead pills and noise
+     tiers render as white blocks. */
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  body { background:#fff }
+  header, footer, #status, .hero, .tabs, .panel, .header-actions, .compare-header .compare-actions, .col-remove { display:none !important }
+  .page { max-width:none; padding:0 }
+  .compare-view, #view-compare { margin-top:0 !important }
+  .compare-wrap { border:0; box-shadow:none; padding:0; overflow:visible; border-radius:0 }
+  .compare-table { font-size:11px; page-break-inside:auto }
+  .compare-table thead { display:table-header-group }   /* repeat column headers per page */
+  .compare-table tr, .compare-table tr.section-row { page-break-inside:avoid }
+  .compare-table th, .compare-table td { padding:8px 10px }
+  .compare-table thead th { background:#F5F5FF !important }
+  .compare-table thead th.addr-col .addr-title { font-size:12px }
+  .compare-table tbody th { background:#FAFAFA !important }
+  .compare-table tr.section-row th { background:#EEE !important }
+  /* preserve tier / SESB pill colors in the printed PDF */
+  .noise-cell, .noise-cell.tier-green, .noise-cell.tier-amber, .noise-cell.tier-orange, .noise-cell.tier-red, .sesb-cell {
+    -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;
+  }
+  .print-only { display:block !important }
+  .print-header h1 { font-family:'Plus Jakarta Sans',sans-serif; font-size:18px; margin:0 0 4px; letter-spacing:-.01em }
+  .print-header p  { font-family:'Plus Jakarta Sans',sans-serif; font-size:10px; color:#6B7280; margin:0 0 10px }
+  .compare-header h2 { font-family:'Plus Jakarta Sans',sans-serif; font-size:0; margin:0 }   /* hide the on-screen H2, printHeader replaces it */
+}
 </style>
 </head>
 <body>
@@ -420,7 +452,8 @@ function showResults(){
 }
 function clearResultState(){ eduData=null; amenData=null; envData=null; refreshSaveBtn(); }
 
-compareRefreshPill();showView();
+// compareRefreshPill()+showView() moved to end-of-script so const COMPARE_KEY,
+// COMPARE_MAX etc. are initialized before a hash-loaded #compare tries to render.
 document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q.value=c.dataset.q;$f.dispatchEvent(new Event('submit'))}));
 $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.trim();if(!q)return;
   showStatus('loading', "Reading Berlin's open data…");
@@ -691,9 +724,14 @@ function renderCompare(){
   const header=`<div class="compare-header">
     <h2>Comparison board</h2>
     <div class="compare-actions">
+      ${list.length?`<button class="pill-btn" id="export-pdf-btn" title="Print or Save as PDF">↓ Export PDF</button>`:''}
       ${list.length?`<button class="pill-btn" id="clear-all-btn">Clear all</button>`:''}
       <a class="pill-btn pill-btn-brand" href="#">← Back to lookup</a>
     </div></div>`;
+  const printHeader = list.length ? `<div class="print-only print-header">
+    <h1>Berlin Address Lens — comparison of ${list.length} addresses</h1>
+    <p>Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · Berlin Open Data + OpenStreetMap</p>
+  </div>` : '';
   if(!list.length){
     $c.innerHTML=`${header}<div class="compare-empty">
       <div class="icon-badge">${ico.home}</div>
@@ -739,7 +777,7 @@ function renderCompare(){
     row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
     row('L_Night · 22–06',       list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_night==null?null:s.noise.l_night+10)}">${s.noise.l_night!=null?s.noise.l_night.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
   ].join('');
-  $c.innerHTML=`${header}<div class="compare-wrap"><table class="compare-table">
+  $c.innerHTML=`${header}${printHeader}<div class="compare-wrap"><table class="compare-table">
     <thead><tr><th class="metric-col"></th>${cols}</tr></thead>
     <tbody>${rows}</tbody></table></div>`;
   $c.querySelectorAll('.col-remove').forEach(b=>b.addEventListener('click',()=>{
@@ -748,7 +786,17 @@ function renderCompare(){
   }));
   const clr=document.getElementById('clear-all-btn');
   if(clr) clr.addEventListener('click',()=>{
-    if(confirm('Remove all saved addresses?')){ compareSave([]); compareRefreshPill(); renderCompare(); }
+    if(confirm('Remove all saved addresses?')){ compareSave([]); compareRefreshPill(); refreshSaveBtn(); renderCompare(); }
+  });
+  const pdf=document.getElementById('export-pdf-btn');
+  if(pdf) pdf.addEventListener('click',()=>{
+    // Set document.title so the browser's "Save as PDF" defaults to this name.
+    // Restore afterwards (afterprint fires when the dialog closes).
+    const originalTitle=document.title;
+    document.title='AddrLensComparisonReport';
+    const restore=()=>{ document.title=originalTitle; window.removeEventListener('afterprint',restore); };
+    window.addEventListener('afterprint',restore);
+    window.print();
   });
 }
 
@@ -980,6 +1028,11 @@ function highlightEduKita(idx){
 function pin(color,size){return L.divIcon({className:'',html:`<div style="width:${size}px;height:${size}px;border-radius:99px;background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.25)"></div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]})}
 function iconPin(svg,color){return L.divIcon({className:'',html:`<div class="amen-pin" style="background:${color}">${svg}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})}
 function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);return iconPin(meta[2],meta[3])}
+
+// Initial view routing — run last so every const/function referenced by
+// showView → renderCompare is fully initialized (avoids a TDZ error when
+// the page is loaded directly at #compare).
+compareRefreshPill();showView();
 </script>
 </body>
 </html>
