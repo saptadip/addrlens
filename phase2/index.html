@@ -248,7 +248,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .amen-cell .metric-big{margin:6px 0 4px}
 .amen-cell .metric-big .n{font-size:44px}
 .amen-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
-.amen-list li{display:grid;grid-template-columns:1fr auto 20px;align-items:center;gap:10px;font-size:13.5px;color:var(--ink-2);padding:4px 0;border-bottom:1px dashed rgba(107,114,128,.18)}
+.amen-list li{display:grid;grid-template-columns:1fr auto 20px;align-items:center;gap:10px;font-size:13.5px;color:var(--ink-2);padding:4px 8px;margin:0 -8px;border-radius:6px;border-bottom:1px dashed rgba(107,114,128,.18);transition:background .12s,color .12s}
+.amen-list li[data-idx]{cursor:pointer}
+.amen-list li[data-idx]:hover{background:rgba(79,70,229,.08);color:var(--ink)}
 .amen-list li:last-child{border-bottom:0}
 .amen-list li .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--ink)}
 .amen-list li .dist{color:var(--muted);font-size:12px;font-weight:500;white-space:nowrap;text-align:right}
@@ -364,7 +366,7 @@ const AMEN=[
 const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.querySelector('.tabs');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
-let mapAmenRef=null, amenLayer=null, amenData=null, selectedCat=null;
+let mapAmenRef=null, amenLayer=null, amenMarkers=[], amenData=null, selectedCat=null;
 let eduData=null, eduLayer=null, eduSelected=null;
 let envData=null;
 const EDU_STYLE={school:{icon:'school',color:'#4F46E5'},kita:{icon:'baby',color:'#94A3B8'},intl:{icon:'globe',color:'#F59E0B'}};
@@ -771,9 +773,9 @@ function renderAmenities(d){
     if(b.error) return `<div class="cell amen-cell" data-cat="${k}" style="cursor:default">
       <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
       <p class="sub" style="color:var(--danger)">Overpass error: ${esc(b.error)}</p></div>`;
-    const items=(b.items||[]).slice(0,6).map(it=>{
+    const items=(b.items||[]).slice(0,6).map((it,i)=>{
       const tip=it.info?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body">${esc(it.info)}</div></details>`:'';
-      return `<li><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
+      return `<li data-idx="${i}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
     }).join('') || '<li class="none">None within 800 m.</li>';
     const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within 800 m</p>`:'';
     const disabled=!(b.count>0);
@@ -792,9 +794,18 @@ function renderAmenities(d){
   drawAmenMap();
   $amen.querySelectorAll('.amen-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
     if(e.target.closest('.info-tip')) return; // clicks on tooltip don't collapse the card
+    if(e.target.closest('.amen-list li[data-idx]')) return; // per-item clicks are handled below
     const cat=cell.dataset.cat, b=amenData[cat];
     if(!b || !(b.count>0)) return;
     selectAmenCategory(cat);
+  }));
+  // Per-item click → focus that specific pin on the map (opens its popup).
+  // Works from any child (name, distance, or the info-tip icon); tooltip still
+  // toggles its own open/close because that fires before the click bubbles.
+  $amen.querySelectorAll('.amen-list li[data-idx]').forEach(li=>li.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    const cat=li.closest('.amen-cell').dataset.cat;
+    highlightAmenItem(cat, +li.dataset.idx);
   }));
 }
 
@@ -813,6 +824,7 @@ function drawAmenMap(){
 function selectAmenCategory(cat){
   if(!mapAmenRef) return;
   if(amenLayer){mapAmenRef.removeLayer(amenLayer);amenLayer=null}
+  amenMarkers=[];
   const wasSelected=selectedCat===cat;
   selectedCat=wasSelected?null:cat;
   $amen.querySelectorAll('.amen-cell').forEach(c=>c.classList.toggle('active',c.dataset.cat===selectedCat));
@@ -830,12 +842,30 @@ function selectAmenCategory(cat){
     const items=(amenData[cat]?.items)||[];
     const label=AMEN.find(a=>a[0]===cat)[1];
     if(hint) hint.textContent=`${label}: ${items.length} shown · ${amenData[cat].count} total`;
-    const markers=items.map(it=>L.marker([it.lat,it.lon],{icon:amenPin(cat)})
+    amenMarkers=items.map(it=>L.marker([it.lat,it.lon],{icon:amenPin(cat)})
       .bindPopup(`<b>${esc(it.name)}</b><br>${it.distance_m} m · ~${walkMin(it.distance_m)} min walk${it.info?`<br><span style="color:#6B7280">${esc(it.info)}</span>`:''}`));
-    amenLayer=L.featureGroup(markers).addTo(mapAmenRef);
+    amenLayer=L.featureGroup(amenMarkers).addTo(mapAmenRef);
     const b=L.latLngBounds(items.map(i=>[i.lat,i.lon])); b.extend([lastCoord.lat,lastCoord.lon]);
     try{mapAmenRef.fitBounds(b.pad(0.15))}catch(e){}
   });
+}
+
+function highlightAmenItem(cat, idx){
+  // Ensure category is plotted, then open the popup for this specific pin
+  // and pan the map to it. Double rAF when we need to switch categories,
+  // because selectAmenCategory adds markers on the next frame.
+  const openIt = () => {
+    const m = amenMarkers[idx];
+    if(!m || !mapAmenRef) return;
+    mapAmenRef.setView(m.getLatLng(), Math.max(mapAmenRef.getZoom(), 16), {animate:true});
+    m.openPopup();
+  };
+  if(selectedCat === cat){
+    openIt();
+  } else {
+    selectAmenCategory(cat);
+    requestAnimationFrame(()=>requestAnimationFrame(openIt));
+  }
 }
 function drawMap(d){
   if(mapRef){mapRef.remove();mapRef=null}
