@@ -19,6 +19,7 @@
   --brand:#4F46E5;--brand-2:#818CF8;--success:#22C55E;--danger:#EF4444;--amber:#F59E0B;
   --border:#E5E7EB;--sh-1:0 1px 2px rgba(17,24,39,.06);--sh-2:0 4px 8px rgba(17,24,39,.06),0 12px 24px rgba(17,24,39,.06)}
 *{box-sizing:border-box}
+[hidden]{display:none!important}   /* HTML spec intent — beats class-based display rules */
 html,body{margin:0;background:var(--bg);color:var(--ink);
   font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
 h1,h2,h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:-.02em}
@@ -38,7 +39,6 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .style-pill{padding:8px 14px;border-radius:99px;background:#EEF2FF;color:var(--brand);
   font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
 .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-.pill-btn[hidden]{display:none}
 .pill-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:99px;border:1.5px solid var(--border);
   background:#fff;color:var(--ink-2);font:inherit;font-weight:700;font-size:12px;letter-spacing:.02em;cursor:pointer;
   text-decoration:none;transition:transform .12s,background .15s,border-color .15s,color .15s,box-shadow .2s}
@@ -295,7 +295,9 @@ footer a{color:var(--brand)}
   </div>
 </section>
 
-<div class="tabs" role="tablist" aria-label="Data categories">
+<div id="status" class="status-area" hidden></div>
+
+<div class="tabs" role="tablist" aria-label="Data categories" hidden>
   <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-edu" data-tab="edu">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
     Education
@@ -310,7 +312,7 @@ footer a{color:var(--brand)}
   </button>
 </div>
 
-<section id="panel-edu" class="panel active" role="tabpanel" aria-labelledby="tab-edu">
+<section id="panel-edu" class="panel active" role="tabpanel" aria-labelledby="tab-edu" hidden>
   <div id="out"></div>
 </section>
 
@@ -360,7 +362,7 @@ const AMEN=[
   ['transit','Transit stops',ico.transit,'#8B5CF6'],
 ];
 const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
-const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$env=document.getElementById('env');
+const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.querySelector('.tabs');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
 let mapAmenRef=null, amenLayer=null, amenData=null, selectedCat=null;
 let eduData=null, eduLayer=null, eduSelected=null;
@@ -388,6 +390,8 @@ document.querySelector('.btn').addEventListener('mousemove',e=>{
   e.currentTarget.style.setProperty('--y',(e.clientY-r.top)+'px');
 });
 
+// Panel empty-states — retained only as a per-tab fallback if a lookup
+// somehow lands with no panel content. Initial page load hides tabs entirely.
 function empty(){$out.innerHTML=`<div class="empty">
   <div class="row"><div class="icon-badge">${ico.home}</div><div class="icon-badge">${ico.school}</div><div class="icon-badge">${ico.baby}</div></div>
   <p>Enter an address above — we'll build the family picture for that flat.</p></div>`;}
@@ -397,19 +401,40 @@ function emptyAmen(){$amen.innerHTML=`<div class="empty" style="margin-top:14px"
 function emptyEnv(){$env.innerHTML=`<div class="empty" style="margin-top:14px">
   <div class="row"><div class="icon-badge">${ico.waves}</div><div class="icon-badge">${ico.moon}</div></div>
   <p>Look up an address to see façade-level street noise (day + night) from Berlin's 2022 strategic noise map.</p></div>`;}
-empty();emptyAmen();emptyEnv();compareRefreshPill();showView();
+
+function showStatus(kind, msg){
+  $tabs.hidden = true;
+  document.querySelectorAll('.panel').forEach(p => p.hidden = true);
+  $status.hidden = false;
+  if(kind === 'loading') $status.innerHTML = `<div class="loading"><span class="spinner"></span> ${esc(msg)}</div>`;
+  else if(kind === 'error')   $status.innerHTML = `<div class="error">${esc(msg)}</div>`;
+}
+function showResults(){
+  $status.hidden = true; $status.innerHTML = '';
+  $tabs.hidden = false;
+  // Reveal only the currently-active panel; tab-switch handler manages the rest.
+  document.querySelectorAll('.panel').forEach(p => p.hidden = !p.classList.contains('active'));
+}
+function clearResultState(){ eduData=null; amenData=null; envData=null; refreshSaveBtn(); }
+
+compareRefreshPill();showView();
 document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q.value=c.dataset.q;$f.dispatchEvent(new Event('submit'))}));
 $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.trim();if(!q)return;
-  $out.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin's open data…</div>`;
-  try{const r=await fetch('/api/lookup?address='+encodeURIComponent(q));const d=await r.json();
-    if(!r.ok){$out.innerHTML=`<div class="error">${esc(d.error||'Something went wrong.')}</div>`;return}render(d);
-  }catch(e){$out.innerHTML=`<div class="error">Network error: ${esc(e.message)}</div>`}});
+  showStatus('loading', "Reading Berlin's open data…");
+  try{
+    const r=await fetch('/api/lookup?address='+encodeURIComponent(q));
+    const d=await r.json();
+    if(!r.ok){ clearResultState(); showStatus('error', d.error||'Something went wrong.'); return; }
+    render(d);   // render() calls showResults() once the panels are populated
+  }catch(e){ clearResultState(); showStatus('error', 'Network error: '+e.message); }
+});
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function walkMin(m){return Math.round(m/80);}
 function countUp(el,to,dur=900){if(matchMedia('(prefers-reduced-motion:reduce)').matches){el.textContent=to;return}
   const t0=performance.now();(function step(t){const p=Math.min(1,(t-t0)/dur);el.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(step)})(t0);}
 let mapRef=null;
 function render(d){
+  showResults();          // reveal tabs + panels now that a lookup has real data
   eduData=d; eduSelected=null;
   const a=d.address,c=d.catchment||{},ss=d.schools||[],i=d.intl_grundschule,k=d.kitas||{};
   const addr=`<div class="cell edu-cell" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
@@ -568,17 +593,28 @@ function compareRefreshPill(){
   pill.hidden = list.length===0;
 }
 function snapshotId(a){ return `${a.street}-${a.hnr}-${a.plz}`.toLowerCase().replace(/\s+/g,'-'); }
+function haversineM(la1,lo1,la2,lo2){
+  const R=6371000, toRad=d=>d*Math.PI/180;
+  const p1=toRad(la1), p2=toRad(la2), dp=toRad(la2-la1), dl=toRad(lo2-lo1);
+  const h=Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function amenHasErrors(){
+  if(!amenData) return true;
+  return Object.values(amenData).some(b => b && b.error);
+}
 
 function buildSnapshot(){
   if(!eduData||!eduData.address) return null;
   const a=eduData.address, c=eduData.catchment||{}, s=(eduData.schools||[])[0], i=eduData.intl_grundschule, k=eduData.kitas||{};
   const cnt=(cat)=> (amenData && amenData[cat]) ? amenData[cat].count : null;
+  const schoolDist = s && s.lat!=null ? Math.round(haversineM(a.lat, a.lon, s.lat, s.lon)) : null;
   return {
     id: snapshotId(a),
     savedAt: Date.now(),
     address: {street:a.street, hnr:a.hnr, plz:a.plz, district:c.district, lat:a.lat, lon:a.lon},
     catchment: {esb:c.esb, district:c.district},
-    school: s ? {name:s.name, sesb_strand:s.sesb_strand, school_year:s.school_year} : null,
+    school: s ? {name:s.name, sesb_strand:s.sesb_strand, school_year:s.school_year, distance_m:schoolDist} : null,
     intl: i ? {name:i.name, distance_m:i.distance_m} : null,
     counts: {kitas:k.count, playgrounds:cnt('playgrounds'), parks:cnt('parks'), transit:cnt('transit')},
     noise: (envData && !envData.unavailable) ? {
@@ -602,7 +638,8 @@ function refreshSaveBtn(){
   btn.hidden=false;
   const already=compareLoad().find(x=>x.id===snap.id);
   if(already){ btn.textContent='✓ Saved to comparison'; btn.disabled=true; return; }
-  const ready = amenData && envData;  // block save until both lazy fetches land
+  // Ready if both fetches landed AND (no OSM errors OR we've already retried once).
+  const ready = amenData && envData && (!amenHasErrors() || amenAttempts>=2);
   btn.textContent = ready ? '+ Save to comparison' : 'Loading data…';
   btn.disabled = !ready;
 }
@@ -655,11 +692,15 @@ function renderCompare(){
     const t = n.tier_den || 'unknown';
     return `<td><span class="noise-cell tier-${t}">${n.l_den.toFixed(0)} dB<span class="noise-sub">/ ${n.l_night!=null?n.l_night.toFixed(0)+' night':'—'}</span></span></td>`;
   };
+  const schoolCell = (s) => {
+    if(!s.school) return `<td class="na">—</td>`;
+    const dist = s.school.distance_m!=null ? ` <span style="color:var(--muted);font-weight:500">(${s.school.distance_m} m · ~${Math.round(s.school.distance_m/80)} min walk)</span>` : '';
+    return `<td>${esc(s.school.name)}${dist}</td>`;
+  };
   const rows = [
     sect('Location & Schools'),
-    row('Address',         list.map(s=>cell(`${esc(s.address.street)} ${esc(s.address.hnr)}, ${esc(s.address.plz)}`)).join('')),
     row('District',        list.map(s=>cell(esc(s.address.district))).join('')),
-    row('Catchment Grundschule', list.map(s=>cell(s.school?esc(s.school.name):null)).join('')),
+    row('Catchment Grundschule', list.map(schoolCell).join('')),
     row('SESB bilingual',  list.map(s=>cell(s.school&&s.school.sesb_strand?`<span class="sesb-cell">${esc(s.school.sesb_strand)}</span>`:null)).join('')),
     row('Nearest international', list.map(s=>cell(s.intl?`${esc(s.intl.name)} <span style="color:var(--muted);font-weight:500">(${(s.intl.distance_m/1000).toFixed(1)} km)</span>`:null)).join('')),
     sect('Kids & amenities within 800 m'),
@@ -702,18 +743,25 @@ function emptyAmenPending(){
   <p>Open the Amenities tab to load playgrounds, parks, pharmacies, supermarkets, GPs, and transit stops within 800 m.</p></div>`;
 }
 
-let amenFetching=false;
-async function fetchAmenities(lat,lon){
+let amenFetching=false, amenAttempts=0;
+async function fetchAmenities(lat,lon,isRetry){
   if(amenFetching) return;
   amenFetching=true;
-  $amen.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin Open Data + OpenStreetMap…</div>`;
+  if(!isRetry) amenAttempts=0;
+  amenAttempts++;
+  $amen.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin Open Data + OpenStreetMap${isRetry?' (retrying)':''}…</div>`;
   try{
     const r=await fetch(`/api/amenities?lat=${lat}&lon=${lon}`);
     const d=await r.json();
     if(!r.ok){$amen.innerHTML=`<div class="error">${esc(d.error||'Failed to load amenities.')}</div>`;return}
     renderAmenities(d); $amen.dataset.loaded='1'; refreshSaveBtn();
+    // ponytail: Overpass throttles per-IP; a fresh call 3 s later usually
+    // clears it. One silent retry, then accept whatever we have.
+    if(!isRetry && amenHasErrors()){
+      setTimeout(()=>{ if(lastCoord && lat===lastCoord.lat && lon===lastCoord.lon) fetchAmenities(lat,lon,true); else refreshSaveBtn(); }, 3000);
+    }
   }catch(e){$amen.innerHTML=`<div class="error">Network error: ${esc(e.message)}</div>`}
-  finally{amenFetching=false}
+  finally{amenFetching=false; refreshSaveBtn();}
 }
 
 function renderAmenities(d){
