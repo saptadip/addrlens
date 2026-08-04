@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Berlin Address Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+/* Micro-interactions — subtle base, delightful gesture-triggered animations */
+:root{--bg:#FAFBFC;--card:#FFFFFF;
+  --hero-bg:#FEF7F0;                     /* warm ivory — welcoming input area, no hover shift */
+  --result-bg:#EEF2FF;                    /* soft periwinkle — coherent result group */
+  --result-bg-hover:#DDE7FF;              /* one step deeper on hover, same hue */
+  --ink:#111827;--ink-2:#374151;--muted:#6B7280;
+  --brand:#4F46E5;--brand-2:#818CF8;--success:#22C55E;--danger:#EF4444;--amber:#F59E0B;
+  --border:#E5E7EB;--sh-1:0 1px 2px rgba(17,24,39,.06);--sh-2:0 4px 8px rgba(17,24,39,.06),0 12px 24px rgba(17,24,39,.06)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+h1,h2,h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:-.02em}
+a{color:var(--brand);font-weight:600;text-decoration:none;position:relative}
+a::after{content:"";position:absolute;left:0;bottom:-2px;width:100%;height:1.5px;background:currentColor;transform:scaleX(0);transform-origin:right;transition:transform .25s ease}
+a:hover::after{transform:scaleX(1);transform-origin:left}
+
+.page{max-width:1240px;margin:0 auto;padding:26px 22px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#818CF8,#4F46E5);
+  display:grid;place-items:center;box-shadow:var(--sh-1);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.logo:hover{transform:rotate(-6deg) scale(1.05)}
+.logo svg{width:20px;height:20px;stroke:#fff}
+.brand-name{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:19px}
+.brand-name small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.style-pill{padding:8px 14px;border-radius:99px;background:#EEF2FF;color:var(--brand);
+  font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.pill-btn[hidden]{display:none}
+.pill-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:99px;border:1.5px solid var(--border);
+  background:#fff;color:var(--ink-2);font:inherit;font-weight:700;font-size:12px;letter-spacing:.02em;cursor:pointer;
+  text-decoration:none;transition:transform .12s,background .15s,border-color .15s,color .15s,box-shadow .2s}
+.pill-btn:hover{transform:translateY(-1px);border-color:var(--brand-2);color:var(--brand);background:#F5F3FF;box-shadow:var(--sh-1)}
+.pill-btn[disabled]{cursor:default;opacity:.7}
+.pill-btn[disabled]:hover{transform:none;background:#fff;color:var(--ink-2);border-color:var(--border);box-shadow:none}
+.pill-btn-brand{background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;border-color:transparent;box-shadow:var(--sh-1)}
+.pill-btn-brand:hover{color:#fff;background:linear-gradient(135deg,#4F46E5,#4338CA);border-color:transparent;box-shadow:var(--sh-2)}
+.pill-btn-brand:hover::after{background:currentColor}
+
+/* Comparison view — table with addresses as columns, metrics as rows */
+.compare-view{margin-top:14px}
+.compare-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.compare-header h2{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:24px;margin:0}
+.compare-header .compare-actions{margin-left:auto;display:flex;gap:10px}
+.compare-empty{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:60px 30px;text-align:center;
+  box-shadow:var(--sh-1);color:var(--muted)}
+.compare-empty p{max-width:520px;margin:16px auto 0;color:var(--ink);font-weight:600;font-size:16px}
+.compare-empty .icon-badge{width:58px;height:58px;border-radius:14px;margin:0 auto}
+.compare-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:6px;box-shadow:var(--sh-1);overflow-x:auto}
+.compare-table{width:100%;border-collapse:collapse;font-size:14px;min-width:680px}
+.compare-table th,.compare-table td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid #F3F4F6}
+.compare-table thead th{background:var(--result-bg);position:sticky;top:0;z-index:1}
+.compare-table thead th.metric-col{width:180px;border-radius:12px 0 0 0}
+.compare-table thead th.addr-col{min-width:220px}
+.compare-table thead th.addr-col .addr-title{font-weight:700;color:var(--ink);font-size:14px;display:block}
+.compare-table thead th.addr-col .addr-sub{font-weight:500;color:var(--muted);font-size:12px;margin-top:2px;display:block}
+.compare-table thead th.addr-col .col-remove{float:right;background:transparent;border:0;color:var(--muted);font:inherit;font-size:12px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:background .15s,color .15s}
+.compare-table thead th.addr-col .col-remove:hover{color:var(--danger);background:#FEE2E2}
+.compare-table tbody th{font-weight:600;color:var(--ink-2);background:#FAFBFC;font-size:13px}
+.compare-table td{color:var(--ink);font-weight:500}
+.compare-table td.na{color:var(--muted);font-weight:400}
+.compare-table tr.section-row th{background:#F3F4F6;color:var(--ink);font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:18px;padding-bottom:8px}
+.compare-table .metric-num{font-weight:700}
+.compare-table .noise-cell{font-weight:700;padding:8px 12px;border-radius:8px;display:inline-block}
+.compare-table .noise-cell.tier-green   {background:#DCFCE7;color:#166534}
+.compare-table .noise-cell.tier-amber   {background:#FEF3C7;color:#92400E}
+.compare-table .noise-cell.tier-orange  {background:#FFEDD5;color:#9A3412}
+.compare-table .noise-cell.tier-red     {background:#FEE2E2;color:#991B1B}
+.compare-table .noise-cell .noise-sub{font-weight:500;font-size:11px;margin-left:6px;opacity:.85}
+.compare-table .sesb-cell{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;padding:4px 10px;border-radius:99px;font-weight:700;font-size:12px;border:1px solid #F9A8D4;display:inline-block}
+.compare-table .sesb-cell::before{content:"✦ ";color:#DB2777}
+@media(max-width:600px){.compare-table th,.compare-table td{padding:10px}.compare-table{font-size:13px}}
+
+.hero{background:var(--hero-bg);border:1px solid var(--border);border-radius:16px;padding:32px 34px;box-shadow:var(--sh-2);position:relative;overflow:hidden}
+.hero h1{margin:0 0 8px;font-size:clamp(28px,4vw,40px);line-height:1.1;color:var(--ink)}
+.hero h1 .grad{background:linear-gradient(135deg,#4F46E5,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0 0 20px;color:var(--ink-2);font-size:15px;max-width:640px}
+.hero form{display:flex;gap:10px;flex-wrap:wrap;position:relative}
+.hero .field{flex:1;min-width:240px;position:relative}
+.hero input{width:100%;padding:14px 18px 14px 40px;border:1.5px solid var(--border);background:#fff;color:var(--ink);
+  border-radius:10px;font:inherit;font-size:15px;font-weight:500;outline:none;
+  transition:border-color .18s,box-shadow .18s,padding-left .25s cubic-bezier(.34,1.56,.64,1)}
+.hero input::placeholder{color:#9CA3AF}
+.hero input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.15);padding-left:44px}
+.field-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#9CA3AF;width:18px;height:18px;
+  transition:color .18s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+.hero input:focus + .field-ico{color:var(--brand);transform:translateY(-50%) scale(1.15)}
+.btn{cursor:pointer;border:0;padding:14px 22px;border-radius:10px;font:inherit;font-weight:700;font-size:14px;
+  color:#fff;background:linear-gradient(135deg,#6366F1,#4F46E5);box-shadow:var(--sh-1);position:relative;overflow:hidden;
+  transition:transform .12s,box-shadow .2s}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--sh-2)}
+.btn::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at var(--x,50%) var(--y,50%),rgba(255,255,255,.35) 0%,transparent 45%);opacity:0;transition:opacity .3s}
+.btn:hover::before{opacity:1}
+.btn span{display:inline-block;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.btn:hover span{transform:translateX(3px)}
+.chips{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+.chip{cursor:pointer;padding:7px 14px;border-radius:99px;background:#F3F4F6;color:var(--ink-2);
+  font-size:13px;font-weight:600;border:1px solid var(--border);
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1),background .15s,color .15s,border-color .15s}
+.chip:hover{background:#EEF2FF;color:var(--brand);border-color:var(--brand-2);transform:translateY(-2px)}
+.chip:active{transform:translateY(0) scale(.95)}
+
+/* --- tabs (segmented pill control) */
+.tabs{display:inline-flex;gap:4px;padding:6px;background:var(--ink);border:1px solid var(--ink);
+  border-radius:12px;box-shadow:var(--sh-1);margin:22px 0 0}
+.tab{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border:0;background:transparent;
+  border-radius:8px;font:inherit;font-weight:600;font-size:14px;color:rgba(255,255,255,.65);cursor:pointer;
+  transition:background .18s,color .18s,transform .12s}
+.tab svg{width:16px;height:16px}
+.tab:hover:not(.active){color:#fff;background:rgba(255,255,255,.08)}
+.tab.active{background:#fff;color:var(--brand)}
+.tab:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+.panel{display:none}
+.panel.active{display:block}
+/* soft fade when switching panels */
+.panel.active{animation:panelIn .3s ease-out}
+@keyframes panelIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.grid{margin-top:14px;display:flex;flex-direction:column;gap:14px}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+@media(min-width:900px){.grid{flex-direction:row;align-items:stretch}
+  .stack{flex:1.15 1 0;min-width:0}.map-cell{flex:.85 1 0;min-width:0}}
+
+.cell{background:var(--result-bg);color:var(--ink);border:1px solid var(--border);border-radius:14px;padding:20px 22px;
+  box-shadow:var(--sh-1);transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s,background .2s ease;
+  opacity:0;transform:translateY(12px);animation:in .4s ease-out forwards;position:relative;overflow:hidden}
+.cell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand);transform:scaleY(0);transform-origin:top;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.cell:hover{transform:translateY(-3px);box-shadow:var(--sh-2);background:var(--result-bg-hover)}
+.cell:hover::before{transform:scaleY(1)}
+@keyframes in{to{opacity:1;transform:translateY(0)}}
+.cell:nth-child(1){animation-delay:.04s}.cell:nth-child(2){animation-delay:.10s}
+.cell:nth-child(3){animation-delay:.16s}.cell:nth-child(4){animation-delay:.22s}
+
+.cell-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.icon-badge{width:38px;height:38px;border-radius:10px;background:#FFFFFF;color:var(--brand);
+  display:grid;place-items:center;flex-shrink:0;box-shadow:0 1px 2px rgba(79,70,229,.10);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .2s,color .2s,box-shadow .2s}
+.cell:hover .icon-badge{transform:rotate(-6deg) scale(1.08);
+  background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;box-shadow:0 4px 10px rgba(79,70,229,.28)}
+.icon-badge svg{width:20px;height:20px}
+.cell-label{font-weight:700;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.cell h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:20px;line-height:1.2;margin:4px 0 4px}
+.cell .sub{color:var(--ink-2);font-size:14px;margin:0 0 10px}
+.cell .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+.badge{padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+.badge:hover{transform:translateY(-1px) scale(1.03)}
+.b-public{background:#DCFCE7;color:#166534}
+.b-dist{background:#DBEAFE;color:#1E40AF}
+.b-sesb{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;
+  border:1px solid #F9A8D4;position:relative;overflow:visible}
+.b-sesb::after{content:"";position:absolute;inset:-1px;border-radius:99px;
+  box-shadow:0 0 0 0 rgba(236,72,153,.5);animation:ping 2s ease-out infinite;pointer-events:none}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(236,72,153,.55)}70%,100%{box-shadow:0 0 0 10px rgba(236,72,153,0)}}
+.b-sesb::before{content:"✦ ";color:#DB2777}
+
+.metric-big{display:flex;align-items:baseline;gap:12px;margin:8px 0 0}
+.metric-big .n{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:52px;line-height:.95;
+  background:linear-gradient(135deg,#4F46E5,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.metric-big .cap{color:var(--ink-2);font-size:14px;font-weight:500;line-height:1.35}
+.cell.tier-green   .metric-big .n{background:linear-gradient(135deg,#16A34A,#22C55E);-webkit-background-clip:text;background-clip:text}
+.cell.tier-amber   .metric-big .n{background:linear-gradient(135deg,#D97706,#F59E0B);-webkit-background-clip:text;background-clip:text}
+.cell.tier-orange  .metric-big .n{background:linear-gradient(135deg,#EA580C,#F97316);-webkit-background-clip:text;background-clip:text}
+.cell.tier-red     .metric-big .n{background:linear-gradient(135deg,#B91C1C,#EF4444);-webkit-background-clip:text;background-clip:text}
+.cell.tier-unknown .metric-big .n{background:linear-gradient(135deg,#6B7280,#9CA3AF);-webkit-background-clip:text;background-clip:text}
+.cell.tier-green::before,.cell.tier-amber::before,.cell.tier-orange::before,.cell.tier-red::before{transform:scaleY(1)}
+.cell.tier-green::before  {background:#22C55E}
+.cell.tier-amber::before  {background:#F59E0B}
+.cell.tier-orange::before {background:#F97316}
+.cell.tier-red::before    {background:#EF4444}
+
+/* Stroller card — inline mini-form + reasons list */
+.stroller-form{display:flex;flex-wrap:wrap;gap:14px 22px;margin:12px 0 4px;align-items:center}
+.stroller-form label{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--ink-2)}
+.stroller-form input[type=number],.stroller-form select{padding:8px 10px;border:1.5px solid var(--border);background:#fff;border-radius:8px;font:inherit;font-size:14px;font-weight:500;outline:none;width:88px;transition:border-color .15s,box-shadow .15s}
+.stroller-form select{width:auto;min-width:70px}
+.stroller-form input:focus,.stroller-form select:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+.stroller-form input[type=checkbox]{width:16px;height:16px;accent-color:var(--brand);margin:0}
+.stroller-form .chk{cursor:pointer}
+.tier-badge{margin-left:auto;padding:4px 12px;border-radius:99px;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.tier-badge.tier-green   {background:#DCFCE7;color:#166534}
+.tier-badge.tier-amber   {background:#FEF3C7;color:#92400E}
+.tier-badge.tier-red     {background:#FEE2E2;color:#991B1B}
+.tier-badge.tier-unknown {background:#F3F4F6;color:#6B7280}
+.stroller-reasons{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.stroller-reasons li{position:relative;padding:6px 10px 6px 26px;border-radius:6px;color:var(--ink-2);border-bottom:1px dashed rgba(107,114,128,.18)}
+.stroller-reasons li:last-child{border-bottom:0}
+.stroller-reasons li::before{content:"";position:absolute;left:10px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:99px}
+.stroller-reasons li.r-good::before{background:#22C55E}
+.stroller-reasons li.r-warn::before{background:#F59E0B}
+.stroller-reasons li.r-bad::before {background:#EF4444}
+.stroller-reasons li.r-info::before{background:#9CA3AF}
+
+.map-cell{position:relative;padding:0;overflow:hidden;background:var(--result-bg);border:1px solid var(--border);border-radius:14px;
+  display:flex;flex-direction:column;min-height:0;box-shadow:var(--sh-1);transition:box-shadow .25s,background .2s ease}
+.map-cell:hover{box-shadow:var(--sh-2);background:var(--result-bg-hover)}
+#map{flex:1;min-height:0;height:100%}
+@media(max-width:899px){.map-cell{min-height:340px}#map{min-height:340px;height:340px}}
+
+.loading{margin-top:22px;padding:18px 22px;background:var(--card);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--sh-1);display:flex;align-items:center;gap:14px;color:var(--ink-2);font-weight:500;font-size:14px}
+.spinner{width:18px;height:18px;border:2.5px solid #E0E7FF;border-top-color:var(--brand);border-radius:99px;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{margin-top:22px;padding:16px 20px;background:#FEE2E2;color:#7A1F1F;border-radius:12px;border:1px solid #FCA5A5;font-weight:600}
+.empty{margin-top:36px;text-align:center;padding:42px 22px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--sh-1);color:var(--muted)}
+.empty .row{display:inline-flex;gap:16px;margin-bottom:16px}
+.empty .row .icon-badge{width:58px;height:58px;border-radius:14px;animation:bob 2.4s ease-in-out infinite}
+.empty .row .icon-badge:nth-child(2){animation-delay:.15s}
+.empty .row .icon-badge:nth-child(3){animation-delay:.30s}
+.empty .row .icon-badge svg{width:28px;height:28px}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
+.empty p{font-weight:600;font-size:16px;color:var(--ink);max-width:520px;margin:0 auto}
+
+#map-amen{flex:1;min-height:0;height:100%}
+@media(max-width:899px){.amen-map-cell{min-height:340px}#map-amen{min-height:340px;height:340px}}
+.map-hint{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,.94);padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:var(--sh-1);pointer-events:none}
+.amen-pin{width:30px;height:30px;border-radius:99px;display:grid;place-items:center;border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.28);color:#fff}
+.amen-pin svg{width:16px;height:16px;stroke:currentColor}
+.amen-cell{overflow:visible}
+.info-tip{position:relative;flex-shrink:0}
+.info-tip>summary{list-style:none;cursor:pointer;width:20px;height:20px;border-radius:99px;display:grid;place-items:center;color:var(--muted);background:#fff;border:1px solid var(--border);transition:color .15s,border-color .15s,background .15s}
+.info-tip>summary::-webkit-details-marker{display:none}
+.info-tip>summary svg{width:12px;height:12px}
+.info-tip>summary:hover,.info-tip[open]>summary{color:var(--brand);border-color:var(--brand-2);background:var(--result-bg)}
+.info-body{position:absolute;top:26px;right:0;z-index:30;width:240px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--ink-2);font-weight:500;white-space:normal;box-shadow:0 8px 22px rgba(17,24,39,.14)}
+.amen-cell,.edu-cell{cursor:pointer}
+.cell.active{background:var(--result-bg-hover);box-shadow:0 0 0 2px rgba(79,70,229,.25),var(--sh-2)}
+.cell.active::before{transform:scaleY(1)}
+.cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
+.amen-cell .cell-head .chev{margin-left:auto;color:var(--muted);transition:transform .2s ease,color .2s}
+.amen-cell .cell-head .chev svg{width:16px;height:16px;display:block}
+.amen-cell.active .cell-head .chev{transform:rotate(180deg);color:var(--brand)}
+.amen-body{display:none}
+.amen-cell.active .amen-body{display:block}
+.amen-cell .metric-big{margin:6px 0 4px}
+.amen-cell .metric-big .n{font-size:44px}
+.amen-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.amen-list li{display:grid;grid-template-columns:1fr auto 20px;align-items:center;gap:10px;font-size:13.5px;color:var(--ink-2);padding:4px 0;border-bottom:1px dashed rgba(107,114,128,.18)}
+.amen-list li:last-child{border-bottom:0}
+.amen-list li .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--ink)}
+.amen-list li .dist{color:var(--muted);font-size:12px;font-weight:500;white-space:nowrap;text-align:right}
+.amen-list li.none{color:var(--muted);font-style:italic;border-bottom:0;grid-column:1 / -1}
+.amen-more{margin:8px 0 0;font-size:12px;color:var(--muted);font-weight:500}
+
+.toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
+  padding:10px 20px;border-radius:99px;font-weight:600;font-size:13px;box-shadow:var(--sh-2);opacity:0;pointer-events:none;
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s;z-index:9999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+footer{max-width:1240px;margin:22px auto 40px;padding:0 22px;color:var(--muted);font-size:12px;line-height:1.7}
+footer a{color:var(--brand)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}.cell{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg></div>
+    <div class="brand-name">Berlin Address Lens<small>for families in Berlin</small></div>
+  </div>
+  <div class="header-actions">
+    <button id="save-btn" class="pill-btn" hidden>+ Save to comparison</button>
+    <a id="compare-pill" class="pill-btn pill-btn-brand" href="#compare" hidden>Compare (<span id="compare-count">0</span>)</a>
+    <span class="style-pill">Open Data · Berlin</span>
+  </div>
+</header>
+
+<div id="view-main"><section class="hero">
+  <h1>Turn a Berlin address into <span class="grad">the whole family picture.</span></h1>
+  <p>Assigned Grundschule, bilingual (SESB) strand, kitas at stroller distance, and the nearest international option — sourced, timestamped, in English.</p>
+  <form id="f" autocomplete="off">
+    <div class="field">
+      <input id="q" type="text" placeholder="Try: Kastanienallee 12, 10435" aria-label="Berlin address">
+      <svg class="field-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    </div>
+    <button class="btn" type="submit"><span>Look up →</span></button>
+  </form>
+  <div class="chips">
+    <span class="chip" data-q="Kastanienallee 12, 10435">Kastanienallee 12</span>
+    <span class="chip" data-q="Bergmannstraße 27, 10961">Bergmannstraße 27</span>
+    <span class="chip" data-q="Kurfürstendamm 195, 10707">Kurfürstendamm 195</span>
+  </div>
+</section>
+
+<div class="tabs" role="tablist" aria-label="Data categories">
+  <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-edu" data-tab="edu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+    Education
+  </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-amen" data-tab="amen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h.01M15 17h.01"/></svg>
+    Amenities
+  </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-env" data-tab="env">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
+    Environment
+  </button>
+</div>
+
+<section id="panel-edu" class="panel active" role="tabpanel" aria-labelledby="tab-edu">
+  <div id="out"></div>
+</section>
+
+<section id="panel-amen" class="panel" role="tabpanel" aria-labelledby="tab-amen" hidden>
+  <div id="amen"></div>
+</section>
+
+<section id="panel-env" class="panel" role="tabpanel" aria-labelledby="tab-env" hidden>
+  <div id="env"></div>
+</section>
+</div><!-- /view-main -->
+
+<section id="view-compare" class="compare-view" hidden aria-label="Comparison board">
+  <div id="compare-content"></div>
+</section>
+</div>
+
+<footer>
+  Berlin Open Data first: Geoportal Berlin / Schulen (dl-de/zero-2.0), Adressen Berlin, Kindertagesstätten, Grünanlagen &amp; Spielplätze (dl-de/by-2.0).
+  Supplements © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL) for pharmacies, supermarkets, GPs, transit, plus playground / park gaps not in the city dataset.
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg>',
+  school:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',
+  baby:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12h.01M15 12h.01M10 16c1 1 3 1 4 0"/></svg>',
+  globe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>',
+  playground:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21l4-9 4 9M8 12V4M4 4h8M14 21V10a3 3 0 0 1 6 0v11M14 15h6"/></svg>',
+  pharmacy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>',
+  cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12h11l2-8H6"/></svg>',
+  gp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a4 4 0 0 0 8 0V3M6 3h2M12 3h2M10 13v3a4 4 0 0 0 8 0v-2"/><circle cx="18" cy="14" r="2"/></svg>',
+  transit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v2M16 18v2"/><circle cx="8" cy="14.5" r="1"/><circle cx="16" cy="14.5" r="1"/></svg>',
+  tree:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-3.5 3-5 5-5 8a5 5 0 0 0 10 0c0-3-1.5-5-5-8z"/><path d="M12 16v6M9 22h6"/></svg>',
+  waves:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c2 0 2 1.5 4 1.5S8 6 10 6s2 1.5 4 1.5S16 6 18 6s2 1.5 4 1.5"/><path d="M2 12c2 0 2 1.5 4 1.5S8 12 10 12s2 1.5 4 1.5S16 12 18 12s2 1.5 4 1.5"/><path d="M2 18c2 0 2 1.5 4 1.5S8 18 10 18s2 1.5 4 1.5S16 18 18 18s2 1.5 4 1.5"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'};
+const AMEN=[
+  ['playgrounds','Playgrounds',ico.playground,'#22C55E'],
+  ['parks','Parks / green space',ico.tree,'#10B981'],
+  ['pharmacies','Pharmacies',ico.pharmacy,'#EF4444'],
+  ['supermarkets','Supermarkets',ico.cart,'#F59E0B'],
+  ['gps','GPs / Doctors',ico.gp,'#14B8A6'],
+  ['transit','Transit stops',ico.transit,'#8B5CF6'],
+];
+const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
+const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$env=document.getElementById('env');
+let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
+let mapAmenRef=null, amenLayer=null, amenData=null, selectedCat=null;
+let eduData=null, eduLayer=null, eduSelected=null;
+let envData=null;
+const EDU_STYLE={school:{icon:'school',color:'#4F46E5'},kita:{icon:'baby',color:'#94A3B8'},intl:{icon:'globe',color:'#F59E0B'}};
+const NOISE_TIER_LABEL={green:'Quiet',amber:'Moderate',orange:'Loud',red:'Very loud',unknown:'Unknown'};
+
+// tabs
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  const target=t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x=>{const on=x.dataset.tab===target;x.classList.toggle('active',on);x.setAttribute('aria-selected',on)});
+  document.querySelectorAll('.panel').forEach(p=>{const on=p.id==='panel-'+target;p.classList.toggle('active',on);p.hidden=!on});
+  // Leaflet was hidden — force a remeasure so tiles fill the container
+  if(target==='edu' && mapRef) requestAnimationFrame(()=>mapRef.invalidateSize());
+  // lazy: only fetch amenities when the user actually opens the tab
+  if(target==='amen' && lastCoord && !$amen.dataset.loaded) fetchAmenities(lastCoord.lat,lastCoord.lon);
+  if(target==='amen' && mapAmenRef) requestAnimationFrame(()=>mapAmenRef.invalidateSize());
+  if(target==='env'  && lastCoord && !$env.dataset.loaded)  fetchNoise(lastCoord.lat,lastCoord.lon);
+}));
+
+// button ripple effect
+document.querySelector('.btn').addEventListener('mousemove',e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty('--x',(e.clientX-r.left)+'px');
+  e.currentTarget.style.setProperty('--y',(e.clientY-r.top)+'px');
+});
+
+function empty(){$out.innerHTML=`<div class="empty">
+  <div class="row"><div class="icon-badge">${ico.home}</div><div class="icon-badge">${ico.school}</div><div class="icon-badge">${ico.baby}</div></div>
+  <p>Enter an address above — we'll build the family picture for that flat.</p></div>`;}
+function emptyAmen(){$amen.innerHTML=`<div class="empty" style="margin-top:14px">
+  <div class="row"><div class="icon-badge">${ico.playground}</div><div class="icon-badge">${ico.tree}</div><div class="icon-badge">${ico.transit}</div></div>
+  <p>Look up an address to see playgrounds, parks, pharmacies, supermarkets, GPs, and transit stops within an 800 m walk.</p></div>`;}
+function emptyEnv(){$env.innerHTML=`<div class="empty" style="margin-top:14px">
+  <div class="row"><div class="icon-badge">${ico.waves}</div><div class="icon-badge">${ico.moon}</div></div>
+  <p>Look up an address to see façade-level street noise (day + night) from Berlin's 2022 strategic noise map.</p></div>`;}
+empty();emptyAmen();emptyEnv();compareRefreshPill();showView();
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q.value=c.dataset.q;$f.dispatchEvent(new Event('submit'))}));
+$f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.trim();if(!q)return;
+  $out.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin's open data…</div>`;
+  try{const r=await fetch('/api/lookup?address='+encodeURIComponent(q));const d=await r.json();
+    if(!r.ok){$out.innerHTML=`<div class="error">${esc(d.error||'Something went wrong.')}</div>`;return}render(d);
+  }catch(e){$out.innerHTML=`<div class="error">Network error: ${esc(e.message)}</div>`}});
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function walkMin(m){return Math.round(m/80);}
+function countUp(el,to,dur=900){if(matchMedia('(prefers-reduced-motion:reduce)').matches){el.textContent=to;return}
+  const t0=performance.now();(function step(t){const p=Math.min(1,(t-t0)/dur);el.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(step)})(t0);}
+let mapRef=null;
+function render(d){
+  eduData=d; eduSelected=null;
+  const a=d.address,c=d.catchment||{},ss=d.schools||[],i=d.intl_grundschule,k=d.kitas||{};
+  const addr=`<div class="cell edu-cell" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
+    <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin · ${esc(c.district||'—')}${c.esb?` · ESB ${esc(c.esb)}`:''}</p></div>`;
+  const schools=ss.length?ss.map((s,idx)=>`<div class="cell edu-cell" data-edu-cat="school-${idx}">
+    <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">Assigned Grundschule</span></div>
+    <h3>${esc(s.name)}</h3><p class="sub">${esc((s.street||'')+' '+(s.hnr||''))}, ${esc(s.plz||'')}${s.website?` · <a href="${esc(s.website)}" target="_blank" rel="noopener">website</a>`:''}</p>
+    <div class="badges"><span class="badge b-public">Public · öffentlich</span>${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${s.sesb_strand?`<span class="badge b-sesb">SESB · ${esc(s.sesb_strand)}</span>`:''}</div>
+    <div class="prov">Assigned by Einschulbereich · Schuljahr ${esc(s.school_year||'')}</div></div>`).join(''):'';
+  const kita=k.count==null?'':`<div class="cell edu-cell" data-edu-cat="kita"><div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span></div>
+    <div class="metric-big"><span class="n" id="kitaN">0</span><span class="cap">within ~800 m</span></div>
+    <div class="prov">Availability isn't in any open dataset — call to check spots.</div></div>`;
+  const intl=i?`<div class="cell edu-cell" data-edu-cat="intl"><div class="cell-head"><div class="icon-badge">${ico.globe}</div><span class="cell-label">Nearest international / bilingual</span></div>
+    <h3>${esc(i.name)}</h3><p class="sub">${(i.distance_m/1000).toFixed(1)} km · ~${walkMin(i.distance_m)} min walk${i.website?` · <a href="${esc(i.website)}" target="_blank" rel="noopener">website</a>`:''}</p></div>`:'';
+  const map=`<div class="map-cell"><div class="map-hint" id="eduHint">Click a card to plot its location</div><div id="map"></div></div>`;
+  $out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
+  drawMap(d); const kn=document.getElementById('kitaN'); if(kn&&k.count!=null)countUp(kn,k.count);
+  $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',()=>{
+    selectEduCategory(cell.dataset.eduCat);
+  }));
+  lastCoord={lat:a.lat,lon:a.lon}; $amen.dataset.loaded=''; emptyAmenPending();
+  $env.dataset.loaded=''; emptyEnvPending();
+  amenData=null; envData=null;                       // drop previous address's counts before save-btn recomputes
+  strollerState={floor:'', lift:null, kwr:false};    // fresh building = fresh answers
+  refreshSaveBtn();            // will show "Loading data…" until amen + noise land
+  fetchAmenities(a.lat,a.lon); // eager: loads in parallel with user reading Education panel
+  fetchNoise(a.lat,a.lon);     // eager: single WFS call, small payload
+}
+
+function emptyEnvPending(){
+  $env.innerHTML=`<div class="empty" style="margin-top:14px">
+  <div class="row"><div class="icon-badge">${ico.waves}</div><div class="icon-badge">${ico.moon}</div></div>
+  <p>Open the Environment tab to load street noise (day + night) for this address.</p></div>`;
+}
+
+let noiseFetching=false;
+async function fetchNoise(lat,lon){
+  if(noiseFetching) return;
+  noiseFetching=true;
+  $env.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin's 2022 façade noise map…</div>`;
+  try{
+    const r=await fetch(`/api/noise?lat=${lat}&lon=${lon}`);
+    const d=await r.json();
+    if(!r.ok){$env.innerHTML=`<div class="error">${esc(d.error||'Failed to load noise data.')}</div>`;return}
+    renderNoise(d.noise); $env.dataset.loaded='1';
+  }catch(e){$env.innerHTML=`<div class="error">Network error: ${esc(e.message)}</div>`}
+  finally{noiseFetching=false}
+}
+
+function strollerCardHtml(){
+  return `<div class="cell tier-unknown" id="stroller-card">
+    <div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Stroller access</span>
+      <span class="stroller-badge tier-badge tier-unknown">Fill inputs</span></div>
+    <div class="stroller-form">
+      <label>Floor <input id="stroller-floor" type="number" min="0" max="20" placeholder="e.g. 3"></label>
+      <label>Lift? <select id="stroller-lift"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+      <label class="chk"><input id="stroller-kwr" type="checkbox"> Kinderwagenraum</label>
+    </div>
+    <ul class="stroller-reasons"></ul>
+    <div class="prov">Rule-based: floor × lift × Kinderwagenraum × nearest playground.</div>
+  </div>`;
+}
+
+function noiseCardsHtml(n){
+  if(n.unavailable){
+    return `<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Street noise</span></div>
+      <p class="sub">${esc(n.reason || 'Noise data unavailable for this address.')}</p>
+      <div class="prov">${esc(n.provenance || 'Geoportal Berlin / Strategische Lärmkarten 2022')}</div></div>`;
+  }
+  const den=n.l_den.total, ngt=n.l_night.total;
+  // Night thresholds are ~10 dB stricter than day (WHO 45 vs 55). Shift the
+  // night value UP by 10 before running through the day tier function so a
+  // 58 dB night reads as 'orange' (bad), not 'green' via a naive < 55 test.
+  const tDen=n.tier || 'unknown', tNgt=noiseTierFromDen(ngt==null?null:ngt+10);
+  const sources=[
+    ['road', 'Road traffic',       n.l_den.road,  n.l_night.road],
+    ['rail', 'Rail (S+U-Bahn)',    n.l_den.rail,  n.l_night.rail],
+    ['air',  'Aircraft',           n.l_den.air,   n.l_night.air],
+  ].filter(([,,d,ng])=>d!=null||ng!=null);
+  const srcRows=sources.map(([k,label,d,ng])=>`
+    <li><span class="nm">${label}</span><span class="dist">${d!=null?d.toFixed(1)+' dB day':'—'} · ${ng!=null?ng.toFixed(1)+' dB night':'—'}</span></li>`).join('') || '<li class="none">No dominant source recorded.</li>';
+  return `
+    <div class="cell tier-${tDen}"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span></div>
+      <div class="metric-big"><span class="n">${den!=null?den.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tDen]}<br>WHO recommends &lt; 55 dB</span></div></div>
+    <div class="cell tier-${tNgt}"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span></div>
+      <div class="metric-big"><span class="n">${ngt!=null?ngt.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tNgt]}<br>WHO recommends &lt; 45 dB</span></div></div>
+    <div class="cell"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Dominant sources at this façade</span></div>
+      <ul class="amen-list">${srcRows}</ul>
+      <p class="amen-more">Nearest façade measurement: ${n.distance_m} m from your address.</p>
+      <div class="prov">${esc(n.provenance)}</div></div>`;
+}
+
+function renderNoise(n){
+  envData=n;
+  $env.innerHTML=`<div class="grid"><div class="stack">${strollerCardHtml()}${noiseCardsHtml(n)}</div></div>`;
+  bindStrollerForm();
+  renderStrollerCard();
+  refreshSaveBtn();
+}
+
+function noiseTierFromDen(v){
+  if(v==null) return 'unknown';
+  if(v<55) return 'green';
+  if(v<65) return 'amber';
+  if(v<70) return 'orange';
+  return 'red';
+}
+
+// Stroller scoring — MIRROR of stroller_score() in server.py. If you change one,
+// change both. Selfcheck in server.py is the reference truth.
+function strollerScore(floor, lift, kwr, playgroundM){
+  const reasons=[];
+  if(floor==null || lift==null) return {tier:'unknown', reasons:[{kind:'info',text:'Enter floor and lift to score.'}]};
+  let tier='green';
+  if(lift)              reasons.push({kind:'good',text:`Floor ${floor} with lift — carry solved.`});
+  else if(floor===0)    reasons.push({kind:'good',text:'Ground floor — no stairs (verify no entrance step).'});
+  else if(floor<=2){ tier='amber'; reasons.push({kind:'warn',text:`Floor ${floor} without lift — manageable but tiring daily.`}); }
+  else            { tier='red';   reasons.push({kind:'bad', text:`Floor ${floor} without lift — a hard no with a toddler.`}); }
+  if(kwr){
+    reasons.push({kind:'good',text:'Kinderwagenraum — leave the stroller downstairs.'});
+    if(tier==='amber') tier='green';
+    else if(tier==='red') tier='amber';
+  }
+  if(playgroundM==null)          reasons.push({kind:'info',text:'Playground data not loaded.'});
+  else if(playgroundM<400)       reasons.push({kind:'good',text:`Playground ${playgroundM} m away — under 5 min walk.`});
+  else if(playgroundM<800)       reasons.push({kind:'info',text:`Nearest playground ${playgroundM} m — about 10 min walk.`});
+  else { reasons.push({kind:'warn',text:'No playground within 800 m.'}); if(tier==='green') tier='amber'; }
+  return {tier, reasons};
+}
+
+// Stroller form state — persists across noise re-renders within one address.
+let strollerState={floor:'', lift:null, kwr:false};
+function nearestPlaygroundM(){
+  const items = (amenData && amenData.playgrounds && amenData.playgrounds.items) || [];
+  return items.length ? items[0].distance_m : null;
+}
+function renderStrollerCard(){
+  const el=document.getElementById('stroller-card'); if(!el) return;
+  const floor = strollerState.floor==='' ? null : parseInt(strollerState.floor,10);
+  const s = strollerScore(Number.isFinite(floor)?floor:null, strollerState.lift, strollerState.kwr, nearestPlaygroundM());
+  const rowsHtml = s.reasons.map(r=>`<li class="r-${r.kind}">${esc(r.text)}</li>`).join('');
+  const tierLabel = {green:'Easy',amber:'Workable',red:'Hard',unknown:'Fill inputs'}[s.tier];
+  el.className = `cell tier-${s.tier}`;
+  el.querySelector('.stroller-badge').textContent = tierLabel;
+  el.querySelector('.stroller-badge').className = `stroller-badge tier-badge tier-${s.tier}`;
+  el.querySelector('.stroller-reasons').innerHTML = rowsHtml;
+}
+// -- Comparison board (localStorage-backed) --------------------------------
+const COMPARE_KEY='berlin-lens-compare-v1', COMPARE_MAX=5;
+function compareLoad(){ try{ return JSON.parse(localStorage.getItem(COMPARE_KEY)||'[]'); } catch(e){ return []; } }
+function compareSave(list){ try{ localStorage.setItem(COMPARE_KEY, JSON.stringify(list)); } catch(e){ alert('Storage unavailable — comparison disabled for this session.'); } }
+function compareRefreshPill(){
+  const list=compareLoad();
+  const pill=document.getElementById('compare-pill'), n=document.getElementById('compare-count');
+  n.textContent=list.length;
+  pill.hidden = list.length===0;
+}
+function snapshotId(a){ return `${a.street}-${a.hnr}-${a.plz}`.toLowerCase().replace(/\s+/g,'-'); }
+
+function buildSnapshot(){
+  if(!eduData||!eduData.address) return null;
+  const a=eduData.address, c=eduData.catchment||{}, s=(eduData.schools||[])[0], i=eduData.intl_grundschule, k=eduData.kitas||{};
+  const cnt=(cat)=> (amenData && amenData[cat]) ? amenData[cat].count : null;
+  return {
+    id: snapshotId(a),
+    savedAt: Date.now(),
+    address: {street:a.street, hnr:a.hnr, plz:a.plz, district:c.district, lat:a.lat, lon:a.lon},
+    catchment: {esb:c.esb, district:c.district},
+    school: s ? {name:s.name, sesb_strand:s.sesb_strand, school_year:s.school_year} : null,
+    intl: i ? {name:i.name, distance_m:i.distance_m} : null,
+    counts: {kitas:k.count, playgrounds:cnt('playgrounds'), parks:cnt('parks'), transit:cnt('transit')},
+    noise: (envData && !envData.unavailable) ? {
+      l_den: envData.l_den?.total, l_night: envData.l_night?.total, tier_den: envData.tier,
+    } : null,
+  };
+}
+
+function saveCurrent(){
+  const snap=buildSnapshot(); if(!snap) return;
+  const list=compareLoad();
+  if(list.find(x=>x.id===snap.id)){ toast('Already saved'); return; }
+  if(list.length>=COMPARE_MAX){ alert(`Comparison holds up to ${COMPARE_MAX} addresses. Remove one first.`); return; }
+  list.push(snap); compareSave(list); compareRefreshPill(); refreshSaveBtn();
+  toast('Saved ✓');
+}
+function refreshSaveBtn(){
+  const btn=document.getElementById('save-btn'); if(!btn) return;
+  const snap=buildSnapshot();
+  if(!snap){ btn.hidden=true; return; }
+  btn.hidden=false;
+  const already=compareLoad().find(x=>x.id===snap.id);
+  if(already){ btn.textContent='✓ Saved to comparison'; btn.disabled=true; return; }
+  const ready = amenData && envData;  // block save until both lazy fetches land
+  btn.textContent = ready ? '+ Save to comparison' : 'Loading data…';
+  btn.disabled = !ready;
+}
+document.getElementById('save-btn').addEventListener('click', saveCurrent);
+
+let _toastTimer=null;
+function toast(msg){
+  let el=document.getElementById('_toast');
+  if(!el){ el=document.createElement('div'); el.id='_toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+// -- Compare view + hash routing ------------------------------------------
+function showView(){
+  const isCompare = location.hash === '#compare';
+  document.getElementById('view-main').hidden = isCompare;
+  document.getElementById('view-compare').hidden = !isCompare;
+  if(isCompare) renderCompare();
+}
+window.addEventListener('hashchange', showView);
+
+function renderCompare(){
+  const list=compareLoad();
+  const $c=document.getElementById('compare-content');
+  const header=`<div class="compare-header">
+    <h2>Comparison board</h2>
+    <div class="compare-actions">
+      ${list.length?`<button class="pill-btn" id="clear-all-btn">Clear all</button>`:''}
+      <a class="pill-btn pill-btn-brand" href="#">← Back to lookup</a>
+    </div></div>`;
+  if(!list.length){
+    $c.innerHTML=`${header}<div class="compare-empty">
+      <div class="icon-badge">${ico.home}</div>
+      <p>No saved addresses yet. Look one up, then click "Save to comparison" to add it here — up to ${COMPARE_MAX} side by side.</p></div>`;
+    return;
+  }
+  const cols=list.map((snap,idx)=>{
+    const a=snap.address;
+    return `<th class="addr-col">
+      <button class="col-remove" data-id="${esc(snap.id)}" title="Remove">✕</button>
+      <span class="addr-title">${esc(a.street)} ${esc(a.hnr)}</span>
+      <span class="addr-sub">${esc(a.plz)} ${esc(a.district||'')}</span></th>`;
+  }).join('');
+  const row = (label, cells, cls='') => `<tr class="${cls}"><th>${label}</th>${cells}</tr>`;
+  const sect = (label) => `<tr class="section-row"><th colspan="${list.length+1}">${label}</th></tr>`;
+  const cell = (v, cls='') => v==null||v==='' ? `<td class="na">—</td>` : `<td class="${cls}">${v}</td>`;
+  const noiseCell = (n) => {
+    if(!n||n.l_den==null) return `<td class="na">—</td>`;
+    const t = n.tier_den || 'unknown';
+    return `<td><span class="noise-cell tier-${t}">${n.l_den.toFixed(0)} dB<span class="noise-sub">/ ${n.l_night!=null?n.l_night.toFixed(0)+' night':'—'}</span></span></td>`;
+  };
+  const rows = [
+    sect('Location & Schools'),
+    row('Address',         list.map(s=>cell(`${esc(s.address.street)} ${esc(s.address.hnr)}, ${esc(s.address.plz)}`)).join('')),
+    row('District',        list.map(s=>cell(esc(s.address.district))).join('')),
+    row('Catchment Grundschule', list.map(s=>cell(s.school?esc(s.school.name):null)).join('')),
+    row('SESB bilingual',  list.map(s=>cell(s.school&&s.school.sesb_strand?`<span class="sesb-cell">${esc(s.school.sesb_strand)}</span>`:null)).join('')),
+    row('Nearest international', list.map(s=>cell(s.intl?`${esc(s.intl.name)} <span style="color:var(--muted);font-weight:500">(${(s.intl.distance_m/1000).toFixed(1)} km)</span>`:null)).join('')),
+    sect('Kids & amenities within 800 m'),
+    row('Kitas (registered)',    list.map(s=>cell(s.counts.kitas,'metric-num')).join('')),
+    row('Playgrounds',           list.map(s=>cell(s.counts.playgrounds,'metric-num')).join('')),
+    row('Parks / green',         list.map(s=>cell(s.counts.parks,'metric-num')).join('')),
+    row('Transit stops',         list.map(s=>cell(s.counts.transit,'metric-num')).join('')),
+    sect('Street noise (Berlin 2022 façade)'),
+    row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
+    row('L_Night · 22–06',       list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_night==null?null:s.noise.l_night+10)}">${s.noise.l_night!=null?s.noise.l_night.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
+  ].join('');
+  $c.innerHTML=`${header}<div class="compare-wrap"><table class="compare-table">
+    <thead><tr><th class="metric-col"></th>${cols}</tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+  $c.querySelectorAll('.col-remove').forEach(b=>b.addEventListener('click',()=>{
+    const list=compareLoad().filter(x=>x.id!==b.dataset.id);
+    compareSave(list); compareRefreshPill(); refreshSaveBtn(); renderCompare();
+  }));
+  const clr=document.getElementById('clear-all-btn');
+  if(clr) clr.addEventListener('click',()=>{
+    if(confirm('Remove all saved addresses?')){ compareSave([]); compareRefreshPill(); renderCompare(); }
+  });
+}
+
+function bindStrollerForm(){
+  const f=document.getElementById('stroller-floor'), l=document.getElementById('stroller-lift'), k=document.getElementById('stroller-kwr');
+  if(!f) return;
+  f.value = strollerState.floor;
+  l.value = strollerState.lift===true?'yes':strollerState.lift===false?'no':'';
+  k.checked = !!strollerState.kwr;
+  f.addEventListener('input',()=>{ strollerState.floor=f.value; renderStrollerCard(); });
+  l.addEventListener('change',()=>{ strollerState.lift = l.value==='yes'?true:l.value==='no'?false:null; renderStrollerCard(); });
+  k.addEventListener('change',()=>{ strollerState.kwr=k.checked; renderStrollerCard(); });
+}
+
+function emptyAmenPending(){
+  if(mapAmenRef){mapAmenRef.remove();mapAmenRef=null}
+  $amen.innerHTML=`<div class="empty" style="margin-top:14px">
+  <div class="row"><div class="icon-badge">${ico.playground}</div><div class="icon-badge">${ico.tree}</div><div class="icon-badge">${ico.transit}</div></div>
+  <p>Open the Amenities tab to load playgrounds, parks, pharmacies, supermarkets, GPs, and transit stops within 800 m.</p></div>`;
+}
+
+let amenFetching=false;
+async function fetchAmenities(lat,lon){
+  if(amenFetching) return;
+  amenFetching=true;
+  $amen.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin Open Data + OpenStreetMap…</div>`;
+  try{
+    const r=await fetch(`/api/amenities?lat=${lat}&lon=${lon}`);
+    const d=await r.json();
+    if(!r.ok){$amen.innerHTML=`<div class="error">${esc(d.error||'Failed to load amenities.')}</div>`;return}
+    renderAmenities(d); $amen.dataset.loaded='1'; refreshSaveBtn();
+  }catch(e){$amen.innerHTML=`<div class="error">Network error: ${esc(e.message)}</div>`}
+  finally{amenFetching=false}
+}
+
+function renderAmenities(d){
+  amenData=d.amenities||{}; selectedCat=null;
+  const cards=AMEN.map(([k,label,icon])=>{
+    const b=amenData[k]||{count:0,items:[]};
+    if(b.error) return `<div class="cell amen-cell" data-cat="${k}" style="cursor:default">
+      <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
+      <p class="sub" style="color:var(--danger)">Overpass error: ${esc(b.error)}</p></div>`;
+    const items=(b.items||[]).slice(0,6).map(it=>{
+      const tip=it.info?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body">${esc(it.info)}</div></details>`:'';
+      return `<li><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
+    }).join('') || '<li class="none">None within 800 m.</li>';
+    const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within 800 m</p>`:'';
+    const disabled=!(b.count>0);
+    return `<div class="cell amen-cell" data-cat="${k}"${disabled?' style="cursor:default"':''}>
+      <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span>${disabled?'':`<span class="chev">${ico.chev}</span>`}</div>
+      <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">within ~800 m</span></div>
+      <div class="amen-body">
+        <ul class="amen-list">${items}</ul>${more}
+        <div class="prov">${esc(b.provenance || '© OpenStreetMap contributors (ODbL)')}</div>
+      </div></div>`;
+  }).join('');
+  $amen.innerHTML=`<div class="grid">
+    <div class="stack">${cards}</div>
+    <div class="map-cell amen-map-cell"><div class="map-hint" id="amenHint">Click a card to plot its locations</div><div id="map-amen"></div></div>
+  </div>`;
+  drawAmenMap();
+  $amen.querySelectorAll('.amen-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
+    if(e.target.closest('.info-tip')) return; // clicks on tooltip don't collapse the card
+    const cat=cell.dataset.cat, b=amenData[cat];
+    if(!b || !(b.count>0)) return;
+    selectAmenCategory(cat);
+  }));
+}
+
+function drawAmenMap(){
+  if(mapAmenRef){mapAmenRef.remove();mapAmenRef=null}
+  if(!lastCoord) return;
+  const {lat,lon}=lastCoord;
+  mapAmenRef=L.map('map-amen',{scrollWheelZoom:false}).setView([lat,lon],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap · © CARTO'}).addTo(mapAmenRef);
+  L.circle([lat,lon],{radius:800,color:'#22C55E',weight:1.5,fillColor:'#22C55E',fillOpacity:.05,dashArray:'5 6'}).addTo(mapAmenRef);
+  L.marker([lat,lon],{icon:pin('#EC4899',15)}).addTo(mapAmenRef).bindPopup('Your address');
+  amenLayer=null;
+  requestAnimationFrame(()=>mapAmenRef&&mapAmenRef.invalidateSize());
+}
+
+function selectAmenCategory(cat){
+  if(!mapAmenRef) return;
+  if(amenLayer){mapAmenRef.removeLayer(amenLayer);amenLayer=null}
+  const wasSelected=selectedCat===cat;
+  selectedCat=wasSelected?null:cat;
+  $amen.querySelectorAll('.amen-cell').forEach(c=>c.classList.toggle('active',c.dataset.cat===selectedCat));
+  const hint=document.getElementById('amenHint');
+  // rAF: card expand/collapse just changed .stack height; wait for layout so
+  // Leaflet invalidateSize reads the new map-cell dimensions before fitBounds.
+  requestAnimationFrame(()=>{
+    if(!mapAmenRef) return;
+    mapAmenRef.invalidateSize();
+    if(wasSelected){
+      if(hint) hint.textContent='Click a card to plot its locations';
+      mapAmenRef.setView([lastCoord.lat,lastCoord.lon],14);
+      return;
+    }
+    const items=(amenData[cat]?.items)||[];
+    const label=AMEN.find(a=>a[0]===cat)[1];
+    if(hint) hint.textContent=`${label}: ${items.length} shown · ${amenData[cat].count} total`;
+    const markers=items.map(it=>L.marker([it.lat,it.lon],{icon:amenPin(cat)})
+      .bindPopup(`<b>${esc(it.name)}</b><br>${it.distance_m} m · ~${walkMin(it.distance_m)} min walk${it.info?`<br><span style="color:#6B7280">${esc(it.info)}</span>`:''}`));
+    amenLayer=L.featureGroup(markers).addTo(mapAmenRef);
+    const b=L.latLngBounds(items.map(i=>[i.lat,i.lon])); b.extend([lastCoord.lat,lastCoord.lon]);
+    try{mapAmenRef.fitBounds(b.pad(0.15))}catch(e){}
+  });
+}
+function drawMap(d){
+  if(mapRef){mapRef.remove();mapRef=null}
+  eduLayer=null;
+  const a=d.address;
+  mapRef=L.map('map',{scrollWheelZoom:false}).setView([a.lat,a.lon],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap · © CARTO'}).addTo(mapRef);
+  const p=d.catchment&&d.catchment.polygon;
+  if(p){const l=L.geoJSON(p,{style:{color:'#4F46E5',weight:2.5,fillColor:'#4F46E5',fillOpacity:.10}}).addTo(mapRef);try{mapRef.fitBounds(l.getBounds().pad(0.1))}catch(e){}}
+  L.circle([a.lat,a.lon],{radius:800,color:'#22C55E',weight:1.5,fillColor:'#22C55E',fillOpacity:.05,dashArray:'5 6'}).addTo(mapRef);
+  L.marker([a.lat,a.lon],{icon:pin('#EC4899',15)}).addTo(mapRef).bindPopup(`<b>${esc(a.street)} ${esc(a.hnr)}</b>`);
+  requestAnimationFrame(()=>mapRef&&mapRef.invalidateSize());
+}
+
+function selectEduCategory(cat){
+  if(!mapRef || !eduData) return;
+  if(eduLayer){mapRef.removeLayer(eduLayer);eduLayer=null}
+  const wasSelected=eduSelected===cat;
+  eduSelected=wasSelected?null:cat;
+  $out.querySelectorAll('.edu-cell').forEach(c=>c.classList.toggle('active',c.dataset.eduCat===eduSelected));
+  const hint=document.getElementById('eduHint');
+  const a=eduData.address;
+  requestAnimationFrame(()=>{
+    if(!mapRef) return;
+    mapRef.invalidateSize();
+    if(wasSelected){
+      if(hint) hint.textContent='Click a card to plot its location';
+      const poly=eduData.catchment&&eduData.catchment.polygon;
+      if(poly){try{mapRef.fitBounds(L.geoJSON(poly).getBounds().pad(0.1))}catch(e){mapRef.setView([a.lat,a.lon],14)}}
+      else mapRef.setView([a.lat,a.lon],14);
+      return;
+    }
+    // address = just re-focus the map on the pink address pin
+    if(cat==='address'){
+      if(hint) hint.textContent='Your address';
+      mapRef.setView([a.lat,a.lon],16);
+      return;
+    }
+    // resolve points: schools indexed by 'school-N'; kita = all; intl = single
+    let points=[], style, label;
+    if(cat.startsWith('school-')){
+      const s=(eduData.schools||[])[+cat.slice(7)];
+      if(!s || s.lat==null) return;
+      points=[{lat:s.lat,lon:s.lon,name:s.name}]; style=EDU_STYLE.school; label='Assigned Grundschule';
+    } else if(cat==='kita'){
+      points=(eduData.kitas&&eduData.kitas.items||[]).map(k=>({lat:k.lat,lon:k.lon,name:k.name}));
+      style=EDU_STYLE.kita; label='Kitas';
+    } else if(cat==='intl'){
+      const i=eduData.intl_grundschule;
+      if(!i) return;
+      points=[{lat:i.lat,lon:i.lon,name:i.name}]; style=EDU_STYLE.intl; label='International';
+    } else return;
+    if(hint) hint.textContent=points.length>1?`${label}: ${points.length} plotted`:label;
+    const markers=points.map(pt=>L.marker([pt.lat,pt.lon],{icon:iconPin(ico[style.icon],style.color)})
+      .bindPopup(`<b>${esc(pt.name)}</b>`));
+    eduLayer=L.featureGroup(markers).addTo(mapRef);
+    const b=L.latLngBounds(points.map(pt=>[pt.lat,pt.lon])); b.extend([a.lat,a.lon]);
+    try{mapRef.fitBounds(b.pad(0.2))}catch(e){}
+  });
+}
+function pin(color,size){return L.divIcon({className:'',html:`<div style="width:${size}px;height:${size}px;border-radius:99px;background:${color};border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.25)"></div>`,iconSize:[size,size],iconAnchor:[size/2,size/2]})}
+function iconPin(svg,color){return L.divIcon({className:'',html:`<div class="amen-pin" style="background:${color}">${svg}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})}
+function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);return iconPin(meta[2],meta[3])}
+</script>
+</body>
+</html>
