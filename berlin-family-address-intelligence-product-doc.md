@@ -371,6 +371,108 @@ The dataset description mentions both. The difference determines whether the hea
 
 It is one afternoon of work. Nothing else in this document should begin until it is done.
 
+> **Status (2026-08):** cleared. 394 usable Einschulbereich polygons, 87.3% clean 1:1 catchments. Full details in `phase0/wfs-validation-report.md`. Phase 1 (MVP) and Phase 2 (comparison + noise + stroller) shipped against these findings.
+
+---
+
+## 14. Engineering conventions (Phase 1 + Phase 2 as reference)
+
+The codebase in `phase0/`, `phase1/`, `phase2/` is the reference for shape and style. Every new ship — Phase 3, Phase 4, and beyond — should match unless there is a stated reason not to. The list below is the shortest complete description of that shape.
+
+### 14.1 Directory layout
+
+- One directory per phase (`phase0/`, `phase1/`, `phase2/`). Each phase is self-contained and runnable on its own.
+- **Preserve older phases untouched.** A new phase copies the previous phase's files and extends additively. Old phases are the reference artefacts and the diff-history for reviewers.
+- Product doc + design-system + README stay at repo root.
+
+### 14.2 Server shape
+
+- One `server.py` per phase, ~500–1000 lines, single process.
+- **Stdlib only:** `http.server`, `socketserver`, `urllib`, `json`, `threading`, `math`, `unicodedata`, `pathlib`.
+- **Only external dep:** `shapely` (`pip3 install --user shapely`). No frameworks (Flask/FastAPI/Django), no ORM, no build step, no bundler, no `requirements.txt` unless a hard need appears.
+- Run: `python3 server.py` (port 8000 default; override with `PORT=8001 python3 server.py`).
+- Selfcheck: `python3 server.py test` (see §14.8).
+
+### 14.3 Frontend shape
+
+- One `index.html` per phase, ~1000–2000 lines, everything inline (CSS + JS + SVG icons).
+- Vanilla JS. External libs limited to Leaflet (map) and Plus Jakarta Sans (Google Fonts). No React/Vue/Svelte/htmx.
+- No build step. Edit the file, hard-refresh the browser.
+
+### 14.4 Data-sourcing rule (see §6)
+
+- Berlin Open Data first, OSM as fallback / supplement. Every new category answers "primary from BOD? if not, why not?"
+- Per-item `source: "bod" | "osm"` tag on every feature so mixed-provenance strings can be built honestly.
+- When merging BOD + OSM for the same category, dedupe OSM against BOD centroids (see `_merge_bod_and_osm` in `phase2/server.py`).
+
+### 14.5 Provenance
+
+- Every panel/card in the UI shows source + vintage (§5.4).
+- Every API response includes either a top-level `provenance` map (per-domain) or a per-category `provenance` string.
+- Mixed sources use the `_mixed_provenance()` pattern from `phase2/server.py` — the string reflects what actually contributed to *this* result, not a static footer.
+- Footer attribution mandatory (§Appendix).
+
+### 14.6 Caching strategy
+
+- **Small point layers** (schools, catchments, kitas — thousands of points): load once at startup into `Index.*` attributes, filter in memory.
+- **Large / polygon layers** (parks, playgrounds, façade noise — millions of points or polygons city-wide): per-request bbox WFS query, cached in an in-memory dict keyed by rounded `(lon, lat, radius)`.
+- Threading locks around every cache dict — the stdlib server is threaded.
+
+### 14.7 API conventions
+
+- `GET /` → HTML. `GET /api/*` → JSON. `GET /health` → `{ok: true, ...}`.
+- Response: `{ ...data, provenance: {...} }` on success, `{ error: "..." }` on failure.
+- HTTP status: 200 for success, 400 for bad input, 404 for not-found, 502 for upstream failures. Errors always carry a plain-English `error` field.
+- **Partial success** in aggregating endpoints (e.g. `/api/amenities`) — per-category `error` field lets one bucket fail without failing the whole call. The frontend can retry (see the auto-retry in `fetchAmenities`).
+
+### 14.8 Testing
+
+- Single `_selfcheck()` function in each `server.py`, invoked with `python3 server.py test`.
+- Cover:
+  1. Happy path — a known-good Berlin address returns expected school, kitas, catchment.
+  2. Rule-based tier transitions (noise thresholds, stroller tiers) — pure functions, no network.
+  3. Integration merges — BOD + OSM dedupe, JSON parse safety, error paths.
+- Network-dependent assertions gate gracefully: if the WFS is unreachable, print "skipped" rather than fail.
+- **No pytest, no fixtures dir, no per-function suites** unless a specific feature genuinely needs one.
+
+### 14.9 Frontend patterns
+
+- Design tokens live in `:root` (`--bg`, `--hero-bg`, `--result-bg`, `--brand`, `--ink`, `--muted`, `--sh-1`, `--sh-2`, ...). Reuse; do not invent new hex values without a token.
+- Card shape: `.cell` with a left color bar (`::before`, `scaleY(0) → 1` on hover) and rounded corners.
+- Tier colors: **green / amber / orange / red** for 4-tier metrics (noise); **green / amber / red** for 3-tier metrics (stroller). Class the container element `.tier-<name>` and style children via descendant selectors so a single class swap re-colours the whole card.
+- Font: Plus Jakarta Sans. Icons: inline SVG strings in one shared `ico = {...}` object.
+- **`[hidden]` gotcha (learned twice):** keep `[hidden]{display:none!important}` at the top of the stylesheet. Any element whose class sets `display:` (flex, inline-flex, grid) will otherwise ignore the attribute. Do not remove that rule.
+
+### 14.10 Anonymity & storage (§5.3)
+
+- No login. No cookies. No server-side session.
+- User-scoped state lives in `localStorage` only, keyed `berlin-lens-<feature>-v<n>`.
+- Any personal input (household profile in Phase 3) must be opt-in and session-only by default. Clear deletion path required.
+
+### 14.11 Ponytail annotations
+
+- Deliberate simplifications with a known ceiling carry a `ponytail:` comment naming the ceiling and the upgrade path. Example from `phase2/server.py`:
+
+  ```python
+  # ponytail: centroid + haversine, not nearest-boundary-point. Ceiling: for
+  # very large polygons (e.g., Tiergarten) the centroid can be 500m+ from the
+  # nearest edge; upgrade path is a projected CRS + shapely.distance.
+  ```
+
+- Do **not** strip these — they are the standing debt ledger. Address one when you have a real reason (a bug, a metric, a user complaint), not on a schedule.
+
+### 14.12 Live-browser QA
+
+- After any UI change, drive the flow end-to-end in a real browser (Playwright MCP is fine) covering: **initial-empty state, error state, happy path, and any interactive form**.
+- Type checks and the selfcheck verify code correctness — not feature correctness. Do not report a UI ship as done without opening it in a browser.
+- Clean up screenshots after the QA session (they are ephemeral).
+
+### 14.13 Commit style
+
+- Short, imperative subject (`git log --oneline` in this repo is the reference).
+- Split by concern where the diff supports it (doc-policy vs. code, for example).
+- Never commit scraped or listing data. Never commit personal test data with real household details.
+
 ---
 
 ## Appendix — Attribution requirements
