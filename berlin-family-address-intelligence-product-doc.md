@@ -34,10 +34,7 @@ Existing portals compete on inventory and speed of alerts. Nobody competes on *c
 
 This is the single most important design decision in the document. Everything else follows from it.
 
-**Input:** one of
-- A street address (`Prenzlauer Allee 42, 10405 Berlin`)
-- GPS coordinates
-- A listing URL — from which we extract **only** the address (plus floor / lift if visible), and discard everything else immediately
+**Input:** a street address (`Prenzlauer Allee 42, 10405 Berlin`).
 
 **Output:** a family dashboard about that *location*.
 
@@ -194,6 +191,7 @@ Primary portal: **daten.berlin.de**, licence *Datenlizenz Deutschland – Namens
 
 ### Engineering notes
 
+- **Berlin Open Data first, OSM as fallback / supplement.** Where a Berlin geoportal dataset exists (addresses, schools, catchments, Kitas, playgrounds via Grünanlagenbestand, transit via VBB GTFS, noise), use it as the primary source. OSM covers categories the city doesn't publish (pharmacies, GPs, supermarkets) and supplements known undercounts (Grünanlagenbestand excludes school/Kita/sports/cemetery green space).
 - **Cache, don't proxy.** WFS endpoints are not built for per-request app traffic. Pull each dataset on a schedule into PostGIS and run your own spatial queries.
 - **Refresh cadence:** GTFS weekly · addresses monthly · Kitas quarterly · noise and catchments annually (catchments before each school year).
 - **Attribution component** in the footer and per-panel from day one.
@@ -256,7 +254,6 @@ Primary portal: **daten.berlin.de**, licence *Datenlizenz Deutschland – Namens
 - Noise layer (façade-level L-DEN / L-N)
 - Stroller score (floor × lift × Kinderwagenraum × playground)
 - Playground and green space
-- Listing-URL input (address extraction only)
 - Optional account for saved comparisons
 - **Launch consumer pricing as a one-time pass (€49–79), not a subscription** — the pain lasts ~3 months, so a monthly plan guarantees 100% churn
 
