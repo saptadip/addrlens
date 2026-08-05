@@ -129,9 +129,55 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 @keyframes panelIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 
 .grid{margin-top:14px;display:flex;flex-direction:column;gap:14px}
-.stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0;position:relative}
 @media(min-width:900px){.grid{flex-direction:row;align-items:stretch}
   .stack{flex:1.15 1 0;min-width:0}.map-cell{flex:.85 1 0;min-width:0}}
+
+/* Variant A: compact square tiles for Amenities/Medical. Only the head +
+   count show pre-click; body content lives in the modal. min-height keeps
+   the modal + map at a proper display size regardless of tile count. */
+.stack.tiles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;align-content:start;min-height:560px}
+.tiles-grid .amen-cell{aspect-ratio:1/1;padding:16px;display:flex;flex-direction:column;justify-content:space-between;
+  transition:background .2s ease,box-shadow .25s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+.tiles-grid .amen-cell::before{display:none}                           /* no blue vertical accent bar on tiles */
+.tiles-grid .amen-cell:hover{background:var(--result-bg-hover)}         /* hover = colour shift, no accent line */
+.tiles-grid .amen-cell .cell-head{flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:0}
+.tiles-grid .amen-cell .cell-head .chev{display:none}
+.tiles-grid .amen-cell .cell-label{font-size:11px}
+.tiles-grid .amen-cell .metric-big{margin:0}
+.tiles-grid .amen-cell .metric-big .n{font-size:36px}
+.tiles-grid .amen-cell .metric-big .cap{font-size:11px}
+.tiles-grid .amen-cell .amen-body{display:none !important}
+
+/* Modal panel — absolutely positioned inside .stack, covers ONLY the cards
+   column so the map stays visible on the right. Uses a flex column layout
+   so only the item list scrolls; head, count, and provenance stay pinned. */
+.amen-modal{position:absolute;inset:0;background:rgba(238,242,255,.98);backdrop-filter:blur(8px);
+  border-radius:22px;padding:24px;overflow:hidden;z-index:100;
+  display:flex;flex-direction:column;
+  box-shadow:
+    -10px -10px 22px rgba(255,255,255,1),
+     12px  12px 26px rgba(90,102,145,.5),
+    inset 1px 1px 2px rgba(255,255,255,.65);
+  animation:modalIn .2s ease-out}
+@keyframes modalIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+.amen-modal[hidden]{display:none}
+.amen-modal-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;
+  border:none;background:var(--result-bg);color:var(--ink-2);font-size:18px;cursor:pointer;
+  display:grid;place-items:center;
+  box-shadow:-3px -3px 6px rgba(255,255,255,.9),3px 3px 8px rgba(90,102,145,.35)}
+.amen-modal-close:hover{color:var(--ink)}
+.amen-modal .modal-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-shrink:0}
+.amen-modal .modal-head .icon-badge{width:44px;height:44px;border-radius:12px;flex-shrink:0}
+.amen-modal .modal-head .icon-badge svg{width:22px;height:22px}
+.amen-modal .modal-head h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:20px}
+.amen-modal .metric-big{margin:2px 0 14px;flex-shrink:0}
+.amen-modal .amen-body{display:flex !important;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
+.amen-modal .amen-list{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0;padding-right:6px}
+.amen-modal .amen-more{font-size:12px;color:var(--muted);margin:8px 0 0;flex-shrink:0}
+.amen-modal .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.4;flex-shrink:0}
+.amen-modal .amen-list{margin:8px 0 0}
+.amen-modal .prov{margin-top:16px}
 
 /* Neumorphic card chip: same periwinkle surface, no border, paired soft
    shadows (bright top-left highlight, deep bottom-right shadow). Hover
@@ -1264,8 +1310,8 @@ function _renderAmenPanel(tab){
   const entries=AMEN.filter(e=>tabOf(e[0])===tab);
   const cards=entries.map(_amenCardHtml).join('');
   p.$el.innerHTML=`<div class="grid">
-    <div class="stack">${cards}</div>
-    <div class="map-cell amen-map-cell"><div class="map-hint" id="${p.hintId}">Click a card to plot its locations</div><div id="${p.mapId}"></div></div>
+    <div class="stack tiles-grid">${cards}<div class="amen-modal" id="amen-modal-${tab}" hidden></div></div>
+    <div class="map-cell amen-map-cell"><div class="map-hint" id="${p.hintId}">Click a tile for details</div><div id="${p.mapId}"></div></div>
   </div>`;
   // Only initialize Leaflet if this panel is currently visible; otherwise a
   // hidden 0×0 container leads to stale-tile rendering. The tab-switch
@@ -1276,13 +1322,16 @@ function _renderAmenPanel(tab){
     if(e.target.closest('.amen-list li[data-idx]')) return;
     const cat=cell.dataset.cat, b=amenData[cat];
     if(!b || !(b.count>0)) return;
-    selectAmenCategory(cat);
+    openAmenModal(tab, cat);         // Variant A: modal instead of inline expand
+    selectAmenCategory(cat);          // still plot on map
   }));
-  p.$el.querySelectorAll('.amen-list li[data-idx]').forEach(li=>li.addEventListener('click',(e)=>{
-    e.stopPropagation();
-    const cat=li.closest('.amen-cell').dataset.cat;
-    highlightAmenItem(cat, +li.dataset.idx);
-  }));
+  // per-item click in modal — delegate on the modal itself
+  const modal=document.getElementById('amen-modal-'+tab);
+  modal.addEventListener('click',(e)=>{
+    if(e.target.closest('.amen-modal-close')){ closeAmenModal(tab); return; }
+    const li=e.target.closest('.amen-list li[data-idx]');
+    if(li){ e.stopPropagation(); const cat=li.dataset.cat; highlightAmenItem(cat, +li.dataset.idx); }
+  });
   const stackEl = p.$el.querySelector('.stack');
   if(stackEl){ applyCardOrder(tab, stackEl); enableDrag(tab, stackEl); }
 }
@@ -1293,6 +1342,40 @@ function renderAmenities(d){
   _renderAmenPanel('amen');
   _renderAmenPanel('med');
 }
+
+// -- Variant A modal --------------------------------------------------------
+function openAmenModal(tab, cat){
+  const modal=document.getElementById('amen-modal-'+tab); if(!modal) return;
+  const entry=AMEN.find(e=>e[0]===cat); if(!entry) return;
+  const [k,label,icon,,cap]=entry;
+  const rangeCap=cap||'within ~800 m';
+  const rangeShort=cap?cap.replace(/^within ~?/,''):'800 m';
+  const b=amenData[k]||{count:0,items:[]};
+  const items=(b.items||[]).slice(0,25).map((it,i)=>{
+    const details=amenDetailHtml(k,it);
+    const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
+    return `<li data-idx="${i}" data-cat="${k}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
+  }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
+  const more=(b.count||0)>25?`<p class="amen-more">+${b.count-25} more within ${rangeShort}</p>`:'';
+  modal.innerHTML=`
+    <button class="amen-modal-close" aria-label="Close">✕</button>
+    <div class="modal-head"><div class="icon-badge">${icon}</div><h3>${label}</h3></div>
+    <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span></div>
+    <div class="amen-body"><ul class="amen-list">${items}</ul>${more}
+      <div class="prov">${esc(b.provenance||'© OpenStreetMap contributors (ODbL)')}</div>
+    </div>`;
+  modal.hidden=false;
+}
+function closeAmenModal(tab){
+  const modal=document.getElementById('amen-modal-'+tab); if(!modal) return;
+  modal.hidden=true; modal.innerHTML='';
+  dropOrphanTooltips();
+}
+// Escape closes any open modal
+document.addEventListener('keydown', e => {
+  if(e.key!=='Escape') return;
+  ['amen','med'].forEach(t => { const m=document.getElementById('amen-modal-'+t); if(m && !m.hidden) closeAmenModal(t); });
+});
 
 function drawAmenMap(tab){
   const p=panels[tab];
