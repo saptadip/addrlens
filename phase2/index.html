@@ -225,8 +225,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
 .empty p{font-weight:600;font-size:16px;color:var(--ink);max-width:520px;margin:0 auto}
 
-#map-amen{flex:1;min-height:0;height:100%}
-@media(max-width:899px){.amen-map-cell{min-height:340px}#map-amen{min-height:340px;height:340px}}
+#map-amen,#map-med{flex:1;min-height:0;height:100%}
+@media(max-width:899px){.amen-map-cell{min-height:340px}#map-amen,#map-med{min-height:340px;height:340px}}
 .map-hint{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,.94);padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:var(--sh-1);pointer-events:none}
 .amen-pin{width:30px;height:30px;border-radius:99px;display:grid;place-items:center;border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.28);color:#fff}
 .amen-pin svg{width:16px;height:16px;stroke:currentColor}
@@ -245,6 +245,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .info-body.details-block .det-val a{color:var(--brand);font-weight:600}
 .info-body.details-block .dim{color:var(--muted);font-weight:500;font-size:11.5px}
 .amen-cell,.edu-cell{cursor:pointer}
+.cell[draggable="true"]{cursor:grab}
+.cell[draggable="true"].dragging{opacity:.4;cursor:grabbing}
+.cell.drop-target{outline:2px dashed var(--brand);outline-offset:3px}
 .cell.active{background:var(--result-bg-hover);box-shadow:0 0 0 2px rgba(79,70,229,.25),var(--sh-2)}
 .cell.active::before{transform:scaleY(1)}
 .cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
@@ -348,6 +351,10 @@ footer a{color:var(--brand)}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h.01M15 17h.01"/></svg>
     Amenities
   </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-med" data-tab="med">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    Medical
+  </button>
   <button class="tab" role="tab" aria-selected="false" aria-controls="panel-env" data-tab="env">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
     Environment
@@ -360,6 +367,10 @@ footer a{color:var(--brand)}
 
 <section id="panel-amen" class="panel" role="tabpanel" aria-labelledby="tab-amen" hidden>
   <div id="amen"></div>
+</section>
+
+<section id="panel-med" class="panel" role="tabpanel" aria-labelledby="tab-med" hidden>
+  <div id="med"></div>
 </section>
 
 <section id="panel-env" class="panel" role="tabpanel" aria-labelledby="tab-env" hidden>
@@ -402,15 +413,25 @@ const AMEN=[
   ['parks','Parks / green space',ico.tree,'#10B981'],
   ['pharmacies','Pharmacies',ico.pharmacy,'#EF4444'],
   ['supermarkets','Supermarkets',ico.cart,'#F59E0B'],
-  ['gps','GPs / Doctors',ico.gp,'#14B8A6'],
+  ['gps','Doctors',ico.gp,'#14B8A6'],
   ['hospitals','Hospitals',ico.hospital,'#DC2626','within ~2 km'],
   ['fountains','Drinking fountains',ico.fountain,'#0EA5E9'],
   ['transit','Transit stops',ico.transit,'#8B5CF6'],
 ];
 const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
-const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.querySelector('.tabs');
+// Which tab each category renders into. Default: 'amen'. Medical categories
+// (pharmacies, GPs, hospitals) live under the dedicated Medical tab.
+const AMEN_TAB={pharmacies:'med', gps:'med', hospitals:'med'};
+const tabOf=k=>AMEN_TAB[k]||'amen';
+const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.querySelector('.tabs');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
-let mapAmenRef=null, amenLayer=null, amenMarkers=[], amenData=null, selectedCat=null;
+// Per-tab render state (map + selected category). Same shape for both panels
+// so every renderer/selector takes a tab id and reads its slice.
+const panels={
+  amen: {$el:$amen, mapId:'map-amen', hintId:'amenHint', mapRef:null, layer:null, markers:[], selected:null},
+  med:  {$el:$med,  mapId:'map-med',  hintId:'medHint',  mapRef:null, layer:null, markers:[], selected:null},
+};
+let amenData=null;
 let eduData=null, eduLayer=null, eduSelected=null, kitaMarkers=[], addressMarker=null;
 let envData=null;
 const EDU_STYLE={school:{icon:'school',color:'#4F46E5'},kita:{icon:'baby',color:'#94A3B8'},intl:{icon:'globe',color:'#F59E0B'}};
@@ -423,9 +444,18 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.panel').forEach(p=>{const on=p.id==='panel-'+target;p.classList.toggle('active',on);p.hidden=!on});
   // Leaflet was hidden — force a remeasure so tiles fill the container
   if(target==='edu' && mapRef) requestAnimationFrame(()=>mapRef.invalidateSize());
-  // lazy: only fetch amenities when the user actually opens the tab
-  if(target==='amen' && lastCoord && !$amen.dataset.loaded) fetchAmenities(lastCoord.lat,lastCoord.lon);
-  if(target==='amen' && mapAmenRef) requestAnimationFrame(()=>mapAmenRef.invalidateSize());
+  // lazy: only fetch amenities when the user actually opens either tab.
+  // Both tabs read the same /api/amenities response — first tab opened wins.
+  if((target==='amen'||target==='med') && lastCoord && !$amen.dataset.loaded) fetchAmenities(lastCoord.lat,lastCoord.lon);
+  if(panels[target]){
+    // Draw the map on first open (both panels populate content pre-visibility;
+    // Leaflet needs a visible container to size tiles correctly), then just
+    // invalidate on subsequent switches.
+    if(!panels[target].mapRef && document.getElementById(panels[target].mapId))
+      requestAnimationFrame(()=>drawAmenMap(target));
+    else if(panels[target].mapRef)
+      requestAnimationFrame(()=>panels[target].mapRef.invalidateSize());
+  }
   if(target==='env'  && lastCoord && !$env.dataset.loaded)  fetchNoise(lastCoord.lat,lastCoord.lon);
 }));
 
@@ -443,7 +473,10 @@ function empty(){$out.innerHTML=`<div class="empty">
   <p>Enter an address above — we'll build the family picture for that flat.</p></div>`;}
 function emptyAmen(){$amen.innerHTML=`<div class="empty" style="margin-top:14px">
   <div class="row"><div class="icon-badge">${ico.playground}</div><div class="icon-badge">${ico.tree}</div><div class="icon-badge">${ico.transit}</div></div>
-  <p>Look up an address to see playgrounds, parks, pharmacies, supermarkets, GPs, hospitals, drinking fountains, and transit stops within an 800 m walk.</p></div>`;}
+  <p>Look up an address to see playgrounds, parks, supermarkets, drinking fountains, and transit stops within an 800 m walk.</p></div>`;}
+function emptyMed(){$med.innerHTML=`<div class="empty" style="margin-top:14px">
+  <div class="row"><div class="icon-badge">${ico.pharmacy}</div><div class="icon-badge">${ico.gp}</div><div class="icon-badge">${ico.hospital}</div></div>
+  <p>Look up an address to see pharmacies, GPs and hospitals — walkable (800 m) plus the nearest hospitals within ~2 km.</p></div>`;}
 function emptyEnv(){$env.innerHTML=`<div class="empty" style="margin-top:14px">
   <div class="row"><div class="icon-badge">${ico.waves}</div><div class="icon-badge">${ico.moon}</div></div>
   <p>Look up an address to see façade-level street noise (day + night) from Berlin's 2022 strategic noise map.</p></div>`;}
@@ -478,6 +511,63 @@ $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.tri
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function walkMin(m){return Math.round(m/80);}
 function shortUrl(u){ try{ return new URL(u).hostname.replace(/^www\./,''); } catch(e){ return u.length>40?u.slice(0,40)+'…':u; } }
+
+// -- Card drag-reorder ------------------------------------------------------
+// Native HTML5 DnD on .stack > .cell. Order persists per tab in localStorage
+// so a reload / re-lookup keeps the user's arrangement. Cells without a
+// stable key (env noise cells) are skipped — they stay in narrative order.
+const CARD_ORDER_KEY = 'addrlens.cardOrder.v1';
+function cardKey(cell){ return cell.dataset.cat || cell.dataset.eduCat || null; }
+function loadCardOrder(){ try{ return JSON.parse(localStorage.getItem(CARD_ORDER_KEY)||'{}'); }catch(e){ return {}; } }
+function saveCardOrder(tab, stackEl){
+  const order = Array.from(stackEl.querySelectorAll('.cell')).map(cardKey).filter(Boolean);
+  const all = loadCardOrder(); all[tab] = order;
+  localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(all));
+}
+function applyCardOrder(tab, stackEl){
+  const order = loadCardOrder()[tab] || [];
+  if(!order.length) return;
+  const cells = Array.from(stackEl.querySelectorAll('.cell'));
+  const byKey = new Map(cells.map(c=>[cardKey(c),c]).filter(([k])=>k));
+  // Reorder: saved keys first (in order), then any new/keyless cells at end.
+  order.forEach(k => { const c = byKey.get(k); if(c) stackEl.appendChild(c); });
+  cells.forEach(c => { const k = cardKey(c); if(!k || !order.includes(k)) stackEl.appendChild(c); });
+}
+function enableDrag(tab, stackEl){
+  stackEl.querySelectorAll('.cell').forEach(c => { if(cardKey(c)) c.draggable = true; });
+  let dragged = null;
+  const clearMarks = () => stackEl.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+  stackEl.addEventListener('dragstart', e => {
+    const cell = e.target.closest('.cell');
+    if(!cell || !cell.draggable) return;
+    dragged = cell; cell.classList.add('dragging');
+    document.querySelectorAll('details.info-tip[open]').forEach(d => d.open = false);
+    dropOrphanTooltips();
+    e.dataTransfer.effectAllowed = 'move';
+    try{ e.dataTransfer.setData('text/plain', cardKey(cell) || ''); }catch(_){}
+  });
+  stackEl.addEventListener('dragend', () => {
+    if(dragged) dragged.classList.remove('dragging');
+    clearMarks(); dragged = null;
+  });
+  stackEl.addEventListener('dragover', e => {
+    if(!dragged) return;
+    e.preventDefault();
+    const over = e.target.closest('.cell');
+    clearMarks();
+    if(over && over !== dragged) over.classList.add('drop-target');
+  });
+  stackEl.addEventListener('drop', e => {
+    if(!dragged) return;
+    e.preventDefault();
+    const over = e.target.closest('.cell');
+    if(!over || over === dragged) return;
+    const rect = over.getBoundingClientRect();
+    const after = (e.clientY - rect.top) > rect.height/2;
+    over.parentNode.insertBefore(dragged, after ? over.nextSibling : over);
+    saveCardOrder(tab, stackEl);
+  });
+}
 
 // Kita detail rows for the ⓘ tooltip on each list item.
 // Availability is intentionally NOT here — Berlin's open data doesn't publish
@@ -692,6 +782,8 @@ function render(d){
     e.stopPropagation();
     highlightEduKita(+li.dataset.idx);
   }));
+  const eduStack = $out.querySelector('.stack');
+  if(eduStack){ applyCardOrder('edu', eduStack); enableDrag('edu', eduStack); }
   lastCoord={lat:a.lat,lon:a.lon}; $amen.dataset.loaded=''; emptyAmenPending();
   $env.dataset.loaded=''; emptyEnvPending();
   amenData=null; envData=null;                       // drop previous address's counts before save-btn recomputes
@@ -956,13 +1048,14 @@ function renderCompare(){
     row('Playgrounds',           list.map(s=>cell(s.counts.playgrounds,'metric-num')).join('')),
     row('Parks / green',         list.map(s=>cell(s.counts.parks,'metric-num')).join('')),
     sect('Daily essentials within 800 m walk'),
-    row('Pharmacies',            list.map(s=>cell(s.counts.pharmacies,'metric-num')).join('')),
     row('Supermarkets',          list.map(s=>cell(s.counts.supermarkets,'metric-num')).join('')),
-    row('GPs / Doctors',         list.map(s=>cell(s.counts.gps,'metric-num')).join('')),
-    row('Hospitals · 2 km',      list.map(s=>cell(s.counts.hospitals,'metric-num')).join('')),
-    row('Nearest hospital',      list.map(s=>cell(s.nearestHospital?`${esc(s.nearestHospital.name)} <span style="color:var(--muted);font-weight:500">(${s.nearestHospital.distance_m} m)</span>`:null)).join('')),
     row('Drinking fountains',    list.map(s=>cell(s.counts.fountains,'metric-num')).join('')),
     row('Transit stops',         list.map(s=>cell(s.counts.transit,'metric-num')).join('')),
+    sect('Medical services'),
+    row('Pharmacies · 800 m',    list.map(s=>cell(s.counts.pharmacies,'metric-num')).join('')),
+    row('Doctors · 800 m',       list.map(s=>cell(s.counts.gps,'metric-num')).join('')),
+    row('Hospitals · 2 km',      list.map(s=>cell(s.counts.hospitals,'metric-num')).join('')),
+    row('Nearest hospital',      list.map(s=>cell(s.nearestHospital?`${esc(s.nearestHospital.name)} <span style="color:var(--muted);font-weight:500">(${s.nearestHospital.distance_m} m)</span>`:null)).join('')),
     sect('Street noise (Berlin 2022 façade)'),
     row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
     row('L_Night · 22–06',       list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_night==null?null:s.noise.l_night+10)}">${s.noise.l_night!=null?s.noise.l_night.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
@@ -1064,10 +1157,13 @@ function bindStrollerForm(){
 }
 
 function emptyAmenPending(){
-  if(mapAmenRef){mapAmenRef.remove();mapAmenRef=null}
+  ['amen','med'].forEach(t=>{ if(panels[t].mapRef){panels[t].mapRef.remove();panels[t].mapRef=null} });
   $amen.innerHTML=`<div class="empty" style="margin-top:14px">
   <div class="row"><div class="icon-badge">${ico.playground}</div><div class="icon-badge">${ico.tree}</div><div class="icon-badge">${ico.transit}</div></div>
-  <p>Open the Amenities tab to load playgrounds, parks, pharmacies, supermarkets, GPs, hospitals, drinking fountains, and transit stops within 800 m.</p></div>`;
+  <p>Open the Amenities tab to load playgrounds, parks, supermarkets, drinking fountains, and transit stops within 800 m.</p></div>`;
+  $med.innerHTML=`<div class="empty" style="margin-top:14px">
+  <div class="row"><div class="icon-badge">${ico.pharmacy}</div><div class="icon-badge">${ico.gp}</div><div class="icon-badge">${ico.hospital}</div></div>
+  <p>Open the Medical tab to load pharmacies, GPs and hospitals near this address.</p></div>`;
 }
 
 let amenFetching=false, amenAttempts=0;
@@ -1076,120 +1172,142 @@ async function fetchAmenities(lat,lon,isRetry){
   amenFetching=true;
   if(!isRetry) amenAttempts=0;
   amenAttempts++;
-  $amen.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin Open Data + OpenStreetMap${isRetry?' (retrying)':''}…</div>`;
+  const loading=`<div class="loading"><span class="spinner"></span> Reading Berlin Open Data + OpenStreetMap${isRetry?' (retrying)':''}…</div>`;
+  $amen.innerHTML=loading; $med.innerHTML=loading;
   try{
     const r=await fetch(`/api/amenities?lat=${lat}&lon=${lon}`);
     const d=await r.json();
-    if(!r.ok){$amen.innerHTML=`<div class="error">${esc(d.error||'Failed to load amenities.')}</div>`;return}
-    renderAmenities(d); $amen.dataset.loaded='1'; refreshSaveBtn();
+    if(!r.ok){
+      const err=`<div class="error">${esc(d.error||'Failed to load amenities.')}</div>`;
+      $amen.innerHTML=err; $med.innerHTML=err; return;
+    }
+    renderAmenities(d);
+    $amen.dataset.loaded='1'; $med.dataset.loaded='1';
+    refreshSaveBtn();
     // ponytail: Overpass throttles per-IP; a fresh call 3 s later usually
     // clears it. One silent retry, then accept whatever we have.
     if(!isRetry && amenHasErrors()){
       setTimeout(()=>{ if(lastCoord && lat===lastCoord.lat && lon===lastCoord.lon) fetchAmenities(lat,lon,true); else refreshSaveBtn(); }, 3000);
     }
-  }catch(e){$amen.innerHTML=`<div class="error">Network error: ${esc(e.message)}</div>`}
+  }catch(e){
+    const err=`<div class="error">Network error: ${esc(e.message)}</div>`;
+    $amen.innerHTML=err; $med.innerHTML=err;
+  }
   finally{amenFetching=false; refreshSaveBtn();}
 }
 
-function renderAmenities(d){
-  dropOrphanTooltips();
-  amenData=d.amenities||{}; selectedCat=null;
-  const cards=AMEN.map(([k,label,icon,,cap])=>{
-    const rangeCap=cap||'within ~800 m';
-    const rangeShort=cap ? cap.replace(/^within ~?/, '') : '800 m';
-    const b=amenData[k]||{count:0,items:[]};
-    if(b.error) return `<div class="cell amen-cell" data-cat="${k}" style="cursor:default">
-      <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
-      <p class="sub" style="color:var(--danger)">Overpass error: ${esc(b.error)}</p></div>`;
-    const items=(b.items||[]).slice(0,6).map((it,i)=>{
-      const details=amenDetailHtml(k, it);
-      const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
-      return `<li data-idx="${i}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
-    }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
-    const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within ${rangeShort}</p>`:'';
-    const disabled=!(b.count>0);
-    return `<div class="cell amen-cell" data-cat="${k}"${disabled?' style="cursor:default"':''}>
-      <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span>${disabled?'':`<span class="chev">${ico.chev}</span>`}</div>
-      <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span></div>
-      <div class="amen-body">
-        <ul class="amen-list">${items}</ul>${more}
-        <div class="prov">${esc(b.provenance || '© OpenStreetMap contributors (ODbL)')}</div>
-      </div></div>`;
-  }).join('');
-  $amen.innerHTML=`<div class="grid">
+function _amenCardHtml(entry){
+  const [k,label,icon,,cap]=entry;
+  const rangeCap=cap||'within ~800 m';
+  const rangeShort=cap ? cap.replace(/^within ~?/, '') : '800 m';
+  const b=amenData[k]||{count:0,items:[]};
+  if(b.error) return `<div class="cell amen-cell" data-cat="${k}" style="cursor:default">
+    <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
+    <p class="sub" style="color:var(--danger)">Overpass error: ${esc(b.error)}</p></div>`;
+  const items=(b.items||[]).slice(0,6).map((it,i)=>{
+    const details=amenDetailHtml(k, it);
+    const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
+    return `<li data-idx="${i}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
+  }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
+  const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within ${rangeShort}</p>`:'';
+  const disabled=!(b.count>0);
+  return `<div class="cell amen-cell" data-cat="${k}"${disabled?' style="cursor:default"':''}>
+    <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span>${disabled?'':`<span class="chev">${ico.chev}</span>`}</div>
+    <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span></div>
+    <div class="amen-body">
+      <ul class="amen-list">${items}</ul>${more}
+      <div class="prov">${esc(b.provenance || '© OpenStreetMap contributors (ODbL)')}</div>
+    </div></div>`;
+}
+
+function _renderAmenPanel(tab){
+  const p=panels[tab];
+  p.selected=null;
+  // Reset prior map so we redraw against fresh DOM (also releases the old ref).
+  if(p.mapRef){p.mapRef.remove();p.mapRef=null}
+  const entries=AMEN.filter(e=>tabOf(e[0])===tab);
+  const cards=entries.map(_amenCardHtml).join('');
+  p.$el.innerHTML=`<div class="grid">
     <div class="stack">${cards}</div>
-    <div class="map-cell amen-map-cell"><div class="map-hint" id="amenHint">Click a card to plot its locations</div><div id="map-amen"></div></div>
+    <div class="map-cell amen-map-cell"><div class="map-hint" id="${p.hintId}">Click a card to plot its locations</div><div id="${p.mapId}"></div></div>
   </div>`;
-  drawAmenMap();
-  $amen.querySelectorAll('.amen-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
-    if(e.target.closest('.info-tip')) return; // clicks on tooltip don't collapse the card
-    if(e.target.closest('.amen-list li[data-idx]')) return; // per-item clicks are handled below
+  // Only initialize Leaflet if this panel is currently visible; otherwise a
+  // hidden 0×0 container leads to stale-tile rendering. The tab-switch
+  // handler calls drawAmenMap(tab) lazily on first open.
+  if(p.$el.closest('.panel')?.classList.contains('active')) drawAmenMap(tab);
+  p.$el.querySelectorAll('.amen-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
+    if(e.target.closest('.info-tip')) return;
+    if(e.target.closest('.amen-list li[data-idx]')) return;
     const cat=cell.dataset.cat, b=amenData[cat];
     if(!b || !(b.count>0)) return;
     selectAmenCategory(cat);
   }));
-  // Per-item click → focus that specific pin on the map (opens its popup).
-  // Works from any child (name, distance, or the info-tip icon); tooltip still
-  // toggles its own open/close because that fires before the click bubbles.
-  $amen.querySelectorAll('.amen-list li[data-idx]').forEach(li=>li.addEventListener('click',(e)=>{
+  p.$el.querySelectorAll('.amen-list li[data-idx]').forEach(li=>li.addEventListener('click',(e)=>{
     e.stopPropagation();
     const cat=li.closest('.amen-cell').dataset.cat;
     highlightAmenItem(cat, +li.dataset.idx);
   }));
+  const stackEl = p.$el.querySelector('.stack');
+  if(stackEl){ applyCardOrder(tab, stackEl); enableDrag(tab, stackEl); }
 }
 
-function drawAmenMap(){
-  if(mapAmenRef){mapAmenRef.remove();mapAmenRef=null}
+function renderAmenities(d){
+  dropOrphanTooltips();
+  amenData=d.amenities||{};
+  _renderAmenPanel('amen');
+  _renderAmenPanel('med');
+}
+
+function drawAmenMap(tab){
+  const p=panels[tab];
+  if(p.mapRef){p.mapRef.remove();p.mapRef=null}
   if(!lastCoord) return;
   const {lat,lon}=lastCoord;
-  mapAmenRef=L.map('map-amen',{scrollWheelZoom:false}).setView([lat,lon],14);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap · © CARTO'}).addTo(mapAmenRef);
-  L.circle([lat,lon],{radius:800,color:'#22C55E',weight:1.5,fillColor:'#22C55E',fillOpacity:.05,dashArray:'5 6'}).addTo(mapAmenRef);
-  L.marker([lat,lon],{icon:iconPin(ico.home,'#EC4899')}).addTo(mapAmenRef).bindPopup('Your address');
-  amenLayer=null;
-  requestAnimationFrame(()=>mapAmenRef&&mapAmenRef.invalidateSize());
+  p.mapRef=L.map(p.mapId,{scrollWheelZoom:false}).setView([lat,lon],14);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap · © CARTO'}).addTo(p.mapRef);
+  L.circle([lat,lon],{radius:800,color:'#22C55E',weight:1.5,fillColor:'#22C55E',fillOpacity:.05,dashArray:'5 6'}).addTo(p.mapRef);
+  L.marker([lat,lon],{icon:iconPin(ico.home,'#EC4899')}).addTo(p.mapRef).bindPopup('Your address');
+  p.layer=null;
+  requestAnimationFrame(()=>p.mapRef&&p.mapRef.invalidateSize());
 }
 
 function selectAmenCategory(cat){
-  if(!mapAmenRef) return;
-  if(amenLayer){mapAmenRef.removeLayer(amenLayer);amenLayer=null}
-  amenMarkers=[];
-  const wasSelected=selectedCat===cat;
-  selectedCat=wasSelected?null:cat;
-  $amen.querySelectorAll('.amen-cell').forEach(c=>c.classList.toggle('active',c.dataset.cat===selectedCat));
-  const hint=document.getElementById('amenHint');
-  // rAF: card expand/collapse just changed .stack height; wait for layout so
-  // Leaflet invalidateSize reads the new map-cell dimensions before fitBounds.
+  const p=panels[tabOf(cat)];
+  if(!p.mapRef) return;
+  if(p.layer){p.mapRef.removeLayer(p.layer);p.layer=null}
+  p.markers=[];
+  const wasSelected=p.selected===cat;
+  p.selected=wasSelected?null:cat;
+  p.$el.querySelectorAll('.amen-cell').forEach(c=>c.classList.toggle('active',c.dataset.cat===p.selected));
+  const hint=document.getElementById(p.hintId);
   requestAnimationFrame(()=>{
-    if(!mapAmenRef) return;
-    mapAmenRef.invalidateSize();
+    if(!p.mapRef) return;
+    p.mapRef.invalidateSize();
     if(wasSelected){
       if(hint) hint.textContent='Click a card to plot its locations';
-      mapAmenRef.setView([lastCoord.lat,lastCoord.lon],14);
+      p.mapRef.setView([lastCoord.lat,lastCoord.lon],14);
       return;
     }
     const items=(amenData[cat]?.items)||[];
     const label=AMEN.find(a=>a[0]===cat)[1];
     if(hint) hint.textContent=`${label}: ${items.length} shown · ${amenData[cat].count} total`;
-    amenMarkers=items.map(it=>L.marker([it.lat,it.lon],{icon:amenPin(cat)})
+    p.markers=items.map(it=>L.marker([it.lat,it.lon],{icon:amenPin(cat)})
       .bindPopup(`<b>${esc(it.name)}</b><br>${it.distance_m} m · ~${walkMin(it.distance_m)} min walk${it.info?`<br><span style="color:#6B7280">${esc(it.info)}</span>`:''}`));
-    amenLayer=L.featureGroup(amenMarkers).addTo(mapAmenRef);
+    p.layer=L.featureGroup(p.markers).addTo(p.mapRef);
     const b=L.latLngBounds(items.map(i=>[i.lat,i.lon])); b.extend([lastCoord.lat,lastCoord.lon]);
-    try{mapAmenRef.fitBounds(b.pad(0.15))}catch(e){}
+    try{p.mapRef.fitBounds(b.pad(0.15))}catch(e){}
   });
 }
 
 function highlightAmenItem(cat, idx){
-  // Ensure category is plotted, then open the popup for this specific pin
-  // and pan the map to it. Double rAF when we need to switch categories,
-  // because selectAmenCategory adds markers on the next frame.
+  const p=panels[tabOf(cat)];
   const openIt = () => {
-    const m = amenMarkers[idx];
-    if(!m || !mapAmenRef) return;
-    mapAmenRef.setView(m.getLatLng(), Math.max(mapAmenRef.getZoom(), 16), {animate:true});
+    const m = p.markers[idx];
+    if(!m || !p.mapRef) return;
+    p.mapRef.setView(m.getLatLng(), Math.max(p.mapRef.getZoom(), 16), {animate:true});
     m.openPopup();
   };
-  if(selectedCat === cat){
+  if(p.selected === cat){
     openIt();
   } else {
     selectAmenCategory(cat);
