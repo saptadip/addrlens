@@ -228,6 +228,28 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .b-sesb::before{content:"✦ ";color:#DB2777}
 
 .metric-big{display:flex;align-items:baseline;gap:12px;margin:8px 0 0}
+.metric-big .vote{margin-left:auto;display:flex;gap:8px;align-self:center}
+.vote-btn{width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;background:var(--result-bg);
+  display:grid;place-items:center;padding:0;color:var(--muted);
+  box-shadow:-3px -3px 6px rgba(255,255,255,.9),3px 3px 6px rgba(90,102,145,.35);
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1),color .15s,box-shadow .2s,background .2s}
+.vote-btn svg{width:18px;height:18px}
+.vote-btn.happy:hover{color:#16A34A;transform:scale(1.12)}
+.vote-btn.sad:hover{color:#DC2626;transform:scale(1.12)}
+.vote-btn.active{box-shadow:inset 3px 3px 6px rgba(90,102,145,.35),inset -3px -3px 6px rgba(255,255,255,.9)}
+.vote-btn.active.happy{background:#DCFCE7;color:#16A34A}
+.vote-btn.active.sad{background:#FEE2E2;color:#DC2626}
+
+/* Tile background reflects the vote so the impression is visible at a glance
+   across all tiles without opening the modal. Compound selectors chained with
+   :hover and .active beat the base .cell:hover and .cell.active rules that
+   also paint the background. */
+.amen-cell[data-vote="happy"],
+.amen-cell[data-vote="happy"]:hover,
+.amen-cell.active[data-vote="happy"]{background:#DCFCE7}
+.amen-cell[data-vote="sad"],
+.amen-cell[data-vote="sad"]:hover,
+.amen-cell.active[data-vote="sad"]{background:#FEE2E2}
 .metric-big .n{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:52px;line-height:.95;
   background:linear-gradient(135deg,#4F46E5,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .metric-big .cap{color:var(--ink-2);font-size:14px;font-weight:500;line-height:1.35}
@@ -482,6 +504,8 @@ const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12h11l2-8H6"/></svg>',
   gp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a4 4 0 0 0 8 0V3M6 3h2M12 3h2M10 13v3a4 4 0 0 0 8 0v-2"/><circle cx="18" cy="14" r="2"/></svg>',
   hospital:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M12 9v8M8 13h8"/><path d="M8 5V3h8v2"/></svg>',
+  thumbup:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 0 0 2 2h14.4a2 2 0 0 0 2-1.7l1.4-9a2 2 0 0 0-2-2.3H15V5a3 3 0 0 0-3-3l-4 9v11"/></svg>',
+  thumbdn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11M22 11V4a2 2 0 0 0-2-2H5.6a2 2 0 0 0-2 1.7L2.2 12.7A2 2 0 0 0 4.2 15H9v4a3 3 0 0 0 3 3l4-9V2"/></svg>',
   fountain:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-1 2-1 4 0 6 1-2 1-4 0-6z"/><path d="M6 10h12l-1 4a5 5 0 0 1-10 0z"/><path d="M9 20h6"/></svg>',
   transit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v2M16 18v2"/><circle cx="8" cy="14.5" r="1"/><circle cx="16" cy="14.5" r="1"/></svg>',
   tree:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-3.5 3-5 5-5 8a5 5 0 0 0 10 0c0-3-1.5-5-5-8z"/><path d="M12 16v6M9 22h6"/></svg>',
@@ -593,6 +617,42 @@ $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.tri
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function walkMin(m){return Math.round(m/80);}
 function shortUrl(u){ try{ return new URL(u).hostname.replace(/^www\./,''); } catch(e){ return u.length>40?u.slice(0,40)+'…':u; } }
+
+// -- Card impressions (happy / sad vote per card, per address) --------------
+// Persisted in localStorage as { [addressId]: { [cardKey]: 'happy'|'sad' } }.
+// Mutual exclusion: clicking the opposite button switches, clicking the same
+// clears (toggle-off). Delegated click handler covers tiles + modal + edu.
+const IMPR_KEY='impressions.v1';
+function loadImpressions(){ try{ return JSON.parse(localStorage.getItem(IMPR_KEY)||'{}'); }catch(e){ return {}; } }
+function currentAddressId(){ return (eduData && eduData.address) ? snapshotId(eduData.address) : null; }
+function getImpression(key){ const a=currentAddressId(); return a ? (loadImpressions()[a]||{})[key] || null : null; }
+function setImpression(key, val){
+  const a=currentAddressId(); if(!a) return;
+  const all=loadImpressions(); if(!all[a]) all[a]={};
+  if(val) all[a][key]=val; else delete all[a][key];
+  localStorage.setItem(IMPR_KEY, JSON.stringify(all));
+}
+function voteHtml(key){
+  const cur=getImpression(key);
+  return `<div class="vote" data-key="${esc(key)}">`
+    + `<button class="vote-btn happy${cur==='happy'?' active':''}" data-vote="happy" title="Positive impression" aria-label="Positive">${ico.thumbup}</button>`
+    + `<button class="vote-btn sad${cur==='sad'?' active':''}"   data-vote="sad"   title="Negative impression" aria-label="Negative">${ico.thumbdn}</button>`
+    + `</div>`;
+}
+document.addEventListener('click', e => {
+  const btn=e.target.closest('.vote-btn'); if(!btn) return;
+  e.stopPropagation();
+  const group=btn.closest('.vote'), key=group.dataset.key, vote=btn.dataset.vote;
+  const cur=getImpression(key);
+  const next = cur===vote ? null : vote;
+  setImpression(key, next);
+  // Reflect in every rendered instance of this key (tile + modal).
+  document.querySelectorAll(`.vote[data-key="${CSS.escape(key)}"] .vote-btn`).forEach(b =>
+    b.classList.toggle('active', next===b.dataset.vote));
+  // Tint the tile background so the impression is visible after modal closes.
+  const tile=document.querySelector(`.amen-cell[data-cat="${CSS.escape(key)}"]`);
+  if(tile){ if(next) tile.dataset.vote=next; else delete tile.dataset.vote; }
+});
 
 // -- Card drag-reorder ------------------------------------------------------
 // Native HTML5 DnD on .stack > .cell. Order persists per tab in localStorage
@@ -857,6 +917,7 @@ function render(d){
   $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
     if(e.target.closest('.info-tip')) return;                       // tooltip toggles its own state
     if(e.target.closest('.amen-list li[data-idx]')) return;         // per-item click handled below
+    if(e.target.closest('.vote-btn')) return;                       // vote handled separately
     selectEduCategory(cell.dataset.eduCat);
   }));
   // Per-Kita click → focus that specific pin on the education map.
@@ -1293,7 +1354,9 @@ function _amenCardHtml(entry){
   }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
   const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within ${rangeShort}</p>`:'';
   const disabled=!(b.count>0);
-  return `<div class="cell amen-cell" data-cat="${k}"${disabled?' style="cursor:default"':''}>
+  const cur=getImpression(k);
+  const voteAttr=cur?` data-vote="${cur}"`:'';
+  return `<div class="cell amen-cell" data-cat="${k}"${voteAttr}${disabled?' style="cursor:default"':''}>
     <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span>${disabled?'':`<span class="chev">${ico.chev}</span>`}</div>
     <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span></div>
     <div class="amen-body">
@@ -1320,10 +1383,11 @@ function _renderAmenPanel(tab){
   p.$el.querySelectorAll('.amen-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
     if(e.target.closest('.info-tip')) return;
     if(e.target.closest('.amen-list li[data-idx]')) return;
+    if(e.target.closest('.vote-btn')) return;         // vote handled separately
     const cat=cell.dataset.cat, b=amenData[cat];
     if(!b || !(b.count>0)) return;
-    openAmenModal(tab, cat);         // Variant A: modal instead of inline expand
-    selectAmenCategory(cat);          // still plot on map
+    openAmenModal(tab, cat);
+    selectAmenCategory(cat);
   }));
   // per-item click in modal — delegate on the modal itself
   const modal=document.getElementById('amen-modal-'+tab);
@@ -1360,7 +1424,7 @@ function openAmenModal(tab, cat){
   modal.innerHTML=`
     <button class="amen-modal-close" aria-label="Close">✕</button>
     <div class="modal-head"><div class="icon-badge">${icon}</div><h3>${label}</h3></div>
-    <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span></div>
+    <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span>${voteHtml(k)}</div>
     <div class="amen-body"><ul class="amen-list">${items}</ul>${more}
       <div class="prov">${esc(b.provenance||'© OpenStreetMap contributors (ODbL)')}</div>
     </div>`;
