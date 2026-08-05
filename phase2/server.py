@@ -42,7 +42,11 @@ WFS_SCHULEN   = "https://gdi.berlin.de/services/wfs/schulen"
 WFS_ADR       = "https://gdi.berlin.de/services/wfs/adressen_berlin"
 WFS_KITA      = "https://gdi.berlin.de/services/wfs/kita"
 WFS_GRUEN     = "https://gdi.berlin.de/services/wfs/gruenanlagen"
+WFS_KKH       = "https://gdi.berlin.de/services/wfs/krankenhaeuser"
+WFS_BRUNNEN   = "https://gdi.berlin.de/services/wfs/trinkwasserbrunnen"
 WFS_NOISE     = "https://gdi.berlin.de/services/wfs/ua_stratlaerm_2022"
+HOSPITAL_RADIUS_M = 2000   # hospitals aren't 800m-walk amenities; ~5 min drive covers all of Berlin
+HOSPITAL_MATCH_M  = 500    # BOD entrance ↔ OSM way-center match tolerance (campuses can be large)
 NOISE_LAYER   = "ua_stratlaerm_2022:aa_fp_gesamt2022"   # Fassadenpegel gesamt, 3.8M points
 OVERPASS_ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
@@ -324,6 +328,26 @@ class Index:
                       for f in k["features"] if f.get("geometry")]
         print(f"{len(self.kitas)} registered Kitas")
 
+        sys.stdout.write("loading drinking fountains… "); sys.stdout.flush()
+        # ~240 fountains city-wide; preload once, distance-filter per request.
+        r = wfs(WFS_BRUNNEN, typeNames="trinkwasserbrunnen:trinkwasserbrunnen", count=1000)
+        self.fountains = [(f["properties"], f["geometry"]["coordinates"])
+                          for f in r.get("features", []) if f.get("geometry")]
+        print(f"{len(self.fountains)} fountains")
+
+        sys.stdout.write("loading hospitals (Berlin geoportal)… "); sys.stdout.flush()
+        # Two layers: statutory "Plankrankenhäuser" (general hospitals incl. ERs)
+        # and "weitere Krankenhäuser" (specialist clinics — eye, psych, …).
+        # Both are points, both tiny (~110 total city-wide) — preload once.
+        self.hospitals = []
+        for layer, kind in (("plankrankenhaeuser", "plan"), ("weitere_krankenhaeuser", "weitere")):
+            r = wfs(WFS_KKH, typeNames=f"krankenhaeuser:{layer}", count=500)
+            for f in r.get("features", []):
+                if not f.get("geometry"): continue
+                p = dict(f["properties"]); p["_layer"] = kind
+                self.hospitals.append((p, f["geometry"]["coordinates"]))
+        print(f"{len(self.hospitals)} hospitals")
+
     def geocode(self, street, hnr, plz):
         r = wfs(WFS_ADR, typeNames="adressen_berlin:adressen_berlin",
                 CQL_FILTER=f"str_name='{cql_esc(street)}' AND hnr='{cql_esc(hnr)}' AND plz='{cql_esc(plz)}'",
@@ -354,6 +378,42 @@ class Index:
             if key in low:
                 return strand
         return None
+
+    def fountains_near_bod(self, lon, lat, radius_m=800):
+        """Public drinking fountains within radius (BWB). Seasonal: most run
+        May–October only; einschraenkungen flags out-of-service units."""
+        hits = []
+        for p, c in self.fountains:
+            d = haversine_m(lon, lat, c[0], c[1])
+            if d <= radius_m:
+                loc = (p.get("standort") or "").strip() or "Trinkbrunnen"
+                # Prepend "Trinkbrunnen" so list items scan the same as other categories.
+                name = loc if loc.lower().startswith(("trinkbrunnen", "brunnen")) else f"Trinkbrunnen · {loc}"
+                hits.append({
+                    "name": name,
+                    "lat": c[1], "lon": c[0], "distance_m": round(d),
+                    "info": _fountain_info(p),
+                    "props": p, "source": "bod",
+                })
+        hits.sort(key=lambda x: x["distance_m"])
+        return hits
+
+    def hospitals_near_bod(self, lon, lat, radius_m=HOSPITAL_RADIUS_M):
+        """Hospitals within radius, from the two Krankenhäuser layers. Filters
+        ~110 preloaded points by haversine — no per-request WFS."""
+        hits = []
+        for p, c in self.hospitals:
+            d = haversine_m(lon, lat, c[0], c[1])
+            if d <= radius_m:
+                name = (p.get("kkh_standort") or p.get("name") or p.get("kkh") or "Krankenhaus").strip()
+                hits.append({
+                    "name": name,
+                    "lat": c[1], "lon": c[0], "distance_m": round(d),
+                    "info": _hospital_info(p),
+                    "props": p, "source": "bod",
+                })
+        hits.sort(key=lambda x: x["distance_m"])
+        return hits
 
     def kitas_near_bod(self, lon, lat, radius_m=800):
         """Registered Kitas within radius, from the Berlin geoportal.
@@ -390,6 +450,38 @@ def overpass(ql, timeout_s=60):
 
 
 # -- Kita summary formatter (used by Index.kitas_near_bod) -------------------
+
+def _fountain_info(p):
+    """One short line for a drinking fountain — flags out-of-service and season."""
+    parts = []
+    einschr = (p.get("einschraenkungen") or "").strip()
+    if einschr:
+        parts.append(f"⚠ {einschr}")
+    if p.get("bezirk"): parts.append(p["bezirk"].strip())
+    if p.get("trinkbrunnenart"):
+        parts.append(f"Type: {p['trinkbrunnenart'].strip()}")
+    # ponytail: season is buried in a free-text 'informationen' field;
+    # a regex extract keeps it out of the summary and in the tooltip.
+    return " · ".join(parts)
+
+
+def _hospital_info(p):
+    """One short line from a hospital feature's properties. 'Plan' hospitals
+    show bed count + Träger; specialist 'weitere' clinics show speciality."""
+    parts = []
+    if p.get("_layer") == "weitere":
+        fach = (p.get("fachabteilungen") or "").strip()
+        if fach: parts.append(fach)
+        if p.get("betten"): parts.append(f"{p['betten']} beds")
+    else:
+        beds = (p.get("betten_insgesamt") or "").strip()
+        if beds: parts.append(f"{beds} beds")
+        traeger = (p.get("kkh") or "").strip()
+        if traeger and traeger != (p.get("kkh_standort") or "").strip():
+            parts.append(traeger)
+    if p.get("gc_ortsteil"): parts.append(p["gc_ortsteil"].strip())
+    return " · ".join(parts)
+
 
 def _kita_info(p):
     """One short line from a BOD Kita feature's properties."""
@@ -532,7 +624,11 @@ def amenities_near(lon, lat, radius_m=800):
             return _amen_cache[key]
 
     # --- OSM round-trip -----------------------------------------------------
-    parts = "".join(f"nwr{flt}(around:{radius_m},{lat},{lon});" for _, flt, _ in AMENITIES)
+    # Extra hospital query at the wider hospital radius; not part of AMENITIES
+    # because hospitals are BOD-first and OSM only supplies contact fields.
+    hosp_ql = (f'nwr["amenity"="hospital"](around:{HOSPITAL_RADIUS_M},{lat},{lon});'
+               f'nwr["healthcare"="hospital"](around:{HOSPITAL_RADIUS_M},{lat},{lon});')
+    parts = hosp_ql + "".join(f"nwr{flt}(around:{radius_m},{lat},{lon});" for _, flt, _ in AMENITIES)
     ql = f"[out:json][timeout:60];({parts});out center tags;"
     try:
         d = overpass(ql, timeout_s=75)
@@ -545,13 +641,17 @@ def amenities_near(lon, lat, radius_m=800):
     fallback = {k: lbl for k, _, lbl in AMENITIES}
     buckets  = {k: [] for k, _, _ in AMENITIES}
     seen     = {k: set() for k, _, _ in AMENITIES}
+    osm_hospitals = []                                  # for BOD-hospital enrichment below
     for el in d.get("elements", []):
         tags = el.get("tags") or {}
-        cat = _classify_amenity(tags)
-        if not cat: continue
         lat_, lon_ = (el.get("lat"), el.get("lon")) if el["type"] == "node" \
                     else (el.get("center", {}).get("lat"), el.get("center", {}).get("lon"))
         if lat_ is None: continue
+        if tags.get("amenity") == "hospital" or tags.get("healthcare") == "hospital":
+            osm_hospitals.append({"lat": lat_, "lon": lon_, "tags": tags})
+            continue
+        cat = _classify_amenity(tags)
+        if not cat: continue
         name = tags.get("name") or fallback[cat]
         dkey = (name,) if cat == "transit" else (name, round(lat_, 5), round(lon_, 5))
         if dkey in seen[cat]: continue
@@ -583,6 +683,47 @@ def amenities_near(lon, lat, radius_m=800):
         for cat, _, _ in AMENITIES:
             if cat not in BOD_LAYERS:
                 result[cat] = {"count": None, "items": [], "error": osm_err}
+
+    # Hospitals: BOD-first for identity (name, beds, Träger) with OSM overlay
+    # for contact fields the city doesn't publish (emergency, phone, website,
+    # wheelchair). Match by nearest OSM within HOSPITAL_MATCH_M — campuses in
+    # OSM are usually ways, so their `center` may sit up to a few hundred metres
+    # from the BOD entrance point.
+    hosp = INDEX.hospitals_near_bod(lon, lat, HOSPITAL_RADIUS_M)
+    n_enriched = 0
+    if osm_hospitals:
+        for h in hosp:
+            match, best = None, HOSPITAL_MATCH_M
+            for o in osm_hospitals:
+                d = haversine_m(h["lon"], h["lat"], o["lon"], o["lat"])
+                if d <= best: match, best = o, d
+            if match:
+                t = match["tags"]
+                h["osm"] = {
+                    "emergency":  t.get("emergency"),
+                    "phone":      t.get("phone") or t.get("contact:phone"),
+                    "website":    t.get("website") or t.get("contact:website"),
+                    "wheelchair": t.get("wheelchair"),
+                    "match_m":    round(best),
+                }
+                n_enriched += 1
+    prov = "Geoportal Berlin / Krankenhäuser (dl-de/by-2.0)"
+    if n_enriched:
+        prov += f" + © OpenStreetMap contributors (ODbL) — contact/ER for {n_enriched}/{len(hosp)}"
+    elif not osm_ok:
+        prov += f" · OSM overlay unavailable"
+    result["hospitals"] = {
+        "count": len(hosp), "items": hosp[:25],
+        "radius_m": HOSPITAL_RADIUS_M, "osm_enriched": n_enriched,
+        "provenance": prov,
+    }
+
+    # Public drinking fountains (BWB): BOD-only, walkable stroller amenity.
+    fountains = INDEX.fountains_near_bod(lon, lat, radius_m)
+    result["fountains"] = {
+        "count": len(fountains), "items": fountains[:25],
+        "provenance": "Geoportal Berlin / Trinkwasserbrunnen (dl-de/by-2.0) · Betrieb: Berliner Wasserbetriebe",
+    }
 
     with _amen_lock:
         _amen_cache[key] = result
@@ -792,6 +933,46 @@ def _selfcheck():
 
     # Kita info formatter — synthetic props (avoids network dependency in this assert).
     assert "65 places" in _kita_info({"e_platz": "65", "t_art": "freie Träger", "ang_1": ""})
+
+    # Hospitals — Berlin should have ~110 total (64 plan + 47 weitere as of 2026).
+    assert len(idx.hospitals) >= 80, f"expected ≥80 hospitals city-wide, got {len(idx.hospitals)}"
+    hs = idx.hospitals_near_bod(geo["lon"], geo["lat"], 2000)
+    assert len(hs) >= 1, f"expected ≥1 hospital within 2km of Kastanienallee 12, got {len(hs)}"
+    assert all(h["source"] == "bod" and h["distance_m"] <= 2000 for h in hs)
+    # Widen radius: Charité / St. Hedwig / Vivantes should be within 5km of Prenzlauer Berg.
+    hs_wide = idx.hospitals_near_bod(geo["lon"], geo["lat"], 5000)
+    assert len(hs_wide) >= 5, f"expected ≥5 hospitals within 5km, got {len(hs_wide)}"
+    assert any("Hedwig" in h["name"] or "Charité" in h["name"] for h in hs_wide), \
+        "Charité or St. Hedwig should be within 5km of Prenzlauer Berg"
+    # Hospital info formatter — beds + Ortsteil.
+    plan = _hospital_info({"_layer": "plan", "betten_insgesamt": "415",
+                           "kkh": "Alexianer", "kkh_standort": "St. Hedwig",
+                           "gc_ortsteil": "Mitte"})
+    assert "415 beds" in plan and "Mitte" in plan and "Alexianer" in plan
+    weit = _hospital_info({"_layer": "weitere", "fachabteilungen": "Augenheilkunde",
+                           "betten": 4, "gc_ortsteil": "Schöneberg"})
+    assert "Augenheilkunde" in weit and "4 beds" in weit
+
+    # OSM hospital match-radius sanity: within-500m match wins, farther is dropped.
+    _bod = {"lat": 52.500, "lon": 13.400}
+    _near = {"lat": 52.5025, "lon": 13.4025, "tags": {"emergency": "yes", "phone": "+49 30 1"}}   # ~330 m
+    _far  = {"lat": 52.510,  "lon": 13.410,  "tags": {"emergency": "no",  "phone": "+49 30 2"}}   # ~1300 m
+    assert haversine_m(_bod["lon"], _bod["lat"], _near["lon"], _near["lat"]) < HOSPITAL_MATCH_M
+    assert haversine_m(_bod["lon"], _bod["lat"], _far["lon"],  _far["lat"])  > HOSPITAL_MATCH_M
+
+    # Drinking fountains — Berlin has ~240 BWB fountains city-wide.
+    assert len(idx.fountains) >= 150, f"expected ≥150 fountains, got {len(idx.fountains)}"
+    # Kastanienallee 12 sits near several — Volkspark am Weinbergsweg is close.
+    fs = idx.fountains_near_bod(geo["lon"], geo["lat"], 800)
+    assert all(f["source"] == "bod" and f["distance_m"] <= 800 for f in fs)
+    fs_wide = idx.fountains_near_bod(geo["lon"], geo["lat"], 3000)
+    assert len(fs_wide) >= 3, f"expected ≥3 fountains within 3km of Kastanienallee 12, got {len(fs_wide)}"
+    # Formatter — out-of-service flag surfaces first.
+    off = _fountain_info({"einschraenkungen": "zur Zeit wegen Reparatur außer Betrieb",
+                          "bezirk": "Neukölln", "trinkbrunnenart": "Kaiser"})
+    assert off.startswith("⚠ ") and "Neukölln" in off and "Kaiser" in off
+    ok = _fountain_info({"einschraenkungen": None, "bezirk": "Mitte", "trinkbrunnenart": "Kaiser"})
+    assert not ok.startswith("⚠") and "Mitte" in ok
 
     # BOD polygon fetch — parks near the same address.
     parks = bod_polygon_features(WFS_GRUEN, "gruenanlagen:gruenanlagen", geo["lon"], geo["lat"], 800)

@@ -373,7 +373,7 @@ footer a{color:var(--brand)}
 </div>
 
 <footer>
-  Berlin Open Data first: Geoportal Berlin / Schulen (dl-de/zero-2.0), Adressen Berlin, Kindertagesstätten, Grünanlagen &amp; Spielplätze (dl-de/by-2.0).
+  Berlin Open Data first: Geoportal Berlin / Schulen (dl-de/zero-2.0), Adressen Berlin, Kindertagesstätten, Grünanlagen &amp; Spielplätze, Krankenhäuser, Trinkwasserbrunnen (dl-de/by-2.0).
   Supplements © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL) for pharmacies, supermarkets, GPs, transit, plus playground / park gaps not in the city dataset.
 </footer>
 
@@ -388,6 +388,8 @@ const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   pharmacy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>',
   cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12h11l2-8H6"/></svg>',
   gp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v6a4 4 0 0 0 8 0V3M6 3h2M12 3h2M10 13v3a4 4 0 0 0 8 0v-2"/><circle cx="18" cy="14" r="2"/></svg>',
+  hospital:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M12 9v8M8 13h8"/><path d="M8 5V3h8v2"/></svg>',
+  fountain:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-1 2-1 4 0 6 1-2 1-4 0-6z"/><path d="M6 10h12l-1 4a5 5 0 0 1-10 0z"/><path d="M9 20h6"/></svg>',
   transit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="15" rx="3"/><path d="M4 11h16M8 18v2M16 18v2"/><circle cx="8" cy="14.5" r="1"/><circle cx="16" cy="14.5" r="1"/></svg>',
   tree:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-3.5 3-5 5-5 8a5 5 0 0 0 10 0c0-3-1.5-5-5-8z"/><path d="M12 16v6M9 22h6"/></svg>',
   waves:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c2 0 2 1.5 4 1.5S8 6 10 6s2 1.5 4 1.5S16 6 18 6s2 1.5 4 1.5"/><path d="M2 12c2 0 2 1.5 4 1.5S8 12 10 12s2 1.5 4 1.5S16 12 18 12s2 1.5 4 1.5"/><path d="M2 18c2 0 2 1.5 4 1.5S8 18 10 18s2 1.5 4 1.5S16 18 18 18s2 1.5 4 1.5"/></svg>',
@@ -401,6 +403,8 @@ const AMEN=[
   ['pharmacies','Pharmacies',ico.pharmacy,'#EF4444'],
   ['supermarkets','Supermarkets',ico.cart,'#F59E0B'],
   ['gps','GPs / Doctors',ico.gp,'#14B8A6'],
+  ['hospitals','Hospitals',ico.hospital,'#DC2626','within ~2 km'],
+  ['fountains','Drinking fountains',ico.fountain,'#0EA5E9'],
   ['transit','Transit stops',ico.transit,'#8B5CF6'],
 ];
 const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
@@ -439,7 +443,7 @@ function empty(){$out.innerHTML=`<div class="empty">
   <p>Enter an address above — we'll build the family picture for that flat.</p></div>`;}
 function emptyAmen(){$amen.innerHTML=`<div class="empty" style="margin-top:14px">
   <div class="row"><div class="icon-badge">${ico.playground}</div><div class="icon-badge">${ico.tree}</div><div class="icon-badge">${ico.transit}</div></div>
-  <p>Look up an address to see playgrounds, parks, pharmacies, supermarkets, GPs, and transit stops within an 800 m walk.</p></div>`;}
+  <p>Look up an address to see playgrounds, parks, pharmacies, supermarkets, GPs, hospitals, drinking fountains, and transit stops within an 800 m walk.</p></div>`;}
 function emptyEnv(){$env.innerHTML=`<div class="empty" style="margin-top:14px">
   <div class="row"><div class="icon-badge">${ico.waves}</div><div class="icon-badge">${ico.moon}</div></div>
   <p>Look up an address to see façade-level street noise (day + night) from Berlin's 2022 strategic noise map.</p></div>`;}
@@ -545,6 +549,36 @@ function amenDetailHtml(cat, it){
     if(phone)                        push('Phone', telLink(phone));
     if(web)                          push('Website', webLink(web));
     if(t.wheelchair === 'yes')       push('Access', 'Step-free');
+  }
+  else if(cat === 'hospitals'){
+    // BOD identity fields (address, beds, Träger) + OSM overlay (ER, phone, website).
+    const hStreet=[p.gc_strasse, p.gc_haus].filter(Boolean).join(' ').trim();
+    const hAddr=[hStreet, [(p.gc_plz||'').trim(), p.gc_ortsteil].filter(Boolean).join(' ')].filter(x=>x&&x.trim()).join(', ');
+    if(hAddr)                        push('Address', esc(hAddr));
+    if(p._layer==='weitere'){
+      if(p.fachabteilungen)          push('Speciality', esc(p.fachabteilungen));
+      if(p.betten)                   push('Beds', esc(p.betten));
+    } else {
+      if(p.betten_insgesamt)         push('Beds', esc(p.betten_insgesamt));
+      if(p.kkh && p.kkh_standort && p.kkh.trim() !== p.kkh_standort.trim())
+                                     push('Träger', esc(p.kkh));
+    }
+    const o = it.osm || {};
+    if(o.emergency === 'yes')        push('Emergency room', '✓ Yes');
+    else if(o.emergency === 'no')    push('Emergency room', 'No');
+    if(o.phone)                      push('Phone', telLink(o.phone));
+    if(o.website)                    push('Website', webLink(o.website));
+    if(o.wheelchair === 'yes')       push('Access', 'Step-free');
+  }
+  else if(cat === 'fountains'){
+    // BOD-only. Address comes from standort (free text) + district.
+    const loc=[p.standort, p.postleitzahl&&(p.postleitzahl+' '+(p.bezirk||''))].filter(x=>x&&String(x).trim()).join(', ');
+    if(loc)                          push('Location', esc(loc));
+    if(p.einschraenkungen)           push('Out of service', esc(p.einschraenkungen));
+    if(p.trinkbrunnenart)            push('Type', esc(p.trinkbrunnenart));
+    if(p.baujahr)                    push('Installed', esc(p.baujahr));
+    if(p.informationen && p.informationen.trim())
+                                     push('Season', esc(p.informationen.trim()));
   }
   else if(cat === 'transit'){
     const modes = [];
@@ -821,7 +855,11 @@ function buildSnapshot(){
     intl: i ? {name:i.name, distance_m:i.distance_m} : null,
     counts: {kitas:k.count, playgrounds:cnt('playgrounds'), parks:cnt('parks'),
              pharmacies:cnt('pharmacies'), supermarkets:cnt('supermarkets'),
-             gps:cnt('gps'), transit:cnt('transit')},
+             gps:cnt('gps'), hospitals:cnt('hospitals'), fountains:cnt('fountains'),
+             transit:cnt('transit')},
+    nearestHospital: (amenData && amenData.hospitals && amenData.hospitals.items && amenData.hospitals.items[0])
+      ? {name:amenData.hospitals.items[0].name, distance_m:amenData.hospitals.items[0].distance_m}
+      : null,
     noise: (envData && !envData.unavailable) ? {
       l_den: envData.l_den?.total, l_night: envData.l_night?.total, tier_den: envData.tier,
     } : null,
@@ -921,6 +959,9 @@ function renderCompare(){
     row('Pharmacies',            list.map(s=>cell(s.counts.pharmacies,'metric-num')).join('')),
     row('Supermarkets',          list.map(s=>cell(s.counts.supermarkets,'metric-num')).join('')),
     row('GPs / Doctors',         list.map(s=>cell(s.counts.gps,'metric-num')).join('')),
+    row('Hospitals · 2 km',      list.map(s=>cell(s.counts.hospitals,'metric-num')).join('')),
+    row('Nearest hospital',      list.map(s=>cell(s.nearestHospital?`${esc(s.nearestHospital.name)} <span style="color:var(--muted);font-weight:500">(${s.nearestHospital.distance_m} m)</span>`:null)).join('')),
+    row('Drinking fountains',    list.map(s=>cell(s.counts.fountains,'metric-num')).join('')),
     row('Transit stops',         list.map(s=>cell(s.counts.transit,'metric-num')).join('')),
     sect('Street noise (Berlin 2022 façade)'),
     row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
@@ -1026,7 +1067,7 @@ function emptyAmenPending(){
   if(mapAmenRef){mapAmenRef.remove();mapAmenRef=null}
   $amen.innerHTML=`<div class="empty" style="margin-top:14px">
   <div class="row"><div class="icon-badge">${ico.playground}</div><div class="icon-badge">${ico.tree}</div><div class="icon-badge">${ico.transit}</div></div>
-  <p>Open the Amenities tab to load playgrounds, parks, pharmacies, supermarkets, GPs, and transit stops within 800 m.</p></div>`;
+  <p>Open the Amenities tab to load playgrounds, parks, pharmacies, supermarkets, GPs, hospitals, drinking fountains, and transit stops within 800 m.</p></div>`;
 }
 
 let amenFetching=false, amenAttempts=0;
@@ -1053,7 +1094,9 @@ async function fetchAmenities(lat,lon,isRetry){
 function renderAmenities(d){
   dropOrphanTooltips();
   amenData=d.amenities||{}; selectedCat=null;
-  const cards=AMEN.map(([k,label,icon])=>{
+  const cards=AMEN.map(([k,label,icon,,cap])=>{
+    const rangeCap=cap||'within ~800 m';
+    const rangeShort=cap ? cap.replace(/^within ~?/, '') : '800 m';
     const b=amenData[k]||{count:0,items:[]};
     if(b.error) return `<div class="cell amen-cell" data-cat="${k}" style="cursor:default">
       <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
@@ -1062,12 +1105,12 @@ function renderAmenities(d){
       const details=amenDetailHtml(k, it);
       const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
       return `<li data-idx="${i}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
-    }).join('') || '<li class="none">None within 800 m.</li>';
-    const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within 800 m</p>`:'';
+    }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
+    const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within ${rangeShort}</p>`:'';
     const disabled=!(b.count>0);
     return `<div class="cell amen-cell" data-cat="${k}"${disabled?' style="cursor:default"':''}>
       <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span>${disabled?'':`<span class="chev">${ico.chev}</span>`}</div>
-      <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">within ~800 m</span></div>
+      <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span></div>
       <div class="amen-body">
         <ul class="amen-list">${items}</ul>${more}
         <div class="prov">${esc(b.provenance || '© OpenStreetMap contributors (ODbL)')}</div>

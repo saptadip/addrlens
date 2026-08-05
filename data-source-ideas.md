@@ -11,6 +11,8 @@ scan run on 2026-08-05.
 - `kita` — registered Kitas with Träger / capacity / approach
 - `gruenanlagen` — parks (`gruenanlagen`) + playgrounds (`spielplaetze`)
 - `ua_stratlaerm_2022` — 2022 façade-level strategic noise map
+- `krankenhaeuser` — hospitals (plan + weitere), nearest within 2 km in Amenities
+- `trinkwasserbrunnen` — BWB public drinking fountains, within 800 m in Amenities
 - OpenStreetMap supplements — pharmacies, supermarkets, GPs, transit stops,
   plus playground / park gap-fill
 
@@ -22,10 +24,8 @@ Everything below is candidate material.
 
 | # | Dataset (WFS name) | Family-relevance | Notes |
 |---|---|---|---|
-| 1 | **Krankenhäuser** (`krankenhaeuser`) | Nearest hospital + ER — where you'd take a sick kid at 2 am. | Points, city-wide. Direct swap into Amenities. |
 | 2 | **Luftbelastung im Straßenraum 2015 und 2020** (`ua_luftbelastung_verkehr_2015_2020`) | Traffic-related NO₂ / PM10 / PM2.5 at street level. The health story missing from noise-only. | Same shape as the façade noise layer — per-street pollution scores. |
 | 3 | **Berliner Luftgütemessnetz** (`ua_luftguetemessnetz`) | Nearest official air-quality station (live-ish readings). | Sparse network (~15 stations city-wide) → "nearest station: 1.2 km" style card, not per-address. |
-| 4 | **Trinkwasserbrunnen** (`trinkwasserbrunnen`) | Public drinking fountains — summer stroller-life relevance. | Points. Add to Amenities. |
 | 5 | **Standorte öffentlicher Sportanlagen** (`sportstandorte`) | Public pools, gyms, sports halls, football pitches. | Mentioned in product doc §6 second-wave, still unused. |
 | 6 | **Fluglärmschutzbereich BER** (`fluglaermschutz`) | BER aircraft noise zone (SE Berlin). Hard filter for a few Bezirke. | Product doc §6 second-wave. Polygon overlay. |
 | 7 | **Umweltzone** (`umweltzone`) | Low-emission zone — matters if the family drives (must have green sticker). | Single polygon, boolean flag per address. |
