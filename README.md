@@ -58,7 +58,7 @@ Network-dependent assertions skip cleanly if a WFS is unreachable.
 | GET | `/` | HTML app |
 | GET | `/health` | Liveness (`{ok:true, polygons:N}`) |
 | GET | `/api/lookup?address=…` | Catchment school, SESB, kitas, nearest international |
-| GET | `/api/amenities?lat=&lon=` | Playgrounds, parks, pharmacies, supermarkets, GPs, transit |
+| GET | `/api/amenities?lat=&lon=` | Playgrounds, parks, pharmacies, supermarkets, GPs, hospitals, transit |
 | GET | `/api/noise?lat=&lon=` | Façade L_DEN + L_Night from the 2022 strategic noise map |
 
 All JSON responses carry a `provenance` field. Errors return `{error: "..."}`
