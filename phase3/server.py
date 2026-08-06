@@ -33,7 +33,7 @@ ponytail: proto-server. Production would move polygons into PostGIS with a
           Overpass + WFS calls at the edge.
 """
 import http.server, socketserver, json, urllib.request, urllib.parse
-import threading, math, sys, os, unicodedata
+import threading, math, sys, os, unicodedata, re
 from pathlib import Path
 from shapely.geometry import shape, Point, mapping
 
@@ -82,18 +82,19 @@ def summarize_impressions(address, votes):
     both a warm and an honest line would fit."""
     from mlx_lm import generate
     from mlx_lm.sample_utils import make_sampler, make_logits_processors
-    sampler = make_sampler(temp=0.75, top_p=0.9)
+    sampler = make_sampler(temp=0.6, top_p=0.9)   # lower ⇒ more echo, less invention/inversion
     logits_procs = make_logits_processors(repetition_penalty=1.25)
     out = {}
     tok = LLM["tokenizer"]; mdl = LLM["model"]
     for tab, cats in (votes or {}).items():
         happy = cats.get("happy") or []
         sad   = cats.get("sad") or []
+        sad_details = cats.get("sad_details") or {}
         if not happy and not sad: continue
         if happy and sad: mode = "mixed"
         elif happy:       mode = "positive"
         else:             mode = "negative"
-        msgs = _build_impression_messages(mode, tab, address, happy, sad)
+        msgs = _build_impression_messages(mode, tab, address, happy, sad, sad_details)
         prompt = tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         text = generate(mdl, tok, prompt=prompt, max_tokens=110,
                         sampler=sampler, logits_processors=logits_procs, verbose=False).strip()
@@ -101,28 +102,101 @@ def summarize_impressions(address, votes):
     return out
 
 
-def _build_impression_messages(mode, tab, address, happy, sad):
+GERMAN_GLOSS = [
+    # (regex, gloss). Order matters: longer/multi-word forms first so
+    # "freier Träger" is matched before bare "Träger".
+    (re.compile(r"\bfreie[rnms]?\s+Träger\b"),   "a non-profit or private provider"),
+    (re.compile(r"\bEigenbetrieb\b"),             "city-run"),
+    (re.compile(r"\bTräger\b"),                   "operator"),
+    (re.compile(r"\bSituationsansatz\b"),         "a child-led Berlin pedagogy"),
+    (re.compile(r"\bSituationssatz\b"),           "a child-led Berlin pedagogy"),  # common model misspelling
+    (re.compile(r"\bGrundschule[n]?\b"),          "primary school"),
+    (re.compile(r"\bStaatliche Europa-Schule Berlin\b"), "state bilingual school program"),
+    (re.compile(r"\bSESB\b"),                     "state bilingual school program"),
+    (re.compile(r"\bKita[s]?\b"),                 "daycare"),
+]
+
+def _gloss_german(text):
+    """Inject '(english gloss)' on the FIRST occurrence of each known German
+    admin term if the model failed to translate it. Skips terms already
+    followed by a parenthetical within ~60 chars (model already glossed)."""
+    for rx, english in GERMAN_GLOSS:
+        m = rx.search(text)
+        if not m:
+            continue
+        tail = text[m.end(): m.end() + 60]
+        if tail.lstrip().startswith("("):
+            continue  # already glossed by the model
+        text = text[:m.end()] + f" ({english})" + text[m.end():]
+    return text
+
+
+def explain_card(card_type, fields):
+    """Plain-English explanation of a card with inline German-term glosses.
+    Sentiment-neutral (not "verdict", just translation), so no mode branching."""
+    from mlx_lm import generate
+    from mlx_lm.sample_utils import make_sampler, make_logits_processors
+    sampler = make_sampler(temp=0.55, top_p=0.9)          # lower temp — factual, not creative
+    logits_procs = make_logits_processors(repetition_penalty=1.2)
+    tok = LLM["tokenizer"]; mdl = LLM["model"]
+    facts = json.dumps(fields, ensure_ascii=False, indent=2)[:1500]
+    msgs = [
+        {"role": "system", "content":
+            "You explain a Berlin neighborhood data card to an English-speaking family who is new to Germany. "
+            "Translate every German administrative term inline in parentheses on first use, e.g. "
+            "'freier Träger (a non-profit or private provider)'. Two to three short sentences, under 70 words. "
+            "Speak to them as \"you\". Do NOT invent facts not present in the data. No lists, no headings."},
+        {"role": "user", "content":
+            "Data:\n"
+            "{\"count\": 32, \"sample\": {\"name\":\"Kita Sonnenschein\",\"t_art\":\"freier Träger\","
+            "\"ang_1\":\"Situationsansatz\",\"e_platz\":\"65\"}}"},
+        {"role": "assistant", "content":
+            "You have 32 registered Kitas (daycares) within a 10-minute walk. The nearby Kita Sonnenschein "
+            "is run by a freier Träger (a non-profit or private provider — the alternative is Eigenbetrieb, "
+            "city-run). It uses the Situationsansatz approach, a Berlin pedagogy where activities emerge "
+            "from the children's own experiences rather than a fixed curriculum, and has 65 total places."},
+        {"role": "user", "content":
+            f"Data:\n{facts}"},
+    ]
+    prompt = tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+    raw = generate(mdl, tok, prompt=prompt, max_tokens=180,
+                   sampler=sampler, logits_processors=logits_procs, verbose=False).strip()
+    return _gloss_german(raw)
+
+
+def _build_impression_messages(mode, tab, address, happy, sad, sad_details=None):
     """Sentiment-matched system + few-shot. Small model can't reliably invent
     from nothing; every mode has an assistant example demonstrating the
-    expected shape and tone for that exact sentiment."""
+    expected shape and tone for that exact sentiment.
+
+    sad_details: {category_label: "chip, chip, \"free text\""} — user's own
+    words on why the 👎 landed. Woven into negative + mixed prompts so the
+    1.5B model has structured concern signal, not just a category name."""
     liked    = ", ".join(happy)
     disliked = ", ".join(sad)
+    sd = sad_details or {}
+    concerns_block = ("\nSpecific concerns:\n" +
+                      "\n".join(f"  - {cat}: {reason}" for cat, reason in sd.items())) if sd else ""
     if mode == "mixed":
         return [
             {"role": "system", "content":
                 "You're a friendly Berliner giving a family your honest take on their new neighborhood, "
                 "based on things they liked and things that bothered them nearby. "
+                "'Specific concerns' are the family's own complaints — echo them faithfully. "
+                "NEVER invert a negation: if they say 'no Kaufland nearby' you must say 'no Kaufland nearby', "
+                "NOT 'only one Kaufland nearby'. NEVER spin a complaint into a positive. "
                 "Two short sentences, warm and specific. Speak to them as \"you\". No lists, no headings."},
             {"role": "user", "content":
                 "Category: amenities. Address: Danziger Str. 44, 10405.\n"
                 "Liked: Playgrounds, Parks.\n"
-                "Bothered: Supermarkets.\n"},
+                "Bothered: Supermarkets.\n"
+                "Specific concerns:\n  - Supermarkets: Too far, Discount-only, \"no Rewe nearby\""},
             {"role": "assistant", "content":
                 "You've landed on a proper family Kiez — the playgrounds and parks are why locals fight "
-                "to stay here. The supermarket run is a bit of a slog though, so you'll want to plan the "
-                "weekly shop around the S-Bahn instead of the corner."},
+                "to stay here. The supermarket run is the catch: it's a hike, mostly discount stores, and "
+                "no Rewe nearby, so plan the weekly shop around an Edeka on the S-Bahn."},
             {"role": "user", "content":
-                f"Category: {tab}. Address: {address}.\nLiked: {liked}.\nBothered: {disliked}.\n"},
+                f"Category: {tab}. Address: {address}.\nLiked: {liked}.\nBothered: {disliked}.{concerns_block}"},
         ]
     if mode == "positive":
         return [
@@ -146,19 +220,23 @@ def _build_impression_messages(mode, tab, address, happy, sad):
         {"role": "system", "content":
             "You're a friendly Berliner giving a family an honest reality check. They gave a "
             "thumbs-DOWN to EVERY amenity nearby in this category — nothing worked for them. "
+            "'Specific concerns' are the family's own complaints — echo them faithfully. "
+            "NEVER invert a negation: if they say 'no Kaufland nearby' you must say 'no Kaufland nearby', "
+            "NOT 'only one Kaufland nearby'. NEVER spin a complaint into a positive. "
             "Do NOT claim things are good, do NOT invent positives. Write two honest sentences "
             "acknowledging the frustration and suggesting a practical workaround. Speak to them "
             "as \"you\". No lists, no headings."},
         {"role": "user", "content":
             "Category: medical. Address: Buschkrugallee 90, 12359.\n"
-            "The family was unhappy with everything nearby: Pharmacies, Doctors, Hospitals.\n"},
+            "The family was unhappy with everything nearby: Pharmacies, Doctors, Hospitals.\n"
+            "Specific concerns:\n  - Doctors: Not accepting patients, No English, \"no pediatrician takes us\"\n  - Hospitals: Too far"},
         {"role": "assistant", "content":
-            "You've spotted a real weak point of this Kiez — the medical options nearby are thin "
-            "and none of them worked for you. Plan on registering with a Hausarzt closer to work "
-            "instead, and keep the S-Bahn map handy for hospital runs when you need them."},
+            "You've spotted a real weak point of this Kiez — the doctors nearby aren't taking new patients, "
+            "few speak English, no pediatrician takes you, and the hospitals are a haul. Plan on registering "
+            "with a Hausarzt closer to work, and keep the S-Bahn map handy for hospital runs."},
         {"role": "user", "content":
             f"Category: {tab}. Address: {address}.\n"
-            f"The family was unhappy with everything nearby: {disliked}.\n"},
+            f"The family was unhappy with everything nearby: {disliked}.{concerns_block}"},
     ]
 
 # Public SESB Grundschule strands (source: berlin.de/sen/bjf/schulen/besondere-schulen/sesb).
@@ -921,7 +999,29 @@ class H(http.server.BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         if u.path == "/api/impression":
             return self._impression()
+        if u.path == "/api/explain":
+            return self._explain()
         self.send_error(404)
+
+    def _explain(self):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(n).decode("utf-8") if n else "{}"
+            d = json.loads(body)
+        except Exception as e:
+            return self._json({"error": f"bad body: {e}"}, 400)
+        if LLM["model"] is None:
+            return self._json({"error": LLM["error"] or "AI model still warming up, try again in a moment."}, 503)
+        card_type = (d.get("card_type") or "").strip()[:40]
+        fields    = d.get("fields") or {}
+        if not card_type or not fields:
+            return self._json({"error": "card_type and fields required"}, 400)
+        try:
+            with LLM_LOCK:
+                text = explain_card(card_type, fields)
+        except Exception as e:
+            return self._json({"error": f"generation failed: {e}"}, 500)
+        return self._json({"explanation": text, "model": LLM_MODEL_ID})
 
     def _impression(self):
         try:
@@ -1064,6 +1164,25 @@ def _selfcheck():
 
     # Kita info formatter — synthetic props (avoids network dependency in this assert).
     assert "65 places" in _kita_info({"e_platz": "65", "t_art": "freie Träger", "ang_1": ""})
+
+    # Sad-feedback chips — the user's concerns must land in the final prompt.
+    msgs = _build_impression_messages("negative", "amenities", "Addr", [], ["Supermarkets"],
+                                       {"Supermarkets": "Too far, Discount-only"})
+    assert "Too far, Discount-only" in msgs[-1]["content"]
+    msgs = _build_impression_messages("mixed", "amenities", "Addr", ["Parks"], ["Supermarkets"],
+                                       {"Supermarkets": "Limited choice"})
+    assert "Limited choice" in msgs[-1]["content"]
+    # Without sad_details, no concerns block leaks in.
+    msgs = _build_impression_messages("negative", "amenities", "Addr", [], ["Supermarkets"], None)
+    assert "Specific concerns" not in msgs[-1]["content"]
+
+    # German gloss post-processor — safety net when the 1.5B model leaves terms untranslated.
+    assert "(a non-profit or private provider)" in _gloss_german("run by a freier Träger, using Situationsansatz")
+    assert "(a child-led Berlin pedagogy)" in _gloss_german("run by a freier Träger, using Situationsansatz")
+    assert "(a child-led Berlin pedagogy)" in _gloss_german("uses the Situationssatz approach")  # misspelling caught
+    assert "26 Kitas (daycare) within" in _gloss_german("26 Kitas within a walk")
+    # If the model already glossed it, don't double-gloss.
+    assert _gloss_german("freier Träger (already glossed)") == "freier Träger (already glossed)"
 
     # Hospitals — Berlin should have ~110 total (64 plan + 47 weitere as of 2026).
     assert len(idx.hospitals) >= 80, f"expected ≥80 hospitals city-wide, got {len(idx.hospitals)}"
