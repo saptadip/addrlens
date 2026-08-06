@@ -124,6 +124,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .btn:hover::before{opacity:1}
 .btn span{display:inline-block;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
 .btn:hover span{transform:translateX(3px)}
+.hero-secondary{margin-top:10px;display:flex;justify-content:flex-end}
 .chips{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
 .chip{cursor:pointer;padding:7px 14px;border-radius:99px;background:#F3F4F6;color:var(--ink-2);
   font-size:13px;font-weight:600;border:1px solid var(--border);
@@ -378,6 +379,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .cell.active::before{transform:scaleY(1)}
 .cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
 .cell-head .chev{margin-left:auto;color:var(--muted);transition:transform .2s ease,color .2s}
+.cell-head .chev:has(+ .explain-btn){margin-left:0;margin-right:0}                          /* if explain follows chev, chev tucks by label so explain takes the far-right slot */
 .cell-head .chev svg{width:16px;height:16px;display:block}
 .cell.active .cell-head .chev{transform:rotate(180deg);color:var(--brand)}
 .amen-body{display:none}
@@ -564,6 +566,9 @@ footer a{color:var(--brand)}
     </div>
     <button class="btn" type="submit"><span>Look up →</span></button>
   </form>
+  <div class="hero-secondary">
+    <button type="button" class="btn" id="reset-btn" title="Clear all saved votes, feedback, comparisons, and card order">Reset</button>
+  </div>
   <div class="chips">
     <span class="chip" data-q="Kastanienallee 12, 10435">Kastanienallee 12</span>
     <span class="chip" data-q="Bergmannstraße 27, 10961">Bergmannstraße 27</span>
@@ -736,6 +741,14 @@ function clearResultState(){ eduData=null; amenData=null; envData=null; refreshS
 // compareRefreshPill()+showView() moved to end-of-script so const COMPARE_KEY,
 // COMPARE_MAX etc. are initialized before a hash-loaded #compare tries to render.
 document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q.value=c.dataset.q;$f.dispatchEvent(new Event('submit'))}));
+
+// Reset button — clear ALL user-recorded state (localStorage + in-memory) and
+// reload so the UI drops back to the empty landing view. Confirms before wiping.
+document.getElementById('reset-btn')?.addEventListener('click', () => {
+  if(!confirm('Clear all saved votes, feedback, card order, and comparisons? This cannot be undone.')) return;
+  ['impressions.v1', 'addrlens.cardOrder.v1', 'berlin-lens-compare-v1'].forEach(k => localStorage.removeItem(k));
+  location.reload();          // simplest correct refresh — no in-memory state to reconcile
+});
 $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.trim();if(!q)return;
   showStatus('loading', "Reading Berlin's open data…");
   try{
@@ -1141,7 +1154,7 @@ async function saveImpressionAsImage(){
 // so a reload / re-lookup keeps the user's arrangement. Cells without a
 // stable key (env noise cells) are skipped — they stay in narrative order.
 const CARD_ORDER_KEY = 'addrlens.cardOrder.v1';
-function cardKey(cell){ return cell.dataset.cat || cell.dataset.eduCat || null; }
+function cardKey(cell){ return cell.dataset.cat || cell.dataset.eduCat || cell.dataset.envCat || null; }
 function loadCardOrder(){ try{ return JSON.parse(localStorage.getItem(CARD_ORDER_KEY)||'{}'); }catch(e){ return {}; } }
 function saveCardOrder(tab, stackEl){
   const order = Array.from(stackEl.querySelectorAll('.cell')).map(cardKey).filter(Boolean);
@@ -1397,7 +1410,7 @@ function render(d){
       'Total places (capacity, not availability)': (kitaSample.props||{}).e_platz,
     } : null};
   const kita=k.count==null?'':`<div class="cell edu-cell" data-edu-cat="kita">
-    <div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span>${explainBtn('edu-kita','Kitas · 10-min walk',kitaFields)}${k.count>0?`<span class="chev">${ico.chev}</span>`:''}</div>
+    <div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span>${k.count>0?`<span class="chev">${ico.chev}</span>`:''}${explainBtn('edu-kita','Kitas · 10-min walk',kitaFields)}</div>
     <div class="metric-big"><span class="n" id="kitaN">0</span><span class="cap">registered within ~800 m</span></div>
     <div class="amen-body">
       <ul class="amen-list" style="margin-top:12px">${kitaItems}</ul>${kitaMore}
@@ -1458,7 +1471,7 @@ function strollerCardHtml(){
     'Kinderwagenraum':'a small ground-floor room in Berlin apartment buildings for storing strollers — a big deal when the flat has no lift',
     'Tiers':'green (fine), amber (workable), red (hard no)',
     'Inputs':'floor, lift availability, Kinderwagenraum, nearest playground distance'};
-  return `<div class="cell tier-unknown" id="stroller-card">
+  return `<div class="cell tier-unknown" id="stroller-card" data-env-cat="stroller">
     <div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Stroller access</span>
       <span class="stroller-badge tier-badge tier-unknown">Fill inputs</span>${explainBtn('env-stroller','Stroller access',strollerFields)}</div>
     <div class="stroller-form">
@@ -1497,11 +1510,11 @@ function noiseCardsHtml(n){
     'Aircraft':(n.l_den.air!=null?n.l_den.air+' dB day':'—')+' / '+(n.l_night.air!=null?n.l_night.air+' dB night':'—'),
     'Nearest façade measurement':n.distance_m+' m from your address'};
   return `
-    <div class="cell tier-${tDen}"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span>${explainBtn('env-noise-den','L_DEN · 24 h weighted',denFields)}</div>
+    <div class="cell tier-${tDen}" data-env-cat="noise-den"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span>${explainBtn('env-noise-den','L_DEN · 24 h weighted',denFields)}</div>
       <div class="metric-big"><span class="n">${den!=null?den.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tDen]}<br>WHO recommends &lt; 55 dB</span></div></div>
-    <div class="cell tier-${tNgt}"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span>${explainBtn('env-noise-night','L_Night · 22:00–06:00',ngtFields)}</div>
+    <div class="cell tier-${tNgt}" data-env-cat="noise-night"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span>${explainBtn('env-noise-night','L_Night · 22:00–06:00',ngtFields)}</div>
       <div class="metric-big"><span class="n">${ngt!=null?ngt.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tNgt]}<br>WHO recommends &lt; 45 dB</span></div></div>
-    <div class="cell"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Dominant sources at this façade</span>${explainBtn('env-noise-sources','Dominant noise sources',srcFields)}</div>
+    <div class="cell" data-env-cat="noise-sources"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Dominant sources at this façade</span>${explainBtn('env-noise-sources','Dominant noise sources',srcFields)}</div>
       <ul class="amen-list">${srcRows}</ul>
       <p class="amen-more">Nearest façade measurement: ${n.distance_m} m from your address.</p>
       <div class="prov">${esc(n.provenance)}</div></div>`;
@@ -1513,6 +1526,8 @@ function renderNoise(n){
   bindStrollerForm();
   renderStrollerCard();
   refreshSaveBtn();
+  const envStack = $env.querySelector('.stack');
+  if(envStack){ applyCardOrder('env', envStack); enableDrag('env', envStack); }
 }
 
 function noiseTierFromDen(v){
