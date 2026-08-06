@@ -66,13 +66,15 @@ Network-dependent assertions skip cleanly if a WFS is unreachable.
 
 ## Endpoints
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/` | HTML app |
-| GET | `/health` | Liveness (`{ok:true, polygons:N}`) |
-| GET | `/api/lookup?address=…` | Catchment school, SESB, kitas, nearest international |
-| GET | `/api/amenities?lat=&lon=` | Playgrounds, parks, pharmacies, supermarkets, GPs, hospitals, transit |
-| GET | `/api/noise?lat=&lon=` | Façade L_DEN + L_Night from the 2022 strategic noise map |
+| Method | Path | Purpose | Phases |
+|---|---|---|---|
+| GET  | `/` | HTML app | all |
+| GET  | `/health` | Liveness (`{ok:true, polygons:N}`) | all |
+| GET  | `/api/lookup?address=…` | Catchment school, SESB, kitas, nearest international | all |
+| GET  | `/api/amenities?lat=&lon=` | Playgrounds, parks, pharmacies, supermarkets, GPs, hospitals, transit | 2, 3 |
+| GET  | `/api/noise?lat=&lon=` | Façade L_DEN + L_Night from the 2022 strategic noise map | 2, 3 |
+| POST | `/api/explain` | Plain-English card explanation with inline German-term glosses | 3 |
+| POST | `/api/impression` | Warm per-tab read from the user's 👍/👎 votes + chip feedback | 3 |
 
 All JSON responses carry a `provenance` field. Errors return `{error: "..."}`
 with a plain-English message and appropriate HTTP status.
@@ -98,8 +100,8 @@ directory (see §14.1 of the product doc).
 ## Data sources
 
 - **Berlin Geoportal** (`dl-de/by-2.0`, some `dl-de/zero-2.0`) — schools,
-  Einschulbereiche, addresses, kitas, green spaces, playgrounds, 2022
-  strategic noise map.
+  Einschulbereiche, addresses, kitas, hospitals, green spaces, playgrounds,
+  drinking fountains, 2022 strategic noise map.
 - **OpenStreetMap** (`ODbL`) — pharmacies, supermarkets, GPs, transit stops,
   playground/park supplements where the city dataset is known to undercount.
 - **No listings.** The product is a decision layer over a location, never
