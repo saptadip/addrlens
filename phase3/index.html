@@ -12,12 +12,17 @@
 <style>
 /* Micro-interactions — subtle base, delightful gesture-triggered animations */
 :root{--bg:#FAFBFC;--card:#FFFFFF;
-  --hero-bg:#FEF7F0;                     /* warm ivory — welcoming input area, no hover shift */
+  --hero-bg:#DCE7F3;                     /* cool sky-clay — neumorphic hero surface */
+  --hero-sh-light:rgba(255,255,255,.95); --hero-sh-dark:rgba(94,120,163,.55);
+  --hero-accent:#0284C7; --hero-accent-2:#38BDF8;
   --result-bg:#EEF2FF;                    /* soft periwinkle — coherent result group */
   --result-bg-hover:#DDE7FF;              /* one step deeper on hover, same hue */
   --ink:#111827;--ink-2:#374151;--muted:#6B7280;
   --brand:#4F46E5;--brand-2:#818CF8;--success:#22C55E;--danger:#EF4444;--amber:#F59E0B;
-  --border:#E5E7EB;--sh-1:0 1px 2px rgba(17,24,39,.06);--sh-2:0 4px 8px rgba(17,24,39,.06),0 12px 24px rgba(17,24,39,.06)}
+  --border:#E5E7EB;--sh-1:0 1px 2px rgba(17,24,39,.06);--sh-2:0 4px 8px rgba(17,24,39,.06),0 12px 24px rgba(17,24,39,.06);
+  /* Neumorphism (Soft UI) — cool-clay surface + dual shadow. Base is one step
+     deeper than --result-bg so tabs/pills stand apart from the page. */
+  --neumo-bg:#DDE5F1; --neumo-sh-light:rgba(255,255,255,.9); --neumo-sh-dark:rgba(148,163,192,.55)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}   /* HTML spec intent — beats class-based display rules */
 html,body{margin:0;background:var(--bg);color:var(--ink);
@@ -39,15 +44,24 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .style-pill{padding:8px 14px;border-radius:99px;background:#EEF2FF;color:var(--brand);
   font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
 .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-.pill-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:99px;border:1.5px solid var(--border);
-  background:#fff;color:var(--ink-2);font:inherit;font-weight:700;font-size:12px;letter-spacing:.02em;cursor:pointer;
-  text-decoration:none;transition:transform .12s,background .15s,border-color .15s,color .15s,box-shadow .2s}
-.pill-btn:hover{transform:translateY(-1px);border-color:var(--brand-2);color:var(--brand);background:#F5F3FF;box-shadow:var(--sh-1)}
-.pill-btn[disabled]{cursor:default;opacity:.7}
-.pill-btn[disabled]:hover{transform:none;background:#fff;color:var(--ink-2);border-color:var(--border);box-shadow:none}
-.pill-btn-brand{background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;border-color:transparent;box-shadow:var(--sh-1)}
-.pill-btn-brand:hover{color:#fff;background:linear-gradient(135deg,#4F46E5,#4338CA);border-color:transparent;box-shadow:var(--sh-2)}
-.pill-btn-brand:hover::after{background:currentColor}
+.pill-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:99px;border:none;
+  background:var(--neumo-bg);color:var(--ink-2);font:inherit;font-weight:700;font-size:12px;letter-spacing:.02em;cursor:pointer;
+  text-decoration:none;box-shadow:-3px -3px 8px var(--neumo-sh-light),3px 3px 8px var(--neumo-sh-dark);
+  transition:transform .12s,color .15s,box-shadow .2s}
+.pill-btn::after{display:none}                                          /* depth conveys interactivity, no underline */
+.pill-btn:hover{transform:translateY(-1px);color:var(--brand);
+  box-shadow:-5px -5px 12px var(--neumo-sh-light),5px 5px 12px var(--neumo-sh-dark)}
+.pill-btn:active{transform:translateY(0);
+  box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),inset -2px -2px 5px var(--neumo-sh-light)}
+.pill-btn[disabled]{cursor:default;opacity:.55;
+  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),inset -2px -2px 4px var(--neumo-sh-light)}
+.pill-btn[disabled]:hover{transform:none;color:var(--ink-2);
+  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),inset -2px -2px 4px var(--neumo-sh-light)}
+.pill-btn-brand{background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;
+  box-shadow:-3px -3px 8px var(--neumo-sh-light),4px 4px 14px rgba(99,102,241,.42)}
+.pill-btn-brand:hover{color:#fff;background:linear-gradient(135deg,#4F46E5,#4338CA);
+  box-shadow:-4px -4px 12px var(--neumo-sh-light),6px 6px 18px rgba(79,70,229,.55)}
+.pill-btn-brand:active{box-shadow:inset 2px 2px 6px rgba(55,48,163,.55),inset -2px -2px 5px rgba(255,255,255,.25)}
 
 /* Comparison view — table with addresses as columns, metrics as rows */
 .compare-view{margin-top:14px}
@@ -83,24 +97,29 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .compare-table .sesb-cell::before{content:"✦ ";color:#DB2777}
 @media(max-width:600px){.compare-table th,.compare-table td{padding:10px}.compare-table{font-size:13px}}
 
-.hero{background:var(--hero-bg);border:1px solid var(--border);border-radius:16px;padding:32px 34px;box-shadow:var(--sh-2);position:relative;overflow:hidden}
+.hero{background:var(--hero-bg);border:none;border-radius:16px;padding:32px 34px;position:relative;overflow:hidden;
+  box-shadow:-10px -10px 26px var(--hero-sh-light),10px 10px 30px var(--hero-sh-dark)}
 .hero h1{margin:0 0 8px;font-size:clamp(28px,4vw,40px);line-height:1.1;color:var(--ink)}
-.hero h1 .grad{background:linear-gradient(135deg,#4F46E5,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero h1 .grad{background:linear-gradient(135deg,#0EA5E9,#4F46E5);-webkit-background-clip:text;background-clip:text;color:transparent}
 .hero p{margin:0 0 20px;color:var(--ink-2);font-size:15px;max-width:640px}
 .hero form{display:flex;gap:10px;flex-wrap:wrap;position:relative}
 .hero .field{flex:1;min-width:240px;position:relative}
-.hero input{width:100%;padding:14px 18px 14px 40px;border:1.5px solid var(--border);background:#fff;color:var(--ink);
+.hero input{width:100%;padding:14px 18px 14px 40px;border:none;background:var(--hero-bg);color:var(--ink);
   border-radius:10px;font:inherit;font-size:15px;font-weight:500;outline:none;
-  transition:border-color .18s,box-shadow .18s,padding-left .25s cubic-bezier(.34,1.56,.64,1)}
+  box-shadow:inset 3px 3px 7px var(--hero-sh-dark),inset -3px -3px 7px var(--hero-sh-light);
+  transition:box-shadow .18s,padding-left .25s cubic-bezier(.34,1.56,.64,1)}
 .hero input::placeholder{color:#9CA3AF}
-.hero input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.15);padding-left:44px}
+.hero input:focus{padding-left:44px;
+  box-shadow:inset 3px 3px 7px var(--hero-sh-dark),inset -3px -3px 7px var(--hero-sh-light),0 0 0 3px rgba(14,165,233,.28)}
 .field-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#9CA3AF;width:18px;height:18px;
   transition:color .18s,transform .25s cubic-bezier(.34,1.56,.64,1)}
-.hero input:focus + .field-ico{color:var(--brand);transform:translateY(-50%) scale(1.15)}
+.hero input:focus + .field-ico{color:var(--hero-accent);transform:translateY(-50%) scale(1.15)}
 .btn{cursor:pointer;border:0;padding:14px 22px;border-radius:10px;font:inherit;font-weight:700;font-size:14px;
-  color:#fff;background:linear-gradient(135deg,#6366F1,#4F46E5);box-shadow:var(--sh-1);position:relative;overflow:hidden;
+  color:#fff;background:linear-gradient(135deg,var(--hero-accent-2),var(--hero-accent));position:relative;overflow:hidden;
+  box-shadow:-3px -3px 8px var(--hero-sh-light),5px 5px 16px rgba(2,132,199,.45);
   transition:transform .12s,box-shadow .2s}
-.btn:hover{transform:translateY(-1px);box-shadow:var(--sh-2)}
+.btn:hover{transform:translateY(-1px);
+  box-shadow:-4px -4px 10px var(--hero-sh-light),7px 7px 20px rgba(2,132,199,.6)}
 .btn::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at var(--x,50%) var(--y,50%),rgba(255,255,255,.35) 0%,transparent 45%);opacity:0;transition:opacity .3s}
 .btn:hover::before{opacity:1}
 .btn span{display:inline-block;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
@@ -112,16 +131,19 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .chip:hover{background:#EEF2FF;color:var(--brand);border-color:var(--brand-2);transform:translateY(-2px)}
 .chip:active{transform:translateY(0) scale(.95)}
 
-/* --- tabs (segmented pill control) */
-.tabs{display:inline-flex;gap:4px;padding:6px;background:var(--ink);border:1px solid var(--ink);
-  border-radius:12px;box-shadow:var(--sh-1);margin:22px 0 0}
-.tab{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border:0;background:transparent;
-  border-radius:8px;font:inherit;font-weight:600;font-size:14px;color:rgba(255,255,255,.65);cursor:pointer;
-  transition:background .18s,color .18s,transform .12s}
+/* --- tabs (neumorphic segmented control — recessed groove, extruded active pill) */
+.tabs{display:inline-flex;gap:4px;padding:6px;background:var(--neumo-bg);border:none;
+  border-radius:14px;margin:22px 0 0;
+  box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
+.tab{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;background:transparent;
+  border-radius:10px;font:inherit;font-weight:600;font-size:14px;color:var(--ink-2);cursor:pointer;
+  transition:box-shadow .2s,color .18s,transform .12s}
 .tab svg{width:16px;height:16px}
-.tab:hover:not(.active){color:#fff;background:rgba(255,255,255,.08)}
-.tab.active{background:#fff;color:var(--brand)}
-.tab:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.35)}
+.tab:hover:not(.active){color:var(--ink);transform:translateY(-1px)}
+.tab.active{background:var(--neumo-bg);color:var(--brand);
+  box-shadow:-3px -3px 7px var(--neumo-sh-light),3px 3px 7px var(--neumo-sh-dark)}
+.tab:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(99,102,241,.4)}
+.tab.active:focus-visible{box-shadow:-3px -3px 7px var(--neumo-sh-light),3px 3px 7px var(--neumo-sh-dark),0 0 0 3px rgba(99,102,241,.4)}
 .panel{display:none}
 .panel.active{display:block}
 /* soft fade when switching panels */
