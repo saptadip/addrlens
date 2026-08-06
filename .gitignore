@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 .claude/
 .gstack/
+# Phase 3 (LLM) runtime — venv is ~1.2 GB, recreated with `pip install`.
+# Model weights live in ~/.cache/huggingface, not the repo.
+phase3/venv/
