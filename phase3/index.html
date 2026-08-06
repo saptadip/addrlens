@@ -460,7 +460,20 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 
 /* Impression modal — reuses .explain-overlay/.explain-panel base */
 .impression-panel{max-width:640px;width:fit-content;min-width:340px;max-height:80vh;overflow-y:auto}
+.impression-panel .explain-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;row-gap:8px}
+.impression-panel .explain-head .ai-chip{grid-column:1;grid-row:1;justify-self:start;line-height:1;align-self:center}
+.impression-panel .explain-head .addr-chip{grid-column:2;grid-row:1;justify-self:center;line-height:1;align-self:center;min-width:0;max-width:100%}
+.impression-panel .section .votes .up,
+.impression-panel .section .votes .dn{white-space:nowrap}
+.impression-panel .addr-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:99px;
+  background:var(--neumo-bg);color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),inset -2px -2px 4px var(--neumo-sh-light)}
+.impression-panel .addr-chip svg{width:11px;height:11px;color:var(--brand);flex-shrink:0}
 .impression-panel .impression-modal-body{margin-top:4px}
+/* Hide non-content chrome while html2canvas captures the panel */
+.impression-panel.capturing .explain-close,
+.impression-panel.capturing .gen-cta .actions{display:none}
 .impression-panel .section{margin-top:18px;padding:16px 18px;border-radius:14px;background:var(--neumo-bg);
   box-shadow:-3px -3px 8px var(--neumo-sh-light),3px 3px 10px var(--neumo-sh-dark)}
 .impression-panel .section:first-child{margin-top:6px}
@@ -968,8 +981,10 @@ function ensureImpressionModal(){
   o.id = 'impression-overlay'; o.className = 'explain-overlay'; o.hidden = true;
   o.innerHTML = `<div class="explain-panel impression-panel">
     <button class="explain-close" aria-label="Close">✕</button>
-    <div class="explain-head"><span class="ai-chip">✨ Impression</span>
-      <h3>Your read of this address</h3></div>
+    <div class="explain-head">
+      <span class="ai-chip"><svg viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px;flex-shrink:0"><path d="M12 2l1.8 5.4L19 9l-5.4 1.8L12 16l-1.8-5.2L5 9l5.2-1.6z"/></svg><span>Impression</span></span>
+      <span class="addr-chip" id="impression-addr" hidden></span>
+    </div>
     <div class="impression-modal-body" id="impression-modal-body"></div>
   </div>`;
   document.body.appendChild(o);
@@ -982,8 +997,24 @@ document.addEventListener('keydown', e => {
   const o = document.getElementById('impression-overlay');
   if(o && !o.hidden) closeImpressionModal();
 });
+function currentAddressLabel(){
+  const a = eduData && eduData.address;
+  return a ? `${a.street} ${a.hnr}, ${a.plz} ${a.district||''}`.trim() : '';
+}
+const ICO_PIN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+
+function setImpressionAddrChip(){
+  const el = document.getElementById('impression-addr');
+  const addr = currentAddressLabel();
+  if(!el) return;
+  if(!addr){ el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `${ICO_PIN}<span>${esc(addr)}</span>`;
+}
+
 function openImpressionModal(){
   ensureImpressionModal();
+  setImpressionAddrChip();
   const grouped = votesByTab();
   const sig = JSON.stringify(grouped);
   const overlay = document.getElementById('impression-overlay');
@@ -992,21 +1023,32 @@ function openImpressionModal(){
   const fresh = imprSummaryCache && imprSummaryCache.sig === sig;
   if(fresh){
     body.innerHTML = renderImpressionSections(grouped, imprSummaryCache.summary)
-      + `<div class="gen-cta">
-           <span class="prov">Composed on-device by ${esc(imprSummaryCache.model||'the local model')} — nothing left this server.</span>
-           <button class="pill-btn" id="impression-gen">Regenerate ✨</button>
-         </div>`;
+      + renderImpressionActions(imprSummaryCache.model, /*hasSummary=*/true);
   } else {
     const total = Object.values(grouped).reduce((s,t)=>s+t.happy.length+t.sad.length, 0);
     body.innerHTML = `<div class="empty">
         Based on <b>${total}</b> vote${total>1?'s':''}.
         Tap <b>Generate</b> for a warm local read on this Kiez, written by the on-device model.
       </div>
-      <div class="gen-cta">
-        <button class="pill-btn pill-btn-brand" id="impression-gen">Generate ✨</button>
-      </div>`;
+      ${renderImpressionActions(null, /*hasSummary=*/false)}`;
   }
+  wireImpressionActions();
+}
+function renderImpressionActions(model, hasSummary){
+  const gen = hasSummary
+    ? `<button class="pill-btn" id="impression-gen">Regenerate ✨</button>`
+    : `<button class="pill-btn pill-btn-brand" id="impression-gen">Generate ✨</button>`;
+  const save = hasSummary
+    ? `<button class="pill-btn" id="impression-save" title="Save this impression card as PNG">Save PNG ⬇</button>`
+    : '';
+  const prov = hasSummary
+    ? `<span class="prov">Composed on-device by ${esc(model||'the local model')} — nothing left this server.</span>`
+    : `<span class="prov"></span>`;
+  return `<div class="gen-cta">${prov}<div class="actions">${save}${gen}</div></div>`;
+}
+function wireImpressionActions(){
   document.getElementById('impression-gen')?.addEventListener('click', fetchImpressionForModal);
+  document.getElementById('impression-save')?.addEventListener('click', saveImpressionAsImage);
 }
 function closeImpressionModal(){
   const o = document.getElementById('impression-overlay');
@@ -1041,16 +1083,58 @@ async function fetchImpressionForModal(){
     if(!r.ok){ body.innerHTML = `<div class="error">${esc(d.error||'Failed to generate summary.')}</div>`; return; }
     imprSummaryCache = {sig: JSON.stringify(grouped), summary: d.summary, model: d.model};
     body.innerHTML = renderImpressionSections(grouped, d.summary)
-      + `<div class="gen-cta">
-           <span class="prov">Composed on-device by ${esc(d.model||'the local model')} — nothing left this server.</span>
-           <button class="pill-btn" id="impression-gen">Regenerate ✨</button>
-         </div>`;
-    document.getElementById('impression-gen')?.addEventListener('click', fetchImpressionForModal);
+      + renderImpressionActions(d.model, /*hasSummary=*/true);
+    wireImpressionActions();
   } catch(e){
     body.innerHTML = `<div class="error">Network error: ${esc(e.message)}</div>`;
   }
 }
 $imprLaunch?.addEventListener('click', openImpressionModal);
+
+// Save the impression card as PNG. html-to-image is lazy-loaded from CDN on
+// first use (~35 KB, uses SVG foreignObject so it handles emoji surrogate
+// pairs like 👍/👎/✨ that html2canvas trips over). The .capturing class hides
+// the close ✕ and the actions row so the snapshot shows only content + prov.
+function _loadHtmlToImage(){
+  if(window.htmlToImage) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
+    s.onload = res;
+    s.onerror = () => rej(new Error('failed to load html-to-image from CDN'));
+    document.head.appendChild(s);
+  });
+}
+async function saveImpressionAsImage(){
+  const panel = document.querySelector('.impression-panel');
+  const btn = document.getElementById('impression-save');
+  if(!panel) return;
+  const orig = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await _loadHtmlToImage();
+    panel.classList.add('capturing');
+    // A short paint tick so the hide-chrome CSS lands before capture.
+    await new Promise(r => requestAnimationFrame(r));
+    const bg = getComputedStyle(document.body).getPropertyValue('--result-bg').trim() || '#EEF2FF';
+    const dataUrl = await htmlToImage.toPng(panel, {
+      backgroundColor: bg,
+      pixelRatio: 2,
+      cacheBust: true,
+    });
+    panel.classList.remove('capturing');
+    const addr = (currentAddressLabel() || 'address').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `impression-${addr || 'address'}.png`;
+    a.click();
+  } catch(e){
+    panel.classList.remove('capturing');
+    alert('Could not save image: ' + e.message);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = orig || 'Save PNG ⬇'; }
+  }
+}
 
 // -- Card drag-reorder ------------------------------------------------------
 // Native HTML5 DnD on .stack > .cell. Order persists per tab in localStorage
