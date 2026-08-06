@@ -440,83 +440,51 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .sad-text:focus{outline:none;border-color:var(--brand)}
 .sad-actions{display:flex;gap:10px;justify-content:flex-end}
 
-/* AI Impression — 3D bento of tilted cards. Cursor tracking gives real depth
-   without feeling gimmicky (rotation clamped at ±5°). Gradient top border +
-   pulse dot signal "AI generated" without extra chrome. */
-.impression{margin:24px 0 0;padding:0;background:transparent;box-shadow:none;position:relative}
-.impression-head{display:flex;align-items:center;gap:12px;margin:0 4px 16px;flex-wrap:wrap}
-.impression-head h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;color:var(--ink)}
-.impression-head .ai-chip{display:inline-flex;align-items:center;gap:6px;
-  background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;padding:5px 12px;
-  border-radius:99px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  box-shadow:0 4px 12px rgba(99,102,241,.35)}
-.impression-head .ai-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:#fff;
-  animation:aiPulse 1.6s ease-in-out infinite}
-@keyframes aiPulse{0%,100%{opacity:.5;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
-.impression-head .sub{color:var(--muted);font-size:12px;font-weight:500}
-.impression-head .gen-btn{margin-left:auto;padding:9px 18px;border-radius:99px;border:none;font:inherit;font-weight:600;
-  font-size:13px;cursor:pointer;color:#fff;background:linear-gradient(135deg,#6366F1,#4F46E5);
-  box-shadow:0 6px 16px rgba(99,102,241,.4);transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s}
-.impression-head .gen-btn:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(99,102,241,.5)}
-.impression-head .gen-btn[disabled]{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+/* AI Impression — neumorphic launch button + modal with per-tab sections.
+   Launch pill sits right-aligned in the tabs row, opens a modal that shows
+   all tab summaries under sub-headings (no per-tab cards). */
+.tabs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:22px 0 0;flex-wrap:wrap}
+.tabs-row .tabs{margin:0}
+.impression-launch{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:none;border-radius:14px;
+  background:var(--neumo-bg);color:var(--brand);font:inherit;font-weight:700;font-size:13px;letter-spacing:.02em;
+  cursor:pointer;
+  box-shadow:-4px -4px 10px var(--neumo-sh-light),4px 4px 12px var(--neumo-sh-dark);
+  transition:transform .12s,box-shadow .2s}
+.impression-launch::before{content:"✨";font-size:14px;filter:drop-shadow(0 1px 2px rgba(99,102,241,.4))}
+.impression-launch:hover{transform:translateY(-1px);
+  box-shadow:-6px -6px 14px var(--neumo-sh-light),6px 6px 16px var(--neumo-sh-dark)}
+.impression-launch:active{transform:translateY(0);
+  box-shadow:inset 2px 2px 6px var(--neumo-sh-dark),inset -2px -2px 6px var(--neumo-sh-light)}
+.impression-launch .count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 7px;
+  border-radius:99px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;letter-spacing:0}
 
-/* Bento of 3D cards. perspective on parent enables real depth on children. */
-.impression-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;
-  perspective:1200px}
-.impression-empty{grid-column:1/-1;padding:22px 24px;border-radius:16px;background:var(--result-bg);
-  color:var(--muted);font-size:13px;text-align:center;
-  box-shadow:-6px -6px 14px rgba(255,255,255,.9),6px 6px 14px rgba(90,102,145,.28)}
-.impression-empty b{color:var(--ink)}
-.impression-loading{grid-column:1/-1;padding:26px;display:flex;align-items:center;justify-content:center;gap:12px;
-  color:var(--ink-2);font-size:14px;font-weight:500;border-radius:16px;background:var(--result-bg);
-  box-shadow:inset 3px 3px 6px rgba(90,102,145,.15),inset -3px -3px 6px rgba(255,255,255,.7)}
-
-.impr-card{position:relative;padding:22px 24px 20px;border-radius:20px;overflow:hidden;
-  background:linear-gradient(145deg,rgba(255,255,255,.85),rgba(238,242,255,.75));
-  transform-style:preserve-3d;transform:translateZ(0);
-  box-shadow:-12px -12px 28px rgba(255,255,255,1),
-             14px 14px 32px rgba(90,102,145,.55),
-             4px 4px 10px rgba(90,102,145,.25),
-             inset 1px 1px 2px rgba(255,255,255,.7);
-  transition:transform .4s cubic-bezier(.2,.9,.3,1.2),box-shadow .3s;
-  animation:imprIn .5s cubic-bezier(.34,1.56,.64,1) both;
-  will-change:transform}
-.impr-card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;
-  background:linear-gradient(90deg,#6366F1,#8B5CF6,#EC4899);border-radius:20px 20px 0 0;opacity:.9}
-.impr-card::after{content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;
-  background:radial-gradient(circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.7),transparent 55%);
-  opacity:0;transition:opacity .3s}
-.impr-card:hover::after{opacity:.6}
-.impr-card:hover{box-shadow:-16px -16px 36px rgba(255,255,255,1),
-                            18px 18px 42px rgba(90,102,145,.6),
-                            6px 6px 14px rgba(90,102,145,.32),
-                            inset 1px 1px 2px rgba(255,255,255,.75)}
-@keyframes imprIn{0%{opacity:0;transform:translateY(24px) scale(.94) rotateX(-8deg)}
-                  100%{opacity:1;transform:translateY(0) scale(1) rotateX(0)}}
-.impr-card:nth-child(1){animation-delay:0ms}
-.impr-card:nth-child(2){animation-delay:120ms}
-.impr-card:nth-child(3){animation-delay:240ms}
-.impr-card:nth-child(4){animation-delay:360ms}
-.impr-card .impr-decor{position:absolute;top:14px;right:16px;width:88px;height:88px;opacity:.09;
-  transform:translateZ(20px);pointer-events:none}
-.impr-card .impr-decor svg{width:100%;height:100%}
-.impr-card .impr-label{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:12px;position:relative;z-index:1}
-.impr-card .impr-label .icon-badge{width:24px;height:24px;border-radius:7px;flex-shrink:0}
-.impr-card .impr-label .icon-badge svg{width:12px;height:12px}
-.impr-card .impr-body{color:var(--ink);font-size:15px;line-height:1.6;font-weight:500;position:relative;z-index:1;
-  transform:translateZ(15px)}
-.impr-card .impr-body::first-letter{font-size:22px;font-weight:700;color:#4F46E5;padding-right:2px}
-.impr-card .impr-votes{margin-top:14px;padding-top:12px;border-top:1px solid rgba(107,114,128,.18);
-  display:flex;gap:12px;font-size:11px;color:var(--muted);font-weight:600;position:relative;z-index:1}
-.impr-card .impr-votes .up{color:#16A34A}
-.impr-card .impr-votes .dn{color:#DC2626}
-.impression .prov{margin:14px 4px 0;font-size:11px;color:var(--muted);text-align:right}
-.impression .prov::before{content:"✨ ";opacity:.6}
-@media(prefers-reduced-motion:reduce){
-  .impr-card{animation:none !important;transition:box-shadow .2s}
-  .impr-card:hover{transform:none}
-}
+/* Impression modal — reuses .explain-overlay/.explain-panel base */
+.impression-panel{max-width:640px;width:fit-content;min-width:340px;max-height:80vh;overflow-y:auto}
+.impression-panel .impression-modal-body{margin-top:4px}
+.impression-panel .section{margin-top:18px;padding:16px 18px;border-radius:14px;background:var(--neumo-bg);
+  box-shadow:-3px -3px 8px var(--neumo-sh-light),3px 3px 10px var(--neumo-sh-dark)}
+.impression-panel .section:first-child{margin-top:6px}
+.impression-panel .section h4{margin:0 0 10px;display:flex;align-items:center;gap:10px;
+  font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted)}
+.impression-panel .section h4::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:currentColor;opacity:.7}
+.impression-panel .section p{margin:0;font-size:14px;line-height:1.65;color:var(--ink);font-weight:500}
+.impression-panel .section p::first-letter{font-size:20px;font-weight:700;color:var(--brand);padding-right:2px}
+.impression-panel .section .votes{margin-top:10px;padding-top:8px;border-top:1px solid rgba(107,114,128,.15);
+  display:flex;gap:12px;font-size:11px;font-weight:600;color:var(--muted)}
+.impression-panel .section .votes .up{color:#16A34A}
+.impression-panel .section .votes .dn{color:#DC2626}
+.impression-panel .empty{padding:22px;border-radius:14px;background:var(--neumo-bg);text-align:center;
+  color:var(--muted);font-size:13px;
+  box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
+.impression-panel .empty b{color:var(--ink)}
+.impression-panel .gen-cta{margin-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:14px}
+.impression-panel .gen-cta .prov{font-size:11px;color:var(--muted);flex:1;text-align:left}
+.impression-panel .gen-cta .prov::before{content:"✨ ";opacity:.6}
+.impression-panel .impression-loading{padding:26px;display:flex;align-items:center;justify-content:center;gap:12px;
+  color:var(--ink-2);font-size:14px;font-weight:500;border-radius:14px;background:var(--neumo-bg);
+  box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
 
 .toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
   padding:10px 20px;border-radius:99px;font-weight:600;font-size:13px;box-shadow:var(--sh-2);opacity:0;pointer-events:none;
@@ -592,7 +560,8 @@ footer a{color:var(--brand)}
 
 <div id="status" class="status-area" hidden></div>
 
-<div class="tabs" role="tablist" aria-label="Data categories" hidden>
+<div class="tabs-row" id="tabs-row" hidden>
+<div class="tabs" role="tablist" aria-label="Data categories">
   <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-edu" data-tab="edu">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
     Education
@@ -609,6 +578,8 @@ footer a{color:var(--brand)}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
     Environment
   </button>
+</div>
+<button class="impression-launch" id="impression-launch" hidden aria-label="Open AI impression"><span>Impression</span><span class="count" id="impression-count">0</span></button>
 </div>
 
 <section id="panel-edu" class="panel active" role="tabpanel" aria-labelledby="tab-edu" hidden>
@@ -627,7 +598,6 @@ footer a{color:var(--brand)}
   <div id="env"></div>
 </section>
 
-<section id="impression" class="impression" hidden aria-label="AI impression of this address"></section>
 </div><!-- /view-main -->
 
 <section id="view-compare" class="compare-view" hidden aria-label="Comparison board">
@@ -677,7 +647,7 @@ const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 // (pharmacies, GPs, hospitals) live under the dedicated Medical tab.
 const AMEN_TAB={pharmacies:'med', gps:'med', hospitals:'med'};
 const tabOf=k=>AMEN_TAB[k]||'amen';
-const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.querySelector('.tabs');
+const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.getElementById('tabs-row');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
 // Per-tab render state (map + selected category). Same shape for both panels
 // so every renderer/selector takes a tab id and reads its slice.
@@ -802,7 +772,7 @@ document.addEventListener('click', e => {
   if(tile){ if(next) tile.dataset.vote=next; else delete tile.dataset.vote; }
   // Un-voted or flipped-to-happy → drop any prior sad-feedback for this key.
   if(next !== 'sad' && sadDetails[key]) delete sadDetails[key];
-  refreshImpressionPanel();       // vote changed → maybe show panel + invalidate summary
+  refreshImpressionLaunch();      // vote changed → update launch pill; cached summary auto-invalidates via sig
   if(next === 'sad') openSadModal(key);
 });
 
@@ -859,7 +829,7 @@ function openSadModal(catKey){
     const txt = (overlay.querySelector('#sad-text').value || '').trim().slice(0,200);
     if(picked.length || txt) sadDetails[catKey] = {chips: picked, text: txt};
     else delete sadDetails[catKey];
-    $impr.dataset.summarized = '';   // new feedback ⇒ prior summary is stale
+    refreshImpressionLaunch();       // updated count/state; cached summary auto-invalidates via sig
     closeSadModal();
   });
 }
@@ -946,14 +916,12 @@ function closeExplain(){
 // Groups the user's per-card votes by tab and asks the local LLM for a
 // two-sentence summary per tab. Panel appears only when there is at least
 // one vote for the currently-loaded address. User clicks Generate to (re)fetch.
-const $impr = document.getElementById('impression');
-// Tab label + icon for the per-tab card in the impression response.
+const $imprLaunch = document.getElementById('impression-launch');
+const $imprCount  = document.getElementById('impression-count');
 const IMPR_TAB_META = {
-  amenities: {label:'Amenities',      icon:'tree',     color:'#10B981'},
-  medical:   {label:'Medical',        icon:'hospital', color:'#DC2626'},
+  amenities: {label:'Amenities', color:'#10B981'},
+  medical:   {label:'Medical',   color:'#DC2626'},
 };
-// Which categories fall under which impression tab. Matches AMEN_TAB semantics
-// but explicit here so future backend tabs (education/environment) can be added.
 const IMPR_CAT_TAB = {
   playgrounds:'amenities', parks:'amenities', supermarkets:'amenities',
   fountains:'amenities',   transit:'amenities',
@@ -981,116 +949,108 @@ function votesByTab(){
   }
   return out;
 }
-function refreshImpressionPanel(){
+
+// Modal-based impression: launch pill in tabs-row → popup with per-tab sections.
+// Cache keyed on grouped-votes signature — vote changes auto-invalidate.
+let imprSummaryCache = null;   // {sig, summary, model}
+
+function refreshImpressionLaunch(){
   const grouped = votesByTab();
-  const any = Object.values(grouped).some(t => (t.happy.length + t.sad.length) > 0);
-  if(!any){ $impr.hidden = true; $impr.innerHTML=''; return; }
-  // Show the panel with a Generate button. Don't auto-call the LLM.
-  if(!$impr.dataset.summarized || $impr.dataset.summarized !== JSON.stringify(grouped)){
-    renderImpressionShell(grouped, /*loaded=*/false);
-  }
-  $impr.hidden = false;
+  const total = Object.values(grouped).reduce((s,t)=>s+t.happy.length+t.sad.length, 0);
+  if(!$imprLaunch) return;
+  if(total === 0){ $imprLaunch.hidden = true; return; }
+  $imprLaunch.hidden = false;
+  $imprCount.textContent = total;
 }
-function renderImpressionShell(grouped, loaded){
-  const totalVotes = Object.values(grouped).reduce((s,t)=>s+t.happy.length+t.sad.length, 0);
-  const chips = Object.entries(grouped).map(([tab,c]) => {
-    const meta = IMPR_TAB_META[tab] || {label:tab};
-    const bits = [];
-    if(c.happy.length) bits.push(`<span style="color:#16A34A">👍 ${c.happy.length}</span>`);
-    if(c.sad.length)   bits.push(`<span style="color:#DC2626">👎 ${c.sad.length}</span>`);
-    return `<span class="sub"><b>${meta.label}</b> ${bits.join(' ')}</span>`;
-  }).join(' · ');
-  $impr.innerHTML = `
-    <div class="impression-head">
-      <span class="ai-chip">AI Verdict</span>
-      <h3>Your impression of this address</h3>
-      <span class="sub">${chips}</span>
-      <button class="gen-btn" id="impression-gen">Generate ✨</button>
-    </div>
-    <div class="impression-body" id="impression-body">
-      <div class="impression-empty">
-        Based on <b>${totalVotes}</b> vote${totalVotes>1?'s':''}.
+function ensureImpressionModal(){
+  if(document.getElementById('impression-overlay')) return;
+  const o = document.createElement('div');
+  o.id = 'impression-overlay'; o.className = 'explain-overlay'; o.hidden = true;
+  o.innerHTML = `<div class="explain-panel impression-panel">
+    <button class="explain-close" aria-label="Close">✕</button>
+    <div class="explain-head"><span class="ai-chip">✨ Impression</span>
+      <h3>Your read of this address</h3></div>
+    <div class="impression-modal-body" id="impression-modal-body"></div>
+  </div>`;
+  document.body.appendChild(o);
+  o.addEventListener('click', e => {
+    if(e.target === o || e.target.closest('.explain-close')) closeImpressionModal();
+  });
+}
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  const o = document.getElementById('impression-overlay');
+  if(o && !o.hidden) closeImpressionModal();
+});
+function openImpressionModal(){
+  ensureImpressionModal();
+  const grouped = votesByTab();
+  const sig = JSON.stringify(grouped);
+  const overlay = document.getElementById('impression-overlay');
+  const body = document.getElementById('impression-modal-body');
+  overlay.hidden = false;
+  const fresh = imprSummaryCache && imprSummaryCache.sig === sig;
+  if(fresh){
+    body.innerHTML = renderImpressionSections(grouped, imprSummaryCache.summary)
+      + `<div class="gen-cta">
+           <span class="prov">Composed on-device by ${esc(imprSummaryCache.model||'the local model')} — nothing left this server.</span>
+           <button class="pill-btn" id="impression-gen">Regenerate ✨</button>
+         </div>`;
+  } else {
+    const total = Object.values(grouped).reduce((s,t)=>s+t.happy.length+t.sad.length, 0);
+    body.innerHTML = `<div class="empty">
+        Based on <b>${total}</b> vote${total>1?'s':''}.
         Tap <b>Generate</b> for a warm local read on this Kiez, written by the on-device model.
       </div>
-    </div>`;
-  $impr.dataset.summarized = '';
-  document.getElementById('impression-gen').addEventListener('click', fetchImpression);
+      <div class="gen-cta">
+        <button class="pill-btn pill-btn-brand" id="impression-gen">Generate ✨</button>
+      </div>`;
+  }
+  document.getElementById('impression-gen')?.addEventListener('click', fetchImpressionForModal);
 }
-async function fetchImpression(){
+function closeImpressionModal(){
+  const o = document.getElementById('impression-overlay');
+  if(o) o.hidden = true;
+}
+function renderImpressionSections(grouped, summary){
+  return Object.entries(grouped).map(([tab, c]) => {
+    const meta = IMPR_TAB_META[tab] || {label:tab, color:'#4F46E5'};
+    const text = (summary || {})[tab];
+    if(!text) return '';
+    const upN = c.happy.length, dnN = c.sad.length;
+    const upBits = upN ? `<span class="up">👍 ${upN} liked</span>` : '';
+    const dnBits = dnN ? `<span class="dn">👎 ${dnN} concern${dnN>1?'s':''}</span>` : '';
+    return `<div class="section">
+      <h4 style="color:${meta.color}">${esc(meta.label)}</h4>
+      <p>${esc(text)}</p>
+      <div class="votes">${upBits}${dnBits}</div>
+    </div>`;
+  }).join('');
+}
+async function fetchImpressionForModal(){
   const grouped = votesByTab();
   if(!Object.keys(grouped).length) return;
   const a = eduData && eduData.address;
   const addressStr = a ? `${a.street} ${a.hnr}, ${a.plz} ${a.district||''}`.trim() : 'this address';
-  const btn = document.getElementById('impression-gen'); if(btn){ btn.disabled=true; btn.textContent='Generating…'; }
-  const body = document.getElementById('impression-body');
+  const body = document.getElementById('impression-modal-body');
   body.innerHTML = `<div class="impression-loading"><span class="spinner"></span> Local model composing your verdict…</div>`;
   try {
     const r = await fetch('/api/impression', {method:'POST', headers:{'Content-Type':'application/json'},
                           body: JSON.stringify({address: addressStr, votes: grouped})});
     const d = await r.json();
     if(!r.ok){ body.innerHTML = `<div class="error">${esc(d.error||'Failed to generate summary.')}</div>`; return; }
-    renderImpressionSummary(grouped, d);
-    $impr.dataset.summarized = JSON.stringify(grouped);
+    imprSummaryCache = {sig: JSON.stringify(grouped), summary: d.summary, model: d.model};
+    body.innerHTML = renderImpressionSections(grouped, d.summary)
+      + `<div class="gen-cta">
+           <span class="prov">Composed on-device by ${esc(d.model||'the local model')} — nothing left this server.</span>
+           <button class="pill-btn" id="impression-gen">Regenerate ✨</button>
+         </div>`;
+    document.getElementById('impression-gen')?.addEventListener('click', fetchImpressionForModal);
   } catch(e){
     body.innerHTML = `<div class="error">Network error: ${esc(e.message)}</div>`;
-  } finally {
-    if(btn){ btn.disabled=false; btn.textContent='Regenerate'; }
   }
 }
-function renderImpressionSummary(grouped, d){
-  const cards = Object.entries(grouped).map(([tab,c]) => {
-    const meta = IMPR_TAB_META[tab] || {label:tab, icon:'info'};
-    const text = (d.summary || {})[tab];
-    if(!text) return '';
-    const upN = c.happy.length, dnN = c.sad.length;
-    const upBits = upN ? `<span class="up">👍 ${upN} liked</span>` : '';
-    const dnBits = dnN ? `<span class="dn">👎 ${dnN} concern${dnN>1?'s':''}</span>` : '';
-    return `<article class="impr-card" data-tilt>
-      <div class="impr-decor" style="color:${meta.color||'#4F46E5'}">${ico[meta.icon]||ico.info}</div>
-      <div class="impr-label"><span class="icon-badge" style="background:${meta.color||'#4F46E5'};color:#fff">${ico[meta.icon]||ico.info}</span>${meta.label}</div>
-      <p class="impr-body">${esc(text)}</p>
-      <div class="impr-votes">${upBits}${dnBits}</div>
-    </article>`;
-  }).join('');
-  const body = document.getElementById('impression-body');
-  body.innerHTML = cards;
-  // Provenance moves out of the grid so it sits under the bento
-  const existing = $impr.querySelector('.prov');
-  if(existing) existing.remove();
-  const prov = document.createElement('div');
-  prov.className = 'prov';
-  prov.textContent = `Composed on-device by ${d.model||'the embedded LLM'} — nothing left this server.`;
-  $impr.appendChild(prov);
-  // Bind cursor-tracking tilt on the fresh cards
-  body.querySelectorAll('[data-tilt]').forEach(bindTilt);
-}
-
-// Cursor-tracked 3D tilt. Rotation clamped ±5° so it never feels tacky.
-// Also drives a --mx/--my CSS var for the shine highlight overlay (::after).
-function bindTilt(card){
-  let raf = null;
-  const onMove = (e) => {
-    const r = card.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width;   // 0..1
-    const y = (e.clientY - r.top) / r.height;
-    const rx = (0.5 - y) * 6;    // ±3° pitch (clamped by 0.5*6)
-    const ry = (x - 0.5) * 8;    // ±4° yaw
-    if(raf) cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => {
-      card.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`;
-      card.style.setProperty('--mx', (x*100)+'%');
-      card.style.setProperty('--my', (y*100)+'%');
-    });
-  };
-  const onLeave = () => {
-    if(raf) cancelAnimationFrame(raf);
-    card.style.transform = '';
-    card.style.removeProperty('--mx');
-    card.style.removeProperty('--my');
-  };
-  card.addEventListener('pointermove', onMove);
-  card.addEventListener('pointerleave', onLeave);
-}
+$imprLaunch?.addEventListener('click', openImpressionModal);
 
 // -- Card drag-reorder ------------------------------------------------------
 // Native HTML5 DnD on .stack > .cell. Order persists per tab in localStorage
@@ -1385,7 +1345,7 @@ function render(d){
   refreshSaveBtn();            // will show "Loading data…" until amen + noise land
   fetchAmenities(a.lat,a.lon); // eager: loads in parallel with user reading Education panel
   fetchNoise(a.lat,a.lon);     // eager: single WFS call, small payload
-  refreshImpressionPanel();    // show AI card if this address already has saved votes
+  refreshImpressionLaunch();   // show ✨ Impression pill if this address already has saved votes
 }
 
 function emptyEnvPending(){
