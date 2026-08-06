@@ -16,6 +16,8 @@ independently deployable.
 | Web framework | **FastAPI** (uvicorn) | Pydantic validation + OpenAPI docs for free; small dep cost; well-supported Prometheus + rate-limit ecosystems. |
 | Multi-city routing | **One instance per city** (`berlin.addrlens.de`, `hamburg.addrlens.de`, …). CITY env-var picks the config. | Cleaner blast radius (Hamburg WFS outage can't hurt Berlin); each city scales independently; per-instance startup memory stays small. |
 | Cache strategy | **In-memory only for Ships A–C.** Redis adapter added in Ship D behind the same interface. | Simplest thing that works. Don't reach for Redis before metrics justify it. |
+| LLM inference topology | **Shared inference service.** One inference cluster serves every city instance over HTTP. The model is NEVER baked into the per-city app image. | Keeps per-city app images lean (~200 MB) instead of multi-GB. Load a model once, serve N cities. Adding a city doesn't require pushing 2 GB of weights. See §7. |
+| LLM provider | **Own infrastructure, own model. No third-party AI provider.** | GDPR: no cross-border transfer, no sub-processor to list, no DPA to negotiate. Matches the "open data only, no scraping" ethos. |
 
 Once any of these needs to change, update this file first, then the code.
 
@@ -240,6 +242,128 @@ mostly moving code between files or filling per-city configs.
 
 Product doc §Phase 5 already orders replication by open-data maturity:
 Hamburg → Munich → Köln → Frankfurt. This plan follows that order.
+
+---
+
+## 7. Shared inference service architecture (LLM)
+
+Locked decision (§0): **the LLM runs as its own service, shared by every city
+instance.** Per-city app containers stay lean and call the inference service
+over HTTP. This section pins the shape so we don't accidentally bake a model
+into a city image the first time it feels convenient.
+
+### 7.1 Why shared, not embedded
+
+- **Image size.** Per-city app image stays ~200 MB (Python + shapely +
+  FastAPI). Model weights are ~900 MB (Qwen2.5-1.5B-Instruct-4bit) and the
+  MLX/llama-cpp runtime adds ~500 MB. Multiplying that across N city images
+  is pure waste — every deploy pushes gigabytes to the registry.
+- **Cold-start latency.** A city container that has to load a 900 MB model on
+  boot is minutes to ready. A city container that just imports `httpx` and
+  calls `http://inference:8080/summarize` is seconds to ready.
+- **Model swap.** Switching from Qwen 1.5B → 3B, or trying a new prompt
+  template, is one deploy of the inference service. No app-side rebuilds,
+  no per-city coordination.
+- **Cost.** RAM for the model (~2 GB resident) is paid once per node, not
+  once per city instance per node.
+
+### 7.2 Component shape
+
+```
+  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+  │  berlin-app  │   │ hamburg-app  │   │  munich-app  │  … per-city app
+  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘     containers
+         │                  │                  │             (~200 MB each)
+         └──────────────────┼──────────────────┘
+                            │  HTTP / JSON (private network)
+                            ▼
+                    ┌───────────────────┐
+                    │ inference-service │              shared inference
+                    │  - Qwen 1.5B      │              cluster (~2 GB
+                    │  - prompt library │              resident, one or
+                    │  - /summarize     │              more replicas)
+                    └───────────────────┘
+```
+
+### 7.3 Inference service contract
+
+Single container, one endpoint:
+
+```
+POST /summarize
+Body: {
+  "template": "impression" | "kita_translator" | "compare_verdict" | ...,
+  "context": { ... arbitrary JSON grounded in rules-engine facts ... },
+  "city":    "berlin" | "hamburg" | ...
+}
+Response: {
+  "summary":  { <template-specific structured output> },
+  "model":    "<model_id>",
+  "trace_id": "<uuid>"      // for log correlation across services
+}
+```
+
+**Prompt templates live in the inference service, not in the app**, so we
+can iterate on wording without touching city code. The app sends *facts*;
+the inference service composes the prompt from a versioned template
+matched by `template` name.
+
+### 7.4 Deployment shape
+
+- **Sidecar in dev**: `docker compose up` runs one app + one inference
+  container on the same host. `INFERENCE_URL=http://inference:8080` in the
+  app env. Zero-friction local dev.
+- **Kubernetes**: inference-service as its own `Deployment` behind a
+  `ClusterIP` service. City apps address it by DNS
+  (`http://inference.default.svc.cluster.local`). Autoscale independently.
+- **Model weights**: baked into the inference image (immutable, reproducible)
+  OR mounted from a shared volume (faster deploys, but bigger ops surface).
+  Start with baked-in until a real reason to change.
+
+### 7.5 Scaling knobs
+
+| Concern | Knob |
+|---|---|
+| Latency under load | Horizontal replicas of inference-service (stateless once model is loaded). |
+| Different model per city | Not supported by default. All cities share one model. If a city ever needs a bilingual variant, route by `city` param inside inference-service to a second model — but push back hard; per-city models kill the "one model, N cities" win. |
+| Prompt experiments | Ship a new template with a versioned name (`impression_v2`); city apps opt in when ready. |
+| Rate limiting | At the inference service (per-city or per-IP), not at each app. One place to enforce. |
+
+### 7.6 Failure modes
+
+- **Inference service unreachable** → city app returns `503` on the LLM
+  endpoint with a plain-English error. The rest of the app (lookup,
+  amenities, noise) is completely unaffected — LLM is strictly additive.
+- **Model timeout / OOM** → inference service returns a 504; city app
+  surfaces a "summary unavailable, tap Retry" UX. Never block the map.
+- **Cold model** → first request after boot pays the ~5 s load cost;
+  readiness probe (§Ship D) holds traffic until warm.
+
+### 7.7 What this rules out
+
+- **No LLM in the app image.** If a future ship proposes embedding a model
+  into `berlin-app` for latency reasons, revisit §7.1 first — the answer is
+  almost always "run more inference-service replicas closer to the app,"
+  not "duplicate the model per city."
+- **No third-party inference APIs** (OpenAI, Anthropic, Groq, …). Decision
+  locked in §0: own infrastructure, own model. Revisit only with an
+  explicit written GDPR / DPIA review.
+
+### 7.8 Where the LLM work lands in the ship sequence
+
+Not a numbered Ship — LLM integration is a **parallel workstream** that
+proceeds independently of Ships A–D. Recommended order once Ship A is
+green:
+
+1. **Ship LLM-1**: extract the current `phase3/` inference logic into
+   `inference/` at repo root (its own `Dockerfile`, `pyproject.toml`,
+   `venv`). Publish the `/summarize` endpoint. Wire `berlin-app` to call
+   it via `INFERENCE_URL`.
+2. **Ship LLM-2**: template library grows (impression, kita_translator,
+   compare_verdict, viewing_checklist, …). Each template is a small,
+   versioned file.
+3. **Ship LLM-3**: Prometheus metrics on the inference service (tokens/s,
+   time-to-first-token, cache hit rate if we add prompt caching).
 
 ---
 

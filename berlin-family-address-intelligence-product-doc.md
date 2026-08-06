@@ -155,6 +155,17 @@ This does three jobs at once: it satisfies the dl-de/by-2.0 attribution requirem
 
 All output in English, with German administrative terms retained in parentheses so users can use them at the Bürgeramt. This is a feature, not a translation task.
 
+### 5.6 Interpretive AI layer — on-infrastructure, never third-party
+
+From Phase 3 on, the app carries a small locally-hosted LLM (baseline: Qwen2.5-1.5B-Instruct, 4-bit) that turns the numeric data the rules engine already produced into short prose in the app's voice. Strategic reasons:
+
+- The target audience is English-speaking expat families landing in a German administrative system. Their #1 pain point is *interpretation* — what "freier Träger" means, what an Einschulbereich implies for enrolment, how SESB really works — not data lookup. This is the friction a language model reduces natively and a rules engine cannot.
+- The interpretive layer sits **on top of** the rules engine, never as a substitute for it. Every prompt is grounded in facts the deterministic pipeline already computed. The LLM's job is prose over those facts; it never generates data. This bounds hallucination cost.
+- Inference runs on infrastructure we control (own hardware or an EU-based node). **No third-party AI provider is involved.** This preserves the app's data-minimisation posture (see §5.3 and §7 GDPR row) and matches the "open data only, no scraping" ethos — the AI story stays consistent with the data story.
+- Deployment shape is a **shared inference service** (see `microservice-refactor-plan.md` §7): one inference cluster serves every city instance over HTTP; the model is never baked into per-city app images.
+
+Scope discipline: every LLM-backed feature must answer *"what would this look like without the LLM, and is that acceptable?"* If a templated version is 80% as good, the templated version ships. The LLM is reserved for the 20% where synthesis, translation, or narrative earns its keep. Concrete first candidates: kita / SESB / bureaucracy translator (§5.5 extended), comparison-board verdict (§5.1), and a per-address impression summary based on user votes.
+
 ---
 
 ## 6. Data sources — all open, all commercially usable
@@ -207,7 +218,7 @@ Primary portal: **daten.berlin.de**, licence *Datenlizenz Deutschland – Namens
 | **Portal ToS** | Contractual breach → injunction plus costs |
 | **UWG** | Unfair competition / targeted obstruction |
 | **§202a StGB** | Becomes **criminal** where access controls are circumvented, e.g. credentials that aren't yours |
-| **GDPR** | Household income, visa status, children's ages = sensitive profile. Anonymous-by-default architecture, lawful basis, deletion path, data minimisation |
+| **GDPR** | Household income, visa status, children's ages = sensitive profile. Anonymous-by-default architecture, lawful basis, deletion path, data minimisation. **AI processing stays on our own infrastructure** — no third-party AI provider (OpenAI, Anthropic, Groq, …). Removes cross-border transfer, sub-processor listing, and DPA-negotiation overhead. Any future change requires a written DPIA (see refactor plan §0 / §7.7) |
 | **dl-de/by-2.0** | Exact attribution form *"Geoportal Berlin / [dataset title]"* |
 | **VBB CC-BY** | Named attribution required; logos supplied |
 | **ODbL** | Share-alike — isolate OSM-derived data |
@@ -375,9 +386,9 @@ It is one afternoon of work. Nothing else in this document should begin until it
 
 ---
 
-## 14. Engineering conventions (Phase 1 + Phase 2 as reference)
+## 14. Engineering conventions
 
-The codebase in `phase0/`, `phase1/`, `phase2/` is the reference for shape and style. Every new ship — Phase 3, Phase 4, and beyond — should match unless there is a stated reason not to. The list below is the shortest complete description of that shape.
+The codebase in `phase0/`, `phase1/`, `phase2/` is the reference for the pre-LLM shape and style — these directories are frozen as history-as-artefact (§14.1). §14.2–§14.13 below describe that shape and remain the baseline for anything the interpretive AI layer does not touch. **Phase 3 introduces the interpretive AI layer (§5.6) and evolves — but does not replace — those conventions.** The evolved rules are in §14.14; read them alongside §14.2–§14.13 for any Phase 3+ work.
 
 ### 14.1 Directory layout
 
@@ -385,13 +396,15 @@ The codebase in `phase0/`, `phase1/`, `phase2/` is the reference for shape and s
 - **Preserve older phases untouched.** A new phase copies the previous phase's files and extends additively. Old phases are the reference artefacts and the diff-history for reviewers.
 - Product doc + design-system + README stay at repo root.
 
-### 14.2 Server shape
+### 14.2 Server shape (Phases 0–2)
 
 - One `server.py` per phase, ~500–1000 lines, single process.
 - **Stdlib only:** `http.server`, `socketserver`, `urllib`, `json`, `threading`, `math`, `unicodedata`, `pathlib`.
 - **Only external dep:** `shapely` (`pip3 install --user shapely`). No frameworks (Flask/FastAPI/Django), no ORM, no build step, no bundler, no `requirements.txt` unless a hard need appears.
 - Run: `python3 server.py` (port 8000 default; override with `PORT=8001 python3 server.py`).
 - Selfcheck: `python3 server.py test` (see §14.8).
+
+**Phase 3 evolves this** — the interpretive AI layer (§5.6) requires an isolated virtualenv and an MLX runtime, so Phase 3's server.py is no longer stdlib-only. See §14.14 for the updated rules that apply from Phase 3 onward. `phase0/`, `phase1/`, `phase2/` remain frozen under the original §14.2 rules as reference artefacts (§14.1).
 
 ### 14.3 Frontend shape
 
@@ -472,6 +485,25 @@ The codebase in `phase0/`, `phase1/`, `phase2/` is the reference for shape and s
 - Short, imperative subject (`git log --oneline` in this repo is the reference).
 - Split by concern where the diff supports it (doc-policy vs. code, for example).
 - Never commit scraped or listing data. Never commit personal test data with real household details.
+
+### 14.14 Phase 3+ conventions (interpretive AI layer)
+
+Phase 3 introduces a locally-hosted LLM (§5.6) and formally evolves — not deletes — the conventions above. The old rules stayed in force for a reason (minimum surface area, no dep hell, easy to fork, easy to run for years). The new rules preserve that spirit for the parts of the app that don't need the model, and quarantine the ML runtime to the one place that does.
+
+**Evolved rules**
+
+- **Fewest moving parts that serve the feature.** `phase3/server.py` still owns lookup / amenities / noise; the LLM is a strictly additive layer. If a feature can be done with the rules engine alone, it is.
+- **LLM used for interpretation over data, never for data generation.** Every prompt is grounded in facts the rules engine has already computed. The LLM writes prose over those facts; it does not invent them. This is the single discipline that keeps hallucination cost bounded.
+- **Every prompt cites the rules-engine facts it must respect.** Facts are passed to the model as structured JSON in the prompt context; the model paraphrases, never enriches.
+- **No third-party AI provider.** All inference on our own infrastructure (see §5.6, §7 GDPR row).
+- **Version-pin the model + runtime.** `requirements.txt` with exact versions. `LLM_MODEL_ID` pinned to a specific HuggingFace revision. Model files cached under `~/.cache/huggingface`; never checked into the repo.
+- **Isolated virtualenv.** ML deps (MLX / `mlx-lm` / `transformers`, or `llama-cpp-python` on non-Apple hardware) live in `phase3/venv/` — never installed into the system Python. `phase3/venv/` is `.gitignore`d.
+- **Graceful degradation.** LLM endpoint failures (model not loaded, timeout, OOM) return `503` with a plain-English error. The rest of the app is completely unaffected. Never block the map on the LLM.
+- **Frontend-side.** No streaming UI for the current baseline model — call, wait ~1–2 s, render the result in one shot. Add streaming only if a real UX complaint surfaces.
+
+**Microservice topology (production shape).** From Phase 3's monolithic server, the LLM later factors out into a **shared inference service** — one inference cluster serving every city instance over HTTP. See `microservice-refactor-plan.md` §7. The model is never baked into per-city app images. Any future ship that proposes doing so must first revisit refactor-plan §7.1.
+
+**Scope test.** Every proposed LLM-backed feature must answer: *"what would this look like without the LLM, and is that acceptable?"* If a templated version is 80% as good, the templated version ships. Reserve the LLM for the 20% where synthesis, translation, or narrative genuinely earns its keep.
 
 ---
 

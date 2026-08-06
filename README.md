@@ -24,12 +24,25 @@ That's it. No frameworks, no build step, no bundler.
 
 ## Run
 
-The latest working build is in `phase2/`:
+Two builds ship side-by-side:
+
+**`phase2/` — core, no AI.** Stdlib + shapely only (matches product doc §14.2).
 
 ```
 cd phase2
 python3 server.py              # http://localhost:8000
 PORT=8001 python3 server.py    # or a custom port
+```
+
+**`phase3/` — core + interpretive AI layer** (Qwen2.5-1.5B-Instruct-4bit via MLX). Needs its own virtualenv (~1.2 GB) and pulls the model from HuggingFace on first run (~900 MB, cached).
+
+```
+cd phase3
+# one-time setup (uses Homebrew Python 3.13):
+/opt/homebrew/bin/python3.13 -m venv venv
+./venv/bin/pip install --only-binary=:all: mlx-lm shapely
+# run:
+PORT=8003 ./venv/bin/python server.py
 ```
 
 Open the URL. Type a Berlin address as `Street Nr, PLZ` (e.g. `Kastanienallee
@@ -73,6 +86,7 @@ with a plain-English message and appropriate HTTP status.
 | `phase0/` | Validation prototypes — catchment-WFS check, agency outreach kit |
 | `phase1/` | MVP: single address → Pillar 1 (education) |
 | `phase2/` | Comparison board, noise, stroller score, BOD-first sourcing |
+| `phase3/` | Everything in `phase2/` + interpretive AI layer (local Qwen2.5-1.5B) |
 | `design-system/` | Dashboard mockup and design notes |
 | `berlin-family-address-intelligence-product-doc.md` | Concept · features · data · legal · roadmap · **engineering conventions (§14)** |
 
