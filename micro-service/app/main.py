@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import load_city
 from app.core.index import Index
@@ -43,6 +44,10 @@ def index():
     /api/config on load for per-city strings."""
     return FileResponse(WEB_DIR / "index.html", media_type="text/html; charset=utf-8")
 
+
+# Static assets (app.css, app.js, future vendored bundles). Kept as a plain
+# StaticFiles mount — zero build step, browser caches these once per revision.
+app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 
 app.include_router(config_router)
 app.include_router(lookup_router)
