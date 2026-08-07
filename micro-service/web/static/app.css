@@ -287,11 +287,11 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .stack.tiles-grid.two-per-row .amen-cell .amen-tile-top .metric-big{margin:0}
 .stack.tiles-grid.two-per-row .amen-cell .metric-big .n{font-size:32px;white-space:nowrap}
 .stack.tiles-grid.two-per-row .amen-cell > .cell-label{display:block;font-size:11px;font-weight:700;
-  color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em}
+  color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .stack.tiles-grid.two-per-row .amen-cell .amen-tag{display:inline-block;align-self:flex-start;
   max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;margin-top:2px;
-  background:#FFEDD5;color:#9A3412;transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+  padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;margin-top:4px;
+  background:#E0E7FF;color:#3730A3;transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
 .stack.tiles-grid.two-per-row .amen-cell:hover .amen-tag{transform:translateY(-1px) scale(1.03)}
 @media(max-width:700px){.stack.two-per-row{grid-template-columns:1fr}}
 .b-sesb{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;
