@@ -116,6 +116,21 @@ class CityConfig:
     swim_natural_layer: Optional[str]
     swim_natural_field_map: dict        # {"name","eu_rating","website","cyano"}
 
+    # -- Phase 2 Umweltatlas cards --------------------------------------
+    # Both layers are too big to preload (12k / 17k features), so lookups
+    # use a per-request bbox query similar to noise_at().
+    #
+    # Air quality: per-street NO2 baseline for 2020 (Luftreinhalteplan
+    # trend scenario). Feature is a LineString per road segment.
+    air_wfs_url: Optional[str]
+    air_layer: Optional[str]
+    air_field_map: dict                 # {"street","no2","index","traffic","length"}
+    # Summer heat: per-block bioclimate classification (PET at 14:00).
+    # Feature is a MultiPolygon per residential block.
+    heat_wfs_url: Optional[str]
+    heat_layer: Optional[str]
+    heat_field_map: dict                # {"day_class"}
+
     # Connectivity (S-Bahn / U-Bahn / Tram / Regional rail / Airport).
     # Each is Optional so a future city can opt out per-mode cleanly.
     #
@@ -144,7 +159,8 @@ class CityConfig:
     #   "fountains", "playgrounds", "parks", "noise",
     #   "sbahn", "ubahn", "tram", "regional_rail", "airport",
     #   "fire", "trees", "quiet_zone", "protection",
-    #   "pools", "natural_swim".
+    #   "pools", "natural_swim",
+    #   "air", "heat".
     # Full string including licence tag; the app just concatenates when a
     # response mixes sources.
     attribution: dict

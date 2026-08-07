@@ -1030,13 +1030,92 @@ function streetTreesCardHtml(t){
   </div>`;
 }
 
+// Phase 2 tier helpers: colour-code numeric readings + PET class strings.
+function airTierFor(no2){
+  if(no2 == null) return 'unknown';
+  if(no2 < 20)   return 'green';
+  if(no2 < 30)   return 'amber';
+  if(no2 < 40)   return 'orange';
+  return 'red';                                  // ≥ 40 breaches EU annual limit
+}
+function heatTierFor(dayClass){
+  if(!dayClass) return 'unknown';
+  const s = dayClass.toLowerCase();
+  if(s.includes('keine belastung'))      return 'green';
+  if(s.includes('geringe belastung'))    return 'green';
+  if(s.includes('mäßige belastung'))     return 'amber';
+  if(s.includes('erhöhte belastung'))    return 'orange';
+  if(s.includes('sehr starke'))          return 'red';
+  if(s.includes('starke belastung'))     return 'red';
+  return 'unknown';
+}
+
+function airQualityCardHtml(a){
+  if(!a || a.unavailable){
+    if(!a) return '';
+    return `<div class="cell" data-env-cat="air"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Air quality (NO₂)</span></div>
+      <p class="sub">${esc(a.reason || a.error || 'Air-quality data unavailable for this address.')}</p>
+      <div class="prov">${esc(a.provenance || 'Berlin BOD · Umweltatlas Luft')}</div></div>`;
+  }
+  const tier = airTierFor(a.no2_ugm3);
+  const no2 = a.no2_ugm3 != null ? a.no2_ugm3.toFixed(1) : '—';
+  const idx = a.index_2020 != null ? a.index_2020.toFixed(2) : '—';
+  const traffic = a.traffic_day != null ? Math.round(a.traffic_day).toLocaleString('en-US') : '—';
+  const fields = {
+    'Metric':      `NO₂ annual mean at your street (Umweltatlas 2020 baseline)`,
+    'Value':       `${no2} µg/m³`,
+    'EU limit':    `40 µg/m³ annual mean (Ambient Air Quality Directive)`,
+    'Combined index (NO₂ + PM10)': idx,
+    'Traffic':     `${traffic} vehicles/day on this segment`,
+    'Street':      a.street || '—',
+    'Distance to segment': `${a.distance_m} m`,
+  };
+  return `<div class="cell tier-${tier}" data-env-cat="air">
+    <div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Air quality (NO₂ · 2020)</span>${explainBtn('env-air','Air quality (NO₂)',fields)}</div>
+    <div class="metric-big"><span class="n">${no2}</span><span class="cap">µg/m³ · EU limit &lt; 40<br>${esc(a.street || 'nearest street')} · ${a.distance_m} m</span></div>
+    <p class="amen-more" style="margin:6px 0 0">Traffic: ${traffic} vehicles/day · combined index ${idx}</p>
+    <div class="prov">${esc(a.provenance)}</div>
+  </div>`;
+}
+
+function summerHeatCardHtml(h){
+  if(!h || h.unavailable){
+    if(!h) return '';
+    return `<div class="cell" data-env-cat="heat"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">Summer heat</span></div>
+      <p class="sub">${esc(h.reason || h.error || 'Heat classification unavailable for this address.')}</p>
+      <div class="prov">${esc(h.provenance || 'Berlin BOD · Umweltatlas Klima')}</div></div>`;
+  }
+  const tier = heatTierFor(h.day_class);
+  const cls = h.day_class || 'unknown';
+  // Strip the German trailing category out of the tier text ("… mäßige Belastung")
+  // and use just the numeric band for the caption. Falls back to the whole string.
+  const parts = cls.split(' - ');
+  const range = parts.slice(0, 2).join(' – ');       // e.g. "> 33 °C – <= 35 °C"
+  const level = parts.slice(-1)[0] || '';            // e.g. "mäßige Belastung"
+  const fields = {
+    'Metric':      'Physiologisch Äquivalente Temperatur (PET) at 14:00 for residential blocks',
+    'Day class':   cls,
+    'Legal band':  '< 30 °C keine · 30–33 °C geringe · 33–35 °C mäßige · 35–38 °C erhöhte · 38–41 °C starke · > 41 °C sehr starke Belastung',
+    'Source':      'Berlin Umweltatlas Klimabewertung 2022',
+  };
+  return `<div class="cell tier-${tier}" data-env-cat="heat">
+    <div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">Summer heat · PET day</span>${explainBtn('env-heat','Summer heat (PET)',fields)}</div>
+    <div class="metric-big"><span class="n" style="font-size:20px">${esc(level || '—')}</span><span class="cap">${esc(range)}<br>PET at 14:00 · residential block</span></div>
+    <div class="prov">${esc(h.provenance)}</div>
+  </div>`;
+}
+
 function envExtraCardsHtml(d){
   if(!d) return '';
-  // Order: Protection → Quiet Zone → Street Trees. Combined with the pair
-  // that runs ahead (noise + stroller), this places Neighborhood Protection
-  // between Stroller Access and Quiet Zone in the reading-order flow of the
-  // 2-per-row grid — Row 2 ends with Stroller, Row 3 opens with Protection.
-  return protectionCardHtml(d.protection) + quietZoneCardHtml(d.quiet_zone) + streetTreesCardHtml(d.trees);
+  // Order: Street Trees → Neighborhood Protection → Quiet Zone → Air → Heat.
+  // Preserves the earlier arrangement (Trees + Protection in row 3, Quiet
+  // in row 4 left) and appends the two Umweltatlas readings so row 4 fills
+  // (Quiet + Air) and row 5 opens with Heat.
+  return streetTreesCardHtml(d.trees)
+       + protectionCardHtml(d.protection)
+       + quietZoneCardHtml(d.quiet_zone)
+       + airQualityCardHtml(d.air)
+       + summerHeatCardHtml(d.heat);
 }
 
 function renderNoise(n){

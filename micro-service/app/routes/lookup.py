@@ -8,6 +8,7 @@ from app.core.addr import parse_address
 from app.core.amenities import kitas_near
 from app.core.geo import haversine_m
 from app.core.index import Index
+from app.core.wfs import air_quality_at, summer_heat_at
 from app.deps import get_city, get_index
 
 router = APIRouter()
@@ -79,6 +80,8 @@ def lookup(
     swim_pools   = index.pools_within(lon, lat, 3000)
     swim_natural = index.natural_swim_within(lon, lat, 3000)
     trees_summary = index.trees_bbox(lon, lat)
+    air          = air_quality_at(cfg, lon, lat)
+    heat         = summer_heat_at(cfg, lon, lat)
 
     # Connectivity — nearest S-Bahn / U-Bahn / Tram / Regional rail + Airport.
     # Airport is a single point (per-city fixed landmark), so we compute its
@@ -113,6 +116,8 @@ def lookup(
         "protection":   protection,
         "swim":         {"pools": swim_pools, "natural": swim_natural},
         "trees":        trees_summary,
+        "air":          air,
+        "heat":         heat,
         "provenance": {
             "catchment":     cfg.attribution["catchment"],
             "schools":       cfg.attribution["schools"],
@@ -129,5 +134,7 @@ def lookup(
             "protection":    cfg.attribution.get("protection", ""),
             "pools":         cfg.attribution.get("pools", ""),
             "natural_swim":  cfg.attribution.get("natural_swim", ""),
+            "air":           cfg.attribution.get("air", ""),
+            "heat":          cfg.attribution.get("heat", ""),
         },
     }

@@ -48,6 +48,9 @@ _WFS_QUIET         = "https://gdi.berlin.de/services/wfs/ruhigegebiete_2018"
 _WFS_PROTECTION    = "https://gdi.berlin.de/services/wfs/erhaltungsverordnungsgebiete"
 _WFS_POOLS         = "https://gdi.berlin.de/services/wfs/schwimmbaeder_berlin"
 _WFS_SWIM_NATURAL  = "https://gdi.berlin.de/services/wfs/badegewaesser"
+# Phase 2 (Umweltatlas)
+_WFS_AIR           = "https://gdi.berlin.de/services/wfs/ua_luftreinhalteplan_2018_2025"
+_WFS_HEAT          = "https://gdi.berlin.de/services/wfs/ua_klimabewertung_2022"
 
 # Base URLs (all under the Berlin Geoportal gdi.berlin.de)
 _WFS_SCHULEN = "https://gdi.berlin.de/services/wfs/schulen"
@@ -180,6 +183,23 @@ BERLIN = CityConfig(
         "website": "link", "cyano": "cyano",
     },
 
+    # Phase 2 Umweltatlas: NO2 baseline (2020) per street segment + PET
+    # bioclimate day classification per residential block (Klimabewertung).
+    air_wfs_url=_WFS_AIR,
+    air_layer="ua_luftreinhalteplan_2018_2025:trend_szenario",
+    air_field_map={
+        "street":  "name",
+        "no2":     "no2_2020",       # µg/m³ annual mean
+        "index":   "index_2020",     # combined NO2 + PM10 index
+        "traffic": "dtv_2020",       # cars/day
+        "length":  "laenge",         # segment length (m)
+    },
+    heat_wfs_url=_WFS_HEAT,
+    heat_layer="ua_klimabewertung_2022:cb_ua_phk_bioklim_siedl_tag_2022",
+    heat_field_map={
+        "day_class": "pet14h_tag_klar",   # PET class at 14:00 (e.g. "> 33 °C - <= 35 °C - mäßige Belastung")
+    },
+
     # -- Connectivity ---------------------------------------------------------
     # S-Bahn + U-Bahn come from the vendored VBB CSV (regenerate via
     # scripts/refresh_vbb.py). Tram comes from a BOD WFS at boot.
@@ -242,5 +262,7 @@ BERLIN = CityConfig(
         "protection":    "Geoportal Berlin / Erhaltungsverordnungsgebiete § 172 BauGB (dl-de/zero-2.0)",
         "pools":         "Geoportal Berlin / Schwimmbäder der Berliner Bäder-Betriebe (dl-de/zero-2.0)",
         "natural_swim":  "Geoportal Berlin / Badegewässerqualität (CC-BY-4.0) · LAGeSo",
+        "air":           "Geoportal Berlin / Umweltatlas — Luftreinhalteplan 2018–2025 (Trend-Szenario 2020) (dl-de/zero-2.0)",
+        "heat":          "Geoportal Berlin / Umweltatlas — Klimabewertungskarten 2022 (Bioklima Tag) (dl-de/zero-2.0)",
     },
 )
