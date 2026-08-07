@@ -331,8 +331,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
     -3px -3px 8px rgba(255,255,255,.95),
      4px  4px 10px rgba(90,102,145,.45) !important;
   border-radius:12px !important}
-#map{flex:1;min-height:0;height:100%}
-@media(max-width:899px){.map-cell{min-height:340px}#map{min-height:340px;height:340px}}
+#map,#map-conn{flex:1;min-height:0;height:100%}
+@media(max-width:899px){.map-cell{min-height:340px}#map,#map-conn{min-height:340px;height:340px}}
 
 .loading{margin-top:22px;padding:18px 22px;background:var(--card);border:1px solid var(--border);border-radius:12px;
   box-shadow:var(--sh-1);display:flex;align-items:center;gap:14px;color:var(--ink-2);font-weight:500;font-size:14px}
@@ -707,6 +707,9 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
       requestAnimationFrame(()=>panels[target].mapRef.invalidateSize());
   }
   if(target==='env'  && lastCoord && !$env.dataset.loaded)  fetchNoise(lastCoord.lat,lastCoord.lon);
+  // conn tab: Leaflet needs a visible container to size tiles; the map was
+  // built pre-visibility, so poke it every time this tab opens.
+  if(target==='conn' && connMap) requestAnimationFrame(()=>connMap.invalidateSize());
 }));
 
 // button ripple effect
@@ -1429,7 +1432,7 @@ function render(d){
     <h3>${esc(i.name)}</h3><p class="sub">${(i.distance_m/1000).toFixed(1)} km · ~${walkMin(i.distance_m)} min walk${i.website?` · <a href="${esc(i.website)}" target="_blank" rel="noopener">website</a>`:''}</p></div>`:'';
   const map=`<div class="map-cell"><div class="map-hint" id="eduHint">Click a card to plot its location</div><div id="map"></div></div>`;
   $out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
-  renderConn(d.connectivity, d.provenance);
+  renderConn(d.connectivity, d.provenance, d.address);
   drawMap(d); const kn=document.getElementById('kitaN'); if(kn&&k.count!=null)countUp(kn,k.count);
   $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
     if(e.target.closest('.info-tip')) return;                       // tooltip toggles its own state
@@ -1553,8 +1556,10 @@ function fmtDistance(m){
   if(m==null) return '—';
   return m < 1000 ? `${m} m` : `${(m/1000).toFixed(1)} km`;
 }
-function renderConn(c, prov){
-  if(!c){ $conn.innerHTML=''; return; }
+let connData=null, connMap=null, connLayer=null, connAddressMarker=null, connSelected=null;
+function renderConn(c, prov, addr){
+  if(!c){ $conn.innerHTML=''; connData=null; return; }
+  connData = {connectivity:c, address:addr}; connSelected=null;
   const order = Object.entries(CONN_META)
     .map(([key, meta]) => ({key, meta, val:c[key]}))
     .sort((a,b) => (a.val?.distance_m ?? Infinity) - (b.val?.distance_m ?? Infinity));
@@ -1572,7 +1577,53 @@ function renderConn(c, prov){
       ${provText?`<div class="prov">${provText}</div>`:''}
     </div>`;
   }).join('');
-  $conn.innerHTML = `<div class="grid"><div class="stack">${cards}</div></div>`;
+  const map = `<div class="map-cell"><div class="map-hint" id="connHint">Click a card to plot its location</div><div id="map-conn"></div></div>`;
+  $conn.innerHTML = `<div class="grid"><div class="stack">${cards}</div>${map}</div>`;
+  drawConnMap();
+  $conn.querySelectorAll('.conn-cell').forEach(cell=>cell.addEventListener('click',()=>selectConnMode(cell.dataset.connKey)));
+}
+
+function drawConnMap(){
+  if(connMap){ connMap.remove(); connMap=null; connLayer=null; }
+  if(!connData) return;
+  const a = connData.address;
+  connMap = L.map('map-conn',{scrollWheelZoom:false}).setView([a.lat,a.lon],13);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap · © CARTO'}).addTo(connMap);
+  connAddressMarker = L.marker([a.lat,a.lon],{icon:iconPin(ico.home,'#EC4899')}).addTo(connMap)
+    .bindPopup(`<b>${esc(a.street)} ${esc(a.hnr)}</b><br>${esc(a.plz)} Berlin`);
+  requestAnimationFrame(()=>connMap&&connMap.invalidateSize());
+}
+
+function selectConnMode(mode){
+  if(!connMap || !connData) return;
+  if(connLayer){ connMap.removeLayer(connLayer); connLayer=null; }
+  const wasSelected = connSelected===mode;
+  connSelected = wasSelected ? null : mode;
+  $conn.querySelectorAll('.conn-cell').forEach(c=>c.classList.toggle('active', c.dataset.connKey===connSelected));
+  const hint = document.getElementById('connHint');
+  const a = connData.address;
+  requestAnimationFrame(()=>{
+    if(!connMap) return;
+    connMap.invalidateSize();
+    if(wasSelected){
+      if(hint) hint.textContent='Click a card to plot its location';
+      if(connAddressMarker) connAddressMarker.closePopup();
+      connMap.setView([a.lat,a.lon],13);
+      return;
+    }
+    const dest = connData.connectivity[mode];
+    if(!dest){
+      if(hint) hint.textContent = `${CONN_META[mode]?.label || mode}: not available`;
+      return;
+    }
+    const meta = CONN_META[mode] || {label: mode};
+    if(hint) hint.textContent = `${meta.label} · ${dest.name} · ${fmtDistance(dest.distance_m)}`;
+    const destMarker = L.marker([dest.lat,dest.lon],{icon:iconPin(ico.transit,'#4F46E5')})
+      .bindPopup(`<b>${esc(dest.name)}</b><br>${fmtDistance(dest.distance_m)} from your address`);
+    connLayer = L.featureGroup([destMarker]).addTo(connMap);
+    try{ connMap.fitBounds(L.latLngBounds([[a.lat,a.lon],[dest.lat,dest.lon]]).pad(0.2)); }catch(e){}
+    destMarker.openPopup();
+  });
 }
 
 function noiseTierFromDen(v){
