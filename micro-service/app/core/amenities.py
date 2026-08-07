@@ -164,7 +164,8 @@ def amenities_near(index: Index, cfg: CityConfig, lon, lat, radius_m=800):
         osm_items = sorted(buckets[cat], key=lambda x: x["distance_m"])
         if cat in bod_layers:
             base, layer = bod_layers[cat]
-            bod_items = bod_polygon_features(base, layer, lon, lat, radius_m)
+            bod_items = bod_polygon_features(base, layer, lon, lat, radius_m,
+                                             output_format=cfg.wfs_output_format)
             bod_err = next((b["_error"] for b in bod_items if b.get("_error")), None)
             bod_items = [b for b in bod_items if not b.get("_error")]
             merged = merge_bod_and_osm(bod_items, osm_items, radius_m)

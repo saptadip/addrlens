@@ -20,6 +20,11 @@ class CityConfig:
     display_name: str
     default_center: tuple                 # (lat, lon)
 
+    # Some servers expect `application/json` (Berlin gdi.berlin.de), others only
+    # `application/geo+json` (Hamburg geodienste.hamburg.de). Set per-city so
+    # the generic wfs() helper never has to guess.
+    wfs_output_format: str
+
     # Address geocoding (WFS in Berlin; nominatim is the fallback path)
     geocoder: str                         # "wfs" | "nominatim"
     geocoder_wfs_url: Optional[str]

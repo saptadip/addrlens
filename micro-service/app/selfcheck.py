@@ -30,6 +30,59 @@ CORE_MODULES = [
 ]
 
 
+def run_cities_isolation() -> None:
+    """Boot each city module in a fresh subprocess. A bad city module must
+    not affect any other city's import — that's the code-layer promise the
+    per-process deployment model (plan §0) rests on. A missing dataclass
+    field will raise at construction; a syntax error at import; either way
+    the failure is scoped to that subprocess.
+
+    Discovers cities dynamically — every new `app/cities/<slug>.py` is
+    picked up without touching this file.
+    """
+    import pkgutil
+    from app import cities as _cities_pkg
+
+    print("=== cities isolation ===")
+    names = sorted(
+        m.name for m in pkgutil.iter_modules(_cities_pkg.__path__)
+        if m.name != "base" and not m.name.startswith("_")
+    )
+    if not names:
+        print("(no city modules found)")
+        return
+
+    # Child probe: import one city, verify shape. Pass slug through argv so
+    # the -c string stays free of nested-quote escaping.
+    child = (
+        "import sys; slug=sys.argv[1]; "
+        "from app.cities.base import CityConfig; "
+        "mod=__import__('app.cities.'+slug, fromlist=['*']); "
+        "cfg=getattr(mod, slug.upper()); "
+        "assert isinstance(cfg, CityConfig), 'must export a CityConfig'; "
+        "assert cfg.slug == slug, 'slug mismatch: module='+slug+' cfg.slug='+repr(cfg.slug); "
+        "print('OK')"
+    )
+
+    failed = []
+    for slug in names:
+        print(f"→ {slug} …", end=" ", flush=True)
+        r = subprocess.run(
+            [sys.executable, "-c", child, slug],
+            capture_output=True, text=True,
+        )
+        if r.returncode != 0:
+            print("FAIL")
+            print(r.stdout, r.stderr)
+            failed.append(slug)
+        else:
+            print(r.stdout.strip())
+
+    if failed:
+        print(f"\ncities isolation FAIL: {failed}")
+        sys.exit(1)
+
+
 def run_pure_selfchecks() -> None:
     """Runs each core module's __main__ block via subprocess. Bails on first failure."""
     for mod in CORE_MODULES:
@@ -121,7 +174,8 @@ def run_live_selfcheck() -> None:
 
 
 def main() -> None:
-    print("=== pure module selfchecks ===")
+    run_cities_isolation()
+    print("\n=== pure module selfchecks ===")
     run_pure_selfchecks()
     print("\n=== live selfcheck (network) ===")
     run_live_selfcheck()

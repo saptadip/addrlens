@@ -87,13 +87,15 @@ class Index:
         self.cfg = cfg
 
         sys.stdout.write("loading catchment polygons… "); sys.stdout.flush()
-        esbs = wfs(cfg.catchment_wfs_url, typeNames=cfg.catchment_layer, count=1000)
+        esbs = wfs(cfg.catchment_wfs_url, typeNames=cfg.catchment_layer, count=1000,
+                   outputFormat=cfg.wfs_output_format)
         self.esbs = [(f["properties"], shape(f["geometry"])) for f in esbs["features"]]
         print(f"{len(self.esbs)} polygons")
 
         sys.stdout.write("loading all schools… "); sys.stdout.flush()
         s_fm = cfg.schools_field_map
-        s = wfs(cfg.schools_wfs_url, typeNames=cfg.schools_layer, count=2000)
+        s = wfs(cfg.schools_wfs_url, typeNames=cfg.schools_layer, count=2000,
+                outputFormat=cfg.wfs_output_format)
         self.schools = [(f["properties"], f["geometry"]["coordinates"])
                         for f in s["features"] if f.get("geometry")]
 
@@ -113,7 +115,8 @@ class Index:
         print(f"{len(self.gs_public)} public Grundschulen · {len(self.gs_intl)} intl/bilingual")
 
         sys.stdout.write(f"loading kitas ({cfg.display_name} geoportal)… "); sys.stdout.flush()
-        k = wfs(cfg.kita_wfs_url, typeNames=cfg.kita_layer, count=5000)
+        k = wfs(cfg.kita_wfs_url, typeNames=cfg.kita_layer, count=5000,
+                outputFormat=cfg.wfs_output_format)
         self.kitas = [(f["properties"], f["geometry"]["coordinates"])
                       for f in k["features"] if f.get("geometry")]
         print(f"{len(self.kitas)} registered Kitas")
@@ -122,7 +125,8 @@ class Index:
         if cfg.fountains_wfs_url and cfg.fountains_layer:
             sys.stdout.write("loading drinking fountains… "); sys.stdout.flush()
             # ~240 fountains city-wide in Berlin; preload once, distance-filter per request.
-            r = wfs(cfg.fountains_wfs_url, typeNames=cfg.fountains_layer, count=1000)
+            r = wfs(cfg.fountains_wfs_url, typeNames=cfg.fountains_layer, count=1000,
+                    outputFormat=cfg.wfs_output_format)
             self.fountains = [(f["properties"], f["geometry"]["coordinates"])
                               for f in r.get("features", []) if f.get("geometry")]
             print(f"{len(self.fountains)} fountains")
@@ -134,7 +138,8 @@ class Index:
             # specialist "weitere Krankenhäuser". Both are points, both tiny
             # (~110 total city-wide) — preload once.
             for layer, kind in cfg.hospital_layers:
-                r = wfs(cfg.hospital_wfs_url, typeNames=layer, count=500)
+                r = wfs(cfg.hospital_wfs_url, typeNames=layer, count=500,
+                        outputFormat=cfg.wfs_output_format)
                 for f in r.get("features", []):
                     if not f.get("geometry"): continue
                     p = dict(f["properties"]); p["_layer"] = kind
@@ -150,7 +155,7 @@ class Index:
                f"{gm['hnr']}='{cql_esc(hnr)}' AND "
                f"{gm['plz']}='{cql_esc(plz)}'")
         r = wfs(cfg.geocoder_wfs_url, typeNames=cfg.geocoder_layer,
-                CQL_FILTER=cql, count=1)
+                CQL_FILTER=cql, count=1, outputFormat=cfg.wfs_output_format)
         if not r.get("features"):
             return None
         lon, lat = r["features"][0]["geometry"]["coordinates"]
