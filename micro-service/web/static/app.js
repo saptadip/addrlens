@@ -31,7 +31,8 @@ const AMEN=[
   ['transit','Transit stops',ico.transit,'#8B5CF6'],
   // Phase 1: /api/lookup-derived tiles bridged into the amenities pipeline
   // via _hydrateLookupTiles(). Same tile shape, click opens the same modal.
-  ['streetTrees','Street trees',ico.tree,'#059669','within 200 m'],
+  // Street trees moved to Environment tab — its data is now displayed as a
+  // full vertical card via streetTreesCardHtml() inside envExtraCardsHtml().
   ['swimSpots','Swim spots',ico.waves,'#0EA5E9','within 3–15 km'],
   ['fireRescue','Fire & rescue',ico.flame,'#DC2626','to nearest'],
 ];
@@ -756,16 +757,13 @@ function amenDetailHtml(cat, it){
     if(it._phone_ff && it._phone_ff !== '-')  push('Phone (Freiwillige)',     telLink(it._phone_ff));
     if(it.info)                      push('Kind',    esc(it.info));
   }
-  else if(cat === 'streetTrees'){
-    // Species pseudo-item: only "N trees" is meaningful; no address/tooltip needed.
-    return '';
-  }
   else if(cat === 'swimSpots'){
     if(it._kind === 'natural'){
       if(it._rating)                 push('EU water quality', esc(it._rating));
       if(it._website)                push('Info',    webLink(it._website));
     } else {
       if(it.info)                    push('Type',    esc(it.info));
+      if(it._rating)                 push('EU water quality (natural bath)', esc(it._rating));
       if(it._hours_hint)             push('Hours',   esc(it._hours_hint));
       if(it._website)                push('Website', webLink(it._website));
     }
@@ -975,9 +973,51 @@ function protectionCardHtml(pr){
   </div>`;
 }
 
+function streetTreesCardHtml(t){
+  if(!t || t.count == null) return '';
+  const fmtBands = t.age_bands
+    ? `Young &lt; 20 yr: ${t.age_bands.young} · Mature: ${t.age_bands.mature} · Old &gt; 60 yr: ${t.age_bands.old}`
+    : '—';
+  const groups = Object.entries(t.group_mix || {})
+    .sort((a,b) => b[1]-a[1])
+    .map(([g,n]) => `${g}: ${n}`).join(' · ') || '—';
+  const range = t.planting_range
+    ? `${t.planting_range[0]}–${t.planting_range[1]}`
+    : '—';
+  const topN = (t.top_species || []).slice(0, 3)
+    .map(sp => `${sp.name} (${sp.n})`).join(' · ') || '—';
+  const canopyPct = t.crown_coverage_pct != null ? `${t.crown_coverage_pct}%` : '—';
+  const canopyM2 = t.crown_coverage_m2 != null ? ` (${(+t.crown_coverage_m2).toLocaleString('en-US')} m²)` : '';
+  const fields = {
+    'Metric': `Street-tree summary within ${t.radius_m} m of your address`,
+    'Count': `${t.count} trees`,
+    'Avg height / tallest': t.avg_height_m != null ? `${t.avg_height_m} m / ${t.tallest_m} m` : '—',
+    'Age mix': fmtBands,
+    'Species diversity': `${t.unique_species} species · ${t.unique_genera} genera`,
+    'Group mix': groups,
+    'Planting years': range,
+    'Canopy coverage': `${canopyPct} of the query area${canopyM2}`,
+    'Top species': topN,
+  };
+  return `<div class="cell" data-env-cat="trees">
+    <div class="cell-head"><div class="icon-badge">${ico.tree}</div><span class="cell-label">Street trees · ${t.radius_m} m</span>${explainBtn('env-trees','Street trees',fields)}</div>
+    <div class="metric-big"><span class="n">${t.count}</span><span class="cap">trees within ${t.radius_m} m</span></div>
+    <ul class="amen-list" style="margin-top:8px">
+      <li><span class="nm">Age mix</span><span class="dist">${esc(fmtBands.replace(/&lt;/g,'<').replace(/&gt;/g,'>'))}</span></li>
+      <li><span class="nm">Species diversity</span><span class="dist">${t.unique_species} species · ${t.unique_genera} genera</span></li>
+      <li><span class="nm">Group mix</span><span class="dist">${esc(groups)}</span></li>
+      <li><span class="nm">Planting years</span><span class="dist">${esc(range)}</span></li>
+      <li><span class="nm">Canopy coverage</span><span class="dist">${canopyPct} of query area${canopyM2}</span></li>
+      <li><span class="nm">Tallest / avg height</span><span class="dist">${t.tallest_m != null ? t.tallest_m + ' m' : '—'} / ${t.avg_height_m != null ? t.avg_height_m + ' m' : '—'}</span></li>
+      <li><span class="nm">Top species</span><span class="dist">${esc(topN)}</span></li>
+    </ul>
+    <div class="prov">Berlin BOD · Baumbestand (Straßenbäume).</div>
+  </div>`;
+}
+
 function envExtraCardsHtml(d){
   if(!d) return '';
-  return quietZoneCardHtml(d.quiet_zone) + protectionCardHtml(d.protection);
+  return streetTreesCardHtml(d.trees) + quietZoneCardHtml(d.quiet_zone) + protectionCardHtml(d.protection);
 }
 
 function renderNoise(n){
@@ -1513,21 +1553,6 @@ function _hydrateLookupTiles(d){
       _zone_name: fr.zone_name, _zone_code: fr.zone_code,
     };
   }
-  // Street trees — count within 200 m; modal shows species breakdown.
-  const t = d.trees;
-  if(t && t.count != null){
-    amenData.streetTrees = {
-      count: t.count,
-      items: (t.top_species || []).map(sp => ({
-        name: sp.name,
-        distance_m: null,   // pseudo-item — no distance, `info` renders as the metric
-        info: `${sp.n} trees`,
-        _is_species: true,
-      })),
-      provenance: (d.provenance || {}).trees || '',
-      _avg_age: t.avg_age_yr, _tallest_m: t.tallest_m, _radius_m: t.radius_m,
-    };
-  }
   // Swim spots — combined pool (BBB) + natural swim (Badegewässer).
   const sw = d.swim;
   if(sw){
@@ -1535,8 +1560,10 @@ function _hydrateLookupTiles(d){
     const items = [
       ...pools.slice(0, 6).map(p => ({name: p.name, lat: p.lat, lon: p.lon,
                                        distance_m: p.distance_m,
-                                       info: p.category, _kind: 'pool',
-                                       _website: p.website, _hours_hint: p.hours_hint})),
+                                       info: p.eu_rating ? `${p.category} · EU rating: ${p.eu_rating}` : p.category,
+                                       _kind: 'pool',
+                                       _website: p.website, _hours_hint: p.hours_hint,
+                                       _rating: p.eu_rating})),
       ...nat.slice(0, 6).map(n => ({name: n.name, lat: n.lat, lon: n.lon,
                                      distance_m: n.distance_m,
                                      info: `Natural swim · EU rating: ${n.eu_rating || '—'}`,
@@ -1630,18 +1657,6 @@ function selectAmenCategory(cat){
     if(wasSelected){
       if(hint) hint.textContent='Click a card to plot its locations';
       p.mapRef.setView([lastCoord.lat,lastCoord.lon],14);
-      return;
-    }
-    // Street trees are an aggregate stat — no per-tree coords in items[].
-    // Draw the query radius as a circle around the address so the user
-    // sees WHERE the count of trees is computed from.
-    if(cat === 'streetTrees'){
-      const radius = amenData[cat]?._radius_m || 200;
-      const circle = L.circle([lastCoord.lat, lastCoord.lon], {radius,
-        color:'#059669', weight:2, fillColor:'#22C55E', fillOpacity:.12, dashArray:'5 6'});
-      p.layer = L.featureGroup([circle]).addTo(p.mapRef);
-      if(hint) hint.textContent = `Street trees: ${amenData[cat].count} within ${radius} m`;
-      try{ p.mapRef.fitBounds(circle.getBounds().pad(0.15)); }catch(e){}
       return;
     }
     // Standard case: items carry lat/lon (native amenities + fireRescue + swim).
