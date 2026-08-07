@@ -78,6 +78,44 @@ class CityConfig:
                                           #  "total_n","road_n","rail_n","air_n"}
     noise_year: int
 
+    # -- Phase-1 killer cards (Berlin BOD, all point-in-polygon or bbox) ------
+    # Each block is Optional so a future city can opt out per-mode. Berlin's
+    # values live in berlin.py.
+
+    # Fire & rescue: two layers per plan §7.5.
+    fire_wfs_url: Optional[str]
+    fire_stations_layer: Optional[str]
+    fire_zones_layer: Optional[str]
+    fire_stations_field_map: dict       # {"name","type","address","phone_bf","phone_ff","zone_id"}
+    fire_zones_field_map: dict          # {"id","name"}
+
+    # Street trees (Baumbestand): city-wide huge (~435k rows), so per-request
+    # bbox only — no preload. Radius is the "trees near you" window.
+    trees_wfs_url: Optional[str]
+    trees_layer: Optional[str]
+    trees_field_map: dict               # {"species_de","genus_de","group","height","age","planting_year","street"}
+    trees_radius_m: int                 # 200
+
+    # Ruhige Gebiete (§47d BImSchG, quiet zones + inner-city recreation).
+    quiet_wfs_url: Optional[str]
+    quiet_layer: Optional[str]
+    quiet_field_map: dict               # {"name","kind","size_ha","id"}
+
+    # Neighborhood protection (§172 BauGB). Two overlapping layers: EM
+    # (Milieuschutz — anti-displacement) and ES (city-character preservation).
+    protection_wfs_url: Optional[str]
+    protection_em_layer: Optional[str]
+    protection_es_layer: Optional[str]
+    protection_field_map: dict          # {"name","code","in_force","district","size_ha"}
+
+    # Swim spots: pools (BBB) + EU-designated natural swimming waters.
+    pools_wfs_url: Optional[str]
+    pools_layer: Optional[str]
+    pools_field_map: dict               # {"name","address","postcode","district","category","website","hours_hint"}
+    swim_natural_wfs_url: Optional[str]
+    swim_natural_layer: Optional[str]
+    swim_natural_field_map: dict        # {"name","eu_rating","website","cyano"}
+
     # Connectivity (S-Bahn / U-Bahn / Tram / Regional rail / Airport).
     # Each is Optional so a future city can opt out per-mode cleanly.
     #
@@ -104,7 +142,9 @@ class CityConfig:
     # Provenance strings, one per public-facing dataset. Keys used by the app:
     #   "catchment", "schools", "addresses", "kitas", "hospitals",
     #   "fountains", "playgrounds", "parks", "noise",
-    #   "sbahn", "ubahn", "tram", "regional_rail", "airport".
+    #   "sbahn", "ubahn", "tram", "regional_rail", "airport",
+    #   "fire", "trees", "quiet_zone", "protection",
+    #   "pools", "natural_swim".
     # Full string including licence tag; the app just concatenates when a
     # response mixes sources.
     attribution: dict

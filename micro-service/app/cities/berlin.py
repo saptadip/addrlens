@@ -41,6 +41,14 @@ _SESB_GRUNDSCHULEN = {
     "wedding-grundschule": "German-French",
 }
 
+# Phase-1 killer datasets (Berlin BOD)
+_WFS_FIRE          = "https://gdi.berlin.de/services/wfs/feuerwehr"
+_WFS_TREES         = "https://gdi.berlin.de/services/wfs/baumbestand"
+_WFS_QUIET         = "https://gdi.berlin.de/services/wfs/ruhigegebiete_2018"
+_WFS_PROTECTION    = "https://gdi.berlin.de/services/wfs/erhaltungsverordnungsgebiete"
+_WFS_POOLS         = "https://gdi.berlin.de/services/wfs/schwimmbaeder_berlin"
+_WFS_SWIM_NATURAL  = "https://gdi.berlin.de/services/wfs/badegewaesser"
+
 # Base URLs (all under the Berlin Geoportal gdi.berlin.de)
 _WFS_SCHULEN = "https://gdi.berlin.de/services/wfs/schulen"
 _WFS_ADR     = "https://gdi.berlin.de/services/wfs/adressen_berlin"
@@ -125,6 +133,53 @@ BERLIN = CityConfig(
     },
     noise_year=2022,
 
+    # -- Phase 1: killer cards ------------------------------------------------
+    fire_wfs_url=_WFS_FIRE,
+    fire_stations_layer="feuerwehr:a_feuerwehr_standorte",
+    fire_zones_layer="feuerwehr:b_feuerwehr_einsatzbereiche",
+    fire_stations_field_map={
+        "name": "wach_name", "type": "wach_typ", "address": "adresse",
+        "phone_bf": "telefon_bf", "phone_ff": "telefon_ff", "zone_id": "eb_kurz",
+    },
+    fire_zones_field_map={"id": "eb", "code": "eb_kurz", "name": "eb_name"},
+
+    trees_wfs_url=_WFS_TREES,
+    trees_layer="baumbestand:strassenbaeume",
+    trees_field_map={
+        "species_de": "art_dtsch", "genus_de": "gattung_deutsch", "group": "art_gruppe",
+        "height": "baumhoehe", "age": "standalter", "planting_year": "pflanzjahr",
+        "street": "strname",
+    },
+    trees_radius_m=200,
+
+    quiet_wfs_url=_WFS_QUIET,
+    quiet_layer="ruhigegebiete_2018:ruhigegeb2018_2023",
+    quiet_field_map={"name": "name", "kind": "g_art",
+                     "size_ha": "groesse_ha", "id": "gebnr"},
+
+    protection_wfs_url=_WFS_PROTECTION,
+    protection_em_layer="erhaltungsverordnungsgebiete:erhaltgeb_em",
+    protection_es_layer="erhaltungsverordnungsgebiete:erhaltgeb_es",
+    protection_field_map={
+        "name": "gebietsname", "code": "schluessel", "in_force": "f_in_kraft",
+        "district": "bezirk", "size_ha": "fl_ha",   # note: `es` layer uses fl_in_ha; loader tries both.
+    },
+
+    pools_wfs_url=_WFS_POOLS,
+    pools_layer="schwimmbaeder_berlin:schwimmbaeder",
+    pools_field_map={
+        "name": "name_des_schwimmbads", "address": "adresse",
+        "postcode": "postleitzahl", "district": "bezirk",
+        "category": "badkategorie", "website": "link_zum_bad",
+        "hours_hint": "hinweis_zu_oeffnungszeiten",
+    },
+    swim_natural_wfs_url=_WFS_SWIM_NATURAL,
+    swim_natural_layer="badegewaesser:aa_badestellen",
+    swim_natural_field_map={
+        "name": "badegewaes", "eu_rating": "eu_einst",
+        "website": "link", "cyano": "cyano",
+    },
+
     # -- Connectivity ---------------------------------------------------------
     # S-Bahn + U-Bahn come from the vendored VBB CSV (regenerate via
     # scripts/refresh_vbb.py). Tram comes from a BOD WFS at boot.
@@ -181,5 +236,11 @@ BERLIN = CityConfig(
         "tram":          "Geoportal Berlin / BVG Ungestörtes ÖPNV-Netz — Straßenbahnhaltestellen (dl-de/by-2.0)",
         "regional_rail": "VBB / Koordinaten der Zugangsmöglichkeiten zu Stationen (CC-BY-4.0)",
         "airport":       "Berlin Brandenburg Airport (BER) — public landmark",
+        "fire":          "Geoportal Berlin / Feuerwehr Standorte und Einsatzbereiche (dl-de/zero-2.0)",
+        "trees":         "Geoportal Berlin / Baumbestand Berlin — Straßenbäume (dl-de/zero-2.0)",
+        "quiet_zone":    "Geoportal Berlin / Ruhige Gebiete und innerstädtische Erholungsflächen 2018 (dl-de/by-2.0)",
+        "protection":    "Geoportal Berlin / Erhaltungsverordnungsgebiete § 172 BauGB (dl-de/zero-2.0)",
+        "pools":         "Geoportal Berlin / Schwimmbäder der Berliner Bäder-Betriebe (dl-de/zero-2.0)",
+        "natural_swim":  "Geoportal Berlin / Badegewässerqualität (CC-BY-4.0) · LAGeSo",
     },
 )

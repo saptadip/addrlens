@@ -16,7 +16,10 @@ const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg>',
   sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
   info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
-  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'};
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+  flame:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17c1.5 0 2.5-1 2.5-2.5 0-1-.5-2-1.5-3-2 2-3 3-3 3z"/><path d="M12 2c1 3.5 4 6 4 9a5.5 5.5 0 0 1-11 0c0-1.5.5-3 1.5-4C7 8 7.5 8 8 8.5c0-2 2-4 4-6.5z"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  quiet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="17" y1="9" x2="22" y2="14"/><line x1="22" y1="9" x2="17" y2="14"/></svg>'};
 const AMEN=[
   ['playgrounds','Playgrounds',ico.playground,'#22C55E'],
   ['parks','Parks / green space',ico.tree,'#10B981'],
@@ -26,11 +29,16 @@ const AMEN=[
   ['hospitals','Hospitals',ico.hospital,'#DC2626','within ~2 km'],
   ['fountains','Drinking fountains',ico.fountain,'#0EA5E9'],
   ['transit','Transit stops',ico.transit,'#8B5CF6'],
+  // Phase 1: /api/lookup-derived tiles bridged into the amenities pipeline
+  // via _hydrateLookupTiles(). Same tile shape, click opens the same modal.
+  ['streetTrees','Street trees',ico.tree,'#059669','within 200 m'],
+  ['swimSpots','Swim spots',ico.waves,'#0EA5E9','within 3–15 km'],
+  ['fireRescue','Fire & rescue',ico.flame,'#DC2626','to nearest'],
 ];
 const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 // Which tab each category renders into. Default: 'amen'. Medical categories
-// (pharmacies, GPs, hospitals) live under the dedicated Medical tab.
-const AMEN_TAB={pharmacies:'med', gps:'med', hospitals:'med'};
+// (pharmacies, GPs, hospitals, fireRescue) live under the Medical tab.
+const AMEN_TAB={pharmacies:'med', gps:'med', hospitals:'med', fireRescue:'med'};
 const tabOf=k=>AMEN_TAB[k]||'amen';
 const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$conn=document.getElementById('conn'),$status=document.getElementById('status'),$tabs=document.getElementById('tabs-row');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
@@ -741,6 +749,27 @@ function amenDetailHtml(cat, it){
       if(p.namezusatz && p.namezusatz.trim() && p.namezusatz.trim() !== p.namenr) push('Also', esc(p.namezusatz.trim()));
     }
   }
+  // Phase-1 tile detail rows.
+  else if(cat === 'fireRescue'){
+    if(it._zone)                     push('Zone', esc(it._zone));
+    if(it._phone_bf && it._phone_bf !== '-')  push('Phone (Berufsfeuerwehr)', telLink(it._phone_bf));
+    if(it._phone_ff && it._phone_ff !== '-')  push('Phone (Freiwillige)',     telLink(it._phone_ff));
+    if(it.info)                      push('Kind',    esc(it.info));
+  }
+  else if(cat === 'streetTrees'){
+    // Species pseudo-item: only "N trees" is meaningful; no address/tooltip needed.
+    return '';
+  }
+  else if(cat === 'swimSpots'){
+    if(it._kind === 'natural'){
+      if(it._rating)                 push('EU water quality', esc(it._rating));
+      if(it._website)                push('Info',    webLink(it._website));
+    } else {
+      if(it.info)                    push('Type',    esc(it.info));
+      if(it._hours_hint)             push('Hours',   esc(it._hours_hint));
+      if(it._website)                push('Website', webLink(it._website));
+    }
+  }
 
   return rows.map(([l,v])=>`<div class="det-row"><span class="det-label">${l}</span><span class="det-val">${v}</span></div>`).join('');
 }
@@ -891,9 +920,69 @@ function noiseCardsHtml(n){
       <div class="prov">${esc(n.provenance)}</div></div>`;
 }
 
+// Phase-1 Environment cards driven by /api/lookup (eduData), not by /api/noise.
+// Rendered inside renderNoise so they live in the same vertical stack and
+// participate in the same drag-reorder pipeline.
+function quietZoneCardHtml(qz){
+  if(!qz) return '';
+  const inside = !!qz.inside;
+  const dLabel = inside ? 'You are inside' : `${qz.distance_m} m to nearest edge`;
+  const sizeHa = qz.size_ha != null ? `${(+qz.size_ha).toFixed(1)} ha` : '—';
+  const kind = qz.kind || '';
+  const fields = {
+    'Metric':'Distance to the nearest officially-designated quiet or urban-recreation zone',
+    'Legal basis':'§47d BImSchG (Environmental Noise Directive)',
+    'Kind': kind,
+    'Area size': sizeHa,
+    'Distance': inside ? '0 m (inside the zone)' : `${qz.distance_m} m to nearest boundary`,
+  };
+  return `<div class="cell" data-env-cat="quietzone">
+    <div class="cell-head"><div class="icon-badge">${ico.quiet}</div><span class="cell-label">Quiet zone (nearest)</span>${explainBtn('env-quietzone','Quiet zone',fields)}</div>
+    <h3 style="margin:6px 0 2px">${esc(qz.name || 'Unnamed zone')}</h3>
+    <p class="sub">${esc(dLabel)} · ${sizeHa} · <span style="color:var(--muted)">${esc(kind)}</span></p>
+    <div class="prov">Berlin BOD · §47d BImSchG (2018 designation).</div>
+  </div>`;
+}
+
+function protectionCardHtml(pr){
+  if(!pr) return '';
+  const m = pr.milieuschutz || {}, h = pr.heritage || {};
+  const shieldSvg = ico.shield;
+  const badge = (inside, cls, textOn, textOff, name) =>
+    `<span class="protect-badge-inline b-${inside ? cls : 'neutral'}" title="${esc(name || '')}">${shieldSvg}${inside ? textOn : textOff}${inside && name ? ` · ${esc(name)}` : ''}</span>`;
+  const anyInside = m.inside || h.inside;
+  const body = anyInside
+    ? `Rent-hike and unit-conversion rules protect this neighborhood from displacement. Landlords face extra approval steps to renovate or split units — usually a plus for long-term family renters.`
+    : `This address isn't in a §172 BauGB protection zone. Rent and renovation rules follow standard Berlin tenancy law.`;
+  const dateRow = m.inside && m.in_force ? `<p class="sub" style="margin:4px 0 0">Effective: ${esc(m.in_force)}${m.code?` · <span style="color:var(--muted)">${esc(m.code)}</span>`:''}</p>` : '';
+  const fields = {
+    'Legal basis':'§172 BauGB — Erhaltungsverordnungsgebiete',
+    'Milieuschutz (EM)': m.inside ? `Yes · ${m.area_name || ''}${m.in_force?` · in force ${m.in_force}`:''}` : 'No',
+    'Städtebauliche Erhaltung (ES)': h.inside ? `Yes · ${h.area_name || ''}` : 'No',
+    'What this means (EN)': anyInside
+      ? 'Extra approval steps for rent hikes and unit conversions. Usually a plus for long-term family renters.'
+      : 'Standard Berlin tenancy law applies. Neither rent-cap nor conversion protection zones cover this address.',
+  };
+  return `<div class="cell" data-env-cat="protection">
+    <div class="cell-head"><div class="icon-badge">${shieldSvg}</div><span class="cell-label">Neighborhood protection</span>${explainBtn('env-protection','Neighborhood protection (§172 BauGB)',fields)}</div>
+    <div class="protect-badges">
+      ${badge(m.inside, 'protect', 'Milieuschutz · Protected', 'Milieuschutz · Not in zone', m.area_name)}
+      ${badge(h.inside, 'heritage', 'Heritage · Protected', 'Heritage · Not in zone', h.area_name)}
+    </div>
+    <p class="protect-body">${esc(body)}</p>
+    ${dateRow}
+    <div class="prov">Berlin BOD · §172 BauGB · <a href="https://www.berlin.de/sen/sbw/stadtdaten/geoportal/" target="_blank" rel="noopener">official designation ↗</a></div>
+  </div>`;
+}
+
+function envExtraCardsHtml(d){
+  if(!d) return '';
+  return quietZoneCardHtml(d.quiet_zone) + protectionCardHtml(d.protection);
+}
+
 function renderNoise(n){
   envData=n;
-  $env.innerHTML=`<div class="grid"><div class="stack">${strollerCardHtml()}${noiseCardsHtml(n)}</div></div>`;
+  $env.innerHTML=`<div class="grid"><div class="stack">${strollerCardHtml()}${noiseCardsHtml(n)}${envExtraCardsHtml(eduData)}</div></div>`;
   bindStrollerForm();
   renderStrollerCard();
   refreshSaveBtn();
@@ -1348,9 +1437,12 @@ function _amenCardHtml(entry){
   const items=(b.items||[]).slice(0,6).map((it,i)=>{
     const details=amenDetailHtml(k, it);
     const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
-    return `<li data-idx="${i}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
+    const dist = it.distance_m != null
+      ? `${it.distance_m} m · ~${walkMin(it.distance_m)} min`
+      : esc(it.info || '');
+    return `<li data-idx="${i}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${dist}</span>${tip}</li>`;
   }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
-  const more=(b.count||0)>6?`<p class="amen-more">+${b.count-6} more within ${rangeShort}</p>`:'';
+  const more=(b.count||0)>6 && typeof b.count === 'number' ?`<p class="amen-more">+${b.count-6} more within ${rangeShort}</p>`:'';
   const cur=getImpression(k);
   const voteAttr=cur?` data-vote="${cur}"`:'';
   return `<div class="cell amen-cell" data-cat="${k}"${voteAttr}>
@@ -1397,9 +1489,69 @@ function _renderAmenPanel(tab){
   if(stackEl){ applyCardOrder(tab, stackEl); enableDrag(tab, stackEl); }
 }
 
+// Phase-1 tiles come from /api/lookup, not /api/amenities. Bridge them into
+// amenData so they render through the same tile+modal pipeline. Called at
+// two points: (1) inside render(d) so tiles are ready by the time the user
+// opens amen/med, and (2) inside renderAmenities so a fresh amenities fetch
+// doesn't wipe out the bridged entries.
+function _hydrateLookupTiles(d){
+  if(!d) return;
+  amenData = amenData || {};
+  // Fire & rescue — tile shows distance (not a count) as the big metric.
+  const fr = d.fire_rescue;
+  if(fr && fr.nearest){
+    amenData.fireRescue = {
+      count: fmtDistance(fr.nearest.distance_m),          // "244 m" or "1.2 km"
+      items: (fr.top3 || []).map(s => ({
+        name: s.name,
+        distance_m: s.distance_m,
+        info: `${s.type === 'BF' ? 'Professional' : 'Volunteer'}${s.address ? ' · ' + s.address : ''}`,
+        _phone_bf: s.phone_bf, _phone_ff: s.phone_ff, _zone: s.zone_code,
+      })),
+      provenance: (d.provenance || {}).fire || '',
+      _zone_name: fr.zone_name, _zone_code: fr.zone_code,
+    };
+  }
+  // Street trees — count within 200 m; modal shows species breakdown.
+  const t = d.trees;
+  if(t && t.count != null){
+    amenData.streetTrees = {
+      count: t.count,
+      items: (t.top_species || []).map(sp => ({
+        name: sp.name,
+        distance_m: null,   // pseudo-item — no distance, `info` renders as the metric
+        info: `${sp.n} trees`,
+        _is_species: true,
+      })),
+      provenance: (d.provenance || {}).trees || '',
+      _avg_age: t.avg_age_yr, _tallest_m: t.tallest_m, _radius_m: t.radius_m,
+    };
+  }
+  // Swim spots — combined pool (BBB) + natural swim (Badegewässer).
+  const sw = d.swim;
+  if(sw){
+    const pools = sw.pools || [], nat = sw.natural || [];
+    const items = [
+      ...pools.slice(0, 6).map(p => ({name: p.name, distance_m: p.distance_m,
+                                       info: p.category, _kind: 'pool',
+                                       _website: p.website, _hours_hint: p.hours_hint})),
+      ...nat.slice(0, 6).map(n => ({name: n.name, distance_m: n.distance_m,
+                                     info: `Natural swim · EU rating: ${n.eu_rating || '—'}`,
+                                     _kind: 'natural', _website: n.website, _rating: n.eu_rating})),
+    ].sort((a,b) => a.distance_m - b.distance_m);
+    amenData.swimSpots = {
+      count: pools.length + nat.length,
+      items,
+      provenance: [(d.provenance || {}).pools, (d.provenance || {}).natural_swim]
+                    .filter(Boolean).join(' + '),
+    };
+  }
+}
+
 function renderAmenities(d){
   dropOrphanTooltips();
   amenData=d.amenities||{};
+  _hydrateLookupTiles(eduData);          // bring in fire/trees/swim before rendering
   _renderAmenPanel('amen');
   _renderAmenPanel('med');
 }
@@ -1415,9 +1567,12 @@ function openAmenModal(tab, cat){
   const items=(b.items||[]).slice(0,25).map((it,i)=>{
     const details=amenDetailHtml(k,it);
     const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
-    return `<li data-idx="${i}" data-cat="${k}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${it.distance_m} m · ~${walkMin(it.distance_m)} min</span>${tip}</li>`;
+    const dist = it.distance_m != null
+      ? `${it.distance_m} m · ~${walkMin(it.distance_m)} min`
+      : esc(it.info || '');
+    return `<li data-idx="${i}" data-cat="${k}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${dist}</span>${tip}</li>`;
   }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
-  const more=(b.count||0)>25?`<p class="amen-more">+${b.count-25} more within ${rangeShort}</p>`:'';
+  const more=(b.count||0)>25 && typeof b.count === 'number' ?`<p class="amen-more">+${b.count-25} more within ${rangeShort}</p>`:'';
   // Compact fields payload for /api/explain — category label, count, radius,
   // one exemplar item so the model has real names + German props to gloss.
   const sampleItem = (b.items || [])[0];

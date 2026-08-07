@@ -72,6 +72,14 @@ def lookup(
 
     kitas = kitas_near(index, cfg, lon, lat, 800)
 
+    # Phase-1 killer cards — five per-address blocks derived from Berlin BOD.
+    fire_rescue  = index.fire_rescue(lon, lat)
+    quiet_zone   = index.nearest_quiet_zone(lon, lat)
+    protection   = index.neighborhood_protection(lon, lat)
+    swim_pools   = index.pools_within(lon, lat, 3000)
+    swim_natural = index.natural_swim_within(lon, lat, 15000)
+    trees_summary = index.trees_bbox(lon, lat)
+
     # Connectivity — nearest S-Bahn / U-Bahn / Tram / Regional rail + Airport.
     # Airport is a single point (per-city fixed landmark), so we compute its
     # distance directly rather than "nearest".
@@ -100,6 +108,11 @@ def lookup(
         "intl_grundschule": intl_out,
         "kitas": kitas,
         "connectivity": conn,
+        "fire_rescue":  fire_rescue,
+        "quiet_zone":   quiet_zone,
+        "protection":   protection,
+        "swim":         {"pools": swim_pools, "natural": swim_natural},
+        "trees":        trees_summary,
         "provenance": {
             "catchment":     cfg.attribution["catchment"],
             "schools":       cfg.attribution["schools"],
@@ -110,5 +123,11 @@ def lookup(
             "tram":          cfg.attribution.get("tram", ""),
             "regional_rail": cfg.attribution.get("regional_rail", ""),
             "airport":       cfg.attribution.get("airport", ""),
+            "fire":          cfg.attribution.get("fire", ""),
+            "trees":         cfg.attribution.get("trees", ""),
+            "quiet_zone":    cfg.attribution.get("quiet_zone", ""),
+            "protection":    cfg.attribution.get("protection", ""),
+            "pools":         cfg.attribution.get("pools", ""),
+            "natural_swim":  cfg.attribution.get("natural_swim", ""),
         },
     }

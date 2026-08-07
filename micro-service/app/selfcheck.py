@@ -159,6 +159,32 @@ def run_live_selfcheck() -> None:
     assert len(parks) >= 1, "expected ≥1 BOD park within 800m of Kastanienallee 12"
     assert all(p["source"] == "bod" and 0 < p["distance_m"] <= 800 for p in parks)
 
+    # -- Phase 1 killer cards -----------------------------------------------
+    fr = idx.fire_rescue(geo["lon"], geo["lat"])
+    assert fr and fr["nearest"]["distance_m"] < 2000, \
+        f"expected fire station within 2km, got {fr}"
+    assert fr["zone_name"], "fire response zone must be identified"
+    assert len(fr["top3"]) >= 3, "expected 3 nearest stations returned"
+
+    pr = idx.neighborhood_protection(geo["lon"], geo["lat"])
+    # Kastanienallee 12 is inside Teutoburger Platz Milieuschutz zone (EM0313).
+    assert pr["milieuschutz"]["inside"] is True, \
+        f"expected Kastanienallee 12 inside Milieuschutz zone, got {pr}"
+    assert "Teutoburger" in (pr["milieuschutz"]["area_name"] or "")
+
+    qz = idx.nearest_quiet_zone(geo["lon"], geo["lat"])
+    assert qz and qz["distance_m"] < 5000, f"quiet zone too far or missing: {qz}"
+
+    pools = idx.pools_within(geo["lon"], geo["lat"], 3000)
+    assert len(pools) >= 1, "expected ≥1 BBB pool within 3km of Kastanienallee 12"
+    natural = idx.natural_swim_within(geo["lon"], geo["lat"], 15000)
+    assert len(natural) >= 3, "expected ≥3 natural swim spots within 15km"
+
+    trees = idx.trees_bbox(geo["lon"], geo["lat"], 200)
+    assert trees and trees.get("count", 0) >= 20, \
+        f"expected ≥20 street trees within 200m of Kastanienallee 12, got {trees}"
+    assert trees.get("top_species"), "trees summary must carry species breakdown"
+
     # -- Connectivity -------------------------------------------------------
     assert len(idx.sbahn) >= 150, f"expected ≥150 S-Bahn stations, got {len(idx.sbahn)}"
     assert len(idx.ubahn) >= 200, f"expected ≥200 U-Bahn stations (incl. S+U), got {len(idx.ubahn)}"
