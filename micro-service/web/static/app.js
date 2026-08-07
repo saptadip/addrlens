@@ -1491,7 +1491,8 @@ function _amenCardHtml(entry){
   const rangeShort=cap ? cap.replace(/^within ~?/, '') : '800 m';
   const b=amenData[k]||{count:0,items:[]};
   if(b.error) return `<div class="cell amen-cell" data-cat="${k}" style="cursor:default">
-    <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span></div>
+    <div class="amen-tile-top"><div class="icon-badge">${icon}</div></div>
+    <span class="cell-label">${label}</span>
     <p class="sub" style="color:var(--danger)">Overpass error: ${esc(b.error)}</p></div>`;
   const items=(b.items||[]).slice(0,6).map((it,i)=>{
     const details=amenDetailHtml(k, it);
@@ -1504,9 +1505,16 @@ function _amenCardHtml(entry){
   const more=(b.count||0)>6 && typeof b.count === 'number' ?`<p class="amen-more">+${b.count-6} more within ${rangeShort}</p>`:'';
   const cur=getImpression(k);
   const voteAttr=cur?` data-vote="${cur}"`:'';
+  // Tile face: icon top-left, count top-right, label + range pill bottom-left
+  // (mirrors Connectivity's .conn-cell shape per user request). Modal body
+  // stays as .amen-body (hidden on tile face via CSS, shown in the modal).
   return `<div class="cell amen-cell" data-cat="${k}"${voteAttr}>
-    <div class="cell-head"><div class="icon-badge">${icon}</div><span class="cell-label">${label}</span><span class="chev">${ico.chev}</span></div>
-    <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span></div>
+    <div class="amen-tile-top">
+      <div class="icon-badge">${icon}</div>
+      <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span></div>
+    </div>
+    <span class="cell-label">${label}</span>
+    <span class="amen-tag">${rangeCap}</span>
     <div class="amen-body">
       <ul class="amen-list">${items}</ul>${more}
       <div class="prov">${esc(b.provenance || '© OpenStreetMap contributors (ODbL)')}</div>
@@ -1520,11 +1528,11 @@ function _renderAmenPanel(tab){
   if(p.mapRef){p.mapRef.remove();p.mapRef=null}
   const entries=AMEN.filter(e=>tabOf(e[0])===tab);
   const cards=entries.map(_amenCardHtml).join('');
-  // Medical uses the 2-per-row rectangular layout (matches Connectivity's
-  // shape); Amenities keeps its auto-fill square-tile grid.
-  const stackMod = tab === 'med' ? ' two-per-row' : '';
+  // Both Amenities and Medical use the 2-per-row rectangular tile layout
+  // (matches Connectivity's shape). Same _amenCardHtml template; the
+  // .two-per-row modifier on the stack picks up the new CSS layout.
   p.$el.innerHTML=`<div class="grid">
-    <div class="stack tiles-grid${stackMod}">${cards}<div class="amen-modal" id="amen-modal-${tab}" hidden></div></div>
+    <div class="stack tiles-grid two-per-row">${cards}<div class="amen-modal" id="amen-modal-${tab}" hidden></div></div>
     <div class="map-cell amen-map-cell"><div class="map-hint" id="${p.hintId}">Click a tile for details</div><div id="${p.mapId}"></div></div>
   </div>`;
   // Only initialize Leaflet if this panel is currently visible; otherwise a
