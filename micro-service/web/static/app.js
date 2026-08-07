@@ -1504,6 +1504,7 @@ function _hydrateLookupTiles(d){
       count: fmtDistance(fr.nearest.distance_m),          // "244 m" or "1.2 km"
       items: (fr.top3 || []).map(s => ({
         name: s.name,
+        lat: s.lat, lon: s.lon,                           // needed for map plotting
         distance_m: s.distance_m,
         info: `${s.type === 'BF' ? 'Professional' : 'Volunteer'}${s.address ? ' · ' + s.address : ''}`,
         _phone_bf: s.phone_bf, _phone_ff: s.phone_ff, _zone: s.zone_code,
@@ -1532,10 +1533,12 @@ function _hydrateLookupTiles(d){
   if(sw){
     const pools = sw.pools || [], nat = sw.natural || [];
     const items = [
-      ...pools.slice(0, 6).map(p => ({name: p.name, distance_m: p.distance_m,
+      ...pools.slice(0, 6).map(p => ({name: p.name, lat: p.lat, lon: p.lon,
+                                       distance_m: p.distance_m,
                                        info: p.category, _kind: 'pool',
                                        _website: p.website, _hours_hint: p.hours_hint})),
-      ...nat.slice(0, 6).map(n => ({name: n.name, distance_m: n.distance_m,
+      ...nat.slice(0, 6).map(n => ({name: n.name, lat: n.lat, lon: n.lon,
+                                     distance_m: n.distance_m,
                                      info: `Natural swim · EU rating: ${n.eu_rating || '—'}`,
                                      _kind: 'natural', _website: n.website, _rating: n.eu_rating})),
     ].sort((a,b) => a.distance_m - b.distance_m);
@@ -1629,9 +1632,28 @@ function selectAmenCategory(cat){
       p.mapRef.setView([lastCoord.lat,lastCoord.lon],14);
       return;
     }
-    const items=(amenData[cat]?.items)||[];
+    // Street trees are an aggregate stat — no per-tree coords in items[].
+    // Draw the query radius as a circle around the address so the user
+    // sees WHERE the count of trees is computed from.
+    if(cat === 'streetTrees'){
+      const radius = amenData[cat]?._radius_m || 200;
+      const circle = L.circle([lastCoord.lat, lastCoord.lon], {radius,
+        color:'#059669', weight:2, fillColor:'#22C55E', fillOpacity:.12, dashArray:'5 6'});
+      p.layer = L.featureGroup([circle]).addTo(p.mapRef);
+      if(hint) hint.textContent = `Street trees: ${amenData[cat].count} within ${radius} m`;
+      try{ p.mapRef.fitBounds(circle.getBounds().pad(0.15)); }catch(e){}
+      return;
+    }
+    // Standard case: items carry lat/lon (native amenities + fireRescue + swim).
+    const items=((amenData[cat]?.items)||[]).filter(it => it.lat != null && it.lon != null);
     const label=AMEN.find(a=>a[0]===cat)[1];
-    if(hint) hint.textContent=`${label}: ${items.length} shown · ${amenData[cat].count} total`;
+    if(!items.length){
+      if(hint) hint.textContent = `${label}: no plottable items`;
+      return;
+    }
+    if(hint) hint.textContent = cat === 'fireRescue'
+      ? `${label}: ${items.length} nearest · closest ${amenData[cat].count}`
+      : `${label}: ${items.length} shown · ${amenData[cat].count} total`;
     p.markers=items.map(it=>L.marker([it.lat,it.lon],{icon:amenPin(cat)})
       .bindPopup(`<b>${esc(it.name)}</b><br>${it.distance_m} m · ~${walkMin(it.distance_m)} min walk${it.info?`<br><span style="color:#6B7280">${esc(it.info)}</span>`:''}`));
     p.layer=L.featureGroup(p.markers).addTo(p.mapRef);
