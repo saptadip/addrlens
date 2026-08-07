@@ -1,11 +1,14 @@
 # Microservice refactor + multi-city template — plan
 
 Living plan for turning the current `phase2/` prototype into a
-production-shape microservice that also acts as a template for other
-German cities (Hamburg first, Munich / Köln / Frankfurt after).
+production-shape microservice. As of 2026-08-07 the tree is on **Path 1**
+— single-city (Berlin) v1 heading for public launch. Multi-city work is
+deferred pending real demand (see §Deferred for the investigation that
+led to the deferral).
 
-Nothing has been implemented yet. Ships are sequenced so each is
-independently deployable.
+Current state: Ship A, Ship LLM-1, and Ship B are shipped (§Shipped).
+Ship C is deferred (§Deferred). Ship D is scoped but not started
+(§Ship D). Ship E is out of scope by project decision.
 
 ---
 
@@ -46,11 +49,9 @@ addrlens/
 │   │   ├── merge.py               # _merge_bod_and_osm dedupe
 │   │   ├── gloss.py               # apply CityConfig.bilingual_glossary to LLM output
 │   │   └── models.py              # Pydantic response schemas
-│   ├── cities/
-│   │   ├── base.py                # CityConfig dataclass
-│   │   ├── berlin.py              # Berlin: WFS URLs, layer names, field maps, glossary, attribution
-│   │   ├── hamburg.py             # (stub, filled in Ship C)
-│   │   └── munich.py              # (stub, filled later)
+│   ├── cities/                    # today: Berlin only (see §Deferred for multi-city status)
+│   │   ├── base.py                # CityConfig dataclass — the contract, no defaults
+│   │   └── berlin.py              # Berlin: WFS URLs, layer names, field maps, glossary, attribution
 │   ├── routes/
 │   │   ├── lookup.py              # /api/lookup
 │   │   ├── amenities.py           # /api/amenities
@@ -91,10 +92,16 @@ addrlens/
 ## 2. `CityConfig` shape
 
 Every `core/` function takes a `CityConfig` instead of reading hard-coded
-constants. This is the single change that unlocks per-city reuse.
+constants. This is the single change that unlocked per-city reuse in Ship B.
+
+Below is the shape as landed (see `app/cities/base.py` for the authoritative
+source). The dataclass is frozen and has **no defaults on any field** — the
+schema itself is the contract, every city must spell every field. Silent
+inheritance/drift is the failure mode we won't accept (see §Deferred re-entry
+notes for why).
 
 ```python
-# app/cities/base.py
+# app/cities/base.py — as landed in Ship B (+ hardening follow-up df326f1)
 from dataclasses import dataclass
 from typing import Optional
 
@@ -103,6 +110,11 @@ class CityConfig:
     slug: str                       # "berlin"
     display_name: str               # "Berlin"
     default_center: tuple           # (lat, lon) for map init
+
+    # Some servers expect "application/json" (Berlin gdi.berlin.de), others
+    # only "application/geo+json" (every non-Berlin Geoportal probed so far).
+    # Set per-city so the generic wfs() helper never has to guess.
+    wfs_output_format: str
 
     # Address geocoding
     geocoder: str                   # "wfs" | "nominatim"
@@ -118,11 +130,12 @@ class CityConfig:
     # Schools
     schools_wfs_url: str
     schools_layer: str
-    schools_field_map: dict         # {"name": "schulname", "type": "schulart", "public_flag": "traeger", "id": "bsn"}
+    schools_field_map: dict         # {"name","id","type","public_flag",
+                                    #  "street","hnr","plz","phone",
+                                    #  "website","school_year"}
     schools_public_value: str       # "öffentlich"
     schools_primary_types: frozenset
-
-    # Bilingual programme (SESB for Berlin; each city has its own equivalent)
+    schools_intl_keywords: tuple    # substrings that flag intl/bilingual
     bilingual_schools: dict         # {name_substring_lower: strand_label}
 
     # Kitas
@@ -130,16 +143,20 @@ class CityConfig:
     kita_layer: str
     kita_field_map: dict            # canonical → city-specific field names
 
-    # Hospitals (BOD-first; OSM only supplements contact info)
+    # Hospitals (BOD-first; OSM only supplements contact info). Berlin
+    # publishes on two layers (Plan + weitere); other cities may vary.
     hospital_wfs_url: Optional[str]
-    hospital_layer: Optional[str]
-    hospital_field_map: dict        # {"name": "bezeichnung", "beds": "betten", "operator": "traeger", ...}
+    hospital_layers: tuple          # ((layer_name, kind_tag), …)
+    hospital_field_map: dict        # {"name_primary","name_alt1","name_alt2",
+                                    #  "beds","beds_alt","traeger",
+                                    #  "ortsteil","fachabteilungen"}
     hospital_radius_m: int          # search radius (Berlin uses 2000)
+    hospital_match_m: int           # BOD ↔ OSM match tolerance (500)
 
     # Drinking fountains (BOD-only; walkable stroller amenity)
     fountains_wfs_url: Optional[str]
     fountains_layer: Optional[str]
-    fountains_field_map: dict       # {"seasonal": "einschraenkungen", ...}
+    fountains_field_map: dict       # {"seasonal","bezirk","type","location"}
 
     # Parks + playgrounds
     green_wfs_url: Optional[str]
@@ -149,19 +166,21 @@ class CityConfig:
     # Façade noise
     noise_wfs_url: Optional[str]
     noise_layer: Optional[str]
-    noise_field_map: dict           # {"total_den": "ges_den", "road_night": "str_n", ...}
+    noise_field_map: dict           # {"total_den","road_den","rail_den","air_den",
+                                    #  "total_n", "road_n", "rail_n", "air_n"}
     noise_year: int                 # for provenance strings
 
     # Local-language glossary (post-processes LLM output; each city has its own
-    # admin vocabulary — Berlin's "Kita/Träger/Situationsansatz" differs from
-    # Hamburg's "Elbkinder/Kinderbetreuung"). Applied by core/gloss.py after
-    # the inference service returns text. See phase3/server.py:GERMAN_GLOSS
-    # for the Berlin seed set.
-    bilingual_glossary: list        # [(compiled_regex, english_gloss), ...]
+    # admin vocabulary — Berlin's Kita/Träger/Situationsansatz set is the seed).
+    # Applied by core/gloss.py after the inference service returns text.
+    bilingual_glossary: list        # [(compiled_regex, english_gloss), …]
 
     # Bounds + attribution
     overpass_bbox: tuple            # sanity-check that input coord is in-city
-    attribution: dict               # {"catchment": "...", "kitas": "...", "hospitals": "...", "fountains": "...", ...}
+    attribution: dict               # per-dataset provenance strings; keys used
+                                    # by the app: "catchment", "schools",
+                                    # "addresses", "kitas", "hospitals",
+                                    # "fountains", "playgrounds", "parks", "noise"
 ```
 
 ---
@@ -171,6 +190,9 @@ class CityConfig:
 Ordered. Each ship ends with a runnable service and passes selfcheck.
 
 ### Ship A — FastAPI refactor, Berlin-only  (~3–4 days)
+
+**Landed 2026-08-07, `da412f9`. See §Shipped.** Design record below preserved
+as-is for anyone reading the plan cold.
 
 Goal: same behaviour, same UI, running under uvicorn. All hardcoded
 Berlin values still live in code — but inside `app/cities/berlin.py`.
@@ -196,6 +218,9 @@ and `/api/explain` return the same shape but delegate to the inference
 service over HTTP (which is Ship LLM-1's responsibility to stand up).
 
 ### Ship B — CityConfig extraction  (~2 days)
+
+**Landed 2026-08-07, `da412f9` (+ hardening `df326f1`). See §Shipped.** Design
+record below preserved as-is.
 
 Goal: every `core/` function takes a `CityConfig`. Berlin behaviour unchanged.
 
@@ -226,23 +251,84 @@ the same investigation.
 Re-entry path when demand arrives: **Path 3** (feature-variant primitive) →
 per-city populate on top. Not the naive population attempt.
 
-### Ship D — Production hardening  (~1–1.5 weeks)
+### Ship D — Production hardening  (~1–1.5 weeks — SCOPED, NOT STARTED)
 
-Goal: safe to expose publicly.
+Goal: safe to expose publicly. Ship D is the single gate between here and a
+public Berlin launch under Path 1 (single-city v1).
 
-Steps:
-1. **Rate limiting** with `slowapi` (per-IP). Enforced at the app AND at the inference service (§7.5).
-2. **Server-side Overpass response cache** keyed by `(rounded_lat, rounded_lon, category, radius)` — round lat/lon to ~200 m grid (3 decimals) so nearby addresses share cache hits. 24 h TTL (amenity data changes slowly). This is the real scalability win — turns "handles 1 rps" into "handles 100 rps" without hammering OSM. Uses the same cache adapter as (6). Mirror rotation from Ship A is the cold-cache path only.
-3. **Structured logging** with `structlog` + request IDs; JSON output for log aggregators. Log inference `trace_id` alongside request ID for cross-service correlation (§7.3).
-4. **Prometheus metrics** at `/metrics` (request count, latency histograms, cache hit/miss, WFS error rate, Overpass mirror-attempt distribution).
-5. **Readiness probe** `/ready` returns 503 until the startup Index has loaded (catchments + schools + kitas + hospitals + fountains) so a slow-cold container doesn't take user traffic prematurely.
-6. **Timeouts + retries** on every outbound WFS / Overpass call (already tiered per §Ship A step 3).
-7. **Cache adapter** — abstract the in-memory dict behind an interface, add an optional Redis backend chosen by env-var `REDIS_URL`. Used by both the Overpass cache (step 2) and any future response caching.
+Sequenced into four phases by dependency, blast radius, and cost of getting
+wrong. The original 10-item list from plan v1 is preserved verbatim within
+each phase — this section groups those items, doesn't dilute them.
+
+Key sequencing choice: **observability lands BEFORE the cache** so the
+cache's ship criterion (hit rate ≥ 80%) can be measured, not guessed.
+Rate limiting lands AFTER the cache so we don't rate-limit legitimate
+traffic that should have been served from cache.
+
+#### Phase D1 — Foundation (1–2 days)
+
+Small, low-risk pieces that unlock everything else. Do these first — nothing
+downstream depends on them, but they harden the Berlin ship for real traffic.
+
+5. **Readiness probe** `/ready` returns 503 until the startup Index has loaded
+   (catchments + schools + kitas + hospitals + fountains) so a slow-cold
+   container doesn't take user traffic prematurely.
+10. **Vendor `html-to-image`** locally under `web/static/html-to-image.min.js`
+    — the Save-as-PNG feature currently loads it from jsDelivr CDN, which
+    adds a runtime dependency on an external network. Vendoring keeps prod
+    deploys self-contained and works in air-gapped environments. Update the
+    lazy loader in `index.html` to prefer the local copy with CDN as fallback.
 8. **CORS** middleware with an allow-list from config.
-9. **Turnstile / hCaptcha** on the front-end lookup form to keep the free path from being scraped.
-10. **Vendor `html-to-image`** locally under `web/static/html-to-image.min.js` — the Save-as-PNG feature currently loads it from jsDelivr CDN, which adds a runtime dependency on an external network. Vendoring keeps prod deploys self-contained and works in air-gapped environments. Update the lazy loader in `index.html` to prefer the local copy with CDN as fallback.
 
-Ship criterion: passes a basic load test (10 rps sustained, cache hit rate >80% after warm-up), rate-limits kick in above threshold, `/metrics` scrapes cleanly, WFS-timeout doesn't crash the process, Save-as-PNG works with no external network access.
+#### Phase D2 — Observability (2–3 days)
+
+Land observability BEFORE the cache (Phase D3) so we can prove the cache
+does what it claims. Without metrics first, the cache ship criterion is a
+gut feel.
+
+3. **Structured logging** with `structlog` + request IDs; JSON output for
+   log aggregators. Log inference `trace_id` alongside request ID for
+   cross-service correlation (§7.3).
+4. **Prometheus metrics** at `/metrics` (request count, latency histograms,
+   cache hit/miss, WFS error rate, Overpass mirror-attempt distribution).
+6. **Timeouts + retries** on every outbound WFS / Overpass call — already
+   tiered per §Ship A step 3 for Overpass; make WFS-at-boot symmetric
+   (currently `timeout=60`, no retry) so a slow BOD call doesn't hang the
+   readiness probe.
+
+#### Phase D3 — Scalability (2–3 days) — the real unlock
+
+This is where "handles 1 rps" becomes "handles 100 rps". Everything else in
+Ship D is table stakes; this is the actual scaling lever.
+
+2. **Server-side Overpass response cache** keyed by `(rounded_lat,
+   rounded_lon, category, radius)` — round lat/lon to ~200 m grid (3 decimals)
+   so nearby addresses share cache hits. 24 h TTL (amenity data changes
+   slowly). This is the real scalability win — turns "handles 1 rps" into
+   "handles 100 rps" without hammering OSM. Mirror rotation from Ship A is
+   the cold-cache path only.
+1. **Rate limiting** with `slowapi` (per-IP). Enforced at the app AND at the
+   inference service (§7.5). Land AFTER the cache — otherwise legitimate
+   traffic gets rate-limited when it should be serving from cache.
+
+#### Phase D4 — Abuse mitigation (1 day)
+
+9. **Turnstile / hCaptcha** on the front-end lookup form to keep the free
+   path from being scraped. Only on `/api/lookup` — plan §8 explicitly says
+   other endpoints are downstream of a solved token.
+
+#### Explicitly deferred within Ship D
+
+7. **Cache adapter** with optional Redis backend (originally Ship D step 7).
+   In-memory cache from Phase D3 handles v1 traffic. Adding Redis before
+   metrics justify it is exactly the over-engineering ponytail says to skip.
+   Re-open only when Phase D2 metrics show the in-memory cache is the
+   bottleneck.
+
+Ship criterion: passes a basic load test (10 rps sustained, cache hit rate
+>80% after warm-up as measured by Phase D2 metrics), rate-limits kick in
+above threshold, `/metrics` scrapes cleanly, WFS-timeout doesn't crash the
+process, Save-as-PNG works with no external network access.
 
 ### Ship E — Deployment infrastructure
 
@@ -253,7 +339,7 @@ Run / Fly.io / Hetzner + Docker / …) and wires up CI/CD separately.
 
 ## 4. What definitely does NOT change
 
-- **Frontend UI = phase3 as shipped.** The neumorphic hero/tabs/pills, per-card vote buttons, sad-feedback chip modal, impression modal (with address chip, per-tab sections, Save-as-PNG, Regenerate), explain modal, per-tab drag reorder (edu/amen/med/env), Reset button in the hero — all copied verbatim into `web/index.html`. The only functional add on top of phase3 is reading city-name + attribution from `/api/config` so the same file serves Berlin/Hamburg/… without a rebuild.
+- **Frontend UI = phase3 as shipped.** The neumorphic hero/tabs/pills, per-card vote buttons, sad-feedback chip modal, impression modal (with address chip, per-tab sections, Save-as-PNG, Regenerate), explain modal, per-tab drag reorder (edu/amen/med/env), Reset button in the hero — all copied verbatim into `web/index.html`. The only functional add on top of phase3 is reading city-name + attribution from `/api/config` (see §Shipped, Ship B). Under Path 1 that swap is a no-op for Berlin users but keeps the multi-city seam intact for future re-entry.
 - **Every algorithm** — `haversine`, `noise_tier`, `stroller_score`, `_merge_bod_and_osm`, tier thresholds, Overpass tiered mirror rotation, German-gloss regex post-processing. These are pure functions and port character-for-character into `core/`.
 - **Selfcheck philosophy** — one runnable check per module, no framework required. `tests/` unit tests are additive, not replacement.
 - **Ponytail conventions** (product doc §14). When Ship A lands, extend §14 with an §15 section covering microservice-specific conventions: FastAPI dependency-injection over global state, structlog for logging, `CityConfig` as the single source of city-specific truth, per-city glossary lives in `CityConfig.bilingual_glossary` not in the inference service, etc.
@@ -264,38 +350,32 @@ Run / Fly.io / Hetzner + Docker / …) and wires up CI/CD separately.
 
 ## 5. Time estimate
 
-| Ship | Effort |
-|---|---|
-| A. FastAPI refactor (Berlin-only, ports phase3) | 3–4 days |
-| B. CityConfig extraction | 2 days |
-| C. Hamburg onboarding | 1–2 weeks |
-| D. Production hardening | 1–1.5 weeks |
-| E. Deployment | out of scope |
-| LLM-1 (parallel). Extract phase3 inference → shared service, switch to llama.cpp | 4–5 days |
-| LLM-2 (parallel). Template library growth | on demand |
-| LLM-3 (parallel). Inference metrics + possible GPU migration | 2–3 days |
+Actualized against the Path 1 decision (single-city v1); multi-city rows
+retired since Ship C is deferred (§Deferred).
 
-**Total to "microservice + template + one additional city + shared inference on Linux live": ~4–5 weeks.**
+| Ship | Original estimate | Status |
+|---|---|---|
+| A. FastAPI refactor (Berlin-only, ports phase3) | 3–4 days | **Shipped** (§Shipped) |
+| B. CityConfig extraction | 2 days | **Shipped** (§Shipped) |
+| C. Multi-city onboarding | 1–2 weeks per city | **Deferred** (§Deferred). Re-entry via Path 3 estimated ~1–2 weeks for the feature-variant primitive + ~3 days per city onboarding thereafter. |
+| D. Production hardening | 1–1.5 weeks | **Scoped, not started** (§Ship D). Four phases D1→D4 in observability-before-cache order. |
+| E. Deployment | out of scope | Out of scope (owner picks target). |
+| LLM-1. Extract phase3 inference → shared service | 4–5 days | **Shipped** (§Shipped) |
+| LLM-2. Template library growth | on demand | Not started. Add templates as product surface requires (`compare_verdict`, `viewing_checklist`, …). |
+| LLM-3. Inference metrics + possible GPU migration | 2–3 days | Not started. Piggybacks on Ship D Phase D2 (Prometheus). Consider GPU only if CPU latency proves the bottleneck. |
 
-Ship A is the biggest mental jump (routing rewrite + inference extraction).
-Ship LLM-1's llama.cpp switch is the biggest risk — model-output parity
-between mlx-lm and llama.cpp is asserted by re-running the phase3
-selfchecks under both backends (see §7.1.1). Everything else is
-mostly moving code between files or filling per-city configs.
+**Path to public Berlin launch:** Ship D only. ~1–1.5 weeks of focused work.
 
 ---
 
-## 6. Per-city onboarding expectations (post-Ship-B)
+## 6. Per-city onboarding expectations
 
-| City | Expected effort | Blockers to check first |
-|---|---|---|
-| Hamburg | 1–2 weeks | Catchments confirmed open via Geoportal. |
-| Munich (Bayern) | 2–3 weeks | "Sprengel" reconciliation across Landkreis boundaries. |
-| Köln (NRW) | 2–3 weeks | Per-city variance within NRW — check Köln specifically. |
-| Frankfurt (Hesse) | ⚠️ 4+ weeks or drop the flagship school feature | Hesse does NOT openly publish catchment polygons as of last check. Data-access request or scrape from district PDFs — outside the "no scraping" architectural rule, so may need to accept a reduced feature set for Frankfurt. |
-
-Product doc §Phase 5 already orders replication by open-data maturity:
-Hamburg → Munich → Köln → Frankfurt. This plan follows that order.
+**ON HOLD — see §Deferred.** The original v1 table (Hamburg 1–2 weeks,
+Munich 2–3 weeks, Köln 2–3 weeks, Frankfurt 4+ weeks) was authored before
+any city was probed. Actual pre-flight investigation (2026-08-07) invalidated
+those estimates — Hamburg's catchment is tabular not polygonal, Munich's
+Sprengel is not published openly at all. Estimates preserved in §Deferred
+for when Ship C resumes; do not treat this table as current guidance.
 
 ---
 
@@ -511,6 +591,7 @@ proceeds independently of Ships A–D. Recommended order once Ship A is
 green:
 
 1. **Ship LLM-1** — extract phase3 inference into a standalone service.
+   **Landed 2026-08-07, `da412f9`. See §Shipped.** Design record below preserved.
    - Move `phase3/server.py:summarize_impressions()`, `_build_impression_messages()`,
      `explain_card()`, and the sampler / logits-processor setup into
      `inference/main.py` and `inference/templates/{impression,explain}.py`.
@@ -576,12 +657,13 @@ them here so a future implementer doesn't quietly reintroduce them.
 
 ## 9. Adding a new city — populate checklist
 
-Use this once Ship B has landed and `berlin.py` exists as the worked
-example. Sequenced so each step ends verifiable before the next depends
-on it — do not stack unverified field groups.
-
-§6's table shows the *effort estimate* per city; this section is the
-actual step-by-step.
+**ON HOLD — see §Deferred.** Ship B has landed and `berlin.py` is the worked
+example, but Ship C is deferred under Path 1. The checklist below is
+timeless runbook guidance for **when Ship C resumes** (after the Path 3
+feature-variant primitive lands). It is NOT active guidance for anything
+happening in the repo today. Investigation-derived reality checks live in
+§Deferred; use those to sanity-check any estimate the checklist below
+implies.
 
 ### 9.1 Pre-flight (before writing any code)
 
