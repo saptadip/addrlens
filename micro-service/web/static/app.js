@@ -1520,8 +1520,11 @@ function _renderAmenPanel(tab){
   if(p.mapRef){p.mapRef.remove();p.mapRef=null}
   const entries=AMEN.filter(e=>tabOf(e[0])===tab);
   const cards=entries.map(_amenCardHtml).join('');
+  // Medical uses the 2-per-row rectangular layout (matches Connectivity's
+  // shape); Amenities keeps its auto-fill square-tile grid.
+  const stackMod = tab === 'med' ? ' two-per-row' : '';
   p.$el.innerHTML=`<div class="grid">
-    <div class="stack tiles-grid">${cards}<div class="amen-modal" id="amen-modal-${tab}" hidden></div></div>
+    <div class="stack tiles-grid${stackMod}">${cards}<div class="amen-modal" id="amen-modal-${tab}" hidden></div></div>
     <div class="map-cell amen-map-cell"><div class="map-hint" id="${p.hintId}">Click a tile for details</div><div id="${p.mapId}"></div></div>
   </div>`;
   // Only initialize Leaflet if this panel is currently visible; otherwise a
