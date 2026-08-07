@@ -7,3 +7,5 @@ uv.lock
 models/*.gguf
 # uv install leaks these when building with setuptools legacy backend
 *.egg-info/
+# uvicorn stdout capture (see README on running with tail -f)
+logs/
