@@ -6,6 +6,7 @@ from shapely.geometry import mapping
 from app.cities.base import CityConfig
 from app.core.addr import parse_address
 from app.core.amenities import kitas_near
+from app.core.geo import haversine_m
 from app.core.index import Index
 from app.deps import get_city, get_index
 
@@ -71,6 +72,22 @@ def lookup(
 
     kitas = kitas_near(index, cfg, lon, lat, 800)
 
+    # Connectivity — nearest S-Bahn / U-Bahn / Tram / Regional rail + Airport.
+    # Airport is a single point (per-city fixed landmark), so we compute its
+    # distance directly rather than "nearest".
+    conn = {
+        "sbahn":         index.nearest_station(index.sbahn, lon, lat),
+        "ubahn":         index.nearest_station(index.ubahn, lon, lat),
+        "tram":          index.nearest_station(index.tram, lon, lat),
+        "regional_rail": index.nearest_station(index.regional_rail, lon, lat),
+        "airport":       None,
+    }
+    if cfg.airport:
+        conn["airport"] = {
+            **cfg.airport,
+            "distance_m": round(haversine_m(lon, lat, cfg.airport["lon"], cfg.airport["lat"])),
+        }
+
     return {
         "address": {"street": street, "hnr": hnr, "plz": plz,
                     "lon": lon, "lat": lat, "raw": geo["props"]},
@@ -82,10 +99,16 @@ def lookup(
         "schools": out_schools,
         "intl_grundschule": intl_out,
         "kitas": kitas,
+        "connectivity": conn,
         "provenance": {
-            "catchment":  cfg.attribution["catchment"],
-            "schools":    cfg.attribution["schools"],
-            "addresses":  cfg.attribution["addresses"],
-            "kitas":      cfg.attribution["kitas"],
+            "catchment":     cfg.attribution["catchment"],
+            "schools":       cfg.attribution["schools"],
+            "addresses":     cfg.attribution["addresses"],
+            "kitas":         cfg.attribution["kitas"],
+            "sbahn":         cfg.attribution.get("sbahn", ""),
+            "ubahn":         cfg.attribution.get("ubahn", ""),
+            "tram":          cfg.attribution.get("tram", ""),
+            "regional_rail": cfg.attribution.get("regional_rail", ""),
+            "airport":       cfg.attribution.get("airport", ""),
         },
     }

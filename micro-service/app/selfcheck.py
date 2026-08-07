@@ -159,6 +159,22 @@ def run_live_selfcheck() -> None:
     assert len(parks) >= 1, "expected ≥1 BOD park within 800m of Kastanienallee 12"
     assert all(p["source"] == "bod" and 0 < p["distance_m"] <= 800 for p in parks)
 
+    # -- Connectivity -------------------------------------------------------
+    assert len(idx.sbahn) >= 150, f"expected ≥150 S-Bahn stations, got {len(idx.sbahn)}"
+    assert len(idx.ubahn) >= 200, f"expected ≥200 U-Bahn stations (incl. S+U), got {len(idx.ubahn)}"
+    assert len(idx.tram) >= 300, f"expected ≥300 tram stops, got {len(idx.tram)}"
+    assert len(idx.regional_rail) == 12, f"expected 12 curated regional-rail stations, got {len(idx.regional_rail)}"
+    # Kastanienallee 12 is walking distance from U Eberswalder (~250 m).
+    ub = idx.nearest_station(idx.ubahn, geo["lon"], geo["lat"])
+    assert ub and ub["distance_m"] < 500, f"expected U-Bahn <500m of Kastanienallee 12, got {ub}"
+    # Airport is a Berlin-fixed landmark; every inside-Berlin address should be
+    # >5 km and <40 km from BER (BER is ~18 km from Alexanderplatz).
+    airport = cfg.airport
+    assert airport, "Berlin config must define airport"
+    from app.core.geo import haversine_m as _hav
+    d_ber = _hav(geo["lon"], geo["lat"], airport["lon"], airport["lat"])
+    assert 5000 < d_ber < 40000, f"BER distance outside sanity range: {d_ber:.0f} m"
+
     # -- Noise lookup on a known-loud address -------------------------------
     kurf = idx.geocode("Kurfürstendamm", "195", "10707")
     assert kurf, "Kurfürstendamm 195 must geocode"

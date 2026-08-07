@@ -146,6 +146,43 @@ class Index:
                     self.hospitals.append((p, f["geometry"]["coordinates"]))
             print(f"{len(self.hospitals)} hospitals")
 
+        # -- Connectivity ---------------------------------------------------
+        # S/U-Bahn from the vendored VBB CSV. "S+U" combined stations count
+        # for BOTH lists so nearest-S and nearest-U give the closest station
+        # of that mode, whether or not the interchange also has the other.
+        self.sbahn, self.ubahn = [], []
+        if cfg.stations_data_path:
+            sys.stdout.write("loading S/U-Bahn stations (VBB vendored)… "); sys.stdout.flush()
+            import csv as _csv
+            with open(cfg.stations_data_path, encoding="utf-8", newline="") as f:
+                for row in _csv.DictReader(f):
+                    st = {"name": row["name"],
+                          "lat": float(row["lat"]), "lon": float(row["lon"])}
+                    m = row["mode"]
+                    if m in ("S", "S+U"): self.sbahn.append(st)
+                    if m in ("U", "S+U"): self.ubahn.append(st)
+            print(f"{len(self.sbahn)} S-Bahn · {len(self.ubahn)} U-Bahn")
+
+        # Tram from live BOD WFS.
+        self.tram = []
+        if cfg.tram_wfs_url and cfg.tram_layer:
+            sys.stdout.write("loading tram stops… "); sys.stdout.flush()
+            r = wfs(cfg.tram_wfs_url, typeNames=cfg.tram_layer, count=2000,
+                    outputFormat=cfg.wfs_output_format)
+            name_f = cfg.tram_field_map["name"]
+            for f in r.get("features", []):
+                g = f.get("geometry")
+                if not g: continue
+                # MultiPoint in Berlin's feed; take the first coord.
+                c = g["coordinates"][0] if g["type"] == "MultiPoint" else g["coordinates"]
+                self.tram.append({"name": (f["properties"].get(name_f) or "").strip(),
+                                  "lat": c[1], "lon": c[0]})
+            print(f"{len(self.tram)} tram stops")
+
+        # Regional rail from config (curated list).
+        self.regional_rail = [{"name": n, "lat": la, "lon": lo}
+                              for n, la, lo in cfg.regional_rail_stations]
+
     # -------------------------------------------------------------- lookups
 
     def geocode(self, street, hnr, plz):
@@ -224,6 +261,14 @@ class Index:
                 })
         hits.sort(key=lambda x: x["distance_m"])
         return hits
+
+    def nearest_station(self, points, lon, lat):
+        """Return the nearest {name, lat, lon} from `points` with distance_m
+        added, or None if the list is empty. Used for every connectivity mode."""
+        if not points:
+            return None
+        best = min(points, key=lambda p: haversine_m(lon, lat, p["lon"], p["lat"]))
+        return {**best, "distance_m": round(haversine_m(lon, lat, best["lon"], best["lat"]))}
 
     def kitas_near_bod(self, lon, lat, radius_m=800):
         """Registered Kitas within radius. Filters preloaded points by

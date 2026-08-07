@@ -6,6 +6,7 @@ every value. Run `CITY=<slug> python -m app.selfcheck` group-by-group per
 plan §9.3 as you go.
 """
 import re
+from pathlib import Path
 
 from app.cities.base import CityConfig
 
@@ -124,6 +125,42 @@ BERLIN = CityConfig(
     },
     noise_year=2022,
 
+    # -- Connectivity ---------------------------------------------------------
+    # S-Bahn + U-Bahn come from the vendored VBB CSV (regenerate via
+    # scripts/refresh_vbb.py). Tram comes from a BOD WFS at boot.
+    stations_data_path=str(Path(__file__).resolve().parent / "data" / "vbb_berlin_su.csv"),
+    tram_wfs_url="https://gdi.berlin.de/services/wfs/oepnv_ungestoert",
+    tram_layer="oepnv_ungestoert:b_tramstopp",
+    tram_field_map={"name": "hstname"},
+
+    # Regional-rail stations Berlin RE/RB trains actually stop at. Curated
+    # because VBB doesn't tag regional-rail mode explicitly, and the set is
+    # small + stable enough that a curated list is cleaner than a GTFS join.
+    #
+    # ADDING A NEW STATION:
+    #   python -m scripts.refresh_vbb --find "<name>"
+    # copies coords straight from the same VBB source used for S/U-Bahn.
+    # Then paste `(name, lat, lon)` into the tuple below. Ordering doesn't
+    # matter — the app sorts by distance per request.
+    regional_rail_stations=(
+        ("S+U Berlin Hauptbahnhof",           52.525847, 13.368924),
+        ("S Ostbahnhof",                      52.510331, 13.435086),
+        ("S Südkreuz",                        52.475502, 13.365552),
+        ("S Spandau",                         52.534798, 13.197477),
+        ("S+U Gesundbrunnen",                 52.548637, 13.388372),
+        ("S+U Zoologischer Garten",           52.506921, 13.332707),
+        ("S+U Lichtenberg",                   52.510672, 13.498359),
+        ("S Ostkreuz",                        52.503113, 13.469221),
+        ("S Wannsee",                         52.421725, 13.178932),
+        ("S Charlottenburg",                  52.504732, 13.303862),
+        ("S+U Jungfernheide",                 52.530452, 13.300124),
+        ("S Karow",                           52.615755, 13.470081),
+    ),
+
+    # BER — public landmark, hard-coded coord.
+    airport={"name": "Berlin Brandenburg Airport (BER)",
+             "iata": "BER", "lat": 52.3667, "lon": 13.5033},
+
     bilingual_glossary=_BERLIN_GLOSSARY,
 
     # Rough Berlin bbox with a small margin. Sourced from OSM city-boundary relation.
@@ -139,5 +176,10 @@ BERLIN = CityConfig(
         "playgrounds": "Geoportal Berlin / Grünanlagen — Spielplätze (dl-de/by-2.0)",
         "parks":       "Geoportal Berlin / Grünanlagen — Grünanlagen (dl-de/by-2.0)",
         "noise":       "Geoportal Berlin / Strategische Lärmkarten 2022 — Fassadenpegel gesamt (dl-de/by-2.0)",
+        "sbahn":         "VBB / Koordinaten der Zugangsmöglichkeiten zu Stationen (CC-BY-4.0)",
+        "ubahn":         "VBB / Koordinaten der Zugangsmöglichkeiten zu Stationen (CC-BY-4.0)",
+        "tram":          "Geoportal Berlin / BVG Ungestörtes ÖPNV-Netz — Straßenbahnhaltestellen (dl-de/by-2.0)",
+        "regional_rail": "VBB / Koordinaten der Zugangsmöglichkeiten zu Stationen (CC-BY-4.0)",
+        "airport":       "Berlin Brandenburg Airport (BER) — public landmark",
     },
 )
