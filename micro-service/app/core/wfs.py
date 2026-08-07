@@ -11,7 +11,7 @@ import threading
 import urllib.parse
 import urllib.request
 
-from shapely.geometry import shape
+from shapely.geometry import Point, shape
 
 from app.cities.base import CityConfig
 from app.core.geo import bbox_around, haversine_m
@@ -150,6 +150,165 @@ def noise_at(cfg: CityConfig, lon, lat, search_radius_m=100):
     }
     with _noise_lock:
         _noise_cache[key] = out
+    return out
+
+
+# -- Phase 2: Umweltatlas Air Quality + Summer Heat --------------------------
+
+_air_cache, _air_lock   = {}, threading.Lock()
+_heat_cache, _heat_lock = {}, threading.Lock()
+
+
+def air_quality_at(cfg: CityConfig, lon, lat, search_radius_m=150):
+    """Nearest per-street NO2 baseline (2020) from the Luftreinhalteplan
+    trend scenario. Feature is a LineString per road segment; we pick the
+    segment whose midpoint is closest to the address. Same expand-once
+    fallback as noise_at.
+
+    ponytail: midpoint-of-segment as the distance proxy — a segment of 200 m
+    on the far side of your building could be closer at the midpoint than
+    a shorter one directly outside. Good enough for a "how loud/dirty is
+    the street I'm on" read; upgrade path is per-line distance.
+    """
+    if not (cfg.air_wfs_url and cfg.air_layer):
+        return {"unavailable": True, "reason": f"air-quality map not configured for {cfg.display_name}"}
+    key = (cfg.slug, round(lon, 5), round(lat, 5))
+    with _air_lock:
+        if key in _air_cache: return _air_cache[key]
+
+    def _query(radius):
+        minx, miny, maxx, maxy = bbox_around(lon, lat, radius)
+        try:
+            d = wfs(cfg.air_wfs_url, typeNames=cfg.air_layer, count=200,
+                    bbox=f"{minx},{miny},{maxx},{maxy},EPSG:4326",
+                    outputFormat=cfg.wfs_output_format)
+        except Exception as e:
+            return None, str(e)
+        return d.get("features", []), None
+
+    feats, err = _query(search_radius_m)
+    if err:
+        return {"unavailable": True, "error": err[:200]}
+    if not feats:
+        feats, err = _query(search_radius_m * 3)   # ~450 m fallback
+        if err:
+            return {"unavailable": True, "error": err[:200]}
+    if not feats:
+        return {"unavailable": True,
+                "reason": "No monitored road segment within 450 m (this address is off the modelled network)."}
+
+    def _midpoint(coords):
+        # A LineString may have many vertices — midpoint of the polyline in
+        # index space is a fine cheap proxy for the segment's "middle".
+        n = len(coords)
+        if n == 0: return None
+        m = coords[n // 2]
+        return m[0], m[1]
+
+    nearest, nearest_d = None, float("inf")
+    for f in feats:
+        g = f.get("geometry")
+        if not g: continue
+        coords = g.get("coordinates") or []
+        if g.get("type") == "MultiLineString":
+            # flatten one level
+            coords = [c for part in coords for c in part]
+        elif g.get("type") != "LineString":
+            continue
+        mid = _midpoint(coords)
+        if not mid: continue
+        d = haversine_m(lon, lat, mid[0], mid[1])
+        if d < nearest_d: nearest, nearest_d = f, d
+
+    if nearest is None:
+        return {"unavailable": True, "reason": "No LineString feature returned."}
+
+    p = nearest["properties"] or {}
+    fm = cfg.air_field_map
+    def _f(k):
+        v = p.get(fm[k])
+        try: return float(v) if v not in (None, "") else None
+        except (ValueError, TypeError): return None
+    out = {
+        "unavailable": False,
+        "distance_m":  round(nearest_d),
+        "street":      p.get(fm["street"]),
+        "no2_ugm3":    _f("no2"),        # µg/m³ annual mean (EU limit 40)
+        "index_2020":  _f("index"),      # combined NO2 + PM10, ~0 clean … ~1 heavily loaded
+        "traffic_day": _f("traffic"),    # cars/day on this segment
+        "length_m":    _f("length"),
+        "year":        2020,
+        "provenance":  cfg.attribution.get("air", ""),
+    }
+    with _air_lock:
+        _air_cache[key] = out
+    return out
+
+
+def summer_heat_at(cfg: CityConfig, lon, lat, search_radius_m=60):
+    """Per-block PET (Physiologisch Äquivalente Temperatur) day-time
+    bioclimate classification for residential areas (Klimabewertung 2022).
+    Bbox query + point-in-polygon on the returned features."""
+    if not (cfg.heat_wfs_url and cfg.heat_layer):
+        return {"unavailable": True, "reason": f"summer-heat map not configured for {cfg.display_name}"}
+    key = (cfg.slug, round(lon, 5), round(lat, 5))
+    with _heat_lock:
+        if key in _heat_cache: return _heat_cache[key]
+
+    def _query(radius):
+        minx, miny, maxx, maxy = bbox_around(lon, lat, radius)
+        try:
+            d = wfs(cfg.heat_wfs_url, typeNames=cfg.heat_layer, count=50,
+                    bbox=f"{minx},{miny},{maxx},{maxy},EPSG:4326",
+                    outputFormat=cfg.wfs_output_format)
+        except Exception as e:
+            return None, str(e)
+        return d.get("features", []), None
+
+    feats, err = _query(search_radius_m)
+    if err:
+        return {"unavailable": True, "error": err[:200]}
+    if not feats:
+        feats, err = _query(search_radius_m * 5)   # ~300 m fallback
+        if err:
+            return {"unavailable": True, "error": err[:200]}
+    if not feats:
+        return {"unavailable": True,
+                "reason": "No residential heat-classification polygon within 300 m (address off the modelled area)."}
+
+    pt = Point(lon, lat)
+    fm = cfg.heat_field_map
+    inside = None
+    nearest, nearest_d = None, float("inf")
+    for f in feats:
+        g = f.get("geometry")
+        if not g: continue
+        try:
+            geom = shape(g)
+        except Exception:
+            continue
+        if geom.contains(pt):
+            inside = f["properties"]
+            break
+        # Track fallback: nearest polygon centroid (haversine) if no containment
+        c = geom.centroid
+        d = haversine_m(lon, lat, c.x, c.y)
+        if d < nearest_d: nearest, nearest_d = f["properties"], d
+
+    props = inside or nearest
+    if not props:
+        return {"unavailable": True, "reason": "No usable polygon geometry."}
+    day_class = (props.get(fm["day_class"]) or "").strip() or None
+    out = {
+        "unavailable": False,
+        "day_class":   day_class,
+        "inside":      inside is not None,
+        "distance_m":  0 if inside is not None else round(nearest_d),
+        "year":        2022,
+        "provenance":  cfg.attribution.get("heat", ""),
+    }
+    with _heat_lock:
+        _heat_cache[key] = out
     return out
 
 

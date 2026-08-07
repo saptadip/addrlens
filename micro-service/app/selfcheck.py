@@ -15,7 +15,7 @@ import sys
 from app.config import load_city
 from app.core.geo import haversine_m
 from app.core.index import Index
-from app.core.wfs import bod_polygon_features, noise_at
+from app.core.wfs import air_quality_at, bod_polygon_features, noise_at, summer_heat_at
 
 CORE_MODULES = [
     "app.core.geo",
@@ -184,6 +184,17 @@ def run_live_selfcheck() -> None:
     assert trees and trees.get("count", 0) >= 20, \
         f"expected ≥20 street trees within 200m of Kastanienallee 12, got {trees}"
     assert trees.get("top_species"), "trees summary must carry species breakdown"
+
+    # -- Phase 2: Umweltatlas Air Quality + Summer Heat ---------------------
+    air = air_quality_at(cfg, geo["lon"], geo["lat"])
+    assert air and not air.get("unavailable"), f"expected air-quality reading, got {air}"
+    assert 5 < (air.get("no2_ugm3") or 0) < 100, f"NO2 out of sanity range: {air}"
+    assert air.get("street"), "air block must carry street name"
+    heat = summer_heat_at(cfg, geo["lon"], geo["lat"])
+    assert heat and not heat.get("unavailable"), f"expected heat classification, got {heat}"
+    assert heat.get("day_class"), "heat block must carry day_class string"
+    assert "belastung" in heat["day_class"].lower(), \
+        f"heat day_class should include Belastung tier tag, got {heat['day_class']!r}"
 
     # -- Connectivity -------------------------------------------------------
     assert len(idx.sbahn) >= 150, f"expected ≥150 S-Bahn stations, got {len(idx.sbahn)}"
