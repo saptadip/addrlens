@@ -210,19 +210,21 @@ Steps:
 Ship criterion: setting `CITY=berlin` reproduces exactly the Ship-A
 behaviour; nothing Berlin-specific remains in `core/`.
 
-### Ship C — Hamburg onboarding  (~1–2 weeks)
+### Ship C — Multi-city onboarding  (DEFERRED — see §Deferred)
 
-Goal: `CITY=hamburg` runs the same service against Hamburg data.
+Original goal: `CITY=hamburg` runs the same service against Hamburg data.
 
-Steps:
-1. Research Hamburg Geoportal (`geoportal-hamburg.de/geo-online/`) — catch WFS URLs for addresses, schools, Grundschul-Einzugsgebiete, Kitas, Grünflächen, strategische Lärmkarten.
-2. Sample each layer to build the `field_map` translations.
-3. Populate `app/cities/hamburg.py`.
-4. Verify with a real Hamburg address end-to-end.
-5. Add city selector on landing page (or set up subdomain routing).
-6. Extend selfcheck to run under both `CITY=berlin` and `CITY=hamburg`.
+**Status (2026-08-07): deferred pending real demand.** Pre-flight investigation
+against Hamburg + Munich surfaced that the `CityConfig` + `field_map`
+abstraction handles NAME variation but not the MODEL variation every candidate
+second city presents. Ship C as originally specified would require either
+per-city `if slug == "hamburg"` branches leaking back into `core/` — undoing
+Ship B — or a semantic "feature variant" primitive that we haven't designed.
+Full pre-flight findings preserved in §Deferred so future-us doesn't repeat
+the same investigation.
 
-Ship criterion: both cities served by the same codebase, switched by env var; a known Hamburg address returns catchment + kitas + noise correctly.
+Re-entry path when demand arrives: **Path 3** (feature-variant primitive) →
+per-city populate on top. Not the naive population attempt.
 
 ### Ship D — Production hardening  (~1–1.5 weeks)
 
@@ -806,3 +808,122 @@ green. Miss one, wait — this is the cost of getting production wrong.
 Update §0 (confirmed defaults) if any is changed mid-flight. Move any
 ship into a `Shipped` section at the bottom when it lands, with commit
 hash + date. Keep this document alive.
+
+---
+
+## Shipped
+
+- **Ship A** (FastAPI refactor, Berlin-only) — landed **2026-08-07**, `da412f9`.
+  Same behaviour as `phase3/` under uvicorn; every algorithm ported
+  character-for-character; frontend copied verbatim.
+- **Ship LLM-1** (inference-service extraction) — landed **2026-08-07**, `da412f9`.
+  `POST /summarize` per §7.3; `mlx_backend` + `llama_backend` behind runtime
+  interface; impression + explain templates carry phase3 anti-inversion
+  few-shots verbatim.
+- **Ship B** (CityConfig extraction) — landed **2026-08-07**, `da412f9`.
+  No Berlin constants remain in `core/`; `CITY=berlin` reproduces Ship A
+  behaviour byte-for-byte; `/api/config` powers the frontend's per-city
+  strings. Follow-up (`wfs_output_format` on CityConfig + `run_cities_isolation`
+  selfcheck) landed in a hardening commit alongside the Path 1 decision.
+
+## Deferred
+
+### Ship C — Multi-city onboarding (deferred **2026-08-07**)
+
+**Decision: Path 1 (single-city v1).** Ship Berlin publicly; defer multi-city
+work until real demand ("waitlist for city X" signal from users) surfaces.
+
+Rationale: Berlin's Geoportal is the exception among German open-data
+publishers, not the rule. Every candidate second city investigated (Hamburg,
+Munich) surfaced not just field-NAME variation — which `CityConfig.field_map`
+handles cleanly — but semantic MODEL variation that the current abstraction
+cannot express without either bleeding `if slug == "X"` branches back into
+`core/` (undoing Ship B) or growing an unplanned "feature variant" primitive
+under time pressure. The right sequence when demand arrives is Path 3
+(design the feature-variant primitive first, then onboard cities on top),
+not the naive Path 2 (Hamburg first, refactor under fire later).
+
+**Investigation findings preserved so future-us doesn't repeat this work:**
+
+#### Hamburg (`geodienste.hamburg.de`)
+
+- **Licence:** dl-de/by-2.0 across every dataset probed. Consistent.
+- **Output format quirk:** server accepts only `application/geo+json`
+  (Berlin's `application/json` is rejected). Handled by `wfs_output_format`
+  on `CityConfig` (added 2026-08-07).
+- **Catchment (flagship): DATA-MODEL MISMATCH.**
+  `HH_WFS_Regionaler_Bildungsatlas_Einzugsgebiete_Schulwahl`, layer
+  `de.hh.up:einzug_einzugsgebiete_primarstufe` — geometry is `null` on
+  every feature. Layer publishes a tabular enrollment table
+  `(school_id, statgeb_id, count, %)`, not polygons. Berlin's
+  point-in-catchment-polygon lookup is not reproducible; the honest
+  Hamburg feature is "schools kids in your statistical area actually
+  attend" (via `HH_WFS_Statistische_Gebiete` polygons + join), which is
+  a semantically different card requiring per-city prompt + UI variance.
+- **Schools:** `HH_WFS_Schulen`, layers `de.hh.up:staatliche_schulen`
+  (public — `rechtsform=staatlich`) + `de.hh.up:nicht_staatliche_schulen`
+  (private). Two-layer split (vs Berlin's one layer + `traeger` field).
+  Address fields are pre-combined (`adresse_strasse_hausnr`,
+  `adresse_ort`), not split.
+- **Kitas:** `HH_WFS_KitaEinrichtung`, layer `app:KitaEinrichtungen`.
+  Split address (`Strasse`/`Hausnr`/`PLZ`/`Ort`), no capacity field
+  (Berlin's `e_platz` has no analogue). `Traeger` is verbose free-text
+  (e.g. "Kirchengemeindeverband…") — use `Spitzenverband` (short umbrella
+  org) if a category label is needed for `_kita_info`.
+- **Addresses / geocoder: DATA-MODEL MISMATCH.**
+  Only `HH_WFS_INSPIRE_Adressen` (INSPIRE model, GML only) and
+  `HH_WFS_DOG` (Hamburg gazetteer, also GML only) — neither supports
+  GeoJSON. `Index.geocode()`'s CQL-filter-on-flat-fields approach doesn't
+  work. Options are (a) implement GML XML parser (~50 LOC), (b) fall back
+  to Nominatim (rate-limited public service).
+- **Noise: DATA-MODEL MISMATCH.**
+  Per-source raster grids only (road / rail / air × Tag-Abend-Nacht /
+  Nacht) — no façade-total-dB layer analogous to Berlin's
+  `aa_fp_gesamt2022`. WFS is not live — only downloadable 140 MB GML or
+  WMS `HH_WMS_Strassenverkehr`. Options are (a) road-only from an
+  archived GML preload, (b) WMS `GetFeatureInfo` per request (brittle
+  HTML), (c) skip.
+
+#### Munich / Bavaria
+
+- **Sprengel (flagship): OPENLY UNAVAILABLE.**
+  Only exposed via `risby.bayern.de/RisGate/servlet/Schulsprengel` — a
+  proprietary Bavarian RIS WMS servlet that does not answer standard
+  OGC `GetCapabilities` (returns `ServiceException` regardless of
+  version). Viewable only inside BayernAtlas. No WFS. No bulk file
+  download openly published on `geodaten.bayern.de/opengeodata/`.
+  Ruled out by the project's "no scraping" architectural rule.
+- **Munich GeoServer** (`geoportal.muenchen.de/geoserver/gsm_wfs`)
+  publishes 22 layers total — all administrative boundaries, waste
+  management, and category-lookup layers. None education, Kita,
+  hospital, noise, or park.
+- **opendata.muenchen.de:** schools data is CSV only, tabular; no
+  geometry, no WFS.
+- **Verdict:** Munich is worse than Hamburg for our architecture.
+  Do not attempt as a second city without a fundamental strategy shift.
+
+#### Köln (NRW) — partial
+
+- Not fully investigated. Initial signal from `offenedaten-koeln.de`
+  suggests Address WFS exists and the municipal-area classification
+  publishes polygon services. Schulbezirk polygon availability was not
+  verified — flag as "worth a full pre-flight when NRW cities move up
+  the demand queue."
+
+### Re-entry path when demand arrives
+
+**Path 3, then onboard.** Design and land the "feature-variant primitive"
+on top of `CityConfig` before adding a city:
+
+- `catchment_strategy: PolygonAssignedSchool | StatAreaAttendanceShare | Unsupported`
+- `noise_strategy: FassadenpegelGesamt | PerSourceRoadOnly | Unsupported`
+- `geocoder_strategy: WfsFlatGeoJson | WfsInspireGml | Nominatim`
+
+Berlin picks its trio and behaves identically to today. Hamburg picks a
+different trio. Munich picks `Unsupported / Unsupported / Nominatim` — the
+UI already handles "not available in this city" panels cleanly, and users
+still get amenities + inference-service impression + the map. Each
+strategy is a small implementation in `core/` behind an interface.
+
+Estimate: ~1–2 weeks for the primitive + Berlin migration, then ~3 days
+per city onboarding.
