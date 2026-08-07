@@ -173,8 +173,21 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .tiles-grid.conn-tiles .conn-cell .conn-tile-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .tiles-grid.conn-tiles .conn-cell .conn-tile-top .metric-big{margin:0}
 .tiles-grid.conn-tiles .conn-cell .metric-big .n{white-space:nowrap;font-size:32px}
-.tiles-grid.conn-tiles .conn-cell .conn-stop{font-size:14px;color:var(--ink-2);font-weight:600;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;margin-top:2px}
+/* Station name as a soft-contrast pill badge, colour keyed to the transit
+   mode — same visual pattern as .badge / .b-dist / .b-esb on the Education
+   Address card. Berlin-transit palette: S-Bahn green, U-Bahn blue, Tram
+   red, Regional purple, Airport indigo. inline-block + max-width lets a
+   long station name ellipsis-clip inside the tile. */
+.tiles-grid.conn-tiles .conn-cell .conn-stop{display:inline-block;align-self:flex-start;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;margin-top:4px;
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+.tiles-grid.conn-tiles .conn-cell:hover .conn-stop{transform:translateY(-1px) scale(1.03)}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="sbahn"]         .conn-stop{background:#DCFCE7;color:#166534}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="ubahn"]         .conn-stop{background:#DBEAFE;color:#1E40AF}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="tram"]          .conn-stop{background:#FEE2E2;color:#991B1B}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="regional_rail"] .conn-stop{background:#EDE9FE;color:#5B21B6}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="airport"]       .conn-stop{background:#E0E7FF;color:#3730A3}
 @media(max-width:600px){.stack.tiles-grid.conn-tiles{grid-template-columns:1fr}}
 
 /* Modal panel — absolutely positioned inside .stack, covers ONLY the cards
