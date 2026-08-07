@@ -922,22 +922,24 @@ function renderConn(c, prov, addr){
   const order = Object.entries(CONN_META)
     .map(([key, meta]) => ({key, meta, val:c[key]}))
     .sort((a,b) => (a.val?.distance_m ?? Infinity) - (b.val?.distance_m ?? Infinity));
+  // Tile-shape (same layout as Amenities): icon + short label at top,
+  // distance as the big metric with the station name as its caption.
+  // Long names ellipsis-clip on one line via .tiles-grid .conn-cell .cap.
   const cards = order.map(({key, meta, val}) => {
     if(!val){
-      return `<div class="cell conn-cell" data-conn-key="${key}">
+      return `<div class="cell conn-cell" data-conn-key="${key}" title="Not available">
         <div class="cell-head"><div class="icon-badge">${ico.transit}</div><span class="cell-label">${meta.label}</span></div>
-        <h3>Not available</h3><p class="sub">No open-data source for this mode.</p></div>`;
+        <div class="metric-big"><span class="n" style="font-size:20px;color:var(--muted)">—</span><span class="cap">Not available</span></div>
+      </div>`;
     }
-    const provText = prov && prov[key] ? esc(prov[key]) : '';
-    return `<div class="cell conn-cell" data-conn-key="${key}">
+    const captionName = val.iata ? `${esc(val.name)} (${esc(val.iata)})` : esc(val.name);
+    return `<div class="cell conn-cell" data-conn-key="${key}" title="${captionName}">
       <div class="cell-head"><div class="icon-badge">${ico.transit}</div><span class="cell-label">${meta.label}</span></div>
-      <h3>${esc(val.name)}</h3>
-      <p class="sub">${fmtDistance(val.distance_m)}${val.iata?` · ${esc(val.iata)}`:''} · ${esc(meta.note)}</p>
-      ${provText?`<div class="prov">${provText}</div>`:''}
+      <div class="metric-big"><span class="n">${fmtDistance(val.distance_m)}</span><span class="cap" title="${captionName}">${captionName}</span></div>
     </div>`;
   }).join('');
   const map = `<div class="map-cell"><div class="map-hint" id="connHint">Click a card to plot its location</div><div id="map-conn"></div></div>`;
-  $conn.innerHTML = `<div class="grid"><div class="stack">${cards}</div>${map}</div>`;
+  $conn.innerHTML = `<div class="grid"><div class="stack tiles-grid conn-tiles">${cards}</div>${map}</div>`;
   drawConnMap();
   $conn.querySelectorAll('.conn-cell').forEach(cell=>cell.addEventListener('click',()=>selectConnMode(cell.dataset.connKey)));
   const connStack = $conn.querySelector('.stack');
