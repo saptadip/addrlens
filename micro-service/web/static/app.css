@@ -148,17 +148,28 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
    count show pre-click; body content lives in the modal. min-height keeps
    the modal + map at a proper display size regardless of tile count. */
 .stack.tiles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;align-content:start;min-height:560px}
-.tiles-grid .amen-cell{aspect-ratio:1/1;padding:16px;display:flex;flex-direction:column;justify-content:space-between;
+.tiles-grid .amen-cell,.tiles-grid .conn-cell{aspect-ratio:1/1;padding:16px;display:flex;flex-direction:column;justify-content:space-between;
   transition:background .2s ease,box-shadow .25s,transform .25s cubic-bezier(.34,1.56,.64,1)}
-.tiles-grid .amen-cell::before{display:none}                           /* no blue vertical accent bar on tiles */
-.tiles-grid .amen-cell:hover{background:var(--result-bg-hover)}         /* hover = colour shift, no accent line */
-.tiles-grid .amen-cell .cell-head{flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:0}
-.tiles-grid .amen-cell .cell-head .chev{display:none}
-.tiles-grid .amen-cell .cell-label{font-size:11px}
-.tiles-grid .amen-cell .metric-big{margin:0}
-.tiles-grid .amen-cell .metric-big .n{font-size:36px}
-.tiles-grid .amen-cell .metric-big .cap{font-size:11px}
+.tiles-grid .amen-cell::before,.tiles-grid .conn-cell::before{display:none}                    /* no blue vertical accent bar on tiles */
+.tiles-grid .amen-cell:hover,.tiles-grid .conn-cell:hover{background:var(--result-bg-hover)}   /* hover = colour shift, no accent line */
+.tiles-grid .amen-cell .cell-head,.tiles-grid .conn-cell .cell-head{flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:0}
+.tiles-grid .amen-cell .cell-head .chev,.tiles-grid .conn-cell .cell-head .chev{display:none}
+.tiles-grid .amen-cell .cell-label,.tiles-grid .conn-cell .cell-label{font-size:11px}
+.tiles-grid .amen-cell .metric-big,.tiles-grid .conn-cell .metric-big{margin:0}
+.tiles-grid .amen-cell .metric-big .n,.tiles-grid .conn-cell .metric-big .n{font-size:36px}
+.tiles-grid .amen-cell .metric-big .cap,.tiles-grid .conn-cell .metric-big .cap{font-size:11px}
 .tiles-grid .amen-cell .amen-body{display:none !important}
+/* Connectivity tile caption may hold a long station name; clip on one line. */
+.tiles-grid .conn-cell .metric-big .cap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}
+/* Rectangular tile variant: 2 per row, ~half-height. Gives distance
+   ("124 m") room to stay on one line and the station-name caption room
+   to show more of the actual name before ellipsis. Only applied to
+   Connectivity via .stack.tiles-grid.conn-tiles — Amenities keeps its
+   compact square tiles unchanged. */
+.stack.tiles-grid.conn-tiles{grid-template-columns:repeat(2,minmax(0,1fr));min-height:0}
+.tiles-grid.conn-tiles .conn-cell{aspect-ratio:auto;min-height:130px}
+.tiles-grid.conn-tiles .conn-cell .metric-big .n{white-space:nowrap}
+@media(max-width:600px){.stack.tiles-grid.conn-tiles{grid-template-columns:1fr}}
 
 /* Modal panel — absolutely positioned inside .stack, covers ONLY the cards
    column so the map stays visible on the right. Uses a flex column layout
