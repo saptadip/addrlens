@@ -922,20 +922,29 @@ function renderConn(c, prov, addr){
   const order = Object.entries(CONN_META)
     .map(([key, meta]) => ({key, meta, val:c[key]}))
     .sort((a,b) => (a.val?.distance_m ?? Infinity) - (b.val?.distance_m ?? Infinity));
-  // Tile-shape (same layout as Amenities): icon + short label at top,
-  // distance as the big metric with the station name as its caption.
-  // Long names ellipsis-clip on one line via .tiles-grid .conn-cell .cap.
+  // Rectangular tile: top row is icon (left) + distance (right); bottom is
+  // the mode label + station name, left-aligned. Amenities tiles remain
+  // square with a different internal layout — the shared .cell + .cell-label
+  // classes carry the visual language; layout diverges via .conn-tiles.
   const cards = order.map(({key, meta, val}) => {
     if(!val){
       return `<div class="cell conn-cell" data-conn-key="${key}" title="Not available">
-        <div class="cell-head"><div class="icon-badge">${ico.transit}</div><span class="cell-label">${meta.label}</span></div>
-        <div class="metric-big"><span class="n" style="font-size:20px;color:var(--muted)">—</span><span class="cap">Not available</span></div>
+        <div class="conn-tile-top">
+          <div class="icon-badge">${ico.transit}</div>
+          <div class="metric-big"><span class="n" style="font-size:20px;color:var(--muted)">—</span></div>
+        </div>
+        <span class="cell-label">${meta.label}</span>
+        <span class="conn-stop">Not available</span>
       </div>`;
     }
-    const captionName = val.iata ? `${esc(val.name)} (${esc(val.iata)})` : esc(val.name);
+    const captionName = val.iata && !val.name.includes(val.iata) ? `${esc(val.name)} (${esc(val.iata)})` : esc(val.name);
     return `<div class="cell conn-cell" data-conn-key="${key}" title="${captionName}">
-      <div class="cell-head"><div class="icon-badge">${ico.transit}</div><span class="cell-label">${meta.label}</span></div>
-      <div class="metric-big"><span class="n">${fmtDistance(val.distance_m)}</span><span class="cap" title="${captionName}">${captionName}</span></div>
+      <div class="conn-tile-top">
+        <div class="icon-badge">${ico.transit}</div>
+        <div class="metric-big"><span class="n">${fmtDistance(val.distance_m)}</span></div>
+      </div>
+      <span class="cell-label">${meta.label}</span>
+      <span class="conn-stop" title="${captionName}">${captionName}</span>
     </div>`;
   }).join('');
   const map = `<div class="map-cell"><div class="map-hint" id="connHint">Click a card to plot its location</div><div id="map-conn"></div></div>`;
