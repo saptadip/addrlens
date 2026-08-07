@@ -183,6 +183,108 @@ class Index:
         self.regional_rail = [{"name": n, "lat": la, "lon": lo}
                               for n, la, lo in cfg.regional_rail_stations]
 
+        # -- Phase 1: five killer datasets --------------------------------
+        # All are small enough (39–102 features) to preload once; per-request
+        # lookups are then in-memory. Baumbestand (~435k) stays per-request
+        # bbox via trees_bbox() — not preloaded.
+
+        # Fire stations + response zones. Two-layer load: zones (polygons)
+        # + stations (points). Point-in-polygon at lookup returns the
+        # regulatory-authoritative zone; nearest station is a straight
+        # distance search over all stations (crossing a zone boundary is
+        # fine — dispatch coordinates, not us).
+        self.fire_stations, self.fire_zones = [], []
+        if cfg.fire_wfs_url and cfg.fire_stations_layer:
+            sys.stdout.write("loading fire stations + response zones… "); sys.stdout.flush()
+            sfm = cfg.fire_stations_field_map
+            r = wfs(cfg.fire_wfs_url, typeNames=cfg.fire_stations_layer, count=500,
+                    outputFormat=cfg.wfs_output_format)
+            for f in r.get("features", []):
+                g = f.get("geometry")
+                if not g: continue
+                lo, la = g["coordinates"]
+                p = f["properties"] or {}
+                self.fire_stations.append({
+                    "name":      p.get(sfm["name"]),
+                    "type":      p.get(sfm["type"]),        # "BF" (professional) or "FF" (volunteer)
+                    "address":   p.get(sfm["address"]),
+                    "phone_bf":  p.get(sfm["phone_bf"]),
+                    "phone_ff":  p.get(sfm["phone_ff"]),
+                    "zone_code": p.get(sfm["zone_id"]),
+                    "lat": la, "lon": lo,
+                })
+            zfm = cfg.fire_zones_field_map
+            r = wfs(cfg.fire_wfs_url, typeNames=cfg.fire_zones_layer, count=50,
+                    outputFormat=cfg.wfs_output_format)
+            for f in r.get("features", []):
+                if not f.get("geometry"): continue
+                self.fire_zones.append((f["properties"], shape(f["geometry"])))
+            print(f"{len(self.fire_stations)} stations · {len(self.fire_zones)} response zones")
+
+        # Ruhige Gebiete (quiet zones + inner-city recreation).
+        self.quiet_zones = []
+        if cfg.quiet_wfs_url and cfg.quiet_layer:
+            sys.stdout.write("loading quiet + recreation zones… "); sys.stdout.flush()
+            r = wfs(cfg.quiet_wfs_url, typeNames=cfg.quiet_layer, count=200,
+                    outputFormat=cfg.wfs_output_format)
+            for f in r.get("features", []):
+                if not f.get("geometry"): continue
+                self.quiet_zones.append((f["properties"], shape(f["geometry"])))
+            print(f"{len(self.quiet_zones)} zones")
+
+        # Neighborhood protection (§ 172 BauGB): EM (Milieuschutz) + ES (character).
+        self.protection_em, self.protection_es = [], []
+        if cfg.protection_wfs_url and cfg.protection_em_layer:
+            sys.stdout.write("loading neighborhood protection zones… "); sys.stdout.flush()
+            for lyr, bucket in ((cfg.protection_em_layer, self.protection_em),
+                                (cfg.protection_es_layer, self.protection_es)):
+                r = wfs(cfg.protection_wfs_url, typeNames=lyr, count=500,
+                        outputFormat=cfg.wfs_output_format)
+                for f in r.get("features", []):
+                    if not f.get("geometry"): continue
+                    bucket.append((f["properties"], shape(f["geometry"])))
+            print(f"{len(self.protection_em)} Milieuschutz (EM) · {len(self.protection_es)} character (ES)")
+
+        # Swim spots — BBB pools + EU designated natural swim spots.
+        self.pools, self.natural_swim = [], []
+        if cfg.pools_wfs_url and cfg.pools_layer:
+            sys.stdout.write("loading pools + natural swim spots… "); sys.stdout.flush()
+            pfm = cfg.pools_field_map
+            r = wfs(cfg.pools_wfs_url, typeNames=cfg.pools_layer, count=500,
+                    outputFormat=cfg.wfs_output_format)
+            for f in r.get("features", []):
+                g = f.get("geometry")
+                if not g: continue
+                lo, la = g["coordinates"]
+                p = f["properties"] or {}
+                self.pools.append({
+                    "name":       p.get(pfm["name"]),
+                    "address":    p.get(pfm["address"]),
+                    "postcode":   p.get(pfm["postcode"]),
+                    "district":   p.get(pfm["district"]),
+                    "category":   p.get(pfm["category"]),
+                    "website":    p.get(pfm["website"]),
+                    "hours_hint": p.get(pfm["hours_hint"]),
+                    "lat": la, "lon": lo,
+                })
+            if cfg.swim_natural_wfs_url and cfg.swim_natural_layer:
+                nfm = cfg.swim_natural_field_map
+                r = wfs(cfg.swim_natural_wfs_url, typeNames=cfg.swim_natural_layer, count=500,
+                        outputFormat=cfg.wfs_output_format)
+                for f in r.get("features", []):
+                    g = f.get("geometry")
+                    if not g: continue
+                    lo, la = g["coordinates"]
+                    p = f["properties"] or {}
+                    self.natural_swim.append({
+                        "name":       p.get(nfm["name"]),
+                        "eu_rating":  p.get(nfm["eu_rating"]),
+                        "website":    p.get(nfm["website"]),
+                        "cyano":      p.get(nfm["cyano"]),
+                        "lat": la, "lon": lo,
+                    })
+            print(f"{len(self.pools)} pools · {len(self.natural_swim)} natural swim spots")
+
     # -------------------------------------------------------------- lookups
 
     def geocode(self, street, hnr, plz):
@@ -269,6 +371,159 @@ class Index:
             return None
         best = min(points, key=lambda p: haversine_m(lon, lat, p["lon"], p["lat"]))
         return {**best, "distance_m": round(haversine_m(lon, lat, best["lon"], best["lat"]))}
+
+    # -- Phase 1 lookups (Fire, Quiet, Protection, Pools, Trees) -----------
+
+    def fire_rescue(self, lon, lat):
+        """Nearest fire station + which response zone (Einsatzbereich) covers
+        this address. Response TIME is deliberately NOT computed — see UX-skill
+        finding: distance is a raw open-data fact; response time is inference
+        we can't underwrite with real dispatch data."""
+        if not self.fire_stations:
+            return None
+        nearest = min(self.fire_stations,
+                      key=lambda s: haversine_m(lon, lat, s["lon"], s["lat"]))
+        d = round(haversine_m(lon, lat, nearest["lon"], nearest["lat"]))
+        zone_name = None; zone_code = None
+        pt = Point(lon, lat)
+        zfm = self.cfg.fire_zones_field_map
+        for props, geom in self.fire_zones:
+            if geom.contains(pt):
+                zone_name = props.get(zfm["name"])
+                zone_code = props.get(zfm["code"])
+                break
+        # Also collect the three nearest for the modal list.
+        top3 = sorted(self.fire_stations,
+                      key=lambda s: haversine_m(lon, lat, s["lon"], s["lat"]))[:3]
+        top3 = [{**s, "distance_m": round(haversine_m(lon, lat, s["lon"], s["lat"]))}
+                for s in top3]
+        return {
+            "nearest": {**nearest, "distance_m": d},
+            "zone_name": zone_name, "zone_code": zone_code,
+            "top3": top3,
+        }
+
+    def neighborhood_protection(self, lon, lat):
+        """Point-in-polygon check on §172 BauGB layers. Two overlapping status
+        badges (Milieuschutz + character preservation)."""
+        pfm = self.cfg.protection_field_map
+        pt = Point(lon, lat)
+        def _hit(bucket):
+            for props, geom in bucket:
+                if geom.contains(pt):
+                    return {
+                        "inside":    True,
+                        "area_name": props.get(pfm["name"]),
+                        "code":      props.get(pfm["code"]),
+                        "in_force":  props.get(pfm["in_force"]),
+                        "district":  props.get(pfm["district"]),
+                        # `es` layer uses fl_in_ha; fall back if the primary key is missing.
+                        "size_ha":   props.get(pfm["size_ha"]) or props.get("fl_in_ha"),
+                    }
+            return {"inside": False}
+        return {"milieuschutz": _hit(self.protection_em),
+                "heritage":     _hit(self.protection_es)}
+
+    def nearest_quiet_zone(self, lon, lat):
+        """Nearest official quiet-recreation zone by shapely-distance to the
+        polygon edge (in degrees, then convert to metres via haversine on the
+        nearest boundary point). Cheaper than reprojecting for the ~50 polygons."""
+        if not self.quiet_zones:
+            return None
+        pt = Point(lon, lat)
+        qfm = self.cfg.quiet_field_map
+        best_props, best_geom, best_d = None, None, float("inf")
+        for props, geom in self.quiet_zones:
+            # Point-in-polygon fast-path — distance 0 wins.
+            if geom.contains(pt):
+                nearest_pt_on_edge = pt
+                d = 0.0
+            else:
+                # Nearest point on the polygon boundary.
+                nearest_pt_on_edge = geom.boundary.interpolate(geom.boundary.project(pt))
+                d = haversine_m(lon, lat, nearest_pt_on_edge.x, nearest_pt_on_edge.y)
+            if d < best_d:
+                best_props, best_geom, best_d = props, geom, d
+        if best_props is None: return None
+        c = best_geom.centroid
+        return {
+            "name":       (best_props.get(qfm["name"]) or "").strip(),
+            "kind":       best_props.get(qfm["kind"]),
+            "size_ha":    best_props.get(qfm["size_ha"]),
+            "distance_m": round(best_d),
+            "lat": c.y, "lon": c.x,
+            "inside":     best_d < 1.0,
+        }
+
+    def pools_within(self, lon, lat, radius_m=3000):
+        """BBB pools within radius, sorted by distance. Kept generous (~3 km)
+        because families reasonably travel to pools they don't have in walking
+        distance."""
+        hits = []
+        for p in self.pools:
+            d = haversine_m(lon, lat, p["lon"], p["lat"])
+            if d <= radius_m:
+                hits.append({**p, "distance_m": round(d)})
+        hits.sort(key=lambda x: x["distance_m"])
+        return hits
+
+    def natural_swim_within(self, lon, lat, radius_m=15000):
+        """EU-designated natural swim spots (lakes/canals). Radius 15 km covers
+        most of Berlin's swim destinations from any inner-city address."""
+        hits = []
+        for p in self.natural_swim:
+            d = haversine_m(lon, lat, p["lon"], p["lat"])
+            if d <= radius_m:
+                hits.append({**p, "distance_m": round(d)})
+        hits.sort(key=lambda x: x["distance_m"])
+        return hits
+
+    def trees_bbox(self, lon, lat, radius_m=None):
+        """Baumbestand — 435 k records city-wide, too big to preload. Live bbox
+        WFS query around the address, then summarise: count, average age,
+        tallest, top species. No caller sees individual trees; only aggregates."""
+        cfg = self.cfg
+        if not (cfg.trees_wfs_url and cfg.trees_layer):
+            return None
+        if radius_m is None:
+            radius_m = cfg.trees_radius_m
+        from app.core.geo import bbox_around
+        minx, miny, maxx, maxy = bbox_around(lon, lat, radius_m)
+        tfm = cfg.trees_field_map
+        try:
+            d = wfs(cfg.trees_wfs_url, typeNames=cfg.trees_layer, count=2000,
+                    bbox=f"{minx},{miny},{maxx},{maxy},EPSG:4326",
+                    outputFormat=cfg.wfs_output_format)
+        except Exception as e:
+            return {"error": str(e)[:200]}
+        feats = d.get("features") or []
+        # Second pass: filter to the actual radius (bbox is looser).
+        kept = []
+        for f in feats:
+            g = f.get("geometry")
+            if not g: continue
+            lo, la = g["coordinates"]
+            if haversine_m(lon, lat, lo, la) <= radius_m:
+                kept.append(f["properties"] or {})
+        if not kept:
+            return {"count": 0, "radius_m": radius_m}
+        heights = [p.get(tfm["height"]) for p in kept if p.get(tfm["height"])]
+        heights = [float(h) for h in heights if h not in (None, "")]
+        ages = [p.get(tfm["age"]) for p in kept if p.get(tfm["age"])]
+        ages = [int(a) for a in ages if a not in (None, "")]
+        species_counts = {}
+        for p in kept:
+            sp = (p.get(tfm["species_de"]) or "").strip()
+            if sp:
+                species_counts[sp] = species_counts.get(sp, 0) + 1
+        top_species = sorted(species_counts.items(), key=lambda x: -x[1])[:5]
+        return {
+            "count":       len(kept),
+            "radius_m":    radius_m,
+            "avg_age_yr":  round(sum(ages) / len(ages)) if ages else None,
+            "tallest_m":   round(max(heights), 1) if heights else None,
+            "top_species": [{"name": n, "n": c} for n, c in top_species],
+        }
 
     def kitas_near_bod(self, lon, lat, radius_m=800):
         """Registered Kitas within radius. Filters preloaded points by

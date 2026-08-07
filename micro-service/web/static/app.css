@@ -159,7 +159,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .tiles-grid .amen-cell .cell-head .chev{display:none}
 .tiles-grid .amen-cell .cell-label,.tiles-grid .conn-cell .cell-label{font-size:11px}
 .tiles-grid .amen-cell .metric-big{margin:0}
-.tiles-grid .amen-cell .metric-big .n{font-size:36px}
+.tiles-grid .amen-cell .metric-big .n{font-size:36px;white-space:nowrap}
 .tiles-grid .amen-cell .metric-big .cap{font-size:11px}
 .tiles-grid .amen-cell .amen-body{display:none !important}
 /* Rectangular tile variant: 2 per row, half-height. Icon + distance in
@@ -261,6 +261,15 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .b-public{background:#DCFCE7;color:#166534}
 .b-dist{background:#DBEAFE;color:#1E40AF}
 .b-esb{background:#EEF2FF;color:#4338CA;font-variant-numeric:tabular-nums}
+.b-neutral{background:#F1F5F9;color:#475569}      /* informational, no judgment — UX rule: never rely on colour alone */
+.b-protect{background:#DCFCE7;color:#166534}      /* alias of .b-public for regulatory-protection status */
+.b-heritage{background:#EDE9FE;color:#5B21B6}     /* character/heritage preservation */
+.protect-badges{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.protect-badge-inline{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;
+  font-weight:600;font-size:12px}
+.protect-badge-inline svg{width:14px;height:14px}
+.protect-body{font-size:14px;color:var(--ink-2);line-height:1.55;margin:0 0 8px}
+.protect-body a{color:var(--brand);font-weight:600}
 .b-sesb{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;
   border:1px solid #F9A8D4;position:relative;overflow:visible}
 .b-sesb::after{content:"";position:absolute;inset:-1px;border-radius:99px;
