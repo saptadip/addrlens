@@ -483,19 +483,22 @@ async function fetchImpressionForModal(){
 }
 $imprLaunch?.addEventListener('click', openImpressionModal);
 
-// Save the impression card as PNG. html-to-image is lazy-loaded from CDN on
-// first use (~35 KB, uses SVG foreignObject so it handles emoji surrogate
-// pairs like 👍/👎/✨ that html2canvas trips over). The .capturing class hides
-// the close ✕ and the actions row so the snapshot shows only content + prov.
+// Save the impression card as PNG. html-to-image is lazy-loaded on first use
+// (~20 KB, uses SVG foreignObject so it handles emoji surrogate pairs like
+// 👍/👎/✨ that html2canvas trips over). Try the vendored copy first so prod
+// stays self-contained; fall back to CDN if the local file is missing (e.g.
+// mid-deploy or static mount stripped). The .capturing class hides the close
+// ✕ and actions row so the snapshot shows only content + prov.
 function _loadHtmlToImage(){
   if(window.htmlToImage) return Promise.resolve();
-  return new Promise((res, rej) => {
+  const load = (src) => new Promise((res, rej) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
-    s.onload = res;
-    s.onerror = () => rej(new Error('failed to load html-to-image from CDN'));
+    s.src = src; s.onload = res; s.onerror = () => rej(new Error(src));
     document.head.appendChild(s);
   });
+  return load('/static/html-to-image.min.js').catch(() =>
+    load('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js')
+  );
 }
 async function saveImpressionAsImage(){
   const panel = document.querySelector('.impression-panel');
