@@ -524,7 +524,7 @@ async function saveImpressionAsImage(){
 // so a reload / re-lookup keeps the user's arrangement. Cells without a
 // stable key (env noise cells) are skipped — they stay in narrative order.
 const CARD_ORDER_KEY = 'addrlens.cardOrder.v1';
-function cardKey(cell){ return cell.dataset.cat || cell.dataset.eduCat || cell.dataset.envCat || null; }
+function cardKey(cell){ return cell.dataset.cat || cell.dataset.eduCat || cell.dataset.envCat || cell.dataset.connKey || null; }
 function loadCardOrder(){ try{ return JSON.parse(localStorage.getItem(CARD_ORDER_KEY)||'{}'); }catch(e){ return {}; } }
 function saveCardOrder(tab, stackEl){
   const order = Array.from(stackEl.querySelectorAll('.cell')).map(cardKey).filter(Boolean);
@@ -940,6 +940,8 @@ function renderConn(c, prov, addr){
   $conn.innerHTML = `<div class="grid"><div class="stack">${cards}</div>${map}</div>`;
   drawConnMap();
   $conn.querySelectorAll('.conn-cell').forEach(cell=>cell.addEventListener('click',()=>selectConnMode(cell.dataset.connKey)));
+  const connStack = $conn.querySelector('.stack');
+  if(connStack){ applyCardOrder('conn', connStack); enableDrag('conn', connStack); }
 }
 
 function drawConnMap(){
