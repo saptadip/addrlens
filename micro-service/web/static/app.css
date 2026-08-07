@@ -277,7 +277,22 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
    on top of .tiles-grid (Medical), the square aspect-ratio + tiles-grid
    min-height are cleared so tiles read as wide rectangles. */
 .stack.two-per-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;min-height:0}
-.stack.tiles-grid.two-per-row .amen-cell{aspect-ratio:auto;min-height:110px}
+/* Amen tile layout when .two-per-row is applied (Amenities + Medical).
+   Same shape as Connectivity's rectangular tiles: icon top-left, big count
+   top-right, label + range pill bottom-left. Single indigo pill across all
+   categories per user request (no per-category colors). */
+.stack.tiles-grid.two-per-row .amen-cell{aspect-ratio:auto;min-height:130px;
+  display:flex;flex-direction:column;gap:6px;padding:16px 18px;justify-content:flex-start}
+.stack.tiles-grid.two-per-row .amen-cell .amen-tile-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.stack.tiles-grid.two-per-row .amen-cell .amen-tile-top .metric-big{margin:0}
+.stack.tiles-grid.two-per-row .amen-cell .metric-big .n{font-size:32px;white-space:nowrap}
+.stack.tiles-grid.two-per-row .amen-cell > .cell-label{display:block;font-size:11px;font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.stack.tiles-grid.two-per-row .amen-cell .amen-tag{display:inline-block;align-self:flex-start;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;margin-top:2px;
+  background:#EEF2FF;color:#4338CA;transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+.stack.tiles-grid.two-per-row .amen-cell:hover .amen-tag{transform:translateY(-1px) scale(1.03)}
 @media(max-width:700px){.stack.two-per-row{grid-template-columns:1fr}}
 .b-sesb{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;
   border:1px solid #F9A8D4;position:relative;overflow:visible}
