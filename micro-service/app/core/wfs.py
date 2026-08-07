@@ -36,7 +36,8 @@ def cql_esc(s):
 _bod_cache, _bod_lock = {}, threading.Lock()
 
 
-def bod_polygon_features(base, type_name, lon, lat, radius_m=800):
+def bod_polygon_features(base, type_name, lon, lat, radius_m=800,
+                         *, output_format="application/json"):
     """Query a WFS polygon layer within a bbox. Returns list of
     {name, lat (centroid), lon (centroid), distance_m, area_m2, props, source}.
 
@@ -49,7 +50,8 @@ def bod_polygon_features(base, type_name, lon, lat, radius_m=800):
     minx, miny, maxx, maxy = bbox_around(lon, lat, radius_m)
     try:
         d = wfs(base, typeNames=type_name, count=200,
-                bbox=f"{minx},{miny},{maxx},{maxy},EPSG:4326")
+                bbox=f"{minx},{miny},{maxx},{maxy},EPSG:4326",
+                outputFormat=output_format)
     except Exception as e:
         return [{"_error": str(e)}]
     out = []
@@ -102,7 +104,8 @@ def noise_at(cfg: CityConfig, lon, lat, search_radius_m=100):
         minx, miny, maxx, maxy = bbox_around(lon, lat, radius)
         try:
             d = wfs(cfg.noise_wfs_url, typeNames=cfg.noise_layer, count=500,
-                    bbox=f"{minx},{miny},{maxx},{maxy},EPSG:4326")
+                    bbox=f"{minx},{miny},{maxx},{maxy},EPSG:4326",
+                    outputFormat=cfg.wfs_output_format)
         except Exception as e:
             return None, str(e)
         return d.get("features", []), None

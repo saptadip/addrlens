@@ -53,6 +53,7 @@ BERLIN = CityConfig(
     slug="berlin",
     display_name="Berlin",
     default_center=(52.5200, 13.4050),
+    wfs_output_format="application/json",
 
     geocoder="wfs",
     geocoder_wfs_url=_WFS_ADR,
