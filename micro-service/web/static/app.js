@@ -1107,14 +1107,16 @@ function summerHeatCardHtml(h){
 
 function envExtraCardsHtml(d){
   if(!d) return '';
-  // Order: Street Trees → Neighborhood Protection → Quiet Zone → Air → Heat.
-  // Preserves the earlier arrangement (Trees + Protection in row 3, Quiet
-  // in row 4 left) and appends the two Umweltatlas readings so row 4 fills
-  // (Quiet + Air) and row 5 opens with Heat.
+  // Ordered by natural card height so paired rows have similar bottoms:
+  //   Trees (spans full width via CSS — content-dense outlier)
+  //   Protection (~306) + Air (~226)   ← paired
+  //   Quiet    (~180) + Heat (~175)    ← paired
+  // Trees carries a long stats list; the CSS full-width span keeps its
+  // height from forcing a ragged bottom on whichever card sits next to it.
   return streetTreesCardHtml(d.trees)
        + protectionCardHtml(d.protection)
-       + quietZoneCardHtml(d.quiet_zone)
        + airQualityCardHtml(d.air)
+       + quietZoneCardHtml(d.quiet_zone)
        + summerHeatCardHtml(d.heat);
 }
 

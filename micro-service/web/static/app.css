@@ -271,11 +271,12 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .protect-body{font-size:14px;color:var(--ink-2);line-height:1.55;margin:0 0 8px}
 .protect-body a{color:var(--brand);font-weight:600}
 /* Two-per-row grid for a .stack. Used on Environment (varying-height cards)
-   and Medical (fixed-height tiles). Cards vary in content height so
-   align-items:start keeps each card's top aligned rather than stretching
-   short cards down. Collapses to a single column below 700 px. When applied
-   on top of .tiles-grid (Medical), the square aspect-ratio + tiles-grid
-   min-height are cleared so tiles read as wide rectangles. */
+   and Medical (fixed-height tiles). Cards stretch to match the tallest card
+   in the row so paired cards don't leave ragged bottoms; internal flex-column
+   + margin-top:auto on .prov keeps footers pinned to the card bottom.
+   Collapses to a single column below 700 px. When applied on top of
+   .tiles-grid (Medical), the square aspect-ratio + tiles-grid min-height are
+   cleared so tiles read as wide rectangles. */
 .stack.two-per-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;min-height:0}
 /* Amen tile layout when .two-per-row is applied (Amenities + Medical).
    Same shape as Connectivity's rectangular tiles: icon top-left, big count
