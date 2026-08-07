@@ -1032,7 +1032,11 @@ function streetTreesCardHtml(t){
 
 function envExtraCardsHtml(d){
   if(!d) return '';
-  return streetTreesCardHtml(d.trees) + quietZoneCardHtml(d.quiet_zone) + protectionCardHtml(d.protection);
+  // Order: Protection → Quiet Zone → Street Trees. Combined with the pair
+  // that runs ahead (noise + stroller), this places Neighborhood Protection
+  // between Stroller Access and Quiet Zone in the reading-order flow of the
+  // 2-per-row grid — Row 2 ends with Stroller, Row 3 opens with Protection.
+  return protectionCardHtml(d.protection) + quietZoneCardHtml(d.quiet_zone) + streetTreesCardHtml(d.trees);
 }
 
 function renderNoise(n){
