@@ -15,6 +15,11 @@ INFERENCE_TIMEOUT_S = float(os.environ.get("INFERENCE_TIMEOUT_S", "45"))
 
 CITY = os.environ.get("CITY", "berlin").strip().lower()
 
+# CORS allow-list (Ship D-1 item 8). Comma-separated, no wildcards. Default is
+# empty — same-origin only, which is what /api/lookup + the SPA need. Deployers
+# add prod origins via env (e.g. CORS_ORIGINS="https://addrlens.de").
+CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+
 
 def load_city(slug: str = CITY) -> CityConfig:
     """Import `app.cities.<slug>` and return its uppercase-slug attribute
