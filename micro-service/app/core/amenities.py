@@ -14,13 +14,18 @@ from app.core.overpass import overpass
 from app.core.wfs import bod_polygon_features
 
 AMENITIES = [
-    ("playgrounds",  '["leisure"="playground"]',                     "Unnamed playground"),
-    ("parks",        '["leisure"="park"]',                           "Unnamed park"),
+    ("playgrounds",  '["leisure"="playground"]',                     "Playground"),
+    ("parks",        '["leisure"="park"]',                           "Park"),
     ("pharmacies",   '["amenity"="pharmacy"]',                       "Pharmacy"),
     ("supermarkets", '["shop"="supermarket"]',                       "Supermarket"),
     ("gps",          '["amenity"="doctors"]',                        "Doctor's office"),
     ("transit",      '["public_transport"~"^(platform|station)$"]',  "Transit stop"),
 ]
+
+# For these categories, an unnamed item is signal-free noise for a user
+# looking at "parks near me" — a tiny anonymous plot that reads as padding.
+# Drop OSM entries without a `name` tag and BOD entries with the "—" fallback.
+_DROP_UNNAMED = {"parks", "playgrounds"}
 
 # Below this cutoff, a BOD Grünanlage is a street-side planting or tiny
 # residential garden plot — not what users mean by "parks / green space".
@@ -155,7 +160,10 @@ def amenities_near(index: Index, cfg: CityConfig, lon, lat, radius_m=800):
             continue
         cat = _classify_amenity(tags)
         if not cat: continue
-        name = tags.get("name") or fallback[cat]
+        name = tags.get("name")
+        if not name and cat in _DROP_UNNAMED:
+            continue                        # unnamed OSM park/playground → noise, drop
+        name = name or fallback[cat]
         dkey = (name,) if cat == "transit" else (name, round(lat_, 5), round(lon_, 5))
         if dkey in seen[cat]: continue
         seen[cat].add(dkey)
@@ -180,6 +188,10 @@ def amenities_near(index: Index, cfg: CityConfig, lon, lat, radius_m=800):
                     try: return float(b.get("area_m2") or 0) >= PARK_MIN_AREA_M2
                     except (ValueError, TypeError): return True   # keep if unknown
                 bod_items = [b for b in bod_items if _big_enough(b)]
+            if cat in _DROP_UNNAMED:
+                # Drop BOD polygons whose name fell through to "—" (unnamed).
+                bod_items = [b for b in bod_items
+                             if (b.get("name") or "").strip() not in ("—", "-", "")]
             merged = merge_bod_and_osm(bod_items, osm_items, radius_m)
             n_bod, n_osm = sum(1 for x in merged if x["source"] == "bod"), sum(1 for x in merged if x["source"] == "osm")
             prov = _mixed_provenance(cfg, cat, n_bod, n_osm, bod_err)

@@ -77,7 +77,7 @@ def lookup(
     quiet_zone   = index.nearest_quiet_zone(lon, lat)
     protection   = index.neighborhood_protection(lon, lat)
     swim_pools   = index.pools_within(lon, lat, 3000)
-    swim_natural = index.natural_swim_within(lon, lat, 15000)
+    swim_natural = index.natural_swim_within(lon, lat, 3000)
     trees_summary = index.trees_bbox(lon, lat)
 
     # Connectivity — nearest S-Bahn / U-Bahn / Tram / Regional rail + Airport.

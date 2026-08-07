@@ -33,7 +33,7 @@ const AMEN=[
   // via _hydrateLookupTiles(). Same tile shape, click opens the same modal.
   // Street trees moved to Environment tab — its data is now displayed as a
   // full vertical card via streetTreesCardHtml() inside envExtraCardsHtml().
-  ['swimSpots','Swim spots',ico.waves,'#0EA5E9','within 3–15 km'],
+  ['swimSpots','Swim spots',ico.waves,'#0EA5E9','within 3 km'],
   ['fireRescue','Fire & rescue',ico.flame,'#DC2626','to nearest'],
 ];
 const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
@@ -535,32 +535,47 @@ async function saveImpressionAsImage(){
 const CARD_ORDER_KEY = 'addrlens.cardOrder.v1';
 function cardKey(cell){ return cell.dataset.cat || cell.dataset.eduCat || cell.dataset.envCat || cell.dataset.connKey || null; }
 function loadCardOrder(){ try{ return JSON.parse(localStorage.getItem(CARD_ORDER_KEY)||'{}'); }catch(e){ return {}; } }
+// Direct-child items that participate in drag reorder. Includes .cell plus
+// composite wrappers like .noise-row (L_DEN + L_NIGHT paired). Descendant
+// .cell nodes inside those wrappers are deliberately excluded so a nested
+// half-width card can't be dragged out of its pair.
+function _stackItems(stackEl){
+  return Array.from(stackEl.children).filter(c =>
+    c.classList.contains('cell') || c.classList.contains('noise-row'));
+}
 function saveCardOrder(tab, stackEl){
-  const order = Array.from(stackEl.querySelectorAll('.cell')).map(cardKey).filter(Boolean);
+  const order = _stackItems(stackEl).map(cardKey).filter(Boolean);
   const all = loadCardOrder(); all[tab] = order;
   localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(all));
 }
 function applyCardOrder(tab, stackEl){
   const order = loadCardOrder()[tab] || [];
   if(!order.length) return;
-  const cells = Array.from(stackEl.querySelectorAll('.cell'));
-  const byKey = new Map(cells.map(c=>[cardKey(c),c]).filter(([k])=>k));
-  // Reorder: saved keys first (in order), then any new/keyless cells at end.
+  const items = _stackItems(stackEl);
+  const byKey = new Map(items.map(c=>[cardKey(c),c]).filter(([k])=>k));
+  // Reorder: saved keys first (in order), then any new/keyless items at end.
   order.forEach(k => { const c = byKey.get(k); if(c) stackEl.appendChild(c); });
-  cells.forEach(c => { const k = cardKey(c); if(!k || !order.includes(k)) stackEl.appendChild(c); });
+  items.forEach(c => { const k = cardKey(c); if(!k || !order.includes(k)) stackEl.appendChild(c); });
 }
 function enableDrag(tab, stackEl){
-  stackEl.querySelectorAll('.cell').forEach(c => { if(cardKey(c)) c.draggable = true; });
+  _stackItems(stackEl).forEach(c => { if(cardKey(c)) c.draggable = true; });
   let dragged = null;
   const clearMarks = () => stackEl.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+  // Resolve `evt.target` up to whichever direct-child of stackEl contains it.
+  // Handles nested cards (e.g. .cell inside .noise-row) → returns the wrapper.
+  const _stackItemFor = (t) => {
+    let el = t;
+    while(el && el !== stackEl && el.parentElement !== stackEl) el = el.parentElement;
+    return (el && el.parentElement === stackEl) ? el : null;
+  };
   stackEl.addEventListener('dragstart', e => {
-    const cell = e.target.closest('.cell');
-    if(!cell || !cell.draggable) return;
-    dragged = cell; cell.classList.add('dragging');
+    const item = _stackItemFor(e.target);
+    if(!item || !item.draggable) return;
+    dragged = item; item.classList.add('dragging');
     document.querySelectorAll('details.info-tip[open]').forEach(d => d.open = false);
     dropOrphanTooltips();
     e.dataTransfer.effectAllowed = 'move';
-    try{ e.dataTransfer.setData('text/plain', cardKey(cell) || ''); }catch(_){}
+    try{ e.dataTransfer.setData('text/plain', cardKey(item) || ''); }catch(_){}
   });
   stackEl.addEventListener('dragend', () => {
     if(dragged) dragged.classList.remove('dragging');
@@ -569,14 +584,14 @@ function enableDrag(tab, stackEl){
   stackEl.addEventListener('dragover', e => {
     if(!dragged) return;
     e.preventDefault();
-    const over = e.target.closest('.cell');
+    const over = _stackItemFor(e.target);
     clearMarks();
     if(over && over !== dragged) over.classList.add('drop-target');
   });
   stackEl.addEventListener('drop', e => {
     if(!dragged) return;
     e.preventDefault();
-    const over = e.target.closest('.cell');
+    const over = _stackItemFor(e.target);
     if(!over || over === dragged) return;
     const rect = over.getBoundingClientRect();
     const after = (e.clientY - rect.top) > rect.height/2;
@@ -908,10 +923,12 @@ function noiseCardsHtml(n){
     'Aircraft':(n.l_den.air!=null?n.l_den.air+' dB day':'—')+' / '+(n.l_night.air!=null?n.l_night.air+' dB night':'—'),
     'Nearest façade measurement':n.distance_m+' m from your address'};
   return `
-    <div class="cell tier-${tDen}" data-env-cat="noise-den"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span>${explainBtn('env-noise-den','L_DEN · 24 h weighted',denFields)}</div>
-      <div class="metric-big"><span class="n">${den!=null?den.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tDen]}<br>WHO recommends &lt; 55 dB</span></div></div>
-    <div class="cell tier-${tNgt}" data-env-cat="noise-night"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span>${explainBtn('env-noise-night','L_Night · 22:00–06:00',ngtFields)}</div>
-      <div class="metric-big"><span class="n">${ngt!=null?ngt.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tNgt]}<br>WHO recommends &lt; 45 dB</span></div></div>
+    <div class="noise-row" data-env-cat="noise-pair">
+      <div class="cell tier-${tDen}"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span>${explainBtn('env-noise-den','L_DEN · 24 h weighted',denFields)}</div>
+        <div class="metric-big"><span class="n">${den!=null?den.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tDen]}<br>WHO recommends &lt; 55 dB</span></div></div>
+      <div class="cell tier-${tNgt}"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span>${explainBtn('env-noise-night','L_Night · 22:00–06:00',ngtFields)}</div>
+        <div class="metric-big"><span class="n">${ngt!=null?ngt.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tNgt]}<br>WHO recommends &lt; 45 dB</span></div></div>
+    </div>
     <div class="cell" data-env-cat="noise-sources"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Dominant sources at this façade</span>${explainBtn('env-noise-sources','Dominant noise sources',srcFields)}</div>
       <ul class="amen-list">${srcRows}</ul>
       <p class="amen-more">Nearest façade measurement: ${n.distance_m} m from your address.</p>
