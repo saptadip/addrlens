@@ -458,20 +458,33 @@ class Index:
     def pools_within(self, lon, lat, radius_m=3000):
         """BBB pools within radius, sorted by distance. Kept generous (~3 km)
         because families reasonably travel to pools they don't have in walking
-        distance."""
+        distance. Strandbäder (open-water beach baths) are registered in BOTH
+        the BBB pool dataset AND the EU natural-swim dataset — we merge the
+        EU water-quality rating onto the pool entry so a user sees one item
+        with all the info, not two visually-identical rows."""
+        natural_by_name = {n["name"]: n for n in self.natural_swim if n.get("name")}
         hits = []
         for p in self.pools:
             d = haversine_m(lon, lat, p["lon"], p["lat"])
             if d <= radius_m:
-                hits.append({**p, "distance_m": round(d)})
+                entry = {**p, "distance_m": round(d)}
+                match = natural_by_name.get(p.get("name"))
+                if match:
+                    entry["eu_rating"] = match.get("eu_rating")
+                    entry["natural_link"] = match.get("website")
+                hits.append(entry)
         hits.sort(key=lambda x: x["distance_m"])
         return hits
 
     def natural_swim_within(self, lon, lat, radius_m=15000):
-        """EU-designated natural swim spots (lakes/canals). Radius 15 km covers
-        most of Berlin's swim destinations from any inner-city address."""
+        """EU-designated natural swim spots (lakes/canals). Skips any spot
+        whose name also appears in the pool list — those Strandbäder are
+        already covered by pools_within() with the EU rating merged in."""
+        pool_names = {p["name"] for p in self.pools if p.get("name")}
         hits = []
         for p in self.natural_swim:
+            if p.get("name") in pool_names:
+                continue                                # dedupe with pools list
             d = haversine_m(lon, lat, p["lon"], p["lat"])
             if d <= radius_m:
                 hits.append({**p, "distance_m": round(d)})
@@ -507,22 +520,52 @@ class Index:
                 kept.append(f["properties"] or {})
         if not kept:
             return {"count": 0, "radius_m": radius_m}
-        heights = [p.get(tfm["height"]) for p in kept if p.get(tfm["height"])]
-        heights = [float(h) for h in heights if h not in (None, "")]
-        ages = [p.get(tfm["age"]) for p in kept if p.get(tfm["age"])]
-        ages = [int(a) for a in ages if a not in (None, "")]
+        heights = [p.get(tfm["height"]) for p in kept if p.get(tfm["height"]) not in (None, "")]
+        heights = [float(h) for h in heights]
+        ages = [p.get(tfm["age"]) for p in kept if p.get(tfm["age"]) not in (None, "")]
+        ages = [int(a) for a in ages]
+        planting_years = [p.get(tfm["planting_year"]) for p in kept if p.get(tfm["planting_year"]) not in (None, "")]
+        planting_years = [int(y) for y in planting_years]
         species_counts = {}
+        genera = set()
+        group_counts = {}
         for p in kept:
             sp = (p.get(tfm["species_de"]) or "").strip()
             if sp:
                 species_counts[sp] = species_counts.get(sp, 0) + 1
+            g = (p.get(tfm["genus_de"]) or "").strip()
+            if g:
+                genera.add(g)
+            gr = (p.get(tfm["group"]) or "").strip()
+            if gr:
+                group_counts[gr] = group_counts.get(gr, 0) + 1
         top_species = sorted(species_counts.items(), key=lambda x: -x[1])[:5]
+        age_bands = {"young": 0, "mature": 0, "old": 0}
+        for a in ages:
+            if a < 20:    age_bands["young"] += 1
+            elif a < 60:  age_bands["mature"] += 1
+            else:         age_bands["old"] += 1
+        # Crown coverage: sum of individual crown-disk areas (π·(d/2)²) as a
+        # rough shade proxy; expressed as m² since the query area itself is a
+        # circle of area π·radius². "% of query area" = coverage / query_area.
+        crowns = [p.get("kronedurch") for p in kept if p.get("kronedurch") not in (None, "")]
+        crowns = [float(c) for c in crowns]
+        crown_area_m2 = round(sum(3.14159 * (c/2)**2 for c in crowns))
+        query_area_m2 = round(3.14159 * radius_m**2)
         return {
-            "count":       len(kept),
-            "radius_m":    radius_m,
-            "avg_age_yr":  round(sum(ages) / len(ages)) if ages else None,
-            "tallest_m":   round(max(heights), 1) if heights else None,
-            "top_species": [{"name": n, "n": c} for n, c in top_species],
+            "count":            len(kept),
+            "radius_m":         radius_m,
+            "avg_age_yr":       round(sum(ages) / len(ages)) if ages else None,
+            "tallest_m":        round(max(heights), 1) if heights else None,
+            "avg_height_m":     round(sum(heights) / len(heights), 1) if heights else None,
+            "top_species":      [{"name": n, "n": c} for n, c in top_species],
+            "unique_species":   len(species_counts),
+            "unique_genera":    len(genera),
+            "age_bands":        age_bands,
+            "group_mix":        group_counts,        # "Laubbäume" (deciduous) vs "Nadelbäume" (conifer)
+            "planting_range":   [min(planting_years), max(planting_years)] if planting_years else None,
+            "crown_coverage_m2": crown_area_m2,
+            "crown_coverage_pct": round(100 * crown_area_m2 / query_area_m2, 1) if query_area_m2 else None,
         }
 
     def kitas_near_bod(self, lon, lat, radius_m=800):
