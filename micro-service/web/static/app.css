@@ -270,11 +270,12 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .protect-badge-inline svg{width:14px;height:14px}
 .protect-body{font-size:14px;color:var(--ink-2);line-height:1.55;margin:0 0 8px}
 .protect-body a{color:var(--brand);font-weight:600}
-/* Noise pair: L_DEN + L_NIGHT side-by-side (half-width each). Collapses to
-   one column below 700 px. Drag reorder treats the pair as a single unit
-   (direct children of .stack only) so the two cards can't be pulled apart. */
-.noise-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:700px){.noise-row{grid-template-columns:1fr}}
+/* Two-per-row grid for a .stack. Currently used on Environment (matches the
+   Connectivity layout the user picked as reference). Cards vary in content
+   height so align-items:start keeps each card's top aligned rather than
+   stretching short cards down. Collapses to a single column below 700 px. */
+.stack.two-per-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:700px){.stack.two-per-row{grid-template-columns:1fr}}
 .b-sesb{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;
   border:1px solid #F9A8D4;position:relative;overflow:visible}
 .b-sesb::after{content:"";position:absolute;inset:-1px;border-radius:99px;

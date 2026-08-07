@@ -923,12 +923,10 @@ function noiseCardsHtml(n){
     'Aircraft':(n.l_den.air!=null?n.l_den.air+' dB day':'—')+' / '+(n.l_night.air!=null?n.l_night.air+' dB night':'—'),
     'Nearest façade measurement':n.distance_m+' m from your address'};
   return `
-    <div class="noise-row" data-env-cat="noise-pair">
-      <div class="cell tier-${tDen}"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span>${explainBtn('env-noise-den','L_DEN · 24 h weighted',denFields)}</div>
-        <div class="metric-big"><span class="n">${den!=null?den.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tDen]}<br>WHO recommends &lt; 55 dB</span></div></div>
-      <div class="cell tier-${tNgt}"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span>${explainBtn('env-noise-night','L_Night · 22:00–06:00',ngtFields)}</div>
-        <div class="metric-big"><span class="n">${ngt!=null?ngt.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tNgt]}<br>WHO recommends &lt; 45 dB</span></div></div>
-    </div>
+    <div class="cell tier-${tDen}" data-env-cat="noise-den"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span>${explainBtn('env-noise-den','L_DEN · 24 h weighted',denFields)}</div>
+      <div class="metric-big"><span class="n">${den!=null?den.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tDen]}<br>WHO recommends &lt; 55 dB</span></div></div>
+    <div class="cell tier-${tNgt}" data-env-cat="noise-night"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span>${explainBtn('env-noise-night','L_Night · 22:00–06:00',ngtFields)}</div>
+      <div class="metric-big"><span class="n">${ngt!=null?ngt.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tNgt]}<br>WHO recommends &lt; 45 dB</span></div></div>
     <div class="cell" data-env-cat="noise-sources"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Dominant sources at this façade</span>${explainBtn('env-noise-sources','Dominant noise sources',srcFields)}</div>
       <ul class="amen-list">${srcRows}</ul>
       <p class="amen-more">Nearest façade measurement: ${n.distance_m} m from your address.</p>
@@ -1039,7 +1037,11 @@ function envExtraCardsHtml(d){
 
 function renderNoise(n){
   envData=n;
-  $env.innerHTML=`<div class="grid"><div class="stack">${strollerCardHtml()}${noiseCardsHtml(n)}${envExtraCardsHtml(eduData)}</div></div>`;
+  // Default order chosen so paired cards land on the same row in the 2-col
+  // grid: L_DEN + L_NIGHT together, then Stroller + Dominant sources, then
+  // Street trees + Quiet zone, then Neighborhood protection alone. User can
+  // drag to a different order.
+  $env.innerHTML=`<div class="grid"><div class="stack two-per-row">${noiseCardsHtml(n)}${strollerCardHtml()}${envExtraCardsHtml(eduData)}</div></div>`;
   bindStrollerForm();
   renderStrollerCard();
   refreshSaveBtn();
