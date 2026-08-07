@@ -596,6 +596,10 @@ footer a{color:var(--brand)}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
     Environment
   </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-conn" data-tab="conn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M8 17v3M16 17v3"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/></svg>
+    Connectivity
+  </button>
 </div>
 <button class="impression-launch" id="impression-launch" hidden aria-label="Open AI impression"><span>Impression</span><span class="count" id="impression-count">0</span></button>
 </div>
@@ -614,6 +618,10 @@ footer a{color:var(--brand)}
 
 <section id="panel-env" class="panel" role="tabpanel" aria-labelledby="tab-env" hidden>
   <div id="env"></div>
+</section>
+
+<section id="panel-conn" class="panel" role="tabpanel" aria-labelledby="tab-conn" hidden>
+  <div id="conn"></div>
 </section>
 
 </div><!-- /view-main -->
@@ -665,7 +673,7 @@ const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 // (pharmacies, GPs, hospitals) live under the dedicated Medical tab.
 const AMEN_TAB={pharmacies:'med', gps:'med', hospitals:'med'};
 const tabOf=k=>AMEN_TAB[k]||'amen';
-const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$status=document.getElementById('status'),$tabs=document.getElementById('tabs-row');
+const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$conn=document.getElementById('conn'),$status=document.getElementById('status'),$tabs=document.getElementById('tabs-row');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
 // Per-tab render state (map + selected category). Same shape for both panels
 // so every renderer/selector takes a tab id and reads its slice.
@@ -1421,6 +1429,7 @@ function render(d){
     <h3>${esc(i.name)}</h3><p class="sub">${(i.distance_m/1000).toFixed(1)} km · ~${walkMin(i.distance_m)} min walk${i.website?` · <a href="${esc(i.website)}" target="_blank" rel="noopener">website</a>`:''}</p></div>`:'';
   const map=`<div class="map-cell"><div class="map-hint" id="eduHint">Click a card to plot its location</div><div id="map"></div></div>`;
   $out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
+  renderConn(d.connectivity, d.provenance);
   drawMap(d); const kn=document.getElementById('kitaN'); if(kn&&k.count!=null)countUp(kn,k.count);
   $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
     if(e.target.closest('.info-tip')) return;                       // tooltip toggles its own state
@@ -1530,6 +1539,42 @@ function renderNoise(n){
   if(envStack){ applyCardOrder('env', envStack); enableDrag('env', envStack); }
 }
 
+// Connectivity: five cards (S-Bahn, U-Bahn, Tram, Regional rail, Airport)
+// sorted by distance ascending. Cards with no data fall to the bottom.
+const CONN_META = {
+  sbahn:         {label:'S-Bahn',        note:'Regional rapid transit'},
+  ubahn:         {label:'U-Bahn',        note:'Subway'},
+  tram:          {label:'Tram',          note:'Straßenbahn'},
+  regional_rail: {label:'Regional rail', note:'RE / RB — DB Regio'},
+  airport:       {label:'Airport',       note:'International'},
+};
+function fmtDistance(m){
+  // < 1000 m → "340 m"; ≥ 1000 m → "1.2 km".
+  if(m==null) return '—';
+  return m < 1000 ? `${m} m` : `${(m/1000).toFixed(1)} km`;
+}
+function renderConn(c, prov){
+  if(!c){ $conn.innerHTML=''; return; }
+  const order = Object.entries(CONN_META)
+    .map(([key, meta]) => ({key, meta, val:c[key]}))
+    .sort((a,b) => (a.val?.distance_m ?? Infinity) - (b.val?.distance_m ?? Infinity));
+  const cards = order.map(({key, meta, val}) => {
+    if(!val){
+      return `<div class="cell conn-cell" data-conn-key="${key}">
+        <div class="cell-head"><div class="icon-badge">${ico.transit}</div><span class="cell-label">${meta.label}</span></div>
+        <h3>Not available</h3><p class="sub">No open-data source for this mode.</p></div>`;
+    }
+    const provText = prov && prov[key] ? esc(prov[key]) : '';
+    return `<div class="cell conn-cell" data-conn-key="${key}">
+      <div class="cell-head"><div class="icon-badge">${ico.transit}</div><span class="cell-label">${meta.label}</span></div>
+      <h3>${esc(val.name)}</h3>
+      <p class="sub">${fmtDistance(val.distance_m)}${val.iata?` · ${esc(val.iata)}`:''} · ${esc(meta.note)}</p>
+      ${provText?`<div class="prov">${provText}</div>`:''}
+    </div>`;
+  }).join('');
+  $conn.innerHTML = `<div class="grid"><div class="stack">${cards}</div></div>`;
+}
+
 function noiseTierFromDen(v){
   if(v==null) return 'unknown';
   if(v<55) return 'green';
@@ -1621,6 +1666,7 @@ function buildSnapshot(){
     noise: (envData && !envData.unavailable) ? {
       l_den: envData.l_den?.total, l_night: envData.l_night?.total, tier_den: envData.tier,
     } : null,
+    connectivity: eduData.connectivity || null,
   };
 }
 
@@ -1725,6 +1771,12 @@ function renderCompare(){
     sect('Street noise (Berlin 2022 façade)'),
     row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
     row('L_Night · 22–06',       list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_night==null?null:s.noise.l_night+10)}">${s.noise.l_night!=null?s.noise.l_night.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
+    sect('Connectivity'),
+    row('Nearest S-Bahn',        list.map(s=>cell(s.connectivity?.sbahn         ? `${esc(s.connectivity.sbahn.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.sbahn.distance_m)})</span>` : null)).join('')),
+    row('Nearest U-Bahn',        list.map(s=>cell(s.connectivity?.ubahn         ? `${esc(s.connectivity.ubahn.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.ubahn.distance_m)})</span>` : null)).join('')),
+    row('Nearest tram',          list.map(s=>cell(s.connectivity?.tram          ? `${esc(s.connectivity.tram.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.tram.distance_m)})</span>` : null)).join('')),
+    row('Nearest regional rail', list.map(s=>cell(s.connectivity?.regional_rail ? `${esc(s.connectivity.regional_rail.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.regional_rail.distance_m)})</span>` : null)).join('')),
+    row('Airport (BER)',         list.map(s=>cell(s.connectivity?.airport       ? `${esc(s.connectivity.airport.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.airport.distance_m)})</span>` : null)).join('')),
   ].join('');
   $c.innerHTML=`${header}${printHeader}<div class="compare-wrap"><table class="compare-table">
     <thead><tr><th class="metric-col"></th>${cols}</tr></thead>

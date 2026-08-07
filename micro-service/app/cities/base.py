@@ -78,6 +78,21 @@ class CityConfig:
                                           #  "total_n","road_n","rail_n","air_n"}
     noise_year: int
 
+    # Connectivity (S-Bahn / U-Bahn / Tram / Regional rail / Airport).
+    # Each is Optional so a future city can opt out per-mode cleanly.
+    #
+    # S/U-Bahn come from a vendored CSV (see scripts/refresh_vbb.py). Tram
+    # comes from a live BOD WFS at boot — same pattern as Kita/hospitals.
+    # Regional rail is a curated list of (name, lat, lon) — VBB doesn't tag
+    # regional-rail mode explicitly and it's a small, stable set. Airport
+    # is one static point.
+    stations_data_path: Optional[str]     # abs path to a vbb_<slug>_su.csv
+    tram_wfs_url: Optional[str]
+    tram_layer: Optional[str]
+    tram_field_map: dict                  # {"name": "hstname"}
+    regional_rail_stations: tuple         # ((name, lat, lon), …)
+    airport: Optional[dict]               # {"name","iata","lat","lon"} or None
+
     # Local-language glossary — applied by core/gloss.py after inference-service
     # returns text. Each entry is (compiled_regex, english_gloss). See phase3
     # GERMAN_GLOSS for the Berlin seed.
@@ -88,7 +103,8 @@ class CityConfig:
 
     # Provenance strings, one per public-facing dataset. Keys used by the app:
     #   "catchment", "schools", "addresses", "kitas", "hospitals",
-    #   "fountains", "playgrounds", "parks", "noise".
+    #   "fountains", "playgrounds", "parks", "noise",
+    #   "sbahn", "ubahn", "tram", "regional_rail", "airport".
     # Full string including licence tag; the app just concatenates when a
     # response mixes sources.
     attribution: dict
