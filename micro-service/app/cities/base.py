@@ -10,7 +10,7 @@ canonical keys stable across cities — that's the whole point.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, FrozenInstanceError
 from typing import Optional
 
 
@@ -164,3 +164,48 @@ class CityConfig:
     # Full string including licence tag; the app just concatenates when a
     # response mixes sources.
     attribution: dict
+
+
+@dataclass(frozen=True)
+class LensTileConfig:
+    """One traffic-light tile in a lens.
+
+    `thresholds` is deliberately an opaque dict — each `_tier_*` function in
+    `app/core/scorer.py` interprets its own keys (distance vs dB vs μg/m³ vs
+    class-strings). Keeps the config table readable per tile without a shared
+    schema no tile actually satisfies.
+    """
+    key:        str
+    label:      str
+    icon:       str
+    thresholds: dict
+    caveat:     str = ""    # long-lived tile-scoped disclosure; hidden if empty
+
+
+@dataclass(frozen=True)
+class LensConfig:
+    """Named view over an address (Young Family, Bureaucracy, …).
+
+    Order of `tiles` is display order — the frontend renders tiles in this
+    exact order, both in single-address and compare views.
+    """
+    slug:          str      # stable id, e.g. "young_family"
+    label:         str      # human label, e.g. "Young Family (0–6)"
+    audience_hint: str      # one-line subline shown under the label
+    tiles:         tuple    # tuple[LensTileConfig, ...]
+
+
+if __name__ == "__main__":
+    # Frozen — attempting to mutate must raise FrozenInstanceError.
+    t = LensTileConfig(key="k", label="l", icon="i", thresholds={"green_m": 400})
+    try:
+        t.key = "changed"
+    except FrozenInstanceError:
+        pass
+    else:
+        raise AssertionError("LensTileConfig must be frozen")
+    # `caveat` defaults to empty string — frontend hides when empty.
+    assert t.caveat == ""
+    lc = LensConfig(slug="s", label="l", audience_hint="h", tiles=(t,))
+    assert lc.tiles[0].key == "k"
+    print("base.py selfcheck OK (LensTileConfig / LensConfig)")
