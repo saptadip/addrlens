@@ -294,7 +294,8 @@ Only non-unknown tiles contribute sources — matches §14.5 "provenance reflect
 1. **Boundary sweep per tile** — synthetic inputs straddling every threshold; asserts the correct tier per the inclusive-on-greener-side rule. Example: kita with 3 features at 400m exactly → `green`; 3 features at 400.01m → `amber`. Noise 55 dB → `green`; 55.01 → `amber`. Air 20 μg/m³ → `green`; 20.01 → `amber`.
 2. **Sources composition** — synthetic mixed tiles → correct de-duplicated ordered provenance string.
 3. **Caveat pass-through** — pediatrician's `caveat` string present verbatim in the returned tile dict; every other tile's `caveat` is `""`.
-4. **Empty-input safety** — every source empty / unavailable → all tiles unknown, provenance `""`, no exception raised, response shape still valid.
+4. **Empty-but-available inputs → red, not unknown.** Kita list empty, playground list empty, pediatrician filter empty (Overpass succeeded but 0 matches), noise/heat/air present with valid values that fail every green/amber threshold. Assert every tile is `red`, none is `unknown`. This is the ordinary "sparse suburb" case — empty is a factual answer, not an outage.
+5. **Unavailable inputs → unknown where possible, red where not.** Every WFS-backed source (`noise`, `heat`, `air`, `trees`) marked `{"unavailable": true}`; Overpass buckets flagged with `_error`. Assert: `noise`, `heat`, `air`, `pediatrician`, `playground`, `refuge` tiles are `unknown`; `kita` is `red` (its data is preloaded at boot and cannot report unavailable, so its unknown state is unreachable by design — the `—` in the tile table). Provenance string contains only sources cited by the surviving `red` tile(s); no exception raised; response shape still valid.
 
 Bails on first failure with a readable diff (existing `assert x == y` style in `app/core/*`).
 
