@@ -52,8 +52,8 @@ _WFS_SWIM_NATURAL  = "https://gdi.berlin.de/services/wfs/badegewaesser"
 _WFS_AIR           = "https://gdi.berlin.de/services/wfs/ua_luftreinhalteplan_2018_2025"
 _WFS_HEAT          = "https://gdi.berlin.de/services/wfs/ua_klimabewertung_2022"
 # Spec B — Bureaucracy lens
-_WFS_BEZIRKE       = "https://gdi.berlin.de/services/wfs/alkis_bezirke"        # ponytail: verify layer name at implementation time; probe with GetCapabilities if unsure
-_WFS_BUERGERAEMTER = "https://gdi.berlin.de/services/wfs/buergeraemter"        # ponytail: same — Berlin Geoportal catalog is the source of truth
+_WFS_BEZIRKE       = "https://gdi.berlin.de/services/wfs/alkis_bezirke"        # layer: alkis_bezirke:bezirksgrenzen (verified via GetCapabilities)
+_BUERGERAEMTER_URL = "https://service.berlin.de/standorte/geojson/buergeramt"  # service.berlin.de REST GeoJSON (no WFS published); sentinel layer "_geojson" triggers custom loader
 
 # Base URLs (all under the Berlin Geoportal gdi.berlin.de)
 _WFS_SCHULEN = "https://gdi.berlin.de/services/wfs/schulen"
@@ -482,7 +482,7 @@ BERLIN = CityConfig(
         "air":           "Geoportal Berlin / Umweltatlas — Luftreinhalteplan 2018–2025 (Trend-Szenario 2020) (dl-de/zero-2.0)",
         "heat":          "Geoportal Berlin / Umweltatlas — Klimabewertungskarten 2022 (Bioklima Tag) (dl-de/zero-2.0)",
         "bezirksgrenzen": "Geoportal Berlin / Bezirksgrenzen (dl-de/by-2.0)",
-        "buergeramt":     "Geoportal Berlin / Bürgerämter (dl-de/by-2.0)",
+        "buergeramt":     "ServicePortal Berlin / Bürgerämter-Standorte (dl-de/by-2.0)",
         "finanzamt":      "Curated from berlin.de Finanzamt-Verzeichnis (public reference)",
         "standesamt":     "Curated from berlin.de Standesamt-Verzeichnis (public reference)",
         "lea":            "Curated from Landesamt für Einwanderung Berlin (public reference)",
@@ -492,11 +492,11 @@ BERLIN = CityConfig(
 
     # --- Spec B: Bureaucracy lens ---------------------------------
     bezirksgrenzen_wfs_url=_WFS_BEZIRKE,
-    bezirksgrenzen_layer="alkis_bezirke",                  # ponytail: verify via GetCapabilities
-    bezirksgrenzen_field_map={"name": "namgem"},           # ponytail: probe layer for correct property key
-    buergeramt_wfs_url=_WFS_BUERGERAEMTER,
-    buergeramt_layer="buergeraemter",                      # ponytail: verify via GetCapabilities
-    buergeramt_field_map={"name": "standort", "address": "adresse", "website": "internet"},
+    bezirksgrenzen_layer="alkis_bezirke:bezirksgrenzen",   # verified via GetCapabilities; namgem = Bezirk name
+    bezirksgrenzen_field_map={"name": "namgem"},           # props: name, gem, namgem, namlan, lan
+    buergeramt_wfs_url=_BUERGERAEMTER_URL,
+    buergeramt_layer="_geojson",                           # sentinel: service.berlin.de REST GeoJSON (no WFS for Bürgerämter on gdi.berlin.de)
+    buergeramt_field_map={"name": "name", "address": "address", "website": "website"},
     finanzamts=_FINANZAMTS,
     standesamts_by_bezirk=_STANDESAMTS_BY_BEZIRK,
     arbeitsagenturs=_ARBEITSAGENTURS,
