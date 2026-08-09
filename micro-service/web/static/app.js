@@ -2123,12 +2123,13 @@ function renderAllPanels() {
 function setLifeMode(on) {
   const btn = document.getElementById('life-mode-toggle');
   document.body.classList.toggle('life-mode', on);
-  btn.classList.toggle('pill-btn-brand', on);
+  // Visual ON state lives on the switch (.lm-toggle.on), not on the whole
+  // button. Label stays "Life Mode" — no dynamic text swap.
+  btn.classList.toggle('on', on);
   btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   btn.setAttribute('aria-label', on
-    ? 'Life Mode on: family lens active (toggle to switch off)'
+    ? 'Life Mode on (toggle to switch off)'
     : 'Life Mode off (toggle to switch on)');
-  btn.querySelector('.lm-label').textContent = on ? 'Life Mode: Family' : 'Life Mode';
   try { localStorage.setItem(LM_STATE_KEY, on ? 'on' : 'off'); } catch (e) {}
   renderAllPanels();   // no HTTP call; data already cached per address
   // If the compare view is open, re-render it too (Life Mode forks the output).
