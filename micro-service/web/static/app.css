@@ -593,22 +593,53 @@ footer a{color:var(--brand)}
   .compare-header h2 { font-family:'Plus Jakarta Sans',sans-serif; font-size:0; margin:0 }   /* hide the on-screen H2, printHeader replaces it */
 }
 
-/* --- Life Mode toggle (Task 8) -----------------------------------------
-   Base styling comes from .pill-btn (already defined above).
-   .lm-toggle adds the dot, pulse animation hook, and label layout.
-   ON state (added by Task 9): class="pill-btn pill-btn-brand lm-toggle"
+/* --- Life Mode toggle -------------------------------------------------
+   Base styling comes from .pill-btn (already defined above). The button
+   holds a static "Life Mode" label plus an iOS-style neumorphic switch.
+   The ON state is tracked by the `.on` class on the button itself — no
+   pill-btn-brand swap. See setLifeMode() in app.js.
    Shadow colors: var(--neumo-sh-light) / var(--neumo-sh-dark)            */
 
-.lm-toggle .lm-dot{
-  width:.65em; height:.65em; border-radius:50%;
-  background:var(--muted);
-  box-shadow:inset 1px 1px 2px rgba(0,0,0,.15);
-  transition:background .18s ease, opacity .18s ease;
+.lm-toggle{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:6px 6px 6px 14px;
+}
+
+/* Track — inset neumorphic pill; purple gradient when ON. */
+.lm-toggle .lm-track{
+  position:relative;
+  width:42px; height:24px;
+  border-radius:999px;
+  background:var(--neumo-bg);
+  box-shadow:
+    inset 2px 2px 4px var(--neumo-sh-dark),
+    inset -2px -2px 4px var(--neumo-sh-light);
+  transition: background .3s ease;
   flex-shrink:0;
 }
-.pill-btn-brand.lm-toggle .lm-dot{
-  background:#fff;
-  box-shadow:none;
+.lm-toggle.on .lm-track{
+  background: linear-gradient(135deg, var(--brand-2) 0%, var(--brand) 100%);
+  box-shadow:
+    inset 2px 2px 4px rgba(55,48,163,.45),
+    inset -2px -2px 4px rgba(255,255,255,.20);
+}
+
+/* Knob — raised white circle; slides right when ON. */
+.lm-toggle .lm-knob{
+  position:absolute; top:2px; left:2px;
+  width:20px; height:20px;
+  border-radius:50%;
+  background:#FFFFFF;
+  box-shadow:
+    -1px -1px 2px rgba(255,255,255,.90),
+     1px  1px 3px rgba(94,120,163,.55);
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+}
+.lm-toggle.on .lm-knob{
+  transform: translateX(18px);
+  box-shadow:
+    -1px -1px 2px rgba(255,255,255,.90),
+     1px  1px 3px rgba(55,48,163,.45);
 }
 
 /* Onboarding pulse — draws the eye on first visit.
