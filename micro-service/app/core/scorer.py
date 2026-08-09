@@ -257,6 +257,102 @@ def _tier_refuge(quiet_zone: dict, trees: dict, t: dict) -> dict:
             "numeric": _parts() or "no signal"}
 
 
+def _lens_provenance(cfg, tiles: list) -> str:
+    """Union of `sources` from tiles that contributed a real tier — de-duped,
+    insertion-order preserved (Python 3.7+ dict semantics). Unknown tiles
+    contribute [], so they're skipped naturally. Empty string if nothing to
+    cite; frontend hides the provenance footer in that case (§14.5)."""
+    seen, out = set(), []
+    for tile in tiles:
+        for s in (tile.get("sources") or []):
+            if s and s not in seen:
+                seen.add(s); out.append(s)
+    return " · ".join(out)
+
+
+def _sources_for(cfg, key: str, tier: str) -> list:
+    """Return the `sources` array for one tile. Unknown tiles get []. Every
+    string is looked up in cfg.attribution — never invent a provenance line.
+    Empty strings dropped so a missing attribution key doesn't leak an empty
+    citation."""
+    if tier == TIER_UNKNOWN:
+        return []
+    attr = cfg.attribution
+    mapping = {
+        "kita":         [attr.get("kitas")],
+        "playground":   [attr.get("playgrounds"),
+                         attr.get("parks"),
+                         "© OpenStreetMap contributors (ODbL)"],
+        "pediatrician": ["© OpenStreetMap contributors (ODbL)"],
+        "noise":        [attr.get("noise")],
+        "heat":         [attr.get("heat")],
+        "air":          [attr.get("air")],
+        "refuge":       [attr.get("quiet_zone"), attr.get("trees")],
+    }
+    return [s for s in (mapping.get(key) or []) if s]
+
+
+def young_family_lens(cfg, index, lon: float, lat: float, *,
+                      air: dict, heat: dict, noise: dict,
+                      amenities: dict, trees: dict, quiet_zone: dict) -> dict:
+    """Assemble 7 tile results for one address. Pure — no I/O.
+
+    All inputs are values already computed elsewhere in /api/lookup;
+    the lens is a view over data the address already carries. Never call
+    WFS from here — that keeps the lens from ever disagreeing with the
+    raw data in the same response.
+    """
+    from app.core.amenities import is_paediatric
+
+    lens = cfg.young_family_lens
+    thresholds  = {t.key: t.thresholds       for t in lens.tiles}
+    tile_meta   = {t.key: (t.label, t.icon, t.caveat) for t in lens.tiles}
+
+    kitas = index.kitas_near_bod(lon, lat, 800)
+
+    pg_block  = (amenities or {}).get("playgrounds") or {}
+    pg_items  = pg_block.get("items") or []
+    pg_error  = bool(pg_block.get("error") or pg_block.get("_error"))
+
+    gps_block = (amenities or {}).get("gps") or {}
+    gps_items = gps_block.get("items") or []
+    gps_error = bool(gps_block.get("error") or gps_block.get("_error"))
+    paediatric = [g for g in gps_items if is_paediatric(g.get("tags"))]
+    paediatric.sort(key=lambda x: x.get("distance_m", 10**9))
+
+    results = [
+        ("kita",         _tier_kita(kitas, thresholds["kita"])),
+        ("playground",   _tier_playground(pg_items, pg_error, thresholds["playground"])),
+        ("pediatrician", _tier_pediatrician(paediatric, gps_error, thresholds["pediatrician"])),
+        ("noise",        _tier_noise(noise, thresholds["noise"])),
+        ("heat",         _tier_heat(heat, thresholds["heat"])),
+        ("air",          _tier_air(air, thresholds["air"])),
+        ("refuge",       _tier_refuge(quiet_zone, trees, thresholds["refuge"])),
+    ]
+
+    tiles = []
+    for key, res in results:
+        label, icon, caveat = tile_meta[key]
+        tiles.append({
+            "key":     key,
+            "label":   label,
+            "icon":    icon,
+            "tier":    res["tier"],
+            "rule":    res["rule"],
+            "numeric": res["numeric"],
+            "caveat":  caveat,
+            "sources": _sources_for(cfg, key, res["tier"]),
+        })
+
+    return {
+        "slug":       lens.slug,
+        "label":      lens.label,
+        "audience":   lens.audience_hint,
+        "tiles":      tiles,
+        "provenance": _lens_provenance(cfg, tiles),
+    }
+
+
 if __name__ == "__main__":
     # noise_tier — thresholds copied verbatim from phase3/server.py:_selfcheck.
     assert noise_tier(50)   == "green"
@@ -352,3 +448,62 @@ if __name__ == "__main__":
                         _T["refuge"])["tier"] == TIER_RED
     assert _tier_refuge(None, None, _T["refuge"])["tier"] == TIER_UNKNOWN
     print("scorer.py: young_family tier boundary sweeps OK")
+
+    # -- Sources composition + de-dup order --------------------------------
+    _fake_tiles = [
+        {"sources": ["A", "B"]},
+        {"sources": []},                    # unknown-shaped, contributes nothing
+        {"sources": ["B", "C", "A"]},       # duplicates suppressed, order kept
+        {"sources": None},                  # tolerated
+    ]
+    assert _lens_provenance(_CFG_YF, _fake_tiles) == "A · B · C"
+    assert _lens_provenance(_CFG_YF, [{"sources": []}, {"sources": None}]) == ""
+
+    # -- Caveat pass-through -----------------------------------------------
+    _caveats = {t.key: t.caveat for t in _CFG_YF.young_family_lens.tiles}
+    assert _caveats["pediatrician"], "pediatrician tile must carry a caveat"
+    assert _caveats["kita"] == "" and _caveats["noise"] == ""
+
+    # -- Empty-but-available inputs → red (kita has 0 nearby, noise=100 dB, etc.)
+    #    Uses a stub for the only Index method the composer calls.
+    class _StubIndex:
+        def kitas_near_bod(self, lon, lat, r): return []
+    _empty_result = young_family_lens(
+        _CFG_YF, _StubIndex(), 13.4, 52.5,
+        air={"no2_ugm3": 60}, heat={"day_class": "extreme Belastung"},
+        noise={"l_den": {"total": 70}},
+        amenities={"playgrounds": {"items": []}, "gps": {"items": []}},
+        trees={"crown_coverage_pct": 5},
+        quiet_zone={"distance_m": 5000},
+    )
+    _tiers = {t["key"]: t["tier"] for t in _empty_result["tiles"]}
+    assert all(v == TIER_RED for v in _tiers.values()), _tiers
+
+    # -- Unavailable inputs → unknown where possible, red where not ---------
+    _unavail_result = young_family_lens(
+        _CFG_YF, _StubIndex(), 13.4, 52.5,
+        air={"unavailable": True}, heat={"unavailable": True},
+        noise={"unavailable": True},
+        amenities={"playgrounds": {"items": [], "error": "overpass timeout"},
+                   "gps":         {"items": [], "error": "overpass timeout"}},
+        trees=None, quiet_zone=None,
+    )
+    _u = {t["key"]: t["tier"] for t in _unavail_result["tiles"]}
+    assert _u["noise"]        == TIER_UNKNOWN
+    assert _u["heat"]         == TIER_UNKNOWN
+    assert _u["air"]          == TIER_UNKNOWN
+    assert _u["playground"]   == TIER_UNKNOWN
+    assert _u["pediatrician"] == TIER_UNKNOWN
+    assert _u["refuge"]       == TIER_UNKNOWN
+    assert _u["kita"]         == TIER_RED   # preloaded — unknown unreachable
+
+    # Response shape stability (every tile has the same 8 keys).
+    for t in _unavail_result["tiles"]:
+        assert set(t.keys()) == {"key","label","icon","tier","rule","numeric","caveat","sources"}, t
+    assert _unavail_result["slug"]     == "young_family"
+    assert _unavail_result["label"]    == "Young Family (0–6)"
+    assert _unavail_result["audience"] == "For a family with kids under 6"
+    # kita is red (not unknown) → DOES cite its attribution source.
+    assert "Kindertagesstätten" in _unavail_result["provenance"], _unavail_result["provenance"]
+
+    print("scorer.py: young_family composer + provenance OK")
