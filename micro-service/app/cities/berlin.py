@@ -482,7 +482,7 @@ BERLIN = CityConfig(
         "air":           "Geoportal Berlin / Umweltatlas — Luftreinhalteplan 2018–2025 (Trend-Szenario 2020) (dl-de/zero-2.0)",
         "heat":          "Geoportal Berlin / Umweltatlas — Klimabewertungskarten 2022 (Bioklima Tag) (dl-de/zero-2.0)",
         "bezirksgrenzen": "Geoportal Berlin / Bezirksgrenzen (dl-de/by-2.0)",
-        "buergeramt":     "ServicePortal Berlin / Bürgerämter-Standorte (dl-de/by-2.0)",
+        "buergeramt":     "Berlin ServicePortal / Bürgerämter-Standorte (service.berlin.de)",
         "finanzamt":      "Curated from berlin.de Finanzamt-Verzeichnis (public reference)",
         "standesamt":     "Curated from berlin.de Standesamt-Verzeichnis (public reference)",
         "lea":            "Curated from Landesamt für Einwanderung Berlin (public reference)",
