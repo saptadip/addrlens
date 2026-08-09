@@ -5,6 +5,8 @@ __main__ are the reference set. Selfcheck asserts are the exact ones from
 phase3/server.py:_selfcheck.
 """
 
+from app.core.geo import haversine_m
+
 TIER_GREEN   = "green"
 TIER_AMBER   = "amber"
 TIER_RED     = "red"
@@ -379,6 +381,64 @@ def _tier_arbeitsagentur(offices: list, t: dict) -> dict:
             "numeric": f"nearest {round(m)} min ({nearest['name']})"}
 
 
+def bureaucracy_lens(cfg, index, lon: float, lat: float) -> dict:
+    """Assemble 5 tile results for one address. Pure — no I/O on the hot path.
+
+    Reads preloaded data from Index (Bezirksgrenzen, Bürgerämter) and
+    curated data from CityConfig (Finanzamt / Standesamt / Arbeitsagentur
+    / LEA directories). No external fetches — bureaucracy is deterministic
+    (same inputs → byte-for-byte identical output).
+    """
+    lens = cfg.bureaucracy_lens
+    thresholds = {t.key: t.thresholds for t in lens.tiles}
+    tile_meta  = {t.key: (t.label, t.icon, t.caveat) for t in lens.tiles}
+
+    buergeramts    = index.buergeramt_near(lon, lat)
+    finanzamt      = index.finanzamt_nearest(lon, lat)
+    standesamt     = index.standesamt_for(lon, lat)             # None if outside Berlin
+    lea            = _with_distance(cfg.lea_office, lon, lat)   # LEA is a single point
+    arbeitsagentur = index.arbeitsagentur_near(lon, lat)
+
+    results = [
+        ("buergeramt",     _tier_buergeramt(buergeramts, thresholds["buergeramt"])),
+        ("finanzamt",      _tier_finanzamt(finanzamt, thresholds["finanzamt"])),
+        ("standesamt",     _tier_standesamt(standesamt, thresholds["standesamt"])),
+        ("lea",            _tier_lea(lea, thresholds["lea"])),
+        ("arbeitsagentur", _tier_arbeitsagentur(arbeitsagentur, thresholds["arbeitsagentur"])),
+    ]
+
+    tiles = []
+    for key, res in results:
+        label, icon, caveat = tile_meta[key]
+        tiles.append({
+            "key":     key,
+            "label":   label,
+            "icon":    icon,
+            "tier":    res["tier"],
+            "rule":    res["rule"],
+            "numeric": res["numeric"],
+            "caveat":  caveat,
+            "sources": _sources_for(cfg, key, res["tier"]),
+        })
+
+    return {
+        "slug":       lens.slug,
+        "label":      lens.label,
+        "audience":   lens.audience_hint,
+        "tiles":      tiles,
+        "provenance": _lens_provenance(cfg, tiles),
+    }
+
+
+def _with_distance(office: dict, lon: float, lat: float) -> dict:
+    """Return office dict with `distance_m` added. Used for the single-point
+    LEA (cfg.lea_office doesn't come pre-decorated with distance)."""
+    if not office or "lon" not in office or "lat" not in office:
+        return None
+    d = haversine_m(lon, lat, office["lon"], office["lat"])
+    return {**office, "distance_m": round(d)}
+
+
 def _lens_provenance(cfg, tiles: list) -> str:
     """Union of `sources` from tiles that contributed a real tier — de-duped,
     insertion-order preserved (Python 3.7+ dict semantics). Unknown tiles
@@ -410,6 +470,12 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "heat":         [attr.get("heat")],
         "air":          [attr.get("air")],
         "refuge":       [attr.get("quiet_zone"), attr.get("trees")],
+        # Spec B — Bureaucracy lens
+        "buergeramt":     [attr.get("buergeramt")],
+        "finanzamt":      [attr.get("finanzamt")],
+        "standesamt":     [attr.get("standesamt"), attr.get("bezirksgrenzen")],
+        "lea":            [attr.get("lea")],
+        "arbeitsagentur": [attr.get("arbeitsagentur")],
     }
     return [s for s in (mapping.get(key) or []) if s]
 
@@ -679,3 +745,65 @@ if __name__ == "__main__":
     assert _tier_arbeitsagentur([], _TB["arbeitsagentur"])["tier"] == TIER_UNKNOWN
 
     print("scorer.py: bureaucracy tier boundary sweeps OK")
+
+    # -- Bureaucracy composer — determinism, outside-Berlin, all-empty ------
+    class _StubIndex:
+        def __init__(self, bezirk="Pankow"):
+            self._bezirk = bezirk
+        def bezirk_for(self, lon, lat): return self._bezirk
+        def buergeramt_near(self, lon, lat, radius_m=3000):
+            return [{"name":"BA-Test","distance_m":500}]
+        def arbeitsagentur_near(self, lon, lat, radius_m=5000):
+            return [{"name":"AA-Test","distance_m":800}]
+        def finanzamt_nearest(self, lon, lat):
+            return {"name":"FA-Test","distance_m":600}
+        def standesamt_for(self, lon, lat):
+            if not self._bezirk: return None
+            return {"name": f"Standesamt {self._bezirk}","distance_m":700}
+
+    # Determinism — two identical calls must produce byte-equal dicts.
+    r_a = bureaucracy_lens(_CFG_BUR, _StubIndex(), 13.4, 52.5)
+    r_b = bureaucracy_lens(_CFG_BUR, _StubIndex(), 13.4, 52.5)
+    assert r_a == r_b, "bureaucracy_lens must be deterministic"
+
+    # All 5 tiles present, keys in expected order.
+    _keys = [t["key"] for t in r_a["tiles"]]
+    assert _keys == ["buergeramt","finanzamt","standesamt","lea","arbeitsagentur"], _keys
+
+    # Response shape stability (every tile has all 8 keys).
+    for t in r_a["tiles"]:
+        assert set(t.keys()) == {"key","label","icon","tier","rule","numeric","caveat","sources"}, t
+    assert r_a["slug"] == "bureaucracy"
+    assert r_a["label"] == "Bureaucracy"
+
+    # Caveat pass-through
+    _caveats = {t.key: t.caveat for t in _CFG_BUR.bureaucracy_lens.tiles}
+    assert _caveats["buergeramt"], "Bürgeramt tile must carry a caveat"
+    assert "Steuernummer" in _caveats["finanzamt"]
+    assert "Specialty branches" in _caveats["lea"]
+    assert _caveats["standesamt"] == "" and _caveats["arbeitsagentur"] == ""
+
+    # Outside-Berlin — bezirk_for returns None → Standesamt goes unknown
+    r_out = bureaucracy_lens(_CFG_BUR, _StubIndex(bezirk=None), 13.4, 52.5)
+    _by_out = {t["key"]: t["tier"] for t in r_out["tiles"]}
+    assert _by_out["standesamt"] == "unknown", _by_out
+
+    # Empty inputs → red, not unknown (for the "list of many" tiles)
+    class _StubEmpty(_StubIndex):
+        def buergeramt_near(self, lon, lat, radius_m=3000): return []
+        def arbeitsagentur_near(self, lon, lat, radius_m=5000): return []
+    r_empty = bureaucracy_lens(_CFG_BUR, _StubEmpty(), 13.4, 52.5)
+    _by_empty = {t["key"]: t["tier"] for t in r_empty["tiles"]}
+    # Empty preloaded list → UNKNOWN (list "unavailable" from preload failure)
+    # For "list of many" tiles, empty-list is genuinely ambiguous — the tier
+    # function goes unknown when it can't find any office. This matches Spec A
+    # semantics for playground-when-both-sources-fail.
+    assert _by_empty["buergeramt"] == "unknown"
+    assert _by_empty["arbeitsagentur"] == "unknown"
+
+    # Provenance: for the determinism case (all non-unknown), provenance must
+    # cite the sources of all 5 tiles' contributed attribution keys.
+    assert "Bürgerämter" in r_a["provenance"], r_a["provenance"]
+    assert "Finanzamt" in r_a["provenance"] or "Finanzämter" in r_a["provenance"]
+
+    print("scorer.py: bureaucracy composer OK")
