@@ -189,12 +189,16 @@ function renderLensPicker(activeSlug) {
   const bCls   = active === 'bureaucracy'  ? 'lens-tab active' : 'lens-tab';
   const yfSel  = active === 'young_family' ? 'true'  : 'false';
   const bSel   = active === 'bureaucracy'  ? 'true'  : 'false';
+  // Inline SVGs match the raw-mode .tab icon style: 24×24 viewBox,
+  // stroke="currentColor", 2px stroke, round joins.
+  const yfIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="2.5"/><path d="M4 21v-4a5 5 0 0 1 10 0v4"/><circle cx="17" cy="10" r="1.8"/><path d="M13.5 21v-3a3 3 0 0 1 6 0v3"/></svg>`;
+  const bIcon  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M12 3l9 6H3z"/><path d="M5 9v12M9 9v12M15 9v12M19 9v12"/></svg>`;
   return `
     <div class="lens-picker" role="tablist" aria-label="Choose a lens">
       <button class="${yfCls}" data-lens="young_family"
-              role="tab" aria-selected="${yfSel}">Young Family</button>
+              role="tab" aria-selected="${yfSel}">${yfIcon}Young Family</button>
       <button class="${bCls}" data-lens="bureaucracy"
-              role="tab" aria-selected="${bSel}">Bureaucracy</button>
+              role="tab" aria-selected="${bSel}">${bIcon}Bureaucracy</button>
     </div>
   `;
 }
