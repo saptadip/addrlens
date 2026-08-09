@@ -19,7 +19,13 @@ const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
   flame:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 17c1.5 0 2.5-1 2.5-2.5 0-1-.5-2-1.5-3-2 2-3 3-3 3z"/><path d="M12 2c1 3.5 4 6 4 9a5.5 5.5 0 0 1-11 0c0-1.5.5-3 1.5-4C7 8 7.5 8 8 8.5c0-2 2-4 4-6.5z"/></svg>',
   shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-  quiet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="17" y1="9" x2="22" y2="14"/><line x1="22" y1="9" x2="17" y2="14"/></svg>'};
+  quiet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z"/><line x1="17" y1="9" x2="22" y2="14"/><line x1="22" y1="9" x2="17" y2="14"/></svg>',
+  kita:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-2 1.5-4 3.5-4 6a4 4 0 0 0 8 0c0-2.5-2-4.5-4-6z"/><path d="M8 21v-4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v4"/><path d="M5 21h14"/></svg>',
+  pediatrician:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v8m-4-4h8"/><circle cx="12" cy="16" r="5"/><path d="M9.5 16h5M12 13.5v5"/></svg>',
+  noise:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 4V6l-5 4H4z"/><path d="M16 8a5 5 0 0 1 0 8"/></svg>',
+  heat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c0 4-3 5-3 9a3 3 0 0 0 6 0c0-4-3-5-3-9z"/><path d="M7 5c0 3-2 4-2 7a4 4 0 0 0 8 0"/><path d="M17 5c0 3 2 4 2 7a4 4 0 0 0-8 0"/></svg>',
+  air:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h11a3 3 0 1 0-3-3M3 14h15a3 3 0 1 1-3 3"/></svg>',
+  refuge:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V10l9-6 9 6v11"/><path d="M9 21V13h6v8"/></svg>'};
 const AMEN=[
   ['playgrounds','Playgrounds',ico.playground,'#22C55E'],
   ['parks','Parks / green space',ico.tree,'#10B981'],
