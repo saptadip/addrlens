@@ -772,3 +772,10 @@ body:not(.life-mode) .lens-view{ display:none !important; }
   outline:2px solid var(--brand, #4a5cff); outline-offset:3px;
 }
 .lens-compare-cell.tier-unknown{ background:#eef0f4; color:#7a8090; }
+
+/* --- Lens picker (Spec B) --------------------------------------------- */
+.lens-picker{
+  display:flex; flex-wrap:wrap; gap:.6em;
+  margin-bottom:1em;
+}
+.lens-picker .pill-btn{ font-size:.85em; }
