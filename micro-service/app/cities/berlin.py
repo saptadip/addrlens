@@ -8,7 +8,7 @@ plan §9.3 as you go.
 import re
 from pathlib import Path
 
-from app.cities.base import CityConfig
+from app.cities.base import CityConfig, LensConfig, LensTileConfig
 
 # Order matters: longer/multi-word forms first so "freier Träger" is matched
 # before bare "Träger" (see phase3/server.py:GERMAN_GLOSS).
@@ -60,6 +60,61 @@ _WFS_KKH     = "https://gdi.berlin.de/services/wfs/krankenhaeuser"
 _WFS_BRUNNEN = "https://gdi.berlin.de/services/wfs/trinkwasserbrunnen"
 _WFS_GRUEN   = "https://gdi.berlin.de/services/wfs/gruenanlagen"
 _WFS_NOISE   = "https://gdi.berlin.de/services/wfs/ua_stratlaerm_2022"
+
+# --- Young Family lens (Spec A) --------------------------------------------
+# Seven traffic-light tiles for families with kids under 6. Thresholds live
+# per tile — every "why is this the tier" answer sits in one table here.
+# Boundary convention: inclusive on the greener side (≤ green_m is green;
+# > green_m is amber). See
+# docs/superpowers/specs/2026-08-09-young-family-lens-design.md.
+YOUNG_FAMILY_LENS: LensConfig = LensConfig(
+    slug="young_family",
+    label="Young Family (0–6)",
+    audience_hint="For a family with kids under 6",
+    tiles=(
+        LensTileConfig(
+            key="kita", label="Kita reachability", icon="kita",
+            thresholds={"green_count": 3, "green_m": 400, "amber_m": 800},
+        ),
+        LensTileConfig(
+            key="playground", label="Playground within stroller walk", icon="playground",
+            thresholds={"green_m": 400, "amber_m": 800},
+        ),
+        LensTileConfig(
+            key="pediatrician", label="Pediatrician within walk", icon="pediatrician",
+            thresholds={"green_m": 800, "amber_m": 1500},
+            caveat=("OSM community-tagged — inner-district coverage is good; "
+                    "outer districts may under-report."),
+        ),
+        LensTileConfig(
+            key="noise", label="Façade noise", icon="noise",
+            thresholds={"green_db": 55, "amber_db": 60},
+        ),
+        LensTileConfig(
+            key="heat", label="Summer heat", icon="heat",
+            # Umweltatlas class strings — matched case-insensitively as substrings.
+            thresholds={
+                "green_classes": ("keine Belastung", "geringe Belastung"),
+                "amber_classes": ("mittlere Belastung", "starke Belastung"),
+            },
+        ),
+        LensTileConfig(
+            key="air", label="Air quality (NO₂)", icon="air",
+            # 20/40 tiers follow the app's existing NO₂ card thresholds
+            # (§14.9 tier-color convention), not WHO 2021 strictly (10 μg/m³).
+            thresholds={"green_ugm3": 20, "amber_ugm3": 40},
+        ),
+        LensTileConfig(
+            key="refuge", label="Quiet / green refuge nearby", icon="refuge",
+            # Composite: quiet zone distance OR crown coverage %. OR-forgiving
+            # at both tiers so losing one signal still yields a real tier.
+            thresholds={
+                "green_quiet_m": 400,  "amber_quiet_m": 1000,
+                "green_crown_pct": 25, "amber_crown_pct": 15,
+            },
+        ),
+    ),
+)
 
 BERLIN = CityConfig(
     slug="berlin",
@@ -265,4 +320,5 @@ BERLIN = CityConfig(
         "air":           "Geoportal Berlin / Umweltatlas — Luftreinhalteplan 2018–2025 (Trend-Szenario 2020) (dl-de/zero-2.0)",
         "heat":          "Geoportal Berlin / Umweltatlas — Klimabewertungskarten 2022 (Bioklima Tag) (dl-de/zero-2.0)",
     },
+    young_family_lens=YOUNG_FAMILY_LENS,
 )
