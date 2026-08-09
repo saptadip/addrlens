@@ -51,6 +51,9 @@ _WFS_SWIM_NATURAL  = "https://gdi.berlin.de/services/wfs/badegewaesser"
 # Phase 2 (Umweltatlas)
 _WFS_AIR           = "https://gdi.berlin.de/services/wfs/ua_luftreinhalteplan_2018_2025"
 _WFS_HEAT          = "https://gdi.berlin.de/services/wfs/ua_klimabewertung_2022"
+# Spec B — Bureaucracy lens
+_WFS_BEZIRKE       = "https://gdi.berlin.de/services/wfs/alkis_bezirke"        # ponytail: verify layer name at implementation time; probe with GetCapabilities if unsure
+_WFS_BUERGERAEMTER = "https://gdi.berlin.de/services/wfs/buergeraemter"        # ponytail: same — Berlin Geoportal catalog is the source of truth
 
 # Base URLs (all under the Berlin Geoportal gdi.berlin.de)
 _WFS_SCHULEN = "https://gdi.berlin.de/services/wfs/schulen"
@@ -60,6 +63,127 @@ _WFS_KKH     = "https://gdi.berlin.de/services/wfs/krankenhaeuser"
 _WFS_BRUNNEN = "https://gdi.berlin.de/services/wfs/trinkwasserbrunnen"
 _WFS_GRUEN   = "https://gdi.berlin.de/services/wfs/gruenanlagen"
 _WFS_NOISE   = "https://gdi.berlin.de/services/wfs/ua_stratlaerm_2022"
+
+# --- Bureaucracy lens curated directories (Spec B) -------------------------
+# Small, stable federal-adjacent directories. Hardcoded here per §14.4
+# "BOD first, curated fallback" — the Berlin Geoportal doesn't cleanly
+# publish these; curated is the honest choice for stable directories.
+# ponytail: refresh annually or when a Bezirk merger/rename happens.
+
+# One Standesamt per Bezirk (12 total). Names + addresses from berlin.de.
+# Coordinates rounded to 4 decimals (~11 m precision). Verify at
+# implementation time via Nominatim or Berlin's own address lookup.
+_STANDESAMTS_BY_BEZIRK = {
+    "Mitte":                          {"name": "Standesamt Mitte",
+                                        "address": "Karl-Marx-Allee 31, 10178 Berlin",
+                                        "lat": 52.5197, "lon": 13.4180},
+    "Friedrichshain-Kreuzberg":       {"name": "Standesamt Friedrichshain-Kreuzberg",
+                                        "address": "Schlesische Str. 27a, 10997 Berlin",
+                                        "lat": 52.5008, "lon": 13.4460},
+    "Pankow":                         {"name": "Standesamt Pankow",
+                                        "address": "Fröbelstr. 17, 10405 Berlin",
+                                        "lat": 52.5348, "lon": 13.4249},
+    "Charlottenburg-Wilmersdorf":     {"name": "Standesamt Charlottenburg-Wilmersdorf",
+                                        "address": "Otto-Suhr-Allee 100, 10585 Berlin",
+                                        "lat": 52.5163, "lon": 13.3020},
+    "Spandau":                        {"name": "Standesamt Spandau",
+                                        "address": "Carl-Schurz-Str. 2/6, 13597 Berlin",
+                                        "lat": 52.5350, "lon": 13.2010},
+    "Steglitz-Zehlendorf":            {"name": "Standesamt Steglitz-Zehlendorf",
+                                        "address": "Kirchstr. 1/3, 14163 Berlin",
+                                        "lat": 52.4319, "lon": 13.2596},
+    "Tempelhof-Schöneberg":           {"name": "Standesamt Tempelhof-Schöneberg",
+                                        "address": "Rathausstr. 27, 12105 Berlin",
+                                        "lat": 52.4685, "lon": 13.3888},
+    "Neukölln":                       {"name": "Standesamt Neukölln",
+                                        "address": "Karl-Marx-Str. 83, 12040 Berlin",
+                                        "lat": 52.4813, "lon": 13.4400},
+    "Treptow-Köpenick":               {"name": "Standesamt Treptow-Köpenick",
+                                        "address": "Alt-Köpenick 21, 12555 Berlin",
+                                        "lat": 52.4459, "lon": 13.5765},
+    "Marzahn-Hellersdorf":            {"name": "Standesamt Marzahn-Hellersdorf",
+                                        "address": "Riesaer Str. 94, 12627 Berlin",
+                                        "lat": 52.5390, "lon": 13.6055},
+    "Lichtenberg":                    {"name": "Standesamt Lichtenberg",
+                                        "address": "Egon-Erwin-Kisch-Str. 106, 13059 Berlin",
+                                        "lat": 52.5670, "lon": 13.5030},
+    "Reinickendorf":                  {"name": "Standesamt Reinickendorf",
+                                        "address": "Eichborndamm 215-239, 13437 Berlin",
+                                        "lat": 52.5825, "lon": 13.3130},
+}
+
+# Finanzämter — ~17 offices across Berlin. Individual-income tax
+# jurisdictions carve Berlin by street ranges, so this directory is a
+# "starting point" (caveat on the lens tile carries this disclosure).
+# ponytail: verify addresses at berlin.de/finanzaemter; annual refresh.
+_FINANZAMTS = (
+    {"name": "Finanzamt Charlottenburg",       "address": "Bismarckstr. 48, 10627 Berlin",
+     "lat": 52.5075, "lon": 13.3060},
+    {"name": "Finanzamt Friedrichshain-Kreuzberg", "address": "Möllendorffstr. 34, 10367 Berlin",
+     "lat": 52.5225, "lon": 13.4550},
+    {"name": "Finanzamt Lichtenberg",          "address": "Josef-Orlopp-Str. 62, 10365 Berlin",
+     "lat": 52.5225, "lon": 13.4790},
+    {"name": "Finanzamt Marzahn-Hellersdorf",  "address": "Allee der Kosmonauten 29, 10315 Berlin",
+     "lat": 52.5305, "lon": 13.5265},
+    {"name": "Finanzamt Mitte/Tiergarten",     "address": "Neue Jakobstr. 6-7, 10179 Berlin",
+     "lat": 52.5140, "lon": 13.4160},
+    {"name": "Finanzamt Neukölln",             "address": "Thiemannstr. 1, 12059 Berlin",
+     "lat": 52.4680, "lon": 13.4530},
+    {"name": "Finanzamt Pankow/Weißensee",     "address": "Storkower Str. 134, 10407 Berlin",
+     "lat": 52.5290, "lon": 13.4560},
+    {"name": "Finanzamt Prenzlauer Berg",      "address": "Storkower Str. 134, 10407 Berlin",
+     "lat": 52.5290, "lon": 13.4560},
+    {"name": "Finanzamt Reinickendorf",        "address": "Eichborndamm 208, 13437 Berlin",
+     "lat": 52.5820, "lon": 13.3140},
+    {"name": "Finanzamt Schöneberg",           "address": "Bundesallee 171, 10715 Berlin",
+     "lat": 52.4820, "lon": 13.3335},
+    {"name": "Finanzamt Spandau",              "address": "Nonnendammallee 15-21, 13599 Berlin",
+     "lat": 52.5395, "lon": 13.2170},
+    {"name": "Finanzamt Steglitz",             "address": "Schloßstr. 58-59, 12165 Berlin",
+     "lat": 52.4570, "lon": 13.3260},
+    {"name": "Finanzamt Tempelhof",            "address": "Tempelhofer Damm 234, 12099 Berlin",
+     "lat": 52.4525, "lon": 13.3860},
+    {"name": "Finanzamt Treptow-Köpenick",     "address": "Seelenbinderstr. 99, 12555 Berlin",
+     "lat": 52.4570, "lon": 13.5770},
+    {"name": "Finanzamt Wedding",              "address": "Osloer Str. 37, 13359 Berlin",
+     "lat": 52.5540, "lon": 13.3800},
+    {"name": "Finanzamt Wilmersdorf",          "address": "Volkslehrer- und Blissestr., 10713 Berlin",
+     "lat": 52.4870, "lon": 13.3120},
+    {"name": "Finanzamt Zehlendorf",           "address": "Martin-Buber-Str. 20, 14163 Berlin",
+     "lat": 52.4330, "lon": 13.2540},
+)
+
+# Arbeitsagentur — Bundesagentur für Arbeit branches in Berlin.
+# ~10 branches. Curated from arbeitsagentur.de.
+_ARBEITSAGENTURS = (
+    {"name": "Agentur für Arbeit Berlin Mitte",     "address": "Friedrichstr. 34, 10969 Berlin",
+     "lat": 52.5063, "lon": 13.3900},
+    {"name": "Agentur für Arbeit Berlin Nord",      "address": "Königin-Elisabeth-Str. 49, 14059 Berlin",
+     "lat": 52.5290, "lon": 13.2880},
+    {"name": "Agentur für Arbeit Berlin Süd",       "address": "Sonnenallee 282, 12057 Berlin",
+     "lat": 52.4700, "lon": 13.4500},
+    {"name": "Agentur für Arbeit Berlin Marzahn",   "address": "Allee der Kosmonauten 29, 12681 Berlin",
+     "lat": 52.5410, "lon": 13.5910},
+    {"name": "Agentur für Arbeit Berlin Neukölln",  "address": "Sonnenallee 282, 12057 Berlin",
+     "lat": 52.4700, "lon": 13.4500},
+    {"name": "Agentur für Arbeit Berlin Pankow",    "address": "Storkower Str. 118, 10407 Berlin",
+     "lat": 52.5300, "lon": 13.4530},
+    {"name": "Agentur für Arbeit Berlin Reinickendorf", "address": "Miraustr. 54, 13509 Berlin",
+     "lat": 52.5900, "lon": 13.3320},
+    {"name": "Agentur für Arbeit Berlin Spandau",   "address": "Altonaer Str. 70-72, 13581 Berlin",
+     "lat": 52.5320, "lon": 13.2010},
+    {"name": "Agentur für Arbeit Berlin Steglitz",  "address": "Kaiser-Wilhelm-Str. 1, 12247 Berlin",
+     "lat": 52.4360, "lon": 13.3200},
+    {"name": "Agentur für Arbeit Berlin Charlottenburg", "address": "Königin-Elisabeth-Str. 49, 14059 Berlin",
+     "lat": 52.5290, "lon": 13.2880},
+)
+
+# LEA — Landesamt für Einwanderung, main office.
+_LEA_OFFICE = {
+    "name": "LEA Berlin — Landesamt für Einwanderung",
+    "address": "Friedrich-Krause-Ufer 24, 13353 Berlin",
+    "lat": 52.5450, "lon": 13.3616,
+}
 
 # --- Young Family lens (Spec A) --------------------------------------------
 # Seven traffic-light tiles for families with kids under 6. Thresholds live
@@ -112,6 +236,44 @@ YOUNG_FAMILY_LENS: LensConfig = LensConfig(
                 "green_quiet_m": 400,  "amber_quiet_m": 1000,
                 "green_crown_pct": 25, "amber_crown_pct": 15,
             },
+        ),
+    ),
+)
+
+# --- Bureaucracy lens (Spec B) --------------------------------------------
+# Five traffic-light tiles for Berlin public-admin infrastructure.
+# Boundary convention: inclusive on greener side (≤ 15 min = green;
+# > 15 min = amber). See
+# docs/superpowers/specs/2026-08-09-bureaucracy-lens-design.md.
+BUREAUCRACY_LENS: LensConfig = LensConfig(
+    slug="bureaucracy",
+    label="Bureaucracy",
+    audience_hint="Public admin offices you'll visit as a new arrival",
+    tiles=(
+        LensTileConfig(
+            key="buergeramt", label="Bürgeramt (Anmeldung)", icon="buergeramt",
+            thresholds={"green_min": 15, "amber_min": 30},
+            caveat="Berlin lets you book any Bürgeramt for Anmeldung — not restricted by PLZ.",
+        ),
+        LensTileConfig(
+            key="finanzamt", label="Finanzamt (tax office)", icon="finanzamt",
+            thresholds={"green_min": 15, "amber_min": 30},
+            caveat=("Your assigned Finanzamt is set by Steuernummer, not address alone. "
+                    "Nearest office shown as a starting point."),
+        ),
+        LensTileConfig(
+            key="standesamt", label="Standesamt (marriage / birth)", icon="standesamt",
+            thresholds={"green_min": 15, "amber_min": 30},
+        ),
+        LensTileConfig(
+            key="lea", label="LEA (residence permit)", icon="lea",
+            thresholds={"green_min": 15, "amber_min": 30},
+            caveat=("Specialty branches exist for skilled workers, students, and refugees — "
+                    "check LEA Berlin's website for the right one."),
+        ),
+        LensTileConfig(
+            key="arbeitsagentur", label="Arbeitsagentur", icon="arbeitsagentur",
+            thresholds={"green_min": 15, "amber_min": 30},
         ),
     ),
 )
@@ -319,6 +481,25 @@ BERLIN = CityConfig(
         "natural_swim":  "Geoportal Berlin / Badegewässerqualität (CC-BY-4.0) · LAGeSo",
         "air":           "Geoportal Berlin / Umweltatlas — Luftreinhalteplan 2018–2025 (Trend-Szenario 2020) (dl-de/zero-2.0)",
         "heat":          "Geoportal Berlin / Umweltatlas — Klimabewertungskarten 2022 (Bioklima Tag) (dl-de/zero-2.0)",
+        "bezirksgrenzen": "Geoportal Berlin / Bezirksgrenzen (dl-de/by-2.0)",
+        "buergeramt":     "Geoportal Berlin / Bürgerämter (dl-de/by-2.0)",
+        "finanzamt":      "Curated from berlin.de Finanzamt-Verzeichnis (public reference)",
+        "standesamt":     "Curated from berlin.de Standesamt-Verzeichnis (public reference)",
+        "lea":            "Curated from Landesamt für Einwanderung Berlin (public reference)",
+        "arbeitsagentur": "Curated from Bundesagentur für Arbeit Berlin-Brandenburg (public reference)",
     },
     young_family_lens=YOUNG_FAMILY_LENS,
+
+    # --- Spec B: Bureaucracy lens ---------------------------------
+    bezirksgrenzen_wfs_url=_WFS_BEZIRKE,
+    bezirksgrenzen_layer="alkis_bezirke",                  # ponytail: verify via GetCapabilities
+    bezirksgrenzen_field_map={"name": "namgem"},           # ponytail: probe layer for correct property key
+    buergeramt_wfs_url=_WFS_BUERGERAEMTER,
+    buergeramt_layer="buergeraemter",                      # ponytail: verify via GetCapabilities
+    buergeramt_field_map={"name": "standort", "address": "adresse", "website": "internet"},
+    finanzamts=_FINANZAMTS,
+    standesamts_by_bezirk=_STANDESAMTS_BY_BEZIRK,
+    arbeitsagenturs=_ARBEITSAGENTURS,
+    lea_office=_LEA_OFFICE,
+    bureaucracy_lens=BUREAUCRACY_LENS,
 )
