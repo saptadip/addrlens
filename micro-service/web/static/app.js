@@ -870,6 +870,7 @@ function render(d){
   fetchAmenities(a.lat,a.lon); // eager: loads in parallel with user reading Education panel
   fetchNoise(a.lat,a.lon);     // eager: single WFS call, small payload
   refreshImpressionLaunch();   // show ✨ Impression pill if this address already has saved votes
+  renderAllPanels();           // Life Mode: refresh lens view for new address data
 }
 
 function emptyEnvPending(){
@@ -1910,9 +1911,79 @@ function pin(color,size){return L.divIcon({className:'',html:`<div style="width:
 function iconPin(svg,color){return L.divIcon({className:'',html:`<div class="amen-pin" style="background:${color}">${svg}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})}
 function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);return iconPin(meta[2],meta[3])}
 
+// -- Life Mode rendering (Task 10) ------------------------------------------
+
+// escapeHtml — alias to existing esc(); brief requires this name.
+function escapeHtml(s) { return esc(s == null ? '' : s); }
+
+function renderLensTile(tile) {
+  const tier = tile.tier || 'unknown';
+  const iconSVG = ico[tile.icon] || '';
+  const badge = tier === 'unknown' ? 'N/A' : tier.toUpperCase();
+  const ariaLabel = escapeHtml(tile.label + ', tier ' + tier + ': ' + tile.rule);
+  return `
+    <section class="cell lens-tile tier-${escapeHtml(tier)}"
+             aria-label="${ariaLabel}">
+      <div class="tile-head">
+        <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
+        <span class="tile-label">${escapeHtml(tile.label)}</span>
+        <span class="tile-tier-badge">${escapeHtml(badge)}</span>
+      </div>
+      <div class="tile-rule">${escapeHtml(tile.rule)}</div>
+      ${tile.numeric ? `<div class="tile-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
+      ${tile.caveat  ? `<div class="tile-caveat">${escapeHtml(tile.caveat)}</div>`  : ''}
+    </section>
+  `;
+}
+
+function renderLensSingle(addr) {
+  const lens = addr && addr.lens && addr.lens.young_family;
+  if (!lens || lens.error) {
+    return `<div class="lens-empty">Lens unavailable for this address.</div>`;
+  }
+  const tilesHtml = (lens.tiles || []).map(renderLensTile).join('');
+  const prov = lens.provenance
+    ? `<footer class="lens-provenance">${escapeHtml(lens.provenance)}</footer>`
+    : '';
+  return `
+    <div class="lens-view">
+      <header class="lens-header">
+        <h2>${escapeHtml(lens.label)}</h2>
+        <p class="audience">${escapeHtml(lens.audience || '')}</p>
+      </header>
+      <div class="lens-grid">${tilesHtml}</div>
+      ${prov}
+    </div>
+  `;
+}
+
 // -- Life Mode state management (Task 9) ------------------------------------
-// Filled in by Task 10; declared here so setLifeMode() can call it safely.
-function renderAllPanels() { /* no-op until Task 10 */ }
+// renderAllPanels: called by setLifeMode() on every toggle.
+// Single-address view: eduData holds the full /api/lookup response.
+// When Life Mode is ON, render the lens view in place of the raw tabs.
+function renderAllPanels() {
+  const onLife = document.body.classList.contains('life-mode');
+  let lensEl = document.getElementById('lens-view');
+  if (!lensEl) {
+    // Lazy-create the lens container once, inserted after the panels block.
+    lensEl = document.createElement('div');
+    lensEl.id = 'lens-view';
+    // Insert after the last panel section inside #view-main.
+    const panelConn = document.getElementById('panel-conn');
+    if (panelConn && panelConn.parentNode) {
+      panelConn.parentNode.insertBefore(lensEl, panelConn.nextSibling);
+    } else {
+      const viewMain = document.getElementById('view-main');
+      if (viewMain) viewMain.appendChild(lensEl);
+    }
+  }
+  if (onLife) {
+    // Render the lens grid if data is loaded.
+    lensEl.innerHTML = eduData ? renderLensSingle(eduData) : '';
+  } else {
+    lensEl.innerHTML = '';
+  }
+}
 
 function setLifeMode(on) {
   const btn = document.getElementById('life-mode-toggle');

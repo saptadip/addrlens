@@ -648,3 +648,89 @@ footer a{color:var(--brand)}
   font-style:italic;
   color:#9CA3AF;
 }
+
+/* --- Life Mode content (Task 10) ----------------------------------------
+   Hides raw tab buttons + panels when Life Mode is ON; shows .lens-view.
+   Uses real DOM IDs from index.html — no .tab-bar / .tab-panel selectors.  */
+
+body.life-mode #tabs-row,
+body.life-mode #panel-edu,
+body.life-mode #panel-amen,
+body.life-mode #panel-med,
+body.life-mode #panel-env,
+body.life-mode #panel-conn{ display:none !important; }
+
+body:not(.life-mode) .lens-view{ display:none !important; }
+
+/* Lens view container */
+.lens-view{ display:flex; flex-direction:column; gap:1em; padding:1em 0; }
+
+.lens-header h2{
+  margin:0 0 .1em 0;
+  font:700 1.15em/1.15 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:var(--ink, #2a2f3a);
+  letter-spacing:-.01em;
+}
+.lens-header .audience{
+  margin:0; color:var(--muted, #667);
+  font:500 .88em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.lens-grid{
+  display:grid; gap:.9em;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+/* Tile — reuses .cell neumorphic shape; override ::before for tier color bar */
+.lens-tile{
+  position:relative; padding:.9em 1em .9em 1.3em;
+  min-height:118px;
+  display:flex; flex-direction:column; gap:.35em;
+}
+.lens-tile::before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:6px;
+  background:var(--tier-color, var(--muted, #b0b6c0));
+  border-top-left-radius:inherit; border-bottom-left-radius:inherit;
+  transform-origin:top; transform:scaleY(0);
+  transition: transform .28s cubic-bezier(.2,.7,.2,1);
+}
+.lens-tile:hover::before{ transform:scaleY(1); }
+
+.lens-tile .tile-head{ display:flex; align-items:center; gap:.55em; }
+.lens-tile .tile-icon{ width:1.1em; height:1.1em; flex:0 0 auto;
+                       color:var(--tier-color, var(--muted, #b0b6c0)); }
+.lens-tile .tile-icon svg{ width:100%; height:100%; }
+.lens-tile .tile-label{ flex:1;
+                        font:600 .95em/1.2 'Plus Jakarta Sans', system-ui, sans-serif;
+                        color:var(--ink, #2a2f3a); }
+.lens-tile .tile-tier-badge{
+  font:700 .68em/1 'Plus Jakarta Sans', system-ui, sans-serif;
+  letter-spacing:.06em;
+  padding:.32em .55em; border-radius:999px;
+  background:var(--tier-color, #b0b6c0); color:#fff;
+}
+.lens-tile .tile-rule{
+  font:500 .82em/1.3 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:var(--muted, #667);
+}
+.lens-tile .tile-numeric{
+  font:500 .78em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:var(--ink-2, #4a4f5a);
+}
+.lens-tile .tile-caveat{
+  margin-top:.15em;
+  font:italic 400 .72em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:#8a8f9a;
+}
+
+/* Tier color variables — use existing design tokens (pre-flight ruling) */
+.tier-green{ --tier-color: var(--success); }
+.tier-amber{ --tier-color: var(--amber); }
+.tier-red  { --tier-color: var(--danger); }
+/* .tier-unknown: --tier-color not set; ::before uses muted gray fallback */
+
+.lens-provenance{
+  font:italic 400 .72em/1.4 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:#8a8f9a; padding:0 .5em;
+}
+.lens-empty{ padding:1em; color:var(--muted, #667); font-style:italic; }
