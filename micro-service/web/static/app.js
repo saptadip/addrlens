@@ -153,9 +153,56 @@ function walkMin(m){return Math.round(m/80);}
 function shortUrl(u){ try{ return new URL(u).hostname.replace(/^www\./,''); } catch(e){ return u.length>40?u.slice(0,40)+'…':u; } }
 
 // -- Life Mode constants (Task 9) -------------------------------------------
-const LM_STATE_KEY = 'berlin-lens-mode-v1';       // "on" | "off"
-const LM_SEEN_KEY  = 'berlin-lens-mode-seen-v1';  // "1" once seen or dismissed
-const LM_PULSE_MS  = 30000;                       // auto-stop pulse after 30 s
+const LM_STATE_KEY  = 'berlin-lens-mode-v1';       // "on" | "off"
+const LM_SEEN_KEY   = 'berlin-lens-mode-seen-v1';  // "1" once seen or dismissed
+const LM_PULSE_MS   = 30000;                       // auto-stop pulse after 30 s
+const LM_ACTIVE_KEY  = 'berlin-lens-active-v1';    // "young_family"|"bureaucracy"
+const LM_DEFAULT_LENS = 'young_family';            // default for first-time users
+
+function getActiveLens() {
+  try {
+    const saved = localStorage.getItem(LM_ACTIVE_KEY);
+    if (saved === 'young_family' || saved === 'bureaucracy') return saved;
+  } catch (e) {}
+  return LM_DEFAULT_LENS;
+}
+
+function setActiveLens(slug) {
+  if (slug !== 'young_family' && slug !== 'bureaucracy') return;
+  try { localStorage.setItem(LM_ACTIVE_KEY, slug); } catch (e) {}
+  // Update picker button states across any rendered picker in the DOM.
+  document.querySelectorAll('.lens-picker [data-lens]').forEach(btn => {
+    const on = btn.dataset.lens === slug;
+    btn.classList.toggle('pill-btn-brand', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  if (typeof renderAllPanels === 'function') renderAllPanels();
+  // If the compare view is open, re-render the matrix for the new active lens.
+  if (location.hash === '#compare' && typeof renderCompare === 'function') renderCompare();
+}
+
+function renderLensPicker(activeSlug) {
+  const active = activeSlug || getActiveLens();
+  const yfCls  = active === 'young_family' ? 'pill-btn pill-btn-brand' : 'pill-btn';
+  const bCls   = active === 'bureaucracy'  ? 'pill-btn pill-btn-brand' : 'pill-btn';
+  const yfSel  = active === 'young_family' ? 'true'  : 'false';
+  const bSel   = active === 'bureaucracy'  ? 'true'  : 'false';
+  return `
+    <div class="lens-picker" role="tablist" aria-label="Choose a lens">
+      <button class="${yfCls}" data-lens="young_family"
+              role="tab" aria-selected="${yfSel}">Young Family (0–6)</button>
+      <button class="${bCls}" data-lens="bureaucracy"
+              role="tab" aria-selected="${bSel}">Bureaucracy</button>
+    </div>
+  `;
+}
+
+function isAnyLensAvailable(addr) {
+  const lens = (addr && addr.lens) || {};
+  const y = lens.young_family;
+  const b = lens.bureaucracy;
+  return (y && !y.error) || (b && !b.error);
+}
 
 // -- Card impressions (happy / sad vote per card, per address) --------------
 // Persisted in localStorage as { [addressId]: { [cardKey]: 'happy'|'sad' } }.
@@ -1956,16 +2003,19 @@ function renderLensTile(tile) {
 }
 
 function renderLensSingle(addr) {
-  const lens = addr && addr.lens && addr.lens.young_family;
+  const active = getActiveLens();
+  const lens = addr && addr.lens && addr.lens[active];
   if (!lens || lens.error) {
-    return `<div class="lens-empty">Lens unavailable for this address.</div>`;
+    return `${renderLensPicker(active)}
+            <div class="lens-empty">Lens unavailable for this address.</div>`;
   }
-  const tilesHtml = (lens.tiles || []).map(renderLensTile).join('');
+  const tilesHtml = lens.tiles.map(renderLensTile).join('');
   const prov = lens.provenance
     ? `<footer class="lens-provenance">${escapeHtml(lens.provenance)}</footer>`
     : '';
   return `
-    <div class="lens-view">
+    ${renderLensPicker(active)}
+    <div class="lens-view-body">
       <header class="lens-header">
         <h2>${escapeHtml(lens.label)}</h2>
         <p class="audience">${escapeHtml(lens.audience || '')}</p>
@@ -1990,33 +2040,33 @@ function renderLensDot(tile) {
                   aria-label="${aria}" title="${short}"><span aria-hidden="true">●</span></button>`;
 }
 
-// renderLensCompare: 7-row × N-column dot matrix for compare view.
+// renderLensCompare: dot matrix for compare view.
 // `addresses` is the raw compare list from compareLoad() — each item is a
-// snap object; lens data lives at snap.lens.young_family.
+// snap object; lens data lives at snap.lens[active].
 function renderLensCompare(addresses) {
+  const active = getActiveLens();
   if (!addresses || !addresses.length) return '';
-  // Use the first address that has valid lens data as the row spec.
-  const first = addresses.find(a => a && a.lens && a.lens.young_family
-                                   && !a.lens.young_family.error);
+  const first = addresses.find(a => a && a.lens && a.lens[active] && !a.lens[active].error);
   if (!first) {
-    return `<div class="lens-empty">Lens data not available — re-save addresses to include lens.</div>`;
+    return `${renderLensPicker(active)}
+            <div class="lens-empty">Lens unavailable for the current addresses.</div>`;
   }
-  const rowSpec = first.lens.young_family.tiles;   // 7 tiles
-
+  const rowSpec = first.lens[active].tiles;   // 7 rows if young_family, 5 if bureaucracy
   const header = `
     <div class="lens-compare-row lens-compare-head">
       <div class="lens-compare-rowlabel"></div>
       ${addresses.map(a => `
         <div class="lens-compare-collabel">${escapeHtml(
-          (a && a.address && a.address.street) || '—')}</div>
+          (a && a.shortLabel) ||
+          (a && a.address && a.address.street) ||
+          '—')}</div>
       `).join('')}
     </div>`;
-
   const rows = rowSpec.map(spec => {
     const cells = addresses.map(a => {
-      const yf = a && a.lens && a.lens.young_family && !a.lens.young_family.error
-                 ? a.lens.young_family : null;
-      const t = yf ? (yf.tiles || []).find(x => x.key === spec.key) : null;
+      const t = a && a.lens && a.lens[active] && !a.lens[active].error
+              ? a.lens[active].tiles.find(x => x.key === spec.key)
+              : null;
       return `<div class="lens-compare-cellwrap">${renderLensDot(t)}</div>`;
     }).join('');
     return `
@@ -2025,8 +2075,8 @@ function renderLensCompare(addresses) {
         ${cells}
       </div>`;
   }).join('');
-
-  return `<div class="lens-compare">${header}${rows}</div>`;
+  return `${renderLensPicker(active)}
+          <div class="lens-compare">${header}${rows}</div>`;
 }
 
 // -- Life Mode state management (Task 9) ------------------------------------
@@ -2054,6 +2104,19 @@ function renderAllPanels() {
     lensEl.innerHTML = eduData ? renderLensSingle(eduData) : '';
   } else {
     lensEl.innerHTML = '';
+  }
+  // Disable the Life Mode toggle iff BOTH lenses are unavailable for the
+  // focused address (single-address view uses eduData as the focused addr).
+  const toggle = document.getElementById('life-mode-toggle');
+  if (toggle) {
+    const focused = eduData || null;
+    if (focused && !isAnyLensAvailable(focused)) {
+      toggle.setAttribute('disabled', 'true');
+      toggle.setAttribute('title', 'Lens unavailable for this address');
+    } else {
+      toggle.removeAttribute('disabled');
+      toggle.removeAttribute('title');
+    }
   }
 }
 
@@ -2096,6 +2159,13 @@ function initLifeMode() {
   btn.addEventListener('click', () => {
     stopPulse();                                                          // any click stops the pulse
     setLifeMode(!document.body.classList.contains('life-mode'));
+  });
+
+  // Delegate picker clicks. One handler covers picker instances rendered
+  // in either the single-address view or the compare view.
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.lens-picker [data-lens]');
+    if (btn) setActiveLens(btn.dataset.lens);
   });
 }
 
