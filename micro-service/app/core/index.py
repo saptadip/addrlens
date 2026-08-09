@@ -308,8 +308,10 @@ class Index:
             bfm = cfg.buergeramt_field_map
             if cfg.buergeramt_layer == "_geojson":
                 # service.berlin.de REST GeoJSON (no WFS available for this dataset)
-                raw = json.loads(urllib.request.urlopen(
-                    cfg.buergeramt_wfs_url, timeout=30).read())
+                _req = urllib.request.Request(
+                    cfg.buergeramt_wfs_url,
+                    headers={"User-Agent": "berlin-family-address-intel/0.1"})
+                raw = json.loads(urllib.request.urlopen(_req, timeout=60).read())
                 # response shape: {"buergeramt": {"data": {"features": [...]}}}
                 features = (raw.get("buergeramt", {})
                                .get("data", {})
