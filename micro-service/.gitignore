@@ -9,3 +9,7 @@ models/*.gguf
 *.egg-info/
 # uvicorn stdout capture (see README on running with tail -f)
 logs/
+# Playwright MCP scratch (per-QA browser data + ephemeral screenshots, §14.12)
+.playwright-mcp/
+*.qa.png
+young-family-lens-qa-shipped.png
