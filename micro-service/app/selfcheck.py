@@ -13,8 +13,10 @@ import subprocess
 import sys
 
 from app.config import load_city
+from app.core.amenities import amenities_near
 from app.core.geo import haversine_m
 from app.core.index import Index
+from app.core import scorer
 from app.core.wfs import air_quality_at, bod_polygon_features, noise_at, summer_heat_at
 
 CORE_MODULES = [
@@ -222,6 +224,71 @@ def run_live_selfcheck() -> None:
         assert n["l_den"]["total"] and n["l_den"]["total"] > 55, \
             f"expected L_DEN > 55 on Kurfürstendamm 195, got {n['l_den']}"
         assert n["distance_m"] < 60, f"nearest façade point should be close; got {n['distance_m']} m"
+
+    # -- Young Family lens ---------------------------------------------------
+    # Two known-good addresses cover two very different lens shapes:
+    #   Kastanienallee 12 (Prenzlauer Berg) — dense, family-heavy inner city.
+    #   Bergmannstraße 27 (Kreuzberg)      — the user-verified pediatrician anchor.
+    def _compute_lens(lon_, lat_):
+        _amen  = amenities_near(idx, cfg, lon_, lat_, 800) or {}
+        _noise = noise_at(cfg, lon_, lat_)
+        _air   = air_quality_at(cfg, lon_, lat_)
+        _heat  = summer_heat_at(cfg, lon_, lat_)
+        _trees = idx.trees_bbox(lon_, lat_)
+        _qz    = idx.nearest_quiet_zone(lon_, lat_)
+        _lens  = scorer.young_family_lens(cfg, idx, lon_, lat_,
+                                          air=_air, heat=_heat, noise=_noise,
+                                          amenities=_amen, trees=_trees,
+                                          quiet_zone=_qz)
+        return _lens, _amen, _noise, _heat, _air
+
+    lens_yf, _amen, n_raw, h_raw, a_raw = _compute_lens(geo["lon"], geo["lat"])
+    assert len(lens_yf["tiles"]) == 7, f"expected 7 tiles, got {len(lens_yf['tiles'])}"
+    _keys = [t["key"] for t in lens_yf["tiles"]]
+    assert _keys == ["kita","playground","pediatrician","noise","heat","air","refuge"], _keys
+    for t in lens_yf["tiles"]:
+        assert t["label"] and t["rule"], t
+        assert t["tier"] in {"green","amber","red","unknown"}, t
+    _by = {t["key"]: t for t in lens_yf["tiles"]}
+    # Dense Prenzlauer Berg → kita must be green.
+    assert _by["kita"]["tier"] == "green", \
+        f"expected kita green at Kastanienallee 12: {_by['kita']}"
+    # Defensive: at least one tile must be green.
+    assert any(t["tier"] == "green" for t in lens_yf["tiles"]), \
+        "the lens must produce some positive signal in dense inner Berlin"
+    # kita cited in provenance (kita is green).
+    assert "Kindertagesstätten" in lens_yf["provenance"], lens_yf["provenance"]
+    # Consistency invariant: no tile is unknown unless the matching raw block
+    # is also unavailable in the same lookup.
+    if n_raw.get("unavailable"):
+        assert _by["noise"]["tier"] == "unknown"
+    else:
+        assert _by["noise"]["tier"] != "unknown", _by["noise"]
+    if h_raw.get("unavailable"):
+        assert _by["heat"]["tier"] == "unknown"
+    else:
+        assert _by["heat"]["tier"] != "unknown", _by["heat"]
+    if a_raw.get("unavailable"):
+        assert _by["air"]["tier"] == "unknown"
+    else:
+        assert _by["air"]["tier"] != "unknown", _by["air"]
+
+    # -- Bergmannstraße 27 (pediatrician anchor) -----------------------------
+    berg = idx.geocode("Bergmannstraße", "27", "10961")
+    if not berg:
+        print("  Bergmannstraße 27 geocode failed — skipped pediatrician anchor")
+    else:
+        lens_b, _, _, _, _ = _compute_lens(berg["lon"], berg["lat"])
+        _by_b = {t["key"]: t for t in lens_b["tiles"]}
+        assert _by_b["pediatrician"]["tier"] == "green", \
+            f"expected paediatric green at Bergmannstraße 27: {_by_b['pediatrician']}"
+        assert "m" in _by_b["pediatrician"]["numeric"], _by_b["pediatrician"]
+        assert "OSM community-tagged" in _by_b["pediatrician"]["caveat"], \
+            _by_b["pediatrician"]["caveat"]
+        # Marheinekeplatz Spielplatz is ~75m; playground must be green.
+        assert _by_b["playground"]["tier"] == "green", \
+            f"expected playground green at Bergmannstraße 27: {_by_b['playground']}"
+    print("  young_family lens asserts OK")
 
     print("→ live selfcheck OK")
 
