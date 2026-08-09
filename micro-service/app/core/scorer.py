@@ -257,6 +257,128 @@ def _tier_refuge(quiet_zone: dict, trees: dict, t: dict) -> dict:
             "numeric": _parts() or "no signal"}
 
 
+def _walk_minutes(dist_m: float) -> float:
+    """Haversine → estimated walking minutes.
+    4.8 km/h walking speed × 1.3 route factor ≈ 62 m/min effective.
+    Uniform across bureaucracy tiles."""
+    return dist_m / 62
+
+
+def _tier_buergeramt(offices: list, t: dict) -> dict:
+    """Bürgeramt — nearest of many (Berlin is free choice)."""
+    if not offices:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Bürgeramt data unavailable",
+                "numeric": "no Bürgeramt loaded"}
+    nearest = offices[0]
+    m = _walk_minutes(nearest["distance_m"])
+    within_green = sum(1 for o in offices
+                       if _walk_minutes(o["distance_m"]) <= t["green_min"])
+    if m <= t["green_min"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"≥1 Bürgeramt within {t['green_min']} min walk",
+                "numeric": (f"{within_green} within {t['green_min']} min · "
+                            f"nearest {round(m)} min ({nearest['name']})")}
+    if m <= t["amber_min"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"Bürgeramt {t['green_min']}–{t['amber_min']} min walk",
+                "numeric": f"nearest {round(m)} min ({nearest['name']})"}
+    return {"tier": TIER_RED,
+            "rule": f"no Bürgeramt within {t['amber_min']} min walk",
+            "numeric": f"nearest {round(m)} min ({nearest['name']})"}
+
+
+def _tier_finanzamt(office: dict, t: dict) -> dict:
+    """Finanzamt — nearest single office. `office` is the pre-selected
+    nearest from Index.finanzamt_nearest()."""
+    if not office:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Finanzamt data unavailable",
+                "numeric": "no Finanzamt loaded"}
+    m = _walk_minutes(office["distance_m"])
+    label = office["name"]
+    if m <= t["green_min"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"Finanzamt within {t['green_min']} min walk",
+                "numeric": f"{round(m)} min ({label})"}
+    if m <= t["amber_min"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"Finanzamt {t['green_min']}–{t['amber_min']} min walk",
+                "numeric": f"{round(m)} min ({label})"}
+    return {"tier": TIER_RED,
+            "rule": f"Finanzamt > {t['amber_min']} min walk",
+            "numeric": f"{round(m)} min ({label})"}
+
+
+def _tier_standesamt(office: dict, t: dict) -> dict:
+    """Standesamt — the pre-assigned office for the address's Bezirk.
+    `office` is None only if bezirk_for() returned None (address outside
+    Berlin's Bezirksgrenzen)."""
+    if not office:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Standesamt not determined",
+                "numeric": "Address is outside Berlin's Bezirksgrenzen"}
+    m = _walk_minutes(office["distance_m"])
+    label = office["name"]
+    if m <= t["green_min"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"assigned Standesamt within {t['green_min']} min walk",
+                "numeric": f"{round(m)} min ({label})"}
+    if m <= t["amber_min"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"Standesamt {t['green_min']}–{t['amber_min']} min walk",
+                "numeric": f"{round(m)} min ({label})"}
+    return {"tier": TIER_RED,
+            "rule": f"assigned Standesamt > {t['amber_min']} min walk",
+            "numeric": f"{round(m)} min ({label})"}
+
+
+def _tier_lea(office: dict, t: dict) -> dict:
+    """LEA — single central office. `office` includes `distance_m`
+    (added by the composer from cfg.lea_office)."""
+    if not office or "distance_m" not in office:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "LEA data unavailable",
+                "numeric": "cfg.lea_office malformed"}
+    m = _walk_minutes(office["distance_m"])
+    label = office["name"]
+    if m <= t["green_min"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"LEA within {t['green_min']} min walk",
+                "numeric": f"{round(m)} min ({label})"}
+    if m <= t["amber_min"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"LEA {t['green_min']}–{t['amber_min']} min walk",
+                "numeric": f"{round(m)} min ({label})"}
+    return {"tier": TIER_RED,
+            "rule": f"LEA > {t['amber_min']} min walk",
+            "numeric": f"{round(m)} min ({label})"}
+
+
+def _tier_arbeitsagentur(offices: list, t: dict) -> dict:
+    """Arbeitsagentur — nearest of many (free choice)."""
+    if not offices:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Arbeitsagentur data unavailable",
+                "numeric": "no Arbeitsagentur loaded"}
+    nearest = offices[0]
+    m = _walk_minutes(nearest["distance_m"])
+    within_green = sum(1 for o in offices
+                       if _walk_minutes(o["distance_m"]) <= t["green_min"])
+    if m <= t["green_min"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"≥1 Arbeitsagentur within {t['green_min']} min walk",
+                "numeric": (f"{within_green} within {t['green_min']} min · "
+                            f"nearest {round(m)} min ({nearest['name']})")}
+    if m <= t["amber_min"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"Arbeitsagentur {t['green_min']}–{t['amber_min']} min walk",
+                "numeric": f"nearest {round(m)} min ({nearest['name']})"}
+    return {"tier": TIER_RED,
+            "rule": f"no Arbeitsagentur within {t['amber_min']} min walk",
+            "numeric": f"nearest {round(m)} min ({nearest['name']})"}
+
+
 def _lens_provenance(cfg, tiles: list) -> str:
     """Union of `sources` from tiles that contributed a real tier — de-duped,
     insertion-order preserved (Python 3.7+ dict semantics). Unknown tiles
@@ -507,3 +629,50 @@ if __name__ == "__main__":
     assert "Kindertagesstätten" in _unavail_result["provenance"], _unavail_result["provenance"]
 
     print("scorer.py: young_family composer + provenance OK")
+
+    # -- Bureaucracy lens: boundary sweeps (Spec B pure selfcheck) ----------
+    from app.cities.berlin import BERLIN as _CFG_BUR
+    _TB = {t.key: t.thresholds for t in _CFG_BUR.bureaucracy_lens.tiles}
+
+    # _walk_minutes sanity
+    assert _walk_minutes(0)   == 0.0
+    assert _walk_minutes(62)  == 1.0
+    assert abs(_walk_minutes(930) - 15.0) < 1e-9
+
+    # _tier_buergeramt — nearest of many
+    _B930 = [{"name":"BA-A","distance_m":930}]
+    _B931 = [{"name":"BA-B","distance_m":931}]
+    assert _tier_buergeramt(_B930, _TB["buergeramt"])["tier"] == TIER_GREEN
+    assert _tier_buergeramt(_B931, _TB["buergeramt"])["tier"] == TIER_AMBER
+    assert _tier_buergeramt([{"name":"X","distance_m":1860}], _TB["buergeramt"])["tier"] == TIER_AMBER
+    assert _tier_buergeramt([{"name":"X","distance_m":1861}], _TB["buergeramt"])["tier"] == TIER_RED
+    assert _tier_buergeramt([], _TB["buergeramt"])["tier"] == TIER_UNKNOWN
+
+    # _tier_finanzamt — nearest single office (dict, not list)
+    assert _tier_finanzamt({"name":"FA","distance_m":930}, _TB["finanzamt"])["tier"] == TIER_GREEN
+    assert _tier_finanzamt({"name":"FA","distance_m":931}, _TB["finanzamt"])["tier"] == TIER_AMBER
+    assert _tier_finanzamt({"name":"FA","distance_m":1861}, _TB["finanzamt"])["tier"] == TIER_RED
+    assert _tier_finanzamt(None, _TB["finanzamt"])["tier"] == TIER_UNKNOWN
+
+    # _tier_standesamt — pre-assigned dict
+    assert _tier_standesamt({"name":"SA","distance_m":930}, _TB["standesamt"])["tier"] == TIER_GREEN
+    assert _tier_standesamt({"name":"SA","distance_m":931}, _TB["standesamt"])["tier"] == TIER_AMBER
+    assert _tier_standesamt({"name":"SA","distance_m":1861}, _TB["standesamt"])["tier"] == TIER_RED
+    assert _tier_standesamt(None, _TB["standesamt"])["tier"] == TIER_UNKNOWN
+
+    # _tier_lea — single dict with distance_m
+    assert _tier_lea({"name":"LEA","distance_m":930}, _TB["lea"])["tier"] == TIER_GREEN
+    assert _tier_lea({"name":"LEA","distance_m":931}, _TB["lea"])["tier"] == TIER_AMBER
+    assert _tier_lea({"name":"LEA","distance_m":1861}, _TB["lea"])["tier"] == TIER_RED
+    assert _tier_lea(None, _TB["lea"])["tier"] == TIER_UNKNOWN
+    assert _tier_lea({"name":"LEA"}, _TB["lea"])["tier"] == TIER_UNKNOWN  # missing distance_m
+
+    # _tier_arbeitsagentur — same shape as buergeramt
+    _A930 = [{"name":"AA-A","distance_m":930}]
+    _A931 = [{"name":"AA-B","distance_m":931}]
+    assert _tier_arbeitsagentur(_A930, _TB["arbeitsagentur"])["tier"] == TIER_GREEN
+    assert _tier_arbeitsagentur(_A931, _TB["arbeitsagentur"])["tier"] == TIER_AMBER
+    assert _tier_arbeitsagentur([{"name":"X","distance_m":1861}], _TB["arbeitsagentur"])["tier"] == TIER_RED
+    assert _tier_arbeitsagentur([], _TB["arbeitsagentur"])["tier"] == TIER_UNKNOWN
+
+    print("scorer.py: bureaucracy tier boundary sweeps OK")
