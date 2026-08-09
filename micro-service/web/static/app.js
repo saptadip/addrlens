@@ -1338,6 +1338,7 @@ function buildSnapshot(){
       l_den: envData.l_den?.total, l_night: envData.l_night?.total, tier_den: envData.tier,
     } : null,
     connectivity: eduData.connectivity || null,
+    lens: eduData.lens || null,
   };
 }
 
@@ -1398,6 +1399,19 @@ function renderCompare(){
     $c.innerHTML=`${header}<div class="compare-empty">
       <div class="icon-badge">${ico.home}</div>
       <p>No saved addresses yet. Look one up, then click "Save to comparison" to add it here — up to ${COMPARE_MAX} side by side.</p></div>`;
+    return;
+  }
+  // Life Mode branch: render the 7×N dot matrix instead of the raw table.
+  if (document.body.classList.contains('life-mode')) {
+    $c.innerHTML = `${header}${renderLensCompare(list)}`;
+    $c.querySelectorAll('.col-remove').forEach(b=>b.addEventListener('click',()=>{
+      const list=compareLoad().filter(x=>x.id!==b.dataset.id);
+      compareSave(list); compareRefreshPill(); refreshSaveBtn(); renderCompare();
+    }));
+    const clr=document.getElementById('clear-all-btn');
+    if(clr) clr.addEventListener('click',()=>{
+      if(confirm('Remove all saved addresses?')){ compareSave([]); compareRefreshPill(); refreshSaveBtn(); renderCompare(); }
+    });
     return;
   }
   const cols=list.map((snap,idx)=>{
@@ -1957,6 +1971,59 @@ function renderLensSingle(addr) {
   `;
 }
 
+// -- Life Mode compare-view render (Task 11) --------------------------------
+// renderLensDot: single dot cell for the 7×N compare matrix.
+function renderLensDot(tile) {
+  if (!tile) {
+    return `<button class="lens-compare-cell tier-unknown" type="button"
+                    aria-label="unavailable" title="unavailable">•</button>`;
+  }
+  const tier = tile.tier || 'unknown';
+  const short = escapeHtml(tile.rule + (tile.numeric ? ' — ' + tile.numeric : ''));
+  const aria  = escapeHtml(tile.label + ', tier ' + tier + ': ' + tile.rule);
+  return `<button class="lens-compare-cell tier-${escapeHtml(tier)}" type="button"
+                  aria-label="${aria}" title="${short}"><span aria-hidden="true">●</span></button>`;
+}
+
+// renderLensCompare: 7-row × N-column dot matrix for compare view.
+// `addresses` is the raw compare list from compareLoad() — each item is a
+// snap object; lens data lives at snap.lens.young_family.
+function renderLensCompare(addresses) {
+  if (!addresses || !addresses.length) return '';
+  // Use the first address that has valid lens data as the row spec.
+  const first = addresses.find(a => a && a.lens && a.lens.young_family
+                                   && !a.lens.young_family.error);
+  if (!first) {
+    return `<div class="lens-empty">Lens data not available — re-save addresses to include lens.</div>`;
+  }
+  const rowSpec = first.lens.young_family.tiles;   // 7 tiles
+
+  const header = `
+    <div class="lens-compare-row lens-compare-head">
+      <div class="lens-compare-rowlabel"></div>
+      ${addresses.map(a => `
+        <div class="lens-compare-collabel">${escapeHtml(
+          (a && a.address && a.address.street) || '—')}</div>
+      `).join('')}
+    </div>`;
+
+  const rows = rowSpec.map(spec => {
+    const cells = addresses.map(a => {
+      const yf = a && a.lens && a.lens.young_family && !a.lens.young_family.error
+                 ? a.lens.young_family : null;
+      const t = yf ? (yf.tiles || []).find(x => x.key === spec.key) : null;
+      return `<div class="lens-compare-cellwrap">${renderLensDot(t)}</div>`;
+    }).join('');
+    return `
+      <div class="lens-compare-row">
+        <div class="lens-compare-rowlabel">${escapeHtml(spec.label)}</div>
+        ${cells}
+      </div>`;
+  }).join('');
+
+  return `<div class="lens-compare">${header}${rows}</div>`;
+}
+
 // -- Life Mode state management (Task 9) ------------------------------------
 // renderAllPanels: called by setLifeMode() on every toggle.
 // Single-address view: eduData holds the full /api/lookup response.
@@ -1996,6 +2063,8 @@ function setLifeMode(on) {
   btn.querySelector('.lm-label').textContent = on ? 'Life Mode: Family' : 'Life Mode';
   try { localStorage.setItem(LM_STATE_KEY, on ? 'on' : 'off'); } catch (e) {}
   renderAllPanels();   // no HTTP call; data already cached per address
+  // If the compare view is open, re-render it too (Life Mode forks the output).
+  if (location.hash === '#compare') renderCompare();
 }
 
 function initLifeMode() {

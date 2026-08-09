@@ -734,3 +734,41 @@ body:not(.life-mode) .lens-view{ display:none !important; }
   color:#8a8f9a; padding:0 .5em;
 }
 .lens-empty{ padding:1em; color:var(--muted, #667); font-style:italic; }
+
+/* --- Life Mode compare (Task 11) ---------------------------------------- */
+.lens-compare{
+  display:flex; flex-direction:column; gap:.35em;
+  padding:1em 0;
+  font:500 .82em/1.3 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+.lens-compare-row{
+  display:grid;
+  grid-template-columns: minmax(140px, 1.4fr) repeat(auto-fit, minmax(72px, 1fr));
+  gap:.5em; align-items:center;
+}
+.lens-compare-rowlabel{
+  color:var(--ink, #2a2f3a); font-weight:600;
+  padding-left:.3em;
+}
+.lens-compare-collabel{
+  text-align:center; color:var(--muted, #667);
+  font-weight:600; font-size:.85em;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.lens-compare-head .lens-compare-rowlabel{ min-height:1.6em; }
+
+.lens-compare-cellwrap{ display:flex; justify-content:center; }
+.lens-compare-cell{
+  width:2em; height:2em; border-radius:50%;
+  border:none; padding:0;
+  background:var(--tier-color, #b0b6c0);
+  color:#fff; font-size:1.4em; line-height:1;
+  cursor:default; user-select:none;
+  box-shadow: -2px -2px 4px var(--neumo-sh-light), 2px 2px 4px var(--neumo-sh-dark);
+  transition: transform .12s ease;
+}
+.lens-compare-cell:hover{ transform:scale(1.08); }
+.lens-compare-cell:focus-visible{
+  outline:2px solid var(--brand, #4a5cff); outline-offset:3px;
+}
+.lens-compare-cell.tier-unknown{ background:#eef0f4; color:#7a8090; }
