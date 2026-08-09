@@ -192,7 +192,7 @@ function renderLensPicker(activeSlug) {
   return `
     <div class="lens-picker" role="tablist" aria-label="Choose a lens">
       <button class="${yfCls}" data-lens="young_family"
-              role="tab" aria-selected="${yfSel}">Young Family (0–6)</button>
+              role="tab" aria-selected="${yfSel}">Young Family</button>
       <button class="${bCls}" data-lens="bureaucracy"
               role="tab" aria-selected="${bSel}">Bureaucracy</button>
     </div>
@@ -2008,23 +2008,25 @@ function renderLensSingle(addr) {
   const active = getActiveLens();
   const lens = addr && addr.lens && addr.lens[active];
   if (!lens || lens.error) {
-    return `${renderLensPicker(active)}
-            <div class="lens-empty">Lens unavailable for this address.</div>`;
+    return `
+      <div class="lens-picker-row">
+        ${renderLensPicker(active)}
+      </div>
+      <div class="lens-empty">Lens unavailable for this address.</div>
+    `;
   }
   const tilesHtml = lens.tiles.map(renderLensTile).join('');
   const prov = lens.provenance
     ? `<footer class="lens-provenance">${escapeHtml(lens.provenance)}</footer>`
     : '';
+  const audience = escapeHtml(lens.audience || '');
   return `
-    ${renderLensPicker(active)}
-    <div class="lens-view-body">
-      <header class="lens-header">
-        <h2>${escapeHtml(lens.label)}</h2>
-        <p class="audience">${escapeHtml(lens.audience || '')}</p>
-      </header>
-      <div class="lens-grid">${tilesHtml}</div>
-      ${prov}
+    <div class="lens-picker-row">
+      ${renderLensPicker(active)}
+      ${audience ? `<p class="lens-audience">${audience}</p>` : ''}
     </div>
+    <div class="lens-grid">${tilesHtml}</div>
+    ${prov}
   `;
 }
 
@@ -2050,8 +2052,12 @@ function renderLensCompare(addresses) {
   if (!addresses || !addresses.length) return '';
   const first = addresses.find(a => a && a.lens && a.lens[active] && !a.lens[active].error);
   if (!first) {
-    return `${renderLensPicker(active)}
-            <div class="lens-empty">Lens unavailable for the current addresses.</div>`;
+    return `
+      <div class="lens-picker-row">
+        ${renderLensPicker(active)}
+      </div>
+      <div class="lens-empty">Lens unavailable for the current addresses.</div>
+    `;
   }
   const rowSpec = first.lens[active].tiles;   // 7 rows if young_family, 5 if bureaucracy
   const header = `
@@ -2077,8 +2083,14 @@ function renderLensCompare(addresses) {
         ${cells}
       </div>`;
   }).join('');
-  return `${renderLensPicker(active)}
-          <div class="lens-compare">${header}${rows}</div>`;
+  const audience = escapeHtml(first.lens[active].audience || '');
+  return `
+    <div class="lens-picker-row">
+      ${renderLensPicker(active)}
+      ${audience ? `<p class="lens-audience">${audience}</p>` : ''}
+    </div>
+    <div class="lens-compare">${header}${rows}</div>
+  `;
 }
 
 // -- Life Mode state management (Task 9) ------------------------------------

@@ -691,18 +691,22 @@ body.life-mode #panel-med,
 body.life-mode #panel-env,
 body.life-mode #panel-conn{ display:none !important; }
 
-/* Lens view container (JS-driven innerHTML clear handles Life Mode OFF — no display:none rule needed) */
-.lens-view-body{ display:flex; flex-direction:column; gap:1em; padding:1em 0; }
-
-.lens-header h2{
-  margin:0 0 .1em 0;
-  font:700 1.15em/1.15 'Plus Jakarta Sans', system-ui, sans-serif;
-  color:var(--ink, #2a2f3a);
-  letter-spacing:-.01em;
+/* Lens picker row — mirrors raw-mode .tabs vertical rhythm (22px above,
+   14px below). Picker sits on the left; audience-hint (right-aligned) on
+   the right of the same row so it aligns with the tab bar.               */
+.lens-picker-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin:22px 0 14px 0;
+  flex-wrap:wrap;
 }
-.lens-header .audience{
-  margin:0; color:var(--muted, #667);
+.lens-audience{
+  margin:0;
+  color:var(--muted, #667);
   font:500 .88em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  text-align:right;
 }
 
 .lens-grid{
@@ -809,7 +813,7 @@ body.life-mode #panel-conn{ display:none !important; }
   display:inline-flex; gap:4px; padding:6px;
   background:var(--neumo-bg); border:none;
   border-radius:14px;
-  margin:0 0 14px 0;
+  margin:0;                              /* row wrapper controls vertical spacing */
   box-shadow:
     inset 3px 3px 7px var(--neumo-sh-dark),
     inset -3px -3px 7px var(--neumo-sh-light);
