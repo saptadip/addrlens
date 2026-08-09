@@ -5,10 +5,11 @@ from shapely.geometry import mapping
 
 from app.cities.base import CityConfig
 from app.core.addr import parse_address
-from app.core.amenities import kitas_near
+from app.core.amenities import amenities_near, kitas_near
 from app.core.geo import haversine_m
 from app.core.index import Index
-from app.core.wfs import air_quality_at, summer_heat_at
+from app.core.wfs import air_quality_at, noise_at, summer_heat_at
+from app.core import scorer
 from app.deps import get_city, get_index
 
 router = APIRouter()
@@ -99,6 +100,29 @@ def lookup(
             "distance_m": round(haversine_m(lon, lat, cfg.airport["lon"], cfg.airport["lat"])),
         }
 
+    # -- Young Family lens (Spec A) ----------------------------------------
+    # The lens needs playgrounds + gps (pediatricians) + noise, none of
+    # which /api/lookup exposes today. We fetch them here purely for the
+    # lens — they do NOT leak into the /api/lookup response shape (the
+    # frontend still calls /api/amenities and /api/noise for the raw
+    # views; both helpers are cache-backed so second calls are ~ms).
+    try:
+        _amen  = amenities_near(index, cfg, lon, lat, 800)
+        _noise = noise_at(cfg, lon, lat)
+    except Exception:
+        _amen, _noise = {}, {"unavailable": True}
+    try:
+        lens_yf = scorer.young_family_lens(
+            cfg, index, lon, lat,
+            air=air, heat=heat, noise=_noise,
+            amenities=_amen or {},
+            trees=trees_summary, quiet_zone=quiet_zone,
+        )
+    except Exception as e:
+        # The lens is additive. Never break /api/lookup for it (§14.7).
+        lens_yf = {"slug": "young_family",
+                   "error": f"{type(e).__name__}: {e}"}
+
     return {
         "address": {"street": street, "hnr": hnr, "plz": plz,
                     "lon": lon, "lat": lat, "raw": geo["props"]},
@@ -118,6 +142,7 @@ def lookup(
         "trees":        trees_summary,
         "air":          air,
         "heat":         heat,
+        "lens":         {"young_family": lens_yf},
         "provenance": {
             "catchment":     cfg.attribution["catchment"],
             "schools":       cfg.attribution["schools"],
