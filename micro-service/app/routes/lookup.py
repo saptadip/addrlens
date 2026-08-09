@@ -123,6 +123,18 @@ def lookup(
         lens_yf = {"slug": "young_family",
                    "error": f"{type(e).__name__}: {e}"}
 
+    # --- Bureaucracy lens (Spec B) ----------------------------------------
+    # Deterministic — no external fetches on the hot path. Data is either
+    # preloaded on Index (Bezirksgrenzen, Bürgerämter) or read from
+    # CityConfig curated directories (Finanzamt, Standesamt, Arbeitsagentur,
+    # LEA). Wrapped in try/except purely to isolate programming bugs
+    # (never break /api/lookup for lens issues, §14.7).
+    try:
+        lens_bur = scorer.bureaucracy_lens(cfg, index, lon, lat)
+    except Exception as e:
+        lens_bur = {"slug": "bureaucracy",
+                    "error": f"{type(e).__name__}: {e}"}
+
     return {
         "address": {"street": street, "hnr": hnr, "plz": plz,
                     "lon": lon, "lat": lat, "raw": geo["props"]},
@@ -142,7 +154,7 @@ def lookup(
         "trees":        trees_summary,
         "air":          air,
         "heat":         heat,
-        "lens":         {"young_family": lens_yf},
+        "lens":         {"young_family": lens_yf, "bureaucracy": lens_bur},
         "provenance": {
             "catchment":     cfg.attribution["catchment"],
             "schools":       cfg.attribution["schools"],
