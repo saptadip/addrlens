@@ -610,9 +610,6 @@ footer a{color:var(--brand)}
   background:#fff;
   box-shadow:none;
 }
-.lm-toggle .lm-label{
-  /* inherits font from .pill-btn */
-}
 
 /* Onboarding pulse — draws the eye on first visit.
    Uses neumorphic shadow language: outer raised + brand-color glow ring. */
