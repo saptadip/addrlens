@@ -147,6 +147,11 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
 function walkMin(m){return Math.round(m/80);}
 function shortUrl(u){ try{ return new URL(u).hostname.replace(/^www\./,''); } catch(e){ return u.length>40?u.slice(0,40)+'…':u; } }
 
+// -- Life Mode constants (Task 9) -------------------------------------------
+const LM_STATE_KEY = 'berlin-lens-mode-v1';       // "on" | "off"
+const LM_SEEN_KEY  = 'berlin-lens-mode-seen-v1';  // "1" once seen or dismissed
+const LM_PULSE_MS  = 30000;                       // auto-stop pulse after 30 s
+
 // -- Card impressions (happy / sad vote per card, per address) --------------
 // Persisted in localStorage as { [addressId]: { [cardKey]: 'happy'|'sad' } }.
 // Mutual exclusion: clicking the opposite button switches, clicking the same
@@ -1905,10 +1910,54 @@ function pin(color,size){return L.divIcon({className:'',html:`<div style="width:
 function iconPin(svg,color){return L.divIcon({className:'',html:`<div class="amen-pin" style="background:${color}">${svg}</div>`,iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-14]})}
 function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);return iconPin(meta[2],meta[3])}
 
+// -- Life Mode state management (Task 9) ------------------------------------
+// Filled in by Task 10; declared here so setLifeMode() can call it safely.
+function renderAllPanels() { /* no-op until Task 10 */ }
+
+function setLifeMode(on) {
+  const btn = document.getElementById('life-mode-toggle');
+  document.body.classList.toggle('life-mode', on);
+  btn.classList.toggle('pill-btn-brand', on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  btn.setAttribute('aria-label', on
+    ? 'Life Mode on: family lens active (toggle to switch off)'
+    : 'Life Mode off (toggle to switch on)');
+  btn.querySelector('.lm-label').textContent = on ? 'Life Mode: Family' : 'Life Mode';
+  try { localStorage.setItem(LM_STATE_KEY, on ? 'on' : 'off'); } catch (e) {}
+  renderAllPanels();   // no HTTP call; data already cached per address
+}
+
+function initLifeMode() {
+  const btn = document.getElementById('life-mode-toggle');
+  if (!btn) return;
+
+  // Sticky state.
+  let saved = null;
+  try { saved = localStorage.getItem(LM_STATE_KEY); } catch (e) {}
+  setLifeMode(saved === 'on');
+
+  // First-visit pulse.
+  let seen = null;
+  try { seen = localStorage.getItem(LM_SEEN_KEY); } catch (e) {}
+  const stopPulse = () => {
+    btn.classList.remove('pulse');
+    try { localStorage.setItem(LM_SEEN_KEY, '1'); } catch (e) {}
+  };
+  if (!seen) {
+    btn.classList.add('pulse');
+    setTimeout(stopPulse, LM_PULSE_MS);
+  }
+
+  btn.addEventListener('click', () => {
+    stopPulse();                                                          // any click stops the pulse
+    setLifeMode(!document.body.classList.contains('life-mode'));
+  });
+}
+
 // Initial view routing — run last so every const/function referenced by
 // showView → renderCompare is fully initialized (avoids a TDZ error when
 // the page is loaded directly at #compare).
-compareRefreshPill();showView();
+compareRefreshPill();showView();initLifeMode();
 
 // Ship B: swap city-specific labels from /api/config. Fire-and-forget —
 // the SSR-shipped Berlin defaults are the fallback if the fetch fails.
