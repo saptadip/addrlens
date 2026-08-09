@@ -171,9 +171,11 @@ function setActiveLens(slug) {
   if (slug !== 'young_family' && slug !== 'bureaucracy') return;
   try { localStorage.setItem(LM_ACTIVE_KEY, slug); } catch (e) {}
   // Update picker button states across any rendered picker in the DOM.
+  // Uses `.active` on `.lens-tab` — same visual grammar as the raw-mode
+  // `.tab.active` (recessed groove + extruded active pill).
   document.querySelectorAll('.lens-picker [data-lens]').forEach(btn => {
     const on = btn.dataset.lens === slug;
-    btn.classList.toggle('pill-btn-brand', on);
+    btn.classList.toggle('active', on);
     btn.setAttribute('aria-selected', on ? 'true' : 'false');
   });
   if (typeof renderAllPanels === 'function') renderAllPanels();
@@ -183,8 +185,8 @@ function setActiveLens(slug) {
 
 function renderLensPicker(activeSlug) {
   const active = activeSlug || getActiveLens();
-  const yfCls  = active === 'young_family' ? 'pill-btn pill-btn-brand' : 'pill-btn';
-  const bCls   = active === 'bureaucracy'  ? 'pill-btn pill-btn-brand' : 'pill-btn';
+  const yfCls  = active === 'young_family' ? 'lens-tab active' : 'lens-tab';
+  const bCls   = active === 'bureaucracy'  ? 'lens-tab active' : 'lens-tab';
   const yfSel  = active === 'young_family' ? 'true'  : 'false';
   const bSel   = active === 'bureaucracy'  ? 'true'  : 'false';
   return `

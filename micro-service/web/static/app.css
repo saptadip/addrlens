@@ -802,9 +802,41 @@ body.life-mode #panel-conn{ display:none !important; }
 }
 .lens-compare-cell.tier-unknown{ background:#eef0f4; color:#7a8090; }
 
-/* --- Lens picker (Spec B) --------------------------------------------- */
+/* --- Lens picker (Spec B) — mirrors the raw-mode .tabs / .tab pattern
+   (recessed neumorphic groove + extruded active pill). Own selectors so
+   we don't pick up the raw-mode tab click handler bound to `.tab`.       */
 .lens-picker{
-  display:flex; flex-wrap:wrap; gap:.6em;
-  margin-bottom:1em;
+  display:inline-flex; gap:4px; padding:6px;
+  background:var(--neumo-bg); border:none;
+  border-radius:14px;
+  margin:0 0 14px 0;
+  box-shadow:
+    inset 3px 3px 7px var(--neumo-sh-dark),
+    inset -3px -3px 7px var(--neumo-sh-light);
 }
-.lens-picker .pill-btn{ font-size:.85em; }
+.lens-picker .lens-tab{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 18px; border:0; background:transparent;
+  border-radius:10px;
+  font:inherit; font-weight:600; font-size:14px;
+  color:var(--ink-2); cursor:pointer;
+  transition: box-shadow .2s, color .18s, transform .12s;
+}
+.lens-picker .lens-tab:hover:not(.active){
+  color:var(--ink); transform:translateY(-1px);
+}
+.lens-picker .lens-tab.active{
+  background:var(--neumo-bg); color:var(--brand);
+  box-shadow:
+    -3px -3px 7px var(--neumo-sh-light),
+     3px  3px 7px var(--neumo-sh-dark);
+}
+.lens-picker .lens-tab:focus-visible{
+  outline:none; box-shadow: 0 0 0 3px rgba(99,102,241,.4);
+}
+.lens-picker .lens-tab.active:focus-visible{
+  box-shadow:
+    -3px -3px 7px var(--neumo-sh-light),
+     3px  3px 7px var(--neumo-sh-dark),
+     0 0 0 3px rgba(99,102,241,.4);
+}
