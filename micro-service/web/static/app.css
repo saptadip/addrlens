@@ -592,3 +592,62 @@ footer a{color:var(--brand)}
   .print-header p  { font-family:'Plus Jakarta Sans',sans-serif; font-size:10px; color:#6B7280; margin:0 0 10px }
   .compare-header h2 { font-family:'Plus Jakarta Sans',sans-serif; font-size:0; margin:0 }   /* hide the on-screen H2, printHeader replaces it */
 }
+
+/* --- Life Mode toggle (Task 8) -----------------------------------------
+   Base styling comes from .pill-btn (already defined above).
+   .lm-toggle adds the dot, pulse animation hook, and label layout.
+   ON state (added by Task 9): class="pill-btn pill-btn-brand lm-toggle"
+   Shadow colors: var(--neumo-sh-light) / var(--neumo-sh-dark)            */
+
+.lm-toggle .lm-dot{
+  width:.65em; height:.65em; border-radius:50%;
+  background:var(--muted);
+  box-shadow:inset 1px 1px 2px rgba(0,0,0,.15);
+  transition:background .18s ease, opacity .18s ease;
+  flex-shrink:0;
+}
+.pill-btn-brand.lm-toggle .lm-dot{
+  background:#fff;
+  box-shadow:none;
+}
+.lm-toggle .lm-label{
+  /* inherits font from .pill-btn */
+}
+
+/* Onboarding pulse — draws the eye on first visit.
+   Uses neumorphic shadow language: outer raised + brand-color glow ring. */
+@keyframes lm-pulse{
+  0%,100%{
+    box-shadow:
+      -3px -3px 8px var(--neumo-sh-light),
+       3px  3px 8px var(--neumo-sh-dark),
+       0 0 0 0 rgba(79,70,229,.55);
+  }
+  50%{
+    box-shadow:
+      -3px -3px 8px var(--neumo-sh-light),
+       3px  3px 8px var(--neumo-sh-dark),
+       0 0 0 10px rgba(79,70,229,0);
+  }
+}
+.lm-toggle.pulse{
+  animation: lm-pulse 1.6s ease-out infinite;
+}
+
+/* --- .tier-unknown — companion to .tier-{green,amber,orange,red} --------
+   Left-bar ::before, tile-tier-badge pill, and italic rule text.
+   Uses two grays from the neumorphic palette — no tier color tokens.       */
+
+.cell.tier-unknown::before{
+  transform:scaleY(1);
+  background:#9CA3AF;
+}
+.tier-unknown .tile-tier-badge{
+  background:#F3F4F6;
+  color:#6B7280;
+  font-style:italic;
+}
+.tier-unknown .tile-rule{
+  font-style:italic;
+  color:#9CA3AF;
+}
