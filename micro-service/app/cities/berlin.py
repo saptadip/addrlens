@@ -95,7 +95,7 @@ YOUNG_FAMILY_LENS: LensConfig = LensConfig(
             # Umweltatlas class strings — matched case-insensitively as substrings.
             thresholds={
                 "green_classes": ("keine Belastung", "geringe Belastung"),
-                "amber_classes": ("mittlere Belastung", "starke Belastung"),
+                "amber_classes": ("mäßige Belastung", "starke Belastung"),
             },
         ),
         LensTileConfig(

@@ -166,23 +166,30 @@ def _tier_noise(noise: dict, t: dict) -> dict:
 
 
 def _tier_heat(heat: dict, t: dict) -> dict:
-    """Summer-heat class string membership. `day_class` is a German text tag
-    like 'starke Belastung' — matched case-insensitively as a substring."""
+    """Summer-heat class string membership. `day_class` may carry a numeric
+    prefix like "> 33 °C - <= 35 °C - mäßige Belastung" (real Umweltatlas
+    format) or be a bare class label like "mäßige Belastung" (test input).
+    The burden class is extracted by `split(" - ")[-1].strip()`, then compared
+    case-insensitively by exact equality against the config's green_classes /
+    amber_classes tuples. Exact match avoids the "starke Belastung" ⊂ "sehr
+    starke Belastung" ambiguity that a substring approach would create."""
     if not heat or heat.get("unavailable"):
         return {"tier": TIER_UNKNOWN,
                 "rule": "Heat data unavailable",
                 "numeric": (heat or {}).get("error") or "Umweltatlas WFS down"}
     day = (heat.get("day_class") or "").strip()
-    day_low = day.lower()
-    if not day_low:
+    if not day:
         return {"tier": TIER_UNKNOWN,
                 "rule": "Heat data unavailable",
                 "numeric": "no day_class on this block"}
-    if any(day_low == g.lower() for g in t["green_classes"]):
+    # Strip optional "<temp range> - " prefix; bare strings are unchanged.
+    burden_class = day.split(" - ")[-1].strip()
+    burden_low = burden_class.lower()
+    if any(burden_low == g.lower() for g in t["green_classes"]):
         return {"tier": TIER_GREEN, "rule": "keine / geringe Belastung",
                 "numeric": day}
-    if any(day_low == a.lower() for a in t["amber_classes"]):
-        return {"tier": TIER_AMBER, "rule": "mittlere / starke Belastung",
+    if any(burden_low == a.lower() for a in t["amber_classes"]):
+        return {"tier": TIER_AMBER, "rule": "mäßige / starke Belastung",
                 "numeric": day}
     return {"tier": TIER_RED, "rule": "sehr starke / extreme Belastung",
             "numeric": day}
@@ -311,12 +318,17 @@ if __name__ == "__main__":
     assert _tier_noise({"l_den": {"total": 60.01}}, _T["noise"])["tier"] == TIER_RED
     assert _tier_noise({"unavailable": True}, _T["noise"])["tier"] == TIER_UNKNOWN
 
-    # Heat — case-insensitive substring membership.
+    # Heat — bare class labels (no prefix).
     assert _tier_heat({"day_class": "geringe Belastung"}, _T["heat"])["tier"] == TIER_GREEN
     assert _tier_heat({"day_class": "starke Belastung"}, _T["heat"])["tier"] == TIER_AMBER
     assert _tier_heat({"day_class": "sehr starke Belastung"}, _T["heat"])["tier"] == TIER_RED
     assert _tier_heat({"day_class": "extreme Belastung"}, _T["heat"])["tier"] == TIER_RED
     assert _tier_heat({"unavailable": True}, _T["heat"])["tier"] == TIER_UNKNOWN
+
+    # Heat — real Umweltatlas prefix format ("<temp range> - <class>").
+    assert _tier_heat({"day_class": "> 33 °C - <= 35 °C - mäßige Belastung"}, _T["heat"])["tier"] == TIER_AMBER
+    assert _tier_heat({"day_class": "<= 33 °C - geringe Belastung"}, _T["heat"])["tier"] == TIER_GREEN
+    assert _tier_heat({"day_class": "> 35 °C - sehr starke Belastung"}, _T["heat"])["tier"] == TIER_RED
 
     # Air — inclusive on greener side.
     assert _tier_air({"no2_ugm3": 20}, _T["air"])["tier"] == TIER_GREEN
