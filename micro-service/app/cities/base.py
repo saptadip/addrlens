@@ -169,6 +169,23 @@ class CityConfig:
     # for a specific audience. Adding more lenses = adding more fields here.
     young_family_lens: LensConfig
 
+    # -- Spec B: Bureaucracy lens ---------------------------------------
+    # Bezirksgrenzen — 12 polygons for point-in-polygon Bezirk assignment
+    bezirksgrenzen_wfs_url:      Optional[str]
+    bezirksgrenzen_layer:        Optional[str]
+    bezirksgrenzen_field_map:    dict            # {"name": "namgem"} or similar
+    # Bürgeramt (BOD WFS layer — points)
+    buergeramt_wfs_url:          Optional[str]
+    buergeramt_layer:            Optional[str]
+    buergeramt_field_map:        dict            # {"name","address","website"}
+    # Curated federal-office directories (small, stable — like regional_rail_stations)
+    finanzamts:                  tuple           # ({"name","address","lat","lon"}, ...)
+    standesamts_by_bezirk:       dict            # bezirk_name -> {"name","address","lat","lon"}
+    arbeitsagenturs:             tuple           # ({"name","address","lat","lon"}, ...)
+    lea_office:                  dict            # {"name","address","lat","lon"}
+    # Bureaucracy lens
+    bureaucracy_lens:            LensConfig
+
 
 @dataclass(frozen=True)
 class LensTileConfig:
