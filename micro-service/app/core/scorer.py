@@ -651,18 +651,21 @@ if __name__ == "__main__":
     # _tier_finanzamt — nearest single office (dict, not list)
     assert _tier_finanzamt({"name":"FA","distance_m":930}, _TB["finanzamt"])["tier"] == TIER_GREEN
     assert _tier_finanzamt({"name":"FA","distance_m":931}, _TB["finanzamt"])["tier"] == TIER_AMBER
+    assert _tier_finanzamt({"name":"FA","distance_m":1860}, _TB["finanzamt"])["tier"] == TIER_AMBER
     assert _tier_finanzamt({"name":"FA","distance_m":1861}, _TB["finanzamt"])["tier"] == TIER_RED
     assert _tier_finanzamt(None, _TB["finanzamt"])["tier"] == TIER_UNKNOWN
 
     # _tier_standesamt — pre-assigned dict
     assert _tier_standesamt({"name":"SA","distance_m":930}, _TB["standesamt"])["tier"] == TIER_GREEN
     assert _tier_standesamt({"name":"SA","distance_m":931}, _TB["standesamt"])["tier"] == TIER_AMBER
+    assert _tier_standesamt({"name":"SA","distance_m":1860}, _TB["standesamt"])["tier"] == TIER_AMBER
     assert _tier_standesamt({"name":"SA","distance_m":1861}, _TB["standesamt"])["tier"] == TIER_RED
     assert _tier_standesamt(None, _TB["standesamt"])["tier"] == TIER_UNKNOWN
 
     # _tier_lea — single dict with distance_m
     assert _tier_lea({"name":"LEA","distance_m":930}, _TB["lea"])["tier"] == TIER_GREEN
     assert _tier_lea({"name":"LEA","distance_m":931}, _TB["lea"])["tier"] == TIER_AMBER
+    assert _tier_lea({"name":"LEA","distance_m":1860}, _TB["lea"])["tier"] == TIER_AMBER
     assert _tier_lea({"name":"LEA","distance_m":1861}, _TB["lea"])["tier"] == TIER_RED
     assert _tier_lea(None, _TB["lea"])["tier"] == TIER_UNKNOWN
     assert _tier_lea({"name":"LEA"}, _TB["lea"])["tier"] == TIER_UNKNOWN  # missing distance_m
