@@ -826,6 +826,7 @@ body.life-mode #panel-conn{ display:none !important; }
   color:var(--ink-2); cursor:pointer;
   transition: box-shadow .2s, color .18s, transform .12s;
 }
+.lens-picker .lens-tab svg{ width:16px; height:16px; }
 .lens-picker .lens-tab:hover:not(.active){
   color:var(--ink); transform:translateY(-1px);
 }
