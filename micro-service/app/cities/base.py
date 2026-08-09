@@ -165,6 +165,10 @@ class CityConfig:
     # response mixes sources.
     attribution: dict
 
+    # -- Lenses (Spec A: Young Family). Per-city view over amenities/environment
+    # for a specific audience. Adding more lenses = adding more fields here.
+    young_family_lens: LensConfig
+
 
 @dataclass(frozen=True)
 class LensTileConfig:
