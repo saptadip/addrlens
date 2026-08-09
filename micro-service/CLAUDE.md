@@ -32,6 +32,24 @@ INFERENCE_BACKEND=mlx uvicorn inference.main:app --port 8080
 
 Docker compose brings up both, but on macOS MLX inside Docker does **not** use the Apple GPU — for fast dev, run `inference` on the host and `app` however you like.
 
+**Restart discipline (cold start is 5–15 s — don't kill needlessly):**
+
+- **Backend Python edits (`app/**/*.py`)** — the running uvicorn holds stale bytecode until restart. Kill and re-run:
+  ```bash
+  pkill -f "uvicorn app.main"
+  CITY=berlin INFERENCE_URL=http://localhost:8080 .venv/bin/uvicorn app.main:app --port 8000
+  ```
+  If a curl against `/api/lookup` returns errors that don't match the current code (or a `lens.young_family.error` you already removed), that's the stale-bytecode symptom — restart.
+- **Frontend edits (`web/index.html`, `web/static/*.css|*.js`)** — no restart needed; `StaticFiles` serves them from disk each request. Hard-refresh the browser (⌘⇧R).
+- **Selfchecks (`python -m app.selfcheck`, `python -m app.core.<module>`)** — always fresh; they run as subprocesses and don't touch the live server.
+- **Docs, plans, git ops** — never restart.
+
+For heavy backend-refactor sessions where the ~10 s Index rebuild per save is worth it, launch with `--reload`:
+```bash
+CITY=berlin uvicorn app.main:app --port 8000 --reload
+```
+Otherwise leave `--reload` off — memory `feedback_leave_dev_server_running` captures the "cold start is slow, don't churn it" rule.
+
 Selfchecks (there is no pytest suite — every module has a `__main__` pure-assert block and each service has a `selfcheck.py` orchestrator):
 
 ```bash
