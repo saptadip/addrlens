@@ -6,8 +6,11 @@ Loaded once at boot (see app.main lifespan). Read-only after that — all method
 are pure lookups against in-memory shapely trees / lists. Only the address
 geocode (`geocode()`) stays live-WFS.
 """
+import json
+import re
 import sys
 import unicodedata
+import urllib.request
 
 from shapely.geometry import Point, shape
 
@@ -284,6 +287,84 @@ class Index:
                         "lat": la, "lon": lo,
                     })
             print(f"{len(self.pools)} pools · {len(self.natural_swim)} natural swim spots")
+
+        # -- Spec B: Bureaucracy lens preloads -----------------------------
+        # Bezirksgrenzen — 12 polygons, small (§14.6 preload rule).
+        self.bezirksgrenzen = []
+        if cfg.bezirksgrenzen_wfs_url and cfg.bezirksgrenzen_layer:
+            sys.stdout.write("loading Bezirksgrenzen… "); sys.stdout.flush()
+            r = wfs(cfg.bezirksgrenzen_wfs_url, typeNames=cfg.bezirksgrenzen_layer,
+                    count=50, outputFormat=cfg.wfs_output_format)
+            for f in r.get("features", []):
+                if not f.get("geometry"): continue
+                self.bezirksgrenzen.append((f["properties"], shape(f["geometry"])))
+            print(f"{len(self.bezirksgrenzen)} Bezirke")
+
+        # Bürgerämter — service.berlin.de GeoJSON (~50 unique locations city-wide);
+        # sentinel layer "_geojson" triggers custom REST loader instead of WFS.
+        self.buergeramts = []
+        if cfg.buergeramt_wfs_url and cfg.buergeramt_layer:
+            sys.stdout.write("loading Bürgerämter… "); sys.stdout.flush()
+            bfm = cfg.buergeramt_field_map
+            if cfg.buergeramt_layer == "_geojson":
+                # service.berlin.de REST GeoJSON (no WFS available for this dataset)
+                raw = json.loads(urllib.request.urlopen(
+                    cfg.buergeramt_wfs_url, timeout=30).read())
+                # response shape: {"buergeramt": {"data": {"features": [...]}}}
+                features = (raw.get("buergeramt", {})
+                               .get("data", {})
+                               .get("features", []))
+                seen_coords = set()
+                for f in features:
+                    g = f.get("geometry")
+                    if not g: continue
+                    coords = g.get("coordinates") or []
+                    if len(coords) < 2: continue
+                    try:
+                        lo, la = float(coords[0]), float(coords[1])
+                    except (ValueError, TypeError):
+                        continue
+                    # Deduplicate by coordinate: multiple service variants share one location
+                    coord_key = (round(lo, 4), round(la, 4))
+                    if coord_key in seen_coords:
+                        continue
+                    p = f.get("properties") or {}
+                    name = (p.get("name") or "Bürgeramt").strip()
+                    # Skip training / document-pickup / appointment-only sub-entries
+                    skip_kw = ("ausbildung", "abholung", "vorzugstermin", "terminfreis",
+                               "ausbildungsplatz", "mobiles")
+                    if any(kw in name.lower() for kw in skip_kw):
+                        continue
+                    seen_coords.add(coord_key)
+                    # Extract address from HTML description field
+                    desc = p.get("description") or ""
+                    addr_match = re.search(r"<p>(.*?)<br", desc, re.DOTALL)
+                    address = re.sub("<[^>]+>", "", addr_match.group(1)).strip() if addr_match else ""
+                    # Extract website URL from description
+                    url_match = re.search(r'href="(https://service\.berlin\.de/standort/[^"]+)"', desc)
+                    website = url_match.group(1) if url_match else ""
+                    self.buergeramts.append({
+                        "name": name,
+                        "address": address,
+                        "website": website,
+                        "lat": la, "lon": lo,
+                    })
+            else:
+                # Standard WFS path (for future cities that publish a WFS)
+                r = wfs(cfg.buergeramt_wfs_url, typeNames=cfg.buergeramt_layer,
+                        count=200, outputFormat=cfg.wfs_output_format)
+                for f in r.get("features", []):
+                    g = f.get("geometry")
+                    if not g: continue
+                    lo, la = g["coordinates"]
+                    p = f["properties"] or {}
+                    self.buergeramts.append({
+                        "name":    (p.get(bfm["name"]) or "Bürgeramt").strip(),
+                        "address": (p.get(bfm["address"]) or "").strip(),
+                        "website": (p.get(bfm["website"]) or "").strip(),
+                        "lat": la, "lon": lo,
+                    })
+            print(f"{len(self.buergeramts)} Bürgerämter")
 
     # -------------------------------------------------------------- lookups
 
@@ -584,6 +665,62 @@ class Index:
                 })
         hits.sort(key=lambda x: x["distance_m"])
         return hits
+
+    # -- Spec B lookups ---------------------------------------------------
+
+    def bezirk_for(self, lon, lat):
+        """Point-in-polygon over 12 Bezirksgrenzen. Returns Bezirk name or None
+        for addresses outside Berlin's official Bezirke."""
+        fm = self.cfg.bezirksgrenzen_field_map
+        pt = Point(lon, lat)
+        for props, geom in self.bezirksgrenzen:
+            if geom.contains(pt):
+                return (props.get(fm["name"]) or "").strip() or None
+        return None
+
+    def buergeramt_near(self, lon, lat, radius_m=3000):
+        """All Bürgerämter within radius, sorted ascending by distance.
+        Each returned dict has `distance_m` added."""
+        hits = []
+        for o in self.buergeramts:
+            d = haversine_m(lon, lat, o["lon"], o["lat"])
+            if d <= radius_m:
+                hits.append({**o, "distance_m": round(d)})
+        hits.sort(key=lambda x: x["distance_m"])
+        return hits
+
+    def arbeitsagentur_near(self, lon, lat, radius_m=5000):
+        """All curated Arbeitsagentur branches within radius, sorted asc."""
+        hits = []
+        for o in self.cfg.arbeitsagenturs:
+            d = haversine_m(lon, lat, o["lon"], o["lat"])
+            if d <= radius_m:
+                hits.append({**o, "distance_m": round(d)})
+        hits.sort(key=lambda x: x["distance_m"])
+        return hits
+
+    def finanzamt_nearest(self, lon, lat):
+        """Nearest Finanzamt from the curated list. Returns None if the list
+        is empty (config bug)."""
+        if not self.cfg.finanzamts:
+            return None
+        best = min(self.cfg.finanzamts,
+                   key=lambda o: haversine_m(lon, lat, o["lon"], o["lat"]))
+        d = haversine_m(lon, lat, best["lon"], best["lat"])
+        return {**best, "distance_m": round(d)}
+
+    def standesamt_for(self, lon, lat):
+        """Address's Bezirk → its assigned Standesamt. Point-in-polygon
+        lookup + directory read. Returns None if bezirk_for() returns None
+        (address outside Berlin) or if the Bezirk isn't in the dict."""
+        bezirk = self.bezirk_for(lon, lat)
+        if not bezirk:
+            return None
+        office = self.cfg.standesamts_by_bezirk.get(bezirk)
+        if not office:
+            return None
+        d = haversine_m(lon, lat, office["lon"], office["lat"])
+        return {**office, "distance_m": round(d)}
 
 
 if __name__ == "__main__":
