@@ -36,6 +36,21 @@ PARK_MIN_AREA_M2 = 1500
 _amen_cache, _amen_lock = {}, threading.Lock()
 
 
+def is_paediatric(tags) -> bool:
+    """True iff the OSM tags describe a paediatric doctor's office.
+
+    Handles both `healthcare:speciality` (correct British spelling — what
+    OSM data actually carries in Berlin) and `healthcare:specialty` (US
+    alternate; safety net for imported / edited entries). Verified live
+    against Praxis für Kinderheilkunde Dr. Berns at Bergmannstraße 5 —
+    it carries `healthcare:speciality=paediatrics`.
+    """
+    spec = ((tags or {}).get("healthcare:speciality") or
+            (tags or {}).get("healthcare:specialty") or "")
+    low = spec.lower()
+    return "paediatrics" in low or "pediatrics" in low
+
+
 def _bod_layers(cfg: CityConfig) -> dict:
     """BOD-first categories per plan §Ship B (parks + playgrounds). Empty tuple
     entry = "OSM only", used when a city doesn't publish that layer."""
@@ -280,4 +295,13 @@ if __name__ == "__main__":
     assert _mixed_provenance(_CFG, "parks", 3, 0, None).startswith("Geoportal Berlin")
     assert "supplement" in _mixed_provenance(_CFG, "parks", 3, 2, None)
     assert _mixed_provenance(_CFG, "parks", 0, 2, None) == "© OpenStreetMap contributors (ODbL)"
-    print("amenities.py selfcheck OK")
+
+    # is_paediatric — handles both spellings, mixed case, semicolon-separated
+    # multi-specialities, missing tag, null tags.
+    assert is_paediatric({"healthcare:speciality": "paediatrics"}) is True
+    assert is_paediatric({"healthcare:specialty": "pediatrics"}) is True
+    assert is_paediatric({"healthcare:speciality": "PAEDIATRICS;dermatology"}) is True
+    assert is_paediatric({"healthcare:speciality": "cardiology"}) is False
+    assert is_paediatric({}) is False
+    assert is_paediatric(None) is False
+    print("amenities.py: is_paediatric selfcheck OK")
