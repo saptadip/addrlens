@@ -1,5 +1,7 @@
 # Clickable Lens Tiles (Spec D) — deferred follow-ups
 
+**Status:** all 6 items resolved. See the follow-up commit landed shortly after `0108627` for the fixes. Kept as a record of the polish pass.
+
 **Source:** captured from the SDD progress ledger + final whole-branch review of Spec D (commit range `5e807c1..446a048`, final review verdict: SHIP_WITH_FIXES — the one Important finding was fixed in `446a048`; items below are the Minor findings, all safe to defer).
 
 Every item below was triaged as **Minor** by the final code-reviewer or during task-level reviews. None block shipping. Bundle into a small polish PR when convenient.
