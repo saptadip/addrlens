@@ -1155,3 +1155,30 @@ select:focus-visible,
 
 /* --- Muted text contrast bump (WCAG AA on --neumo-bg) ----------------- */
 :root                          { --muted:#5C6473; }   /* was #6B7280 — bump for AA */
+
+/* --- Hero primary + secondary buttons: join the neumorphic family ----- */
+/* Primary "Look up" — indigo gradient + neumorphic dual shadow (mirrors
+   .pill-btn-brand). White text on #4F46E5 is 7.7:1 contrast (AA+). */
+.hero .btn                     { background:linear-gradient(135deg,#6366F1,#4F46E5);
+                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
+                                            4px 4px 14px rgba(79,70,229,.42); }
+.hero .btn:hover               { background:linear-gradient(135deg,#4F46E5,#4338CA);
+                                 box-shadow:-4px -4px 12px var(--neumo-sh-light),
+                                            6px 6px 18px rgba(79,70,229,.55); }
+.hero .btn:active              { transform:translateY(0) scale(.98);
+                                 background:linear-gradient(135deg,#4338CA,#3730A3);
+                                 box-shadow:inset 2px 2px 6px rgba(55,48,163,.55),
+                                            inset -2px -2px 5px rgba(255,255,255,.22); }
+
+/* Secondary "Reset" — neutral neumorphic (destructive-adjacent, avoid the
+   indigo pull that would compete with primary CTA). */
+.hero #reset-btn               { background:var(--neumo-bg); color:var(--ink-2);
+                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
+                                            3px 3px 8px var(--neumo-sh-dark); }
+.hero #reset-btn:hover         { background:var(--neumo-bg); color:var(--danger);
+                                 box-shadow:-4px -4px 10px var(--neumo-sh-light),
+                                            4px 4px 12px var(--neumo-sh-dark); }
+.hero #reset-btn:active        { transform:translateY(0) scale(.98);
+                                 color:var(--danger);
+                                 box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light); }
