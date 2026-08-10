@@ -198,6 +198,10 @@ function setActiveLens(slug) {
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-selected', on ? 'true' : 'false');
   });
+  // Spec D: any open modal/popover belongs to the OLD lens — sweep first
+  const modal = document.getElementById('lens-modal');
+  if (modal && !modal.hidden) closeLensModal();
+  if (typeof dropOrphanTooltips === 'function') dropOrphanTooltips();
   if (typeof renderAllPanels === 'function') renderAllPanels();
   // If the compare view is open, re-render the matrix for the new active lens.
   if (location.hash === '#compare' && typeof renderCompare === 'function') renderCompare();
@@ -2325,6 +2329,109 @@ function renderLensModalBody(tile) {
   `;
 }
 
+// -- Spec D Task 9: interaction handlers ------------------------------------
+
+function openLensModal(tileKey) {
+  if (!eduData || !eduData.lens) return;
+  const active = getActiveLens();
+  const lens = eduData.lens[active];
+  if (!lens || !lens.tiles) return;
+  const tile = lens.tiles.find(t => t.key === tileKey);
+  if (!tile) return;
+
+  const modal = document.getElementById('lens-modal');
+  if (!modal) return;
+  modal.innerHTML = renderLensModalBody(tile);
+  modal.hidden = false;
+  lensLastTileKey = tileKey;
+
+  // Focus the close button for keyboard users
+  const closeBtn = modal.querySelector('.lens-modal-close');
+  if (closeBtn) closeBtn.focus();
+
+  // Update map pins for geo tiles; leave map untouched for aggregate tiles
+  _updateLensMapPins(tile);
+
+  // Set up Leaflet marker → row sync (pin click highlights the row)
+  lensMapFeaturePins.forEach(marker => {
+    marker.off('click');
+    marker.on('click', () => _highlightLensRow(marker._lensFeatureIdx));
+  });
+}
+
+function closeLensModal() {
+  const modal = document.getElementById('lens-modal');
+  if (!modal || modal.hidden) return;
+  modal.hidden = true;
+  modal.innerHTML = '';
+  // Sweep any open ⓘ popovers (they may have been portaled to document.body)
+  if (typeof dropOrphanTooltips === 'function') dropOrphanTooltips();
+  // Clear feature pins from map; restore address-centered view
+  if (lensMap) {
+    lensMapFeaturePins.forEach(m => { try { lensMap.removeLayer(m); } catch (e) {} });
+    lensMapFeaturePins = [];
+    if (lensAddressMarker) {
+      lensMap.setView(lensAddressMarker.getLatLng(), 14);
+    }
+  }
+  const hint = document.getElementById('lens-map-hint');
+  if (hint) hint.textContent = 'Click a tile to plot its locations';
+  // Return focus to the last-clicked tile
+  if (lensLastTileKey) {
+    const tile = document.querySelector(`.lens-tile[data-tile-key="${lensLastTileKey}"]`);
+    if (tile) tile.focus();
+  }
+}
+
+function _highlightLensRow(idx) {
+  const row = document.querySelector(`.lens-feature[data-feature-idx="${idx}"]`);
+  if (!row) return;
+  row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  row.classList.add('highlighted');
+  setTimeout(() => row.classList.remove('highlighted'), 900);
+}
+
+// Delegated event handlers: tile click → open modal; close button → close;
+// feature row click → pan map; backdrop click → close.
+document.addEventListener('click', (e) => {
+  // Close button
+  if (e.target.closest('.lens-modal-close')) {
+    closeLensModal();
+    return;
+  }
+  // Backdrop click: click on the modal overlay itself (not on its inner content)
+  const modal = document.getElementById('lens-modal');
+  if (modal && !modal.hidden && e.target === modal) {
+    closeLensModal();
+    return;
+  }
+  // Feature row → map pan (skip clicks inside the ⓘ details widget)
+  const featureRow = e.target.closest('.lens-feature');
+  if (featureRow && !e.target.closest('.info-tip')) {
+    const idx = parseInt(featureRow.dataset.featureIdx, 10);
+    if (!Number.isNaN(idx) && lensMap && lensMapFeaturePins[idx]) {
+      const marker = lensMapFeaturePins[idx];
+      lensMap.setView(marker.getLatLng(), Math.max(lensMap.getZoom(), 16), { animate: true });
+      marker.openPopup();
+    }
+    return;
+  }
+  // Tile click → open modal
+  const tile = e.target.closest('.lens-tile');
+  if (tile) {
+    const key = tile.dataset.tileKey;
+    if (key) openLensModal(key);
+    return;
+  }
+});
+
+// Escape → close modal
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const modal = document.getElementById('lens-modal');
+  if (modal && !modal.hidden) closeLensModal();
+});
+
 // -- Life Mode state management (Task 9) ------------------------------------
 // renderAllPanels: called by setLifeMode() on every toggle.
 // Single-address view: eduData holds the full /api/lookup response.
@@ -2345,6 +2452,8 @@ function renderAllPanels() {
       if (viewMain) viewMain.appendChild(lensEl);
     }
   }
+  // Spec D: sweep any tooltip popovers still portaled from an earlier render
+  if (typeof dropOrphanTooltips === 'function') dropOrphanTooltips();
   if (onLife) {
     // Render the lens grid if data is loaded.
     lensEl.innerHTML = eduData ? renderLensSingle(eduData) : '';
@@ -2387,6 +2496,10 @@ function setLifeMode(on) {
     ? 'Life Mode on (toggle to switch off)'
     : 'Life Mode off (toggle to switch on)');
   try { localStorage.setItem(LM_STATE_KEY, on ? 'on' : 'off'); } catch (e) {}
+  // Spec D: sweep any lingering modal/tooltip state on mode switch
+  const modal = document.getElementById('lens-modal');
+  if (modal && !modal.hidden) closeLensModal();
+  if (typeof dropOrphanTooltips === 'function') dropOrphanTooltips();
   renderAllPanels();   // no HTTP call; data already cached per address
   // If the compare view is open, re-render it too (Life Mode forks the output).
   if (location.hash === '#compare') renderCompare();
