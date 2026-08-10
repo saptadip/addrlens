@@ -2119,26 +2119,41 @@ function renderLensTile(tile, lensSlug) {
     `;
   }
 
+  // Young Family: verdict-graded card. Tier communicated via a static vertical
+  // traffic-light indicator on the right (RED top, AMBER middle, GREEN bottom)
+  // — not an interactive slider (role="img", not "slider"). Card face carries
+  // the raw text/data; color moves off the ::before bar / verbal badge and
+  // onto the indicator instead. Screen-reader users get the tier via aria-label
+  // + .sr-only text so nothing is color-only.
   const tier    = tile.tier || 'unknown';
   const badge   = tier === 'unknown' ? 'N/A' : tier.toUpperCase();
   const aria    = `${tile.label}, tier ${tier}: ${tile.rule}`;
   const numeric = tile.numeric
     ? `<div class="tile-numeric">${escapeHtml(tile.numeric)}</div>`
     : '';
-  // Caveat is intentionally NOT rendered on the tile face — it lives in
-  // the modal (renderLensModalBody) so tile heights stay consistent.
   return `
-    <button class="cell lens-tile tier-${escapeHtml(tier)}"
+    <button class="cell lens-tile lens-tile-yf tier-${escapeHtml(tier)}"
             data-tile-key="${escapeHtml(tile.key)}"
             aria-label="${escapeHtml(aria)}"
             type="button">
-      <div class="tile-head">
-        <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
-        <span class="tile-label">${escapeHtml(tile.label)}</span>
-        <span class="tile-tier-badge">${escapeHtml(badge)}</span>
+      <div class="yf-tile-main">
+        <div class="tile-head">
+          <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
+          <span class="tile-label">${escapeHtml(tile.label)}</span>
+        </div>
+        <div class="tile-rule">${escapeHtml(tile.rule)}</div>
+        ${numeric}
       </div>
-      <div class="tile-rule">${escapeHtml(tile.rule)}</div>
-      ${numeric}
+      <div class="yf-tier-slider" role="img"
+           aria-label="Tier: ${escapeHtml(tier)}">
+        <div class="yf-tier-track">
+          <span class="yf-tier-mark yf-tier-mark-red" aria-hidden="true"></span>
+          <span class="yf-tier-mark yf-tier-mark-amber" aria-hidden="true"></span>
+          <span class="yf-tier-mark yf-tier-mark-green" aria-hidden="true"></span>
+          <span class="yf-tier-thumb" aria-hidden="true"></span>
+        </div>
+        <span class="sr-only">Tier: ${escapeHtml(badge)}</span>
+      </div>
     </button>
   `;
 }
@@ -2318,7 +2333,10 @@ function renderLensTreesBlock(trees) {
 
 function renderLensModalBody(tile, lensSlug) {
   const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
-  const isInfo  = lensSlug === 'bureaucracy';   // informational, no tier badge
+  // Both lenses now suppress the GREEN/AMBER/RED text badge in the modal
+  // head: Bureaucracy because it's informational; Young Family because the
+  // vertical tier-slider on the tile face already communicates the verdict.
+  const isInfo  = true;
   const tier    = tile.tier || 'unknown';
   const badge   = tier === 'unknown' ? 'N/A' : tier.toUpperCase();
   const features = Array.isArray(tile.features) ? tile.features : [];
