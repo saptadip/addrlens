@@ -501,7 +501,7 @@ function _highlightLensRow(idx) { /* scroll .lens-feature[data-feature-idx=idx] 
 | Leaflet init failure (CDN blocked, offline) | `initLensMap` catches; `lensMap = null`; `#lens-map` inner text replaced with "Map unavailable"; tile clicks still open modals |
 | `metadata.trees` empty or errored | Modal's trees block conditionally rendered; skipped if all keys null / `trees.error` set |
 | Response `features` missing entirely (backend regression) | Frontend defaults to `[]` via `tile.features || []` |
-| Feature `website` is a `javascript:` scheme | `escapeHtml` renders it as text inside `href`; browser refuses to navigate to `javascript:` from user-supplied text after encoding — acceptable, honest |
+| Feature `website` is a `javascript:` scheme | `_lensFeatureDetailHtml` validates the URL with `/^https?:\/\//i` after `trim()` and drops the website row if the scheme is anything else. HTML-attribute encoding alone does NOT block `javascript:` clicks — the regex check is what prevents the click-to-XSS. Applied in `web/static/app.js` (commit `446a048`). |
 
 ### Feature-shape invariants (enforced in `_shape_*`)
 
