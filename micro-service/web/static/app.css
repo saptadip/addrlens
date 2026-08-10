@@ -845,3 +845,96 @@ body.life-mode #panel-conn{ display:none !important; }
      3px  3px 7px var(--neumo-sh-dark),
      0 0 0 3px rgba(99,102,241,.4);
 }
+
+/* --- Spec D: clickable lens tiles, 2-col layout, modal, map ------------- */
+
+/* 2-col split — mirrors raw-mode Amenities .grid + .map-cell */
+.lens-body        { display:flex; gap:14px; margin-top:0; }
+.lens-tiles-col   { position:relative; flex:1.15 1 0; min-width:0; }
+.lens-map-col     { flex:.85 1 0; min-width:0; position:relative; }
+#lens-map         { height:100%; min-height:500px; border-radius:16px; overflow:hidden; }
+
+@media (max-width: 900px) {
+  .lens-body      { flex-direction:column; }
+  #lens-map       { min-height:320px; }
+}
+
+/* Tile — now a <button>; tighter grid + padding; drop caveat from face */
+.lens-grid        { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+.lens-tile        { min-height:100px; padding:12px 14px 12px 18px; cursor:pointer;
+                    border:0; text-align:left; width:100%; }
+.lens-tile:hover  { background: var(--result-bg-hover); }
+.lens-tile:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+
+/* Modal — reuses .amen-modal visual language via new selectors */
+.lens-modal       { position:absolute; inset:0;
+                    background: rgba(238,242,255,.98); backdrop-filter: blur(8px);
+                    border-radius:16px; padding:20px 24px; overflow-y:auto; z-index:10; }
+.lens-modal[hidden] { display:none; }
+.lens-modal-close { position:absolute; top:14px; right:14px; width:34px; height:34px;
+                    border-radius:50%; border:none; background:rgba(255,255,255,.9);
+                    color:var(--muted); cursor:pointer; font-size:16px; }
+.lens-modal-close:hover { color:var(--ink); }
+
+.lens-modal .modal-head        { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+.lens-modal .modal-head h3     { margin:0; font:700 20px 'Plus Jakarta Sans', sans-serif; flex:1; }
+.lens-modal .modal-head .icon-badge {
+  width:44px; height:44px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--neumo-bg);
+}
+.lens-modal .modal-head .icon-badge svg { width:22px; height:22px; }
+.lens-modal .modal-rule        { font-weight:600; color:var(--ink); margin-bottom:4px; }
+.lens-modal .modal-numeric     { color:var(--ink-2); margin-bottom:12px; }
+.lens-modal .modal-caveat      { font-style:italic; color:var(--muted); font-size:13px;
+                                 padding:8px 12px; background:var(--neumo-bg);
+                                 border-radius:8px; margin-bottom:12px; }
+.lens-modal .modal-explanation { color:var(--ink-2); padding:10px 14px;
+                                 background:var(--neumo-bg); border-radius:10px;
+                                 margin-bottom:12px; line-height:1.4; }
+
+/* Feature list */
+.modal-features-list           { list-style:none; padding:0; margin:0 0 12px 0;
+                                 display:flex; flex-direction:column; gap:8px; }
+.lens-feature                  { display:flex; align-items:center; gap:10px;
+                                 padding:10px 12px; background:rgba(255,255,255,.6);
+                                 border-radius:10px; cursor:pointer;
+                                 transition: background .18s ease; }
+.lens-feature:hover            { background:rgba(255,255,255,.85); }
+.lens-feature.highlighted      { background:#EEF2FF; transition:background .3s ease; }
+.lens-feature .feature-marker  { width:22px; height:22px; border-radius:50%;
+                                 display:flex; align-items:center; justify-content:center;
+                                 background:var(--neumo-bg); color:var(--ink-2);
+                                 font-weight:700; font-size:11px; flex-shrink:0; }
+.lens-feature .feature-name    { flex:1; font-weight:600;
+                                 overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lens-feature .feature-distance{ color:var(--muted); font-size:12px; flex-shrink:0; }
+.lens-feature .info-tip        { flex-shrink:0; }
+
+/* Refuge trees block */
+.modal-trees                   { padding:10px 14px; background:var(--neumo-bg);
+                                 border-radius:10px; margin-bottom:12px; }
+.modal-trees-summary           { font-weight:600; }
+.modal-trees-species           { color:var(--ink-2); font-size:13px; margin-top:4px; }
+
+/* Provenance footer */
+.lens-modal .modal-provenance  { color:var(--muted); font-size:12px;
+                                 padding-top:8px; border-top:1px solid var(--border); }
+
+/* Map hint pill — mirrors raw-mode .map-hint */
+.lens-map-col .map-hint        { position:absolute; top:12px; left:12px; z-index:500;
+                                 background: rgba(255,255,255,.94);
+                                 padding:7px 12px; border-radius:8px;
+                                 font-size:12px; font-weight:600; color:var(--ink-2);
+                                 box-shadow: var(--sh-1); pointer-events:none; }
+
+/* Numbered pin — for L.divIcon HTML */
+.lens-pin                      { width:30px; height:30px; border-radius:50%;
+                                 background:var(--pin-color, #9CA3AF); color:#fff;
+                                 display:flex; align-items:center; justify-content:center;
+                                 font:700 12px 'Plus Jakarta Sans', system-ui, sans-serif;
+                                 box-shadow: 0 2px 6px rgba(17,24,39,.35); }
+
+/* Empty state when features list is empty on a geo tile */
+.modal-empty                   { padding:14px; color:var(--muted); font-style:italic;
+                                 background:var(--neumo-bg); border-radius:10px; }
