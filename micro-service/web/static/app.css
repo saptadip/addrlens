@@ -894,17 +894,33 @@ body.life-mode #panel-conn{ display:none !important; }
 }
 .lens-compare-cell.tier-unknown{ background:#eef0f4; color:#7a8090; }
 
-/* Bureaucracy compare cell — walk-minute pill (informational, no tier color).
-   Wider than the round dot to fit the number + 'min' suffix. */
+/* Bureaucracy compare cell — walk-minute LABEL (informational, no tier color).
+   Distinct chip: indigo --brand gradient + white text so it reads as a
+   proper badge/label, not a plain-text cell. */
 .lens-compare-cell.lens-compare-cell-info{
-  width:auto; min-width:3.4em; height:2em; border-radius:12px;
-  padding:0 10px; gap:3px;
-  background:var(--neumo-bg); color:var(--ink);
+  width:auto; min-width:3.6em; height:2em; border-radius:999px;
+  padding:0 12px; gap:4px;
+  background:linear-gradient(135deg,#6366F1,#4F46E5); color:#fff;
   display:inline-flex; align-items:baseline; justify-content:center;
-  box-shadow:-2px -2px 4px var(--neumo-sh-light), 2px 2px 4px var(--neumo-sh-dark);
+  box-shadow:-2px -2px 4px var(--neumo-sh-light),
+             3px 3px 8px rgba(79,70,229,.42);
+  transition:transform .12s ease, box-shadow .2s ease;
 }
-.lens-compare-cell.lens-compare-cell-info .cell-num{ font-weight:700; font-size:0.95em; line-height:1; }
-.lens-compare-cell.lens-compare-cell-info .cell-cap{ font-weight:500; font-size:0.62em; color:var(--muted); }
+.lens-compare-cell.lens-compare-cell-info:hover{
+  transform:translateY(-1px) scale(1.02);
+  box-shadow:-3px -3px 6px var(--neumo-sh-light),
+             4px 4px 10px rgba(79,70,229,.55);
+}
+.lens-compare-cell.lens-compare-cell-info .cell-num{
+  font-weight:700; font-size:0.95em; line-height:1; letter-spacing:.01em; }
+.lens-compare-cell.lens-compare-cell-info .cell-cap{
+  font-weight:600; font-size:0.62em; color:rgba(255,255,255,.82);
+  text-transform:uppercase; letter-spacing:.06em; }
+/* Unavailable variant: muted, no gradient — no walk time to show */
+.lens-compare-cell.lens-compare-cell-info[aria-label="unavailable"]{
+  background:var(--neumo-bg); color:var(--muted);
+  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),
+             inset -2px -2px 4px var(--neumo-sh-light); }
 
 /* --- Lens picker (Spec B) — mirrors the raw-mode .tabs / .tab pattern
    (recessed neumorphic groove + extruded active pill). Own selectors so
