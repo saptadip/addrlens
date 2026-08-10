@@ -390,6 +390,17 @@ class Index:
                 return props, geom, self.esb_to_gs.get(props[self.cfg.catchment_field_map["id"]], [])
         return None, None, []
 
+    def nearest_gs_public(self, lon, lat, k=2):
+        """Return the k nearest public Grundschulen by straight-line distance.
+        Used as a fallback when an ESB polygon contains no school inside its
+        geometry (small residential ESBs where the assigned school lives
+        elsewhere — the geometric heuristic in esb_to_gs misses these)."""
+        if not self.gs_public:
+            return []
+        sorted_gs = sorted(self.gs_public,
+                           key=lambda pc: haversine_m(lon, lat, pc[1][0], pc[1][1]))
+        return sorted_gs[:k]
+
     def nearest_intl(self, lon, lat):
         if not self.gs_intl:
             return None

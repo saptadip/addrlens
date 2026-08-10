@@ -50,6 +50,13 @@ def lookup(
 
     s_fm = cfg.schools_field_map
     c_fm = cfg.catchment_field_map
+    # If no Grundschule sits inside this ESB's polygon, fall back to the two
+    # nearest public Grundschulen — small residential ESBs where the assigned
+    # school lives outside the polygon (the geometric esb_to_gs mapping misses
+    # them). Frontend renders an "outside-catchment" caveat when this fires.
+    schools_source = "esb" if schools else ("nearest" if polygon is not None else None)
+    if not schools and polygon is not None:
+        schools = index.nearest_gs_public(lon, lat, k=2)
     out_schools = []
     for s, c in schools:
         out_schools.append({
@@ -61,6 +68,7 @@ def lookup(
             "sesb_strand": index.sesb_strand(s[s_fm["name"]]),
             "school_year": s.get(s_fm["school_year"]),
             "lon": c[0], "lat": c[1],
+            "_fallback": schools_source == "nearest",
         })
 
     intl = index.nearest_intl(lon, lat)
@@ -142,6 +150,7 @@ def lookup(
             "esb": esb_props[c_fm["id"]] if esb_props else None,
             "district": esb_props[c_fm["district"]] if esb_props else None,
             "polygon": mapping(polygon) if polygon is not None else None,
+            "schools_source": schools_source,   # "esb" | "nearest" | None
         },
         "schools": out_schools,
         "intl_grundschule": intl_out,
