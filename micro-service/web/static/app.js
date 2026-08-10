@@ -2195,8 +2195,27 @@ function renderLensSingle(addr) {
 }
 
 // -- Life Mode compare-view render (Task 11) --------------------------------
-// renderLensDot: single dot cell for the 7×N compare matrix.
-function renderLensDot(tile) {
+// renderLensDot: single cell for the compare matrix.
+// Young Family → verdict-graded colored dot; Bureaucracy → walk-minutes
+// text on a neutral neumorphic cell (informational, not verdict-graded).
+function renderLensDot(tile, lensSlug) {
+  if (lensSlug === 'bureaucracy') {
+    if (!tile) {
+      return `<button class="lens-compare-cell lens-compare-cell-info" type="button"
+                      aria-label="unavailable" title="unavailable">—</button>`;
+    }
+    const features = Array.isArray(tile.features) ? tile.features : [];
+    const walkMin  = features.length ? features[0].walk_min : null;
+    const name     = features.length && features[0].name ? features[0].name : '';
+    const label    = walkMin != null ? String(walkMin) : '—';
+    const suffix   = walkMin != null ? '<span class="cell-cap">min</span>' : '';
+    const title    = escapeHtml(tile.label + (name ? ' — ' + name : '')
+                     + (walkMin != null ? ' (~' + walkMin + ' min walk)' : ''));
+    const aria     = escapeHtml(tile.label + ': '
+                     + (walkMin != null ? '~' + walkMin + ' min walk' : 'unavailable'));
+    return `<button class="lens-compare-cell lens-compare-cell-info" type="button"
+                    aria-label="${aria}" title="${title}"><span class="cell-num">${escapeHtml(label)}</span>${suffix}</button>`;
+  }
   if (!tile) {
     return `<button class="lens-compare-cell tier-unknown" type="button"
                     aria-label="unavailable" title="unavailable">•</button>`;
@@ -2239,7 +2258,7 @@ function renderLensCompare(addresses) {
       const t = a && a.lens && a.lens[active] && !a.lens[active].error
               ? a.lens[active].tiles.find(x => x.key === spec.key)
               : null;
-      return `<div class="lens-compare-cellwrap">${renderLensDot(t)}</div>`;
+      return `<div class="lens-compare-cellwrap">${renderLensDot(t, active)}</div>`;
     }).join('');
     return `
       <div class="lens-compare-row">

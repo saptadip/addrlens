@@ -894,6 +894,18 @@ body.life-mode #panel-conn{ display:none !important; }
 }
 .lens-compare-cell.tier-unknown{ background:#eef0f4; color:#7a8090; }
 
+/* Bureaucracy compare cell — walk-minute pill (informational, no tier color).
+   Wider than the round dot to fit the number + 'min' suffix. */
+.lens-compare-cell.lens-compare-cell-info{
+  width:auto; min-width:3.4em; height:2em; border-radius:12px;
+  padding:0 10px; gap:3px;
+  background:var(--neumo-bg); color:var(--ink);
+  display:inline-flex; align-items:baseline; justify-content:center;
+  box-shadow:-2px -2px 4px var(--neumo-sh-light), 2px 2px 4px var(--neumo-sh-dark);
+}
+.lens-compare-cell.lens-compare-cell-info .cell-num{ font-weight:700; font-size:0.95em; line-height:1; }
+.lens-compare-cell.lens-compare-cell-info .cell-cap{ font-weight:500; font-size:0.62em; color:var(--muted); }
+
 /* --- Lens picker (Spec B) — mirrors the raw-mode .tabs / .tab pattern
    (recessed neumorphic groove + extruded active pill). Own selectors so
    we don't pick up the raw-mode tab click handler bound to `.tab`.       */
