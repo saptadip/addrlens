@@ -777,9 +777,12 @@ body.life-mode #panel-others{ display:none !important; }
                                         flex-shrink:0; }
 .lens-tile.lens-tile-info .icon-badge svg{ width:20px; height:20px; }
 .lens-tile.lens-tile-info .metric-big{ margin:0; display:flex; align-items:baseline; gap:4px; }
-.lens-tile.lens-tile-info .metric-big .n{ font-size:32px; font-weight:700;
-                                          line-height:1; color:var(--ink, #2a2f3a);
-                                          white-space:nowrap; }
+.lens-tile.lens-tile-info .metric-big .n{ font-size:32px; font-weight:800;
+                                          line-height:1; white-space:nowrap;
+                                          font-family:'Plus Jakarta Sans',sans-serif;
+                                          background:linear-gradient(135deg,#4F46E5,#EC4899);
+                                          -webkit-background-clip:text; background-clip:text;
+                                          color:transparent; }
 .lens-tile.lens-tile-info .metric-big .cap{ font-size:11px; color:var(--muted); }
 .lens-tile.lens-tile-info .cell-label{ display:block; font-size:12px; font-weight:700;
                                         color:var(--ink-2); text-transform:none;
@@ -1184,6 +1187,11 @@ select:focus-visible,
 
 /* --- Muted text contrast bump (WCAG AA on --neumo-bg) ----------------- */
 :root                          { --muted:#5C6473; }   /* was #6B7280 — bump for AA */
+
+/* Parenthetical gloss inside labels (e.g. "Finanzamt (Tax Office)")
+   Rendered in a lighter, muted-brand tone so the English translation
+   stays visually secondary to the German office name. */
+.lm-gloss                      { color:#7A8BB5; font-weight:500; font-size:.9em; }
 
 /* --- Hero primary + secondary buttons: join the neumorphic family ----- */
 /* Primary "Look up" — indigo gradient + neumorphic dual shadow (mirrors
