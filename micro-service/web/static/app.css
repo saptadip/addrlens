@@ -689,7 +689,8 @@ body.life-mode #panel-edu,
 body.life-mode #panel-amen,
 body.life-mode #panel-med,
 body.life-mode #panel-env,
-body.life-mode #panel-conn{ display:none !important; }
+body.life-mode #panel-conn,
+body.life-mode #panel-others{ display:none !important; }
 
 /* Lens picker row — mirrors raw-mode .tabs vertical rhythm (22px above,
    14px below). Picker sits on the left; audience-hint (right-aligned) on
