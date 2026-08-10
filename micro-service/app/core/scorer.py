@@ -675,7 +675,7 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
     tiles = []
     for key, res in results:
         label, icon, caveat = tile_meta[key]
-        tiles.append({
+        tile = {
             "key":     key,
             "label":   label,
             "icon":    icon,
@@ -684,7 +684,25 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
             "numeric": res["numeric"],
             "caveat":  caveat,
             "sources": _sources_for(cfg, key, res["tier"]),
-        })
+        }
+        # -- Spec D: features per tile ---------------------------------------
+        if key == "kita":
+            tile["features"] = [f for f in
+                (_shape_kita(o, cfg.kita_field_map) for o in kitas) if f]
+        elif key == "playground":
+            tile["features"] = [f for f in
+                (_shape_playground(o) for o in pg_items) if f]
+        elif key == "pediatrician":
+            tile["features"] = [f for f in
+                (_shape_paediatric_gp(o) for o in paediatric) if f]
+        elif key == "refuge":
+            tile["features"] = _shape_refuge_quiet(
+                quiet_zone, thresholds["refuge"]["amber_quiet_m"])
+            tile["metadata"] = {"trees": _shape_refuge_trees(trees)}
+        else:
+            # noise, heat, air — aggregate readings, no per-feature list
+            tile["features"] = []
+        tiles.append(tile)
 
     return {
         "slug":       lens.slug,
@@ -839,14 +857,61 @@ if __name__ == "__main__":
     assert _u["refuge"]       == TIER_UNKNOWN
     assert _u["kita"]         == TIER_RED   # preloaded — unknown unreachable
 
-    # Response shape stability (every tile has the same 8 keys).
+    # Response shape stability (every tile has features; refuge also has metadata).
+    _base_keys = {"key","label","icon","tier","rule","numeric","caveat","sources","features"}
     for t in _unavail_result["tiles"]:
-        assert set(t.keys()) == {"key","label","icon","tier","rule","numeric","caveat","sources"}, t
+        assert _base_keys <= set(t.keys()), t
+    _refuge_u = next(t for t in _unavail_result["tiles"] if t["key"] == "refuge")
+    assert "metadata" in _refuge_u and "trees" in _refuge_u["metadata"]
     assert _unavail_result["slug"]     == "young_family"
     assert _unavail_result["label"]    == "Young Family (0–6)"
     assert _unavail_result["audience"] == "For a family with kids under 6"
     # kita is red (not unknown) → DOES cite its attribution source.
     assert "Kindertagesstätten" in _unavail_result["provenance"], _unavail_result["provenance"]
+
+    # -- Spec D: features on young_family output ----------------------------
+    _r_full = young_family_lens(
+        _CFG_YF, _StubIndex(), 13.4, 52.5,
+        air={"no2_ugm3": 15}, heat={"day_class": "geringe Belastung"},
+        noise={"l_den": {"total": 50}},
+        amenities={"playgrounds": {"items": [
+            {"name": "P1", "lat": 52.5, "lon": 13.4, "distance_m": 350,
+             "props": {"katasterfl": 500}}]},
+                   "gps": {"items": []}},
+        trees={"count": 40, "crown_coverage_pct": 30,
+               "top_species": [{"name":"Silberlinde","n":10}]},
+        quiet_zone={"name": "Q", "lat": 52.5, "lon": 13.4, "distance_m": 380},
+    )
+    _by = {t["key"]: t for t in _r_full["tiles"]}
+    # Every tile has `features` key
+    for k in ["kita","playground","pediatrician","noise","heat","air","refuge"]:
+        assert "features" in _by[k], f"{k} missing features"
+    # Aggregate tiles → []
+    assert _by["noise"]["features"] == []
+    assert _by["heat"]["features"]  == []
+    assert _by["air"]["features"]   == []
+    # Refuge always carries metadata.trees (populated or empty dict)
+    assert "metadata" in _by["refuge"]
+    assert "trees" in _by["refuge"]["metadata"]
+    # Playground feature shaped correctly
+    assert _by["playground"]["features"] == [
+        {"name":"P1","lat":52.5,"lon":13.4,"distance_m":350,"area_m2":500}]
+    # Refuge quiet zone becomes 1 feature (within 400m green threshold)
+    assert len(_by["refuge"]["features"]) == 1
+    assert _by["refuge"]["features"][0]["name"] == "Q"
+
+    # Refuge with quiet zone BEYOND amber: features drops to []
+    _r_no_quiet = young_family_lens(
+        _CFG_YF, _StubIndex(), 13.4, 52.5,
+        air={"no2_ugm3": 15}, heat={"day_class": "geringe Belastung"},
+        noise={"l_den": {"total": 50}},
+        amenities={"playgrounds": {"items": []}, "gps": {"items": []}},
+        trees={"count": 40, "crown_coverage_pct": 30},
+        quiet_zone={"name":"Far","lat":52.6,"lon":13.5,"distance_m":5000},
+    )
+    _rf = next(t for t in _r_no_quiet["tiles"] if t["key"] == "refuge")
+    assert _rf["features"] == []
+    assert _rf["metadata"]["trees"]["crown_coverage_pct"] == 30
 
     print("scorer.py: young_family composer + provenance OK")
 
