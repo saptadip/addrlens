@@ -159,6 +159,21 @@ const LM_PULSE_MS   = 30000;                       // auto-stop pulse after 30 s
 const LM_ACTIVE_KEY  = 'berlin-lens-active-v1';    // "young_family"|"bureaucracy"
 const LM_DEFAULT_LENS = 'young_family';            // default for first-time users
 
+// -- Spec D: aggregate-tile explanations (rendered in modal only) -----------
+const LENS_TILE_EXPLANATIONS = {
+  noise: "L_DEN is EU-standard day-evening-night noise averaging. WHO recommends ≤55 dB in residential areas; above 60 dB is linked to sleep disturbance.",
+  heat:  "Berlin's Umweltatlas classifies each block's bioclimate (PET at 14:00 in summer). 'Belastung' = burden; higher classes indicate more heat stress.",
+  air:   "NO₂ measured µg/m³ per street segment (Umweltatlas trend scenario). WHO 2021 annual guideline is 10 µg/m³; Germany's legal limit is 40.",
+};
+
+// -- Spec D: map-pin color per tier ------------------------------------------
+const TIER_PIN_COLORS = {
+  green:   '#22C55E',   // matches --success
+  amber:   '#F59E0B',   // matches --amber
+  red:     '#EF4444',   // matches --danger
+  unknown: '#9CA3AF',
+};
+
 function getActiveLens() {
   try {
     const saved = localStorage.getItem(LM_ACTIVE_KEY);
@@ -2110,6 +2125,121 @@ function renderLensCompare(addresses) {
       ${audience ? `<p class="lens-audience">${audience}</p>` : ''}
     </div>
     <div class="lens-compare">${header}${rows}</div>
+  `;
+}
+
+// -- Spec D: modal render helpers (Task 7) ----------------------------------
+
+function renderLensFeature(tileKey, feature, idx) {
+  const details = _lensFeatureDetailHtml(tileKey, feature);
+  // ⓘ button only if the feature has anything beyond required fields.
+  // Matches raw-mode Amenities pattern (app.js:1801 — `details?`).
+  const tip = details
+    ? `<details class="info-tip"><summary aria-label="More info">${ico.info || 'ⓘ'}</summary><div class="info-body details-block">${details}</div></details>`
+    : '';
+  const dist = feature.distance_m != null
+    ? `${feature.distance_m} m`
+    : '';
+  return `
+    <li class="lens-feature" data-feature-idx="${idx}">
+      <span class="feature-marker">${idx + 1}</span>
+      <span class="feature-name">${escapeHtml(feature.name)}</span>
+      <span class="feature-distance">${escapeHtml(dist)}</span>
+      ${tip}
+    </li>
+  `;
+}
+
+function _lensFeatureDetailHtml(tileKey, f) {
+  const rows = [];
+  const row = (label, val) =>
+    `<div class="det-row"><span class="det-label">${label}</span><span class="det-val">${val}</span></div>`;
+
+  // Common optional fields
+  if (f.address)          rows.push(row('Address',   escapeHtml(f.address)));
+  if (f.walk_min != null) rows.push(row('Walk time', `~${f.walk_min} min`));
+  if (f.phone)            rows.push(row('Phone',
+                              `<a href="tel:${escapeHtml(f.phone)}">${escapeHtml(f.phone)}</a>`));
+  if (f.website)          rows.push(row('Website',
+                              `<a href="${escapeHtml(f.website)}" target="_blank" rel="noopener">Visit ↗</a>`));
+  if (f.hours)            rows.push(row('Hours',     escapeHtml(f.hours)));
+  if (f.wheelchair)       rows.push(row('Access',    'Step-free'));
+
+  // Tile-specific rows
+  if (tileKey === 'kita') {
+    if (f.capacity != null)      rows.push(row('Places',    escapeHtml(String(f.capacity))));
+    if (f.operator_type)         rows.push(row('Operator',  escapeHtml(f.operator_type)));
+    if (f.approach)              rows.push(row('Approach',  escapeHtml(f.approach)));
+  } else if (tileKey === 'playground') {
+    if (f.area_m2 != null)       rows.push(row('Area',       `${f.area_m2} m²`));
+    if (f.renovated_year != null) rows.push(row('Renovated', escapeHtml(String(f.renovated_year))));
+  } else if (tileKey === 'refuge') {
+    if (f.size_ha != null)       rows.push(row('Size',       `${f.size_ha} ha`));
+    if (f.kind)                  rows.push(row('Type',       escapeHtml(f.kind)));
+  }
+
+  return rows.join('');
+}
+
+function renderLensTreesBlock(trees) {
+  if (!trees) return '';
+  const bits = [];
+  if (trees.count != null)              bits.push(`${trees.count} street trees`);
+  if (trees.crown_coverage_pct != null) bits.push(`${trees.crown_coverage_pct}% crown coverage`);
+  if (trees.avg_age_yr != null)         bits.push(`avg age ${trees.avg_age_yr}y`);
+  if (trees.tallest_m != null)          bits.push(`tallest ${trees.tallest_m}m`);
+  if (bits.length === 0) return '';
+  const species = Array.isArray(trees.top_species) && trees.top_species.length
+    ? `Top: ${trees.top_species.slice(0, 3).map(s => escapeHtml(s.name)).join(', ')}`
+    : '';
+  return `
+    <div class="modal-trees">
+      <div class="modal-trees-summary">${bits.join(' · ')}</div>
+      ${species ? `<div class="modal-trees-species">${species}</div>` : ''}
+    </div>
+  `;
+}
+
+function renderLensModalBody(tile) {
+  const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
+  const tier    = tile.tier || 'unknown';
+  const badge   = tier === 'unknown' ? 'N/A' : tier.toUpperCase();
+  const features = Array.isArray(tile.features) ? tile.features : [];
+  const explanation = LENS_TILE_EXPLANATIONS[tile.key] || '';
+  const trees = tile.metadata && tile.metadata.trees;
+
+  const caveat = tile.caveat
+    ? `<div class="modal-caveat">${escapeHtml(tile.caveat)}</div>`
+    : '';
+  const explBlock = explanation
+    ? `<div class="modal-explanation">${escapeHtml(explanation)}</div>`
+    : '';
+  const featuresHtml = features.length
+    ? `<ul class="modal-features-list">${
+        features.map((f, i) => renderLensFeature(tile.key, f, i)).join('')
+      }</ul>`
+    : (explanation ? '' : '<div class="modal-empty">No matching items nearby.</div>');
+  const treesHtml = renderLensTreesBlock(trees);
+  const sourcesHtml = Array.isArray(tile.sources) && tile.sources.length
+    ? `<div class="modal-provenance">Sources: ${
+        tile.sources.map(escapeHtml).join(' · ')
+      }</div>`
+    : '';
+
+  return `
+    <button class="lens-modal-close" aria-label="Close details" type="button">✕</button>
+    <div class="modal-head">
+      <span class="icon-badge tier-${escapeHtml(tier)}" aria-hidden="true">${iconSVG}</span>
+      <h3 id="lens-modal-title">${escapeHtml(tile.label)}</h3>
+      <span class="tile-tier-badge tier-${escapeHtml(tier)}">${escapeHtml(badge)}</span>
+    </div>
+    <div class="modal-rule">${escapeHtml(tile.rule || '')}</div>
+    ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
+    ${caveat}
+    ${explBlock}
+    ${featuresHtml}
+    ${treesHtml}
+    ${sourcesHtml}
   `;
 }
 
