@@ -2246,8 +2246,10 @@ function _lensFeatureDetailHtml(tileKey, f) {
   if (f.walk_min != null) rows.push(row('Walk time', `~${f.walk_min} min`));
   if (f.phone)            rows.push(row('Phone',
                               `<a href="tel:${escapeHtml(f.phone)}">${escapeHtml(f.phone)}</a>`));
-  if (f.website)          rows.push(row('Website',
-                              `<a href="${escapeHtml(f.website)}" target="_blank" rel="noopener">Visit ↗</a>`));
+  const websiteUrl = (typeof f.website === 'string') ? f.website.trim() : '';
+  const websiteSafe = /^https?:\/\//i.test(websiteUrl) ? websiteUrl : '';
+  if (websiteSafe)        rows.push(row('Website',
+                              `<a href="${escapeHtml(websiteSafe)}" target="_blank" rel="noopener">Visit ↗</a>`));
   if (f.hours)            rows.push(row('Hours',     escapeHtml(f.hours)));
   if (f.wheelchair)       rows.push(row('Access',    'Step-free'));
 
