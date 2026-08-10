@@ -1989,22 +1989,28 @@ function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);return iconPin(meta[2]
 function escapeHtml(s) { return esc(s == null ? '' : s); }
 
 function renderLensTile(tile) {
-  const tier = tile.tier || 'unknown';
-  const iconSVG = ico[tile.icon] || '';
-  const badge = tier === 'unknown' ? 'N/A' : tier.toUpperCase();
-  const ariaLabel = escapeHtml(tile.label + ', tier ' + tier + ': ' + tile.rule);
+  const tier    = tile.tier || 'unknown';
+  const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
+  const badge   = tier === 'unknown' ? 'N/A' : tier.toUpperCase();
+  const aria    = `${tile.label}, tier ${tier}: ${tile.rule}`;
+  const numeric = tile.numeric
+    ? `<div class="tile-numeric">${escapeHtml(tile.numeric)}</div>`
+    : '';
+  // Caveat is intentionally NOT rendered on the tile face — it lives in
+  // the modal (renderLensModalBody) so tile heights stay consistent.
   return `
-    <section class="cell lens-tile tier-${escapeHtml(tier)}"
-             aria-label="${ariaLabel}">
+    <button class="cell lens-tile tier-${escapeHtml(tier)}"
+            data-tile-key="${escapeHtml(tile.key)}"
+            aria-label="${escapeHtml(aria)}"
+            type="button">
       <div class="tile-head">
         <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
         <span class="tile-label">${escapeHtml(tile.label)}</span>
         <span class="tile-tier-badge">${escapeHtml(badge)}</span>
       </div>
       <div class="tile-rule">${escapeHtml(tile.rule)}</div>
-      ${tile.numeric ? `<div class="tile-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
-      ${tile.caveat  ? `<div class="tile-caveat">${escapeHtml(tile.caveat)}</div>`  : ''}
-    </section>
+      ${numeric}
+    </button>
   `;
 }
 
@@ -2020,16 +2026,26 @@ function renderLensSingle(addr) {
     `;
   }
   const tilesHtml = lens.tiles.map(renderLensTile).join('');
+  const audience  = escapeHtml(lens.audience || '');
   const prov = lens.provenance
     ? `<footer class="lens-provenance">${escapeHtml(lens.provenance)}</footer>`
     : '';
-  const audience = escapeHtml(lens.audience || '');
   return `
     <div class="lens-picker-row">
       ${renderLensPicker(active)}
       ${audience ? `<p class="lens-audience">${audience}</p>` : ''}
     </div>
-    <div class="lens-grid">${tilesHtml}</div>
+    <div class="lens-body">
+      <div class="lens-tiles-col">
+        <div class="lens-grid">${tilesHtml}</div>
+        <div class="lens-modal" id="lens-modal" role="dialog"
+             aria-modal="true" aria-labelledby="lens-modal-title" hidden></div>
+      </div>
+      <div class="lens-map-col">
+        <div class="map-hint" id="lens-map-hint">Click a tile to plot its locations</div>
+        <div id="lens-map"></div>
+      </div>
+    </div>
     ${prov}
   `;
 }
