@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="/static/app.css?v=20260810e">
+<link rel="stylesheet" href="/static/app.css?v=20260810f">
 </head>
 <body>
 <div class="page">
@@ -72,6 +72,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M8 17v3M16 17v3"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/></svg>
     Connectivity
   </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-others" data-tab="others">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/></svg>
+    Others
+  </button>
 </div>
 <button class="impression-launch" id="impression-launch" hidden aria-label="Open AI impression"><span>Impression</span><span class="count" id="impression-count">0</span></button>
 </div>
@@ -96,6 +100,10 @@
   <div id="conn"></div>
 </section>
 
+<section id="panel-others" class="panel" role="tabpanel" aria-labelledby="tab-others" hidden>
+  <div id="others"></div>
+</section>
+
 </div><!-- /view-main -->
 
 <section id="view-compare" class="compare-view" hidden aria-label="Comparison board">
@@ -110,6 +118,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/app.js?v=20260810c" defer></script>
+<script src="/static/app.js?v=20260810f" defer></script>
 </body>
 </html>

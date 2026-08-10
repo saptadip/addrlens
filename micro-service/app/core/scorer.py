@@ -298,16 +298,28 @@ def _valid_latlon(d: dict) -> bool:
 
 def _shape_kita(o: dict, fm: dict) -> Optional[dict]:
     """Response-shape a kita feature from Index.kitas_near_bod output.
-    Required: name, lat, lon, distance_m. Optional: capacity (BOD e_platz —
-    int-in-str), operator_type (t_art), approach (ang_1)."""
+    Required: name, lat, lon, distance_m. All other fields optional and only
+    included if the BOD row carries them. Kept in sync with the raw-mode
+    kitaDetailHtml popover so Life Mode shows the same rich detail."""
     p = o.get("props") or {}
+    street_line = " ".join(x for x in [(p.get("e_strasse") or "").strip(),
+                                        (p.get("e_hnr") or "").strip()] if x).strip()
+    if p.get("e_zusatz"):
+        street_line = (street_line + (p.get("e_zusatz") or "")).strip()
+    address = ", ".join(x for x in [street_line, (p.get("e_plz") or "").strip()] if x).strip(", ")
+    approaches = " · ".join(x for x in [(p.get("ang_1") or "").strip(),
+                                         (p.get("ang_2") or "").strip()] if x)
     r = _prune({
         "name": (o.get("name") or "").strip(),
         "lat":  o.get("lat"), "lon": o.get("lon"),
         "distance_m": o.get("distance_m"),
+        "address":       address,
+        "phone":        (p.get("e_tel") or "").strip(),
+        "website":      (p.get("e_web") or "").strip(),
+        "traeger_name": (p.get("t_name") or "").strip(),
         "capacity":       _int_or_none(p.get(fm["capacity"])),
         "operator_type": (p.get(fm["operator_type"]) or "").strip(),
-        "approach":      (p.get(fm["approach"]) or "").strip(),
+        "approach":      approaches,
     })
     if not r.get("name") or not _valid_latlon(r) or r.get("distance_m") is None:
         return None

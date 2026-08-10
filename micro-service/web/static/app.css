@@ -780,9 +780,9 @@ body.life-mode #panel-conn{ display:none !important; }
                                           line-height:1; color:var(--ink, #2a2f3a);
                                           white-space:nowrap; }
 .lens-tile.lens-tile-info .metric-big .cap{ font-size:11px; color:var(--muted); }
-.lens-tile.lens-tile-info .cell-label{ display:block; font-size:11px; font-weight:700;
-                                        color:var(--muted); text-transform:uppercase;
-                                        letter-spacing:.08em; }
+.lens-tile.lens-tile-info .cell-label{ display:block; font-size:12px; font-weight:700;
+                                        color:var(--ink-2); text-transform:none;
+                                        letter-spacing:.01em; }
 .lens-tile.lens-tile-info .amen-tag{ display:inline-block; align-self:flex-start;
                                       max-width:100%; overflow:hidden;
                                       text-overflow:ellipsis; white-space:nowrap;
