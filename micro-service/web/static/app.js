@@ -154,7 +154,7 @@ $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.tri
   }catch(e){ clearResultState(); showStatus('error', 'Network error: '+e.message); }
 });
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-function walkMin(m){return Math.round(m/80);}
+function walkMin(m){return Math.round(m/62);}
 function shortUrl(u){ try{ return new URL(u).hostname.replace(/^www\./,''); } catch(e){ return u.length>40?u.slice(0,40)+'…':u; } }
 
 // -- Life Mode constants (Task 9) -------------------------------------------
@@ -2040,7 +2040,7 @@ function initLensMap(addr) {
       attribution: '© OpenStreetMap contributors',
     }).addTo(lensMap);
     lensAddressMarker = L.marker([addr.lat, addr.lon],
-        { icon: iconPin(ico.home || ico.pin || '📍', '#EC4899') })
+        { icon: iconPin(ico.home || ico.pin || '', '#EC4899') })
       .addTo(lensMap)
       .bindPopup('Your address');
   } catch (e) {
@@ -2074,11 +2074,13 @@ function _updateLensMapPins(tile) {
     lensMapFeaturePins.push(marker);
   });
 
-  // Fit bounds to include address + all feature pins, with padding
+  // Fit bounds to include address + all feature pins, with padding.
+  // Read coords back off the markers we just added so we don't re-filter
+  // features that _shape_* already validated on the backend.
+  const addrLL = lensAddressMarker.getLatLng();
   const latlngs = [
-    [lensAddressMarker.getLatLng().lat, lensAddressMarker.getLatLng().lng],
-    ...features.filter(f => typeof f.lat === 'number' && typeof f.lon === 'number')
-               .map(f => [f.lat, f.lon])
+    [addrLL.lat, addrLL.lng],
+    ...lensMapFeaturePins.map(m => { const ll = m.getLatLng(); return [ll.lat, ll.lng]; })
   ];
   if (latlngs.length > 1) {
     lensMap.fitBounds(latlngs, { padding: [30, 30] });
@@ -2396,6 +2398,9 @@ function _highlightLensRow(idx) {
 
 // Delegated event handlers: tile click → open modal; close button → close;
 // feature row click → pan map; backdrop click → close.
+// Idempotency guard: on hot reload or double-script inclusion, don't stack listeners.
+if (!window.__lensListenersInstalled) {
+window.__lensListenersInstalled = true;
 document.addEventListener('click', (e) => {
   // Close button
   if (e.target.closest('.lens-modal-close')) {
@@ -2435,6 +2440,7 @@ document.addEventListener('keydown', (e) => {
   const modal = document.getElementById('lens-modal');
   if (modal && !modal.hidden) closeLensModal();
 });
+} // end __lensListenersInstalled guard
 
 // -- Life Mode state management (Task 9) ------------------------------------
 // renderAllPanels: called by setLifeMode() on every toggle.
@@ -2461,18 +2467,19 @@ function renderAllPanels() {
   if (onLife) {
     // Render the lens grid if data is loaded.
     lensEl.innerHTML = eduData ? renderLensSingle(eduData) : '';
-    // Spec D Task 8: initialize lens map after HTML is in the DOM
-    if (eduData && eduData.address) {
+    // Spec D Task 8: initialize lens map after HTML is in the DOM.
+    // Skip when the lens rendered an error placeholder with no #lens-map.
+    if (eduData && eduData.address && document.getElementById('lens-map')) {
       initLensMap(eduData.address);
     }
   } else {
-    lensEl.innerHTML = '';
     if (lensMap) {
       try { lensMap.remove(); } catch (e) {}
       lensMap = null;
       lensAddressMarker = null;
       lensMapFeaturePins = [];
     }
+    lensEl.innerHTML = '';
   }
   // Disable the Life Mode toggle iff BOTH lenses are unavailable for the
   // focused address (single-address view uses eduData as the focused addr).
