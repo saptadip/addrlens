@@ -793,6 +793,63 @@ body.life-mode #panel-conn{ display:none !important; }
 .lens-tile.lens-tile-info:hover .amen-tag{ transform:translateY(-1px) scale(1.03); }
 .lens-tile.lens-tile-info:hover .icon-badge{ transform:rotate(-6deg) scale(1.08); }
 
+/* Screen-reader-only text (visually hidden but read aloud) */
+.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+          overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+/* Young Family tile — verdict card with vertical traffic-light indicator on
+   the right. Neumorphic recessed track + raised colored thumb at the current
+   tier position. No persistent ::before color-bar, no verbal GREEN/AMBER/RED
+   badge on the face; tier is conveyed via the indicator (visual) + the
+   .sr-only text (accessibility). Traffic-light order: RED top, AMBER middle,
+   GREEN bottom. --tier-color still drives icon tint + thumb color. */
+.lens-tile.lens-tile-yf{ display:flex; flex-direction:row; align-items:stretch;
+                          gap:14px; padding:14px 14px 14px 16px; min-height:118px; }
+.lens-tile.lens-tile-yf::before{ display:none; }              /* kill left color-bar */
+.lens-tile.lens-tile-yf .yf-tile-main{ flex:1 1 auto; min-width:0;
+                                        display:flex; flex-direction:column;
+                                        gap:.35em; justify-content:flex-start; }
+.lens-tile.lens-tile-yf .tile-tier-badge{ display:none; }     /* verbal badge off */
+
+.yf-tier-slider{ position:relative; flex:0 0 auto; width:26px; align-self:stretch;
+                  display:flex; align-items:center; justify-content:center;
+                  padding:6px 0; }
+.yf-tier-track{ position:relative; width:10px; height:100%; border-radius:99px;
+                background:#E9ECF3;
+                box-shadow: inset 3px 3px 6px rgba(163,177,198,.55),
+                            inset -3px -3px 6px rgba(255,255,255,.9); }
+.yf-tier-mark{ position:absolute; left:50%; width:6px; height:6px;
+                border-radius:50%; transform:translate(-50%,-50%);
+                background:#B8BFCC; opacity:.55; }
+.yf-tier-mark-red  { top:18%; }
+.yf-tier-mark-amber{ top:50%; }
+.yf-tier-mark-green{ top:82%; }
+.yf-tier-thumb{ position:absolute; left:50%; width:18px; height:18px;
+                 border-radius:50%; transform:translate(-50%,-50%);
+                 background:var(--tier-color, #B0B6C0);
+                 border:2px solid #FFFFFF;
+                 box-shadow: 2px 2px 5px rgba(163,177,198,.55),
+                             -2px -2px 5px rgba(255,255,255,.9),
+                             inset 0 -1px 2px rgba(0,0,0,.08);
+                 transition: top .28s cubic-bezier(.2,.7,.2,1);
+                 top:50%; }
+/* Thumb position per tier — matches traffic-light vertical order */
+.tier-red   .yf-tier-thumb{ top:18%; }
+.tier-amber .yf-tier-thumb{ top:50%; }
+.tier-green .yf-tier-thumb{ top:82%; }
+.tier-unknown .yf-tier-thumb{ top:50%; opacity:.5;
+                               background:#B0B6C0;
+                               border-color:#F0F2F7; }
+/* Highlight the active mark under the thumb for extra clarity */
+.tier-red   .yf-tier-mark-red,
+.tier-amber .yf-tier-mark-amber,
+.tier-green .yf-tier-mark-green{ background:var(--tier-color); opacity:.35; }
+
+@media (max-width:520px){
+  .lens-tile.lens-tile-yf{ gap:10px; padding:12px 10px 12px 14px; }
+  .yf-tier-slider{ width:22px; }
+}
+
 .lens-provenance{
   font:italic 400 .72em/1.4 'Plus Jakarta Sans', system-ui, sans-serif;
   color:#8a8f9a; padding:0 .5em;
