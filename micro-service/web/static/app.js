@@ -2929,12 +2929,30 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
   const $pill = document.getElementById('open-data-pill');
   if ($pill) $pill.textContent = `Open Data · ${dn}`;
   const $attr = document.getElementById('footer-city-attr');
-  if ($attr && cfg.attribution) {
+  const $attrPrint = document.getElementById('footer-city-attr-print');
+  if (cfg.attribution) {
     const seen = new Set(), lines = [];
     for (const s of Object.values(cfg.attribution)) {
       if (!s || seen.has(s)) continue;
       seen.add(s); lines.push(s);
     }
-    $attr.textContent = `${dn} Open Data: ${lines.join(' · ')}.`;
+    const text = `${dn} Open Data: ${lines.join(' · ')}.`;
+    if ($attr) $attr.textContent = text;
+    if ($attrPrint) $attrPrint.textContent = text;
+  }
+  // Attribution modal: click ⓘ opens, ✕ + backdrop + Esc close.
+  const $attrOpen = document.getElementById('attribution-open');
+  const $attrModal = document.getElementById('attribution-modal');
+  const $attrClose = document.getElementById('attribution-close');
+  if ($attrOpen && $attrModal && !$attrOpen.__wired) {
+    $attrOpen.__wired = true;
+    $attrOpen.addEventListener('click', () => { $attrModal.hidden = false; });
+    $attrClose && $attrClose.addEventListener('click', () => { $attrModal.hidden = true; });
+    $attrModal.addEventListener('click', (e) => {
+      if (e.target === $attrModal) $attrModal.hidden = true;   // backdrop click
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$attrModal.hidden) $attrModal.hidden = true;
+    });
   }
 }).catch(()=>{ /* keep Berlin defaults; harmless */ });
