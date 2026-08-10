@@ -279,8 +279,10 @@ def _shape_kita(o: dict, fm: dict) -> Optional[dict]:
         return None
     return r
 
-# Same shape for _shape_playground, _shape_paediatric_gp, _shape_office,
-# _shape_refuge_quiet, _shape_refuge_trees. See spec Section 2 for full drafts.
+# Same pattern for _shape_playground, _shape_paediatric_gp, _shape_office,
+# _shape_refuge_quiet, _shape_refuge_trees — each: _prune-build the dict,
+# validate name / lat / lon / distance_m, return None on any drop signal.
+# The implementation plan spells out each fn's body verbatim.
 ```
 
 *Composer wiring:*
