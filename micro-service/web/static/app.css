@@ -1281,3 +1281,10 @@ select:focus-visible,
 .lens-tile.lens-tile-yf .tier-unknown .yf-tier-thumb,
 .lens-tile.lens-tile-yf.tier-unknown .yf-tier-thumb
                                { background:#B0B6C0; opacity:.7; }
+
+/* --- Hero heading: retint the .grad accent into the --brand indigo family
+   so it matches the neumorphism unification (was sky-blue → indigo,
+   competed with the surface). */
+.hero h1 .grad                 { background:linear-gradient(135deg,#818CF8,#4338CA);
+                                 -webkit-background-clip:text; background-clip:text;
+                                 color:transparent; }
