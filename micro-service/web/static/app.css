@@ -1182,3 +1182,46 @@ select:focus-visible,
                                  color:var(--danger);
                                  box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
                                             inset -2px -2px 5px var(--neumo-sh-light); }
+
+/* --- Neumorphic donut loader (replaces flat .loading + .spinner combo)
+   Page-level loading state: raised outer ring (dual-shadow), recessed
+   inner hole (inset shadow), small --brand ball orbiting around the
+   ring's center. Ring is symmetric so the light source stays fixed even
+   as the ball moves. Scoped to `.loading > .spinner` so inline spinners
+   in modals stay compact. */
+.loading                       { margin-top:22px; padding:32px 24px;
+                                 background:var(--neumo-bg); border:none;
+                                 border-radius:20px;
+                                 box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
+                                            inset -3px -3px 8px var(--neumo-sh-light);
+                                 flex-direction:column; gap:18px;
+                                 align-items:center; justify-content:center;
+                                 color:var(--ink-2); font-weight:600; font-size:14px;
+                                 text-align:center; }
+.loading > .spinner            { position:relative; width:84px; height:84px;
+                                 border-radius:50%; background:var(--neumo-bg);
+                                 border:none;                        /* override old flat border */
+                                 box-shadow:-8px -8px 18px var(--neumo-sh-light),
+                                            8px 8px 18px var(--neumo-sh-dark);
+                                 animation:none;                     /* ring itself doesn't spin */
+                                 flex:0 0 auto; }
+.loading > .spinner::before    { content:''; position:absolute; inset:14px;
+                                 border-radius:50%; background:var(--neumo-bg);
+                                 box-shadow:inset 4px 4px 8px var(--neumo-sh-dark),
+                                            inset -4px -4px 8px var(--neumo-sh-light); }
+.loading > .spinner::after     { content:''; position:absolute;
+                                 left:50%; top:50%; width:13px; height:13px;
+                                 margin-left:-6.5px; margin-top:-6.5px;
+                                 border-radius:50%; background:var(--brand);
+                                 box-shadow:0 2px 5px rgba(79,70,229,.45),
+                                            inset 0 -1px 2px rgba(0,0,0,.15);
+                                 transform:rotate(0deg) translateY(-28px);
+                                 animation:spinner-orbit 1.6s linear infinite; }
+@keyframes spinner-orbit       { from { transform:rotate(0deg)   translateY(-28px); }
+                                 to   { transform:rotate(360deg) translateY(-28px); } }
+/* Vestibular safety: freeze ball at start position; ring remains as a
+   static neumorphic panel so the loading state is still visually distinct. */
+@media (prefers-reduced-motion: reduce) {
+  .loading > .spinner::after   { animation:none;
+                                 transform:rotate(0deg) translateY(-28px); }
+}
