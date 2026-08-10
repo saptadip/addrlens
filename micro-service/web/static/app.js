@@ -911,23 +911,34 @@ function render(d){
     _distance_m: (typeof s.lat === 'number' && typeof s.lon === 'number' && a && a.lat && a.lon)
       ? Math.round(haversineM(a.lat, a.lon, s.lat, s.lon)) : null,
   })).sort((x, y) => (x._distance_m ?? Infinity) - (y._distance_m ?? Infinity));
+  const isFallback = c.schools_source === 'nearest' || ssSorted.some(s => s._fallback);
   const multi = ssSorted.length > 1;
-  const groupLabel = multi
-    ? `Grundschule catchment · ${ssSorted.length} schools in this ESB`
-    : 'Assigned Grundschule';
-  const groupHint = multi
-    ? `<div class="prov" style="margin-top:6px;font-style:italic">This Einschulbereich contains ${ssSorted.length} public Grundschulen. The Bezirksschulamt allocates each child by proximity, siblings, and capacity — nearer is shown first as a proximity hint, not a guarantee.</div>`
-    : '';
+  let groupLabel, groupHint;
+  if (isFallback) {
+    groupLabel = `Nearest Grundschulen · outside this ESB polygon`;
+    groupHint  = `<div class="prov" style="margin-top:6px;font-style:italic">No public Grundschule sits inside Einschulbereich ${esc(c.esb || '?')}. The ${ssSorted.length} nearest schools are shown below as a proximity best-guess — confirm the assignment with the Bezirksschulamt (${esc(c.district || 'district')}).</div>`;
+  } else if (multi) {
+    groupLabel = `Grundschule catchment · ${ssSorted.length} schools in this ESB`;
+    groupHint  = `<div class="prov" style="margin-top:6px;font-style:italic">This Einschulbereich contains ${ssSorted.length} public Grundschulen. The Bezirksschulamt allocates each child by proximity, siblings, and capacity — nearer is shown first as a proximity hint, not a guarantee.</div>`;
+  } else {
+    groupLabel = 'Assigned Grundschule';
+    groupHint  = '';
+  }
   const schools = ssSorted.length ? ssSorted.map((s, idx) => {
     const sf = {'Name':s.name, 'School type':'Grundschule (primary school, grades 1–6 in Berlin)', 'Träger (operator)':'öffentlich (state-run)', 'Bezirk':c.district, 'Einschulbereich (catchment code)':c.esb, 'SESB bilingual strand':s.sesb_strand||'none', 'School year':s.school_year};
     const distTxt = s._distance_m != null
       ? ` · ${s._distance_m} m · ~${walkMin(s._distance_m)} min walk` : '';
-    const cellLabel = multi ? `${groupLabel} — #${idx + 1} (nearest first)` : groupLabel;
+    const cellLabel = (isFallback || multi)
+      ? `${groupLabel} — #${idx + 1} (nearest first)` : groupLabel;
+    const rowProv = isFallback
+      ? 'Nearest public Grundschule · outside catchment polygon'
+      : (multi ? 'Same catchment (ESB), one of several options'
+               : 'Assigned by Einschulbereich');
     return `<div class="cell edu-cell" data-edu-cat="school-${idx}">
     <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">${esc(cellLabel)}</span>${explainBtn('edu-school',groupLabel,sf)}</div>
     <h3>${esc(s.name)}</h3><p class="sub">${esc((s.street||'')+' '+(s.hnr||''))}, ${esc(s.plz||'')}${distTxt}${s.website?` · <a href="${esc(s.website)}" target="_blank" rel="noopener">website</a>`:''}</p>
     <div class="badges"><span class="badge b-public">Public · öffentlich</span>${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${s.sesb_strand?`<span class="badge b-sesb">SESB · ${esc(s.sesb_strand)}</span>`:''}</div>
-    <div class="prov">${multi ? 'Same catchment (ESB), one of several options' : 'Assigned by Einschulbereich'} · Schuljahr ${esc(s.school_year||'')}</div>
+    <div class="prov">${rowProv} · Schuljahr ${esc(s.school_year||'')}</div>
     ${idx === 0 ? groupHint : ''}
     </div>`;
   }).join('') : '';
