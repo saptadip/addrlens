@@ -63,6 +63,11 @@ const panels={
 let amenData=null;
 let eduData=null, eduLayer=null, eduSelected=null, kitaMarkers=[], addressMarker=null;
 let envData=null;
+// -- Spec D: dedicated Leaflet instance for the lens view -------------------
+let lensMap             = null;
+let lensAddressMarker   = null;
+let lensMapFeaturePins  = [];   // Leaflet markers for the currently-open tile's features
+let lensLastTileKey     = null; // for focus-restore on modal close
 const EDU_STYLE={school:{icon:'school',color:'#4F46E5'},kita:{icon:'baby',color:'#94A3B8'},intl:{icon:'globe',color:'#F59E0B'}};
 const NOISE_TIER_LABEL={green:'Quiet',amber:'Moderate',orange:'Loud',red:'Very loud',unknown:'Unknown'};
 
@@ -2003,6 +2008,83 @@ function amenPin(cat){const meta=AMEN.find(a=>a[0]===cat);return iconPin(meta[2]
 // escapeHtml — alias to existing esc(); brief requires this name.
 function escapeHtml(s) { return esc(s == null ? '' : s); }
 
+// -- Spec D Task 8: lens map helpers ----------------------------------------
+
+function lensNumberedPin(idx, color) {
+  // divIcon HTML — .lens-pin CSS class handles size/shape; --pin-color from inline style
+  return L.divIcon({
+    className: '',
+    html: `<div class="lens-pin" style="--pin-color:${color}" aria-label="Feature ${idx + 1}">${idx + 1}</div>`,
+    iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14],
+  });
+}
+
+function initLensMap(addr) {
+  const el = document.getElementById('lens-map');
+  if (!el || !addr) return;
+  // Tear down any previous instance first (address change / re-render)
+  if (lensMap) {
+    try { lensMap.remove(); } catch (e) {}
+    lensMap = null;
+    lensAddressMarker = null;
+    lensMapFeaturePins = [];
+  }
+  try {
+    lensMap = L.map('lens-map', { scrollWheelZoom: false })
+               .setView([addr.lat, addr.lon], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(lensMap);
+    lensAddressMarker = L.marker([addr.lat, addr.lon],
+        { icon: iconPin(ico.home || ico.pin || '📍', '#EC4899') })
+      .addTo(lensMap)
+      .bindPopup('Your address');
+  } catch (e) {
+    // Leaflet CDN blocked or offline — fail visible but don't crash the app.
+    // Tiles + modal still work; just no map pins.
+    lensMap = null;
+    el.innerHTML = '<div style="padding:14px;color:var(--muted);font-style:italic">Map unavailable.</div>';
+  }
+}
+
+function _updateLensMapPins(tile) {
+  if (!lensMap) return;
+  // Clear previous feature pins (address pin stays)
+  lensMapFeaturePins.forEach(m => { try { lensMap.removeLayer(m); } catch (e) {} });
+  lensMapFeaturePins = [];
+
+  const features = Array.isArray(tile.features) ? tile.features : [];
+  const hint = document.getElementById('lens-map-hint');
+  if (features.length === 0) {
+    if (hint) hint.textContent = 'Reading at your address';
+    return;
+  }
+
+  const color = TIER_PIN_COLORS[tile.tier || 'unknown'] || TIER_PIN_COLORS.unknown;
+  features.forEach((f, i) => {
+    if (typeof f.lat !== 'number' || typeof f.lon !== 'number') return;
+    const marker = L.marker([f.lat, f.lon], { icon: lensNumberedPin(i, color) })
+      .addTo(lensMap)
+      .bindPopup(`<b>${escapeHtml(f.name)}</b><br>${f.distance_m != null ? f.distance_m + ' m' : ''}`);
+    marker._lensFeatureIdx = i;         // for two-way sync — see Task 9's pin-click callback
+    lensMapFeaturePins.push(marker);
+  });
+
+  // Fit bounds to include address + all feature pins, with padding
+  const latlngs = [
+    [lensAddressMarker.getLatLng().lat, lensAddressMarker.getLatLng().lng],
+    ...features.filter(f => typeof f.lat === 'number' && typeof f.lon === 'number')
+               .map(f => [f.lat, f.lon])
+  ];
+  if (latlngs.length > 1) {
+    lensMap.fitBounds(latlngs, { padding: [30, 30] });
+  } else {
+    lensMap.setView([lensAddressMarker.getLatLng().lat, lensAddressMarker.getLatLng().lng], 14);
+  }
+
+  if (hint) hint.textContent = `${tile.label}: ${features.length} on map`;
+}
+
 function renderLensTile(tile) {
   const tier    = tile.tier || 'unknown';
   const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
@@ -2266,8 +2348,18 @@ function renderAllPanels() {
   if (onLife) {
     // Render the lens grid if data is loaded.
     lensEl.innerHTML = eduData ? renderLensSingle(eduData) : '';
+    // Spec D Task 8: initialize lens map after HTML is in the DOM
+    if (eduData && eduData.address) {
+      initLensMap(eduData.address);
+    }
   } else {
     lensEl.innerHTML = '';
+    if (lensMap) {
+      try { lensMap.remove(); } catch (e) {}
+      lensMap = null;
+      lensAddressMarker = null;
+      lensMapFeaturePins = [];
+    }
   }
   // Disable the Life Mode toggle iff BOTH lenses are unavailable for the
   // focused address (single-address view uses eduData as the focused addr).
