@@ -564,7 +564,7 @@ def bureaucracy_lens(cfg, index, lon: float, lat: float) -> dict:
     tiles = []
     for key, res in results:
         label, icon, caveat = tile_meta[key]
-        tiles.append({
+        tile = {
             "key":     key,
             "label":   label,
             "icon":    icon,
@@ -573,7 +573,26 @@ def bureaucracy_lens(cfg, index, lon: float, lat: float) -> dict:
             "numeric": res["numeric"],
             "caveat":  caveat,
             "sources": _sources_for(cfg, key, res["tier"]),
-        })
+        }
+        # -- Spec D: features per bureaucracy tile ---------------------------
+        if key == "buergeramt":
+            tile["features"] = [f for f in
+                (_shape_office(o) for o in buergeramts) if f]
+        elif key == "arbeitsagentur":
+            tile["features"] = [f for f in
+                (_shape_office(o) for o in arbeitsagentur) if f]
+        elif key == "finanzamt":
+            single = _shape_office(finanzamt) if finanzamt else None
+            tile["features"] = [single] if single else []
+        elif key == "standesamt":
+            single = _shape_office(standesamt) if standesamt else None
+            tile["features"] = [single] if single else []
+        elif key == "lea":
+            single = _shape_office(lea) if lea else None
+            tile["features"] = [single] if single else []
+        else:
+            tile["features"] = []
+        tiles.append(tile)
 
     return {
         "slug":       lens.slug,
@@ -971,14 +990,14 @@ if __name__ == "__main__":
             self._bezirk = bezirk
         def bezirk_for(self, lon, lat): return self._bezirk
         def buergeramt_near(self, lon, lat, radius_m=3000):
-            return [{"name":"BA-Test","distance_m":500}]
+            return [{"name":"BA-Test","lat":52.5,"lon":13.4,"distance_m":500}]
         def arbeitsagentur_near(self, lon, lat, radius_m=5000):
-            return [{"name":"AA-Test","distance_m":800}]
+            return [{"name":"AA-Test","lat":52.5,"lon":13.4,"distance_m":800}]
         def finanzamt_nearest(self, lon, lat):
-            return {"name":"FA-Test","distance_m":600}
+            return {"name":"FA-Test","lat":52.5,"lon":13.4,"distance_m":600}
         def standesamt_for(self, lon, lat):
             if not self._bezirk: return None
-            return {"name": f"Standesamt {self._bezirk}","distance_m":700}
+            return {"name": f"Standesamt {self._bezirk}","lat":52.5,"lon":13.4,"distance_m":700}
 
     # Determinism — two identical calls must produce byte-equal dicts.
     r_a = bureaucracy_lens(_CFG_BUR, _StubIndex(), 13.4, 52.5)
@@ -989,9 +1008,9 @@ if __name__ == "__main__":
     _keys = [t["key"] for t in r_a["tiles"]]
     assert _keys == ["buergeramt","finanzamt","standesamt","lea","arbeitsagentur"], _keys
 
-    # Response shape stability (every tile has all 8 keys).
+    # Response shape stability (every tile has all 9 keys).
     for t in r_a["tiles"]:
-        assert set(t.keys()) == {"key","label","icon","tier","rule","numeric","caveat","sources"}, t
+        assert set(t.keys()) == {"key","label","icon","tier","rule","numeric","caveat","sources","features"}, t
     assert r_a["slug"] == "bureaucracy"
     assert r_a["label"] == "Bureaucracy"
 
@@ -1024,6 +1043,34 @@ if __name__ == "__main__":
     # cite the sources of all 5 tiles' contributed attribution keys.
     assert "Bürgerämter" in r_a["provenance"], r_a["provenance"]
     assert "Finanzamt" in r_a["provenance"] or "Finanzämter" in r_a["provenance"]
+
+    # -- Spec D: features on bureaucracy output ----------------------------
+    _r_bur_full = bureaucracy_lens(_CFG_BUR, _StubIndex(), 13.4, 52.5)
+    _by_bur = {t["key"]: t for t in _r_bur_full["tiles"]}
+    # Every bureaucracy tile has features
+    for k in ["buergeramt","finanzamt","standesamt","lea","arbeitsagentur"]:
+        assert "features" in _by_bur[k], f"{k} missing features"
+    # Nearest-single tiles have exactly 1 feature (when stub returns them)
+    assert len(_by_bur["finanzamt"]["features"])  == 1
+    assert len(_by_bur["standesamt"]["features"]) == 1
+    assert len(_by_bur["lea"]["features"])        == 1
+    # Every feature has walk_min (int, from _shape_office)
+    for k in ["buergeramt","finanzamt","standesamt","lea","arbeitsagentur"]:
+        for f in _by_bur[k]["features"]:
+            assert isinstance(f.get("walk_min"), int), f
+    # Malformed input → filtered out
+    class _StubEmpty(_StubIndex):
+        def buergeramt_near(self, lon, lat, r=3000): return []
+        def arbeitsagentur_near(self, lon, lat, r=5000): return []
+        def finanzamt_nearest(self, lon, lat): return None
+        def standesamt_for(self, lon, lat): return None
+    # LEA feature will still be present (comes from cfg.lea_office, not the index)
+    _r_empty = bureaucracy_lens(_CFG_BUR, _StubEmpty(), 13.4, 52.5)
+    _bym = {t["key"]: t for t in _r_empty["tiles"]}
+    assert _bym["buergeramt"]["features"]     == []
+    assert _bym["arbeitsagentur"]["features"] == []
+    assert _bym["finanzamt"]["features"]      == []
+    assert _bym["standesamt"]["features"]     == []
 
     print("scorer.py: bureaucracy composer OK")
 
