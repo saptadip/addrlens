@@ -2381,6 +2381,7 @@ function closeLensModal() {
     const tile = document.querySelector(`.lens-tile[data-tile-key="${lensLastTileKey}"]`);
     if (tile) tile.focus();
   }
+  lensLastTileKey = null;
 }
 
 function _highlightLensRow(idx) {
@@ -2413,6 +2414,7 @@ document.addEventListener('click', (e) => {
       const marker = lensMapFeaturePins[idx];
       lensMap.setView(marker.getLatLng(), Math.max(lensMap.getZoom(), 16), { animate: true });
       marker.openPopup();
+      _highlightLensRow(idx);
     }
     return;
   }
