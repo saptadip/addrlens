@@ -4,6 +4,7 @@
 **Status:** Approved for implementation planning
 **Predecessor:** Spec A (Young Family lens) — landed the lens abstraction this spec reuses.
 **Successor:** Spec C (LLM re-narration through lenses) — consumes the two lenses this spec + Spec A ship.
+**See also:** [Spec D — Clickable Lens Tiles](2026-08-10-clickable-lens-tiles-design.md) extends every tile in this spec with a `features` array + interactive modal / map integration. The tile schema below gains one required field (`features`) and, per-tile-key, optional tile-specific extras once Spec D lands.
 
 ## Context
 

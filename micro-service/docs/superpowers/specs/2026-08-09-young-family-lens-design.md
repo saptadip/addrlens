@@ -3,6 +3,7 @@
 **Date:** 2026-08-09
 **Status:** Approved for implementation planning
 **Sequel specs:** Spec B (Bureaucracy lens) and Spec C (LLM re-narration) build on this one and reuse its lens abstraction.
+**See also:** [Spec D — Clickable Lens Tiles](2026-08-10-clickable-lens-tiles-design.md) extends every tile in this spec with a `features` array + interactive modal / map integration. The tile schema described below (`{key, label, icon, tier, rule, numeric, caveat, sources}`) gains one required field (`features`) and one optional field (`metadata`, refuge tile only) once Spec D lands.
 
 ## Context
 
