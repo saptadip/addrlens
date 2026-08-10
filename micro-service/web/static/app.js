@@ -52,7 +52,7 @@ const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 // (pharmacies, GPs, hospitals, fireRescue) live under the Medical tab.
 const AMEN_TAB={pharmacies:'med', gps:'med', hospitals:'med', fireRescue:'med'};
 const tabOf=k=>AMEN_TAB[k]||'amen';
-const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$conn=document.getElementById('conn'),$status=document.getElementById('status'),$tabs=document.getElementById('tabs-row');
+const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$conn=document.getElementById('conn'),$others=document.getElementById('others'),$status=document.getElementById('status'),$tabs=document.getElementById('tabs-row');
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
 // Per-tab render state (map + selected category). Same shape for both panels
 // so every renderer/selector takes a tab id and reads its slice.
@@ -930,6 +930,7 @@ function render(d){
   const map=`<div class="map-cell"><div class="map-hint" id="eduHint">Click a card to plot its location</div><div id="map"></div></div>`;
   $out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
   renderConn(d.connectivity, d.provenance, d.address);
+  renderOthers(d);
   drawMap(d); const kn=document.getElementById('kitaN'); if(kn&&k.count!=null)countUp(kn,k.count);
   $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
     if(e.target.closest('.info-tip')) return;                       // tooltip toggles its own state
@@ -1245,6 +1246,60 @@ function fmtDistance(m){
   if(m==null) return '—';
   return m < 1000 ? `${m} m` : `${(m/1000).toFixed(1)} km`;
 }
+// -- Others tab (raw-mode mirror of the Bureaucracy Life-Mode lens) ---------
+// Reads the SAME data used to build Life Mode's Bureaucracy cards
+// (d.lens.bureaucracy.tiles) so the two views can't drift. No new fetch.
+function renderOthers(d){
+  if(!$others) return;
+  const bur = d && d.lens && d.lens.bureaucracy;
+  if(!bur || bur.error || !Array.isArray(bur.tiles) || !bur.tiles.length){
+    $others.innerHTML = `<div class="empty" style="margin-top:14px">
+      <p>No public-admin data available for this address.</p></div>`;
+    return;
+  }
+  const cards = bur.tiles.map(t => {
+    const icon = (ico && ico[t.icon]) || (ico && ico.compass) || '';
+    const features = Array.isArray(t.features) ? t.features : [];
+    const walkNearest = features.length && features[0].walk_min != null
+      ? features[0].walk_min : null;
+    const caveat = t.caveat ? `<p class="prov" style="margin-top:8px">${esc(t.caveat)}</p>` : '';
+    const shown  = features.slice(0, 5);
+    const list = shown.map((f, i) => {
+      const distTxt = f.distance_m != null ? `${f.distance_m} m` : '';
+      const walkTxt = f.walk_min   != null ? `~${f.walk_min} min walk` : '';
+      const addr    = f.address ? `<div class="dim" style="font-size:12.5px">${esc(f.address)}</div>` : '';
+      const webUrl  = (typeof f.website === 'string') ? f.website.trim() : '';
+      const webSafe = /^https?:\/\//i.test(webUrl) ? webUrl : '';
+      const web     = webSafe ? ` · <a href="${esc(webSafe)}" target="_blank" rel="noopener">website ↗</a>` : '';
+      return `<li data-idx="${i}"><span class="nm">${esc(f.name || '')}</span>
+              <span class="dist">${[distTxt, walkTxt].filter(Boolean).join(' · ')}${web}</span>
+              ${addr}</li>`;
+    }).join('') || `<li class="none">No matches nearby.</li>`;
+    const more = features.length > shown.length
+      ? `<p class="amen-more">+${features.length - shown.length} more</p>` : '';
+    const nearestPill = walkNearest != null
+      ? `<span class="amen-tag">~${walkNearest} min walk</span>` : '';
+    return `<div class="cell others-cell" data-cat="${esc(t.key)}">
+      <div class="cell-head">
+        <div class="icon-badge">${icon}</div>
+        <span class="cell-label">${esc(t.label)}</span>
+      </div>
+      <p class="sub" style="margin:6px 0 4px">${esc(t.rule || '')}</p>
+      ${t.numeric ? `<p class="sub" style="margin:0 0 6px">${esc(t.numeric)}</p>` : ''}
+      ${nearestPill}
+      <div class="amen-body" style="margin-top:10px">
+        <ul class="amen-list">${list}</ul>
+        ${more}
+      </div>
+      ${caveat}
+    </div>`;
+  }).join('');
+  const prov = bur.provenance
+    ? `<footer class="lens-provenance" style="margin-top:10px">${esc(bur.provenance)}</footer>`
+    : '';
+  $others.innerHTML = `<div class="stack" style="margin-top:14px">${cards}${prov}</div>`;
+}
+
 let connData=null, connMap=null, connLayer=null, connAddressMarker=null, connSelected=null;
 function renderConn(c, prov, addr){
   if(!c){ $conn.innerHTML=''; connData=null; return; }
@@ -2317,9 +2372,14 @@ function _lensFeatureDetailHtml(tileKey, f) {
 
   // Tile-specific rows
   if (tileKey === 'kita') {
-    if (f.capacity != null)      rows.push(row('Places',    escapeHtml(String(f.capacity))));
-    if (f.operator_type)         rows.push(row('Operator',  escapeHtml(f.operator_type)));
+    if (f.traeger_name) {
+      const suffix = f.operator_type ? ` <span class="dim">(${escapeHtml(f.operator_type)})</span>` : '';
+      rows.push(row('Operator', escapeHtml(f.traeger_name) + suffix));
+    } else if (f.operator_type) {
+      rows.push(row('Operator', escapeHtml(f.operator_type)));
+    }
     if (f.approach)              rows.push(row('Approach',  escapeHtml(f.approach)));
+    if (f.capacity != null)      rows.push(row('Places',    `${f.capacity} <span class="dim">(total, not availability)</span>`));
   } else if (tileKey === 'playground') {
     if (f.area_m2 != null)       rows.push(row('Area',       `${f.area_m2} m²`));
     if (f.renovated_year != null) rows.push(row('Renovated', escapeHtml(String(f.renovated_year))));

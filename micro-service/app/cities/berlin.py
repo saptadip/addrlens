@@ -256,17 +256,17 @@ BUREAUCRACY_LENS: LensConfig = LensConfig(
             caveat="Berlin lets you book any Bürgeramt for Anmeldung — not restricted by PLZ.",
         ),
         LensTileConfig(
-            key="finanzamt", label="Finanzamt (tax office)", icon="finanzamt",
+            key="finanzamt", label="Finanzamt (Tax Office)", icon="finanzamt",
             thresholds={"green_min": 15, "amber_min": 30},
             caveat=("Your assigned Finanzamt is set by Steuernummer, not address alone. "
                     "Nearest office shown as a starting point."),
         ),
         LensTileConfig(
-            key="standesamt", label="Standesamt (marriage / birth)", icon="standesamt",
+            key="standesamt", label="Standesamt (Marriage / Birth)", icon="standesamt",
             thresholds={"green_min": 15, "amber_min": 30},
         ),
         LensTileConfig(
-            key="lea", label="LEA (residence permit)", icon="lea",
+            key="lea", label="LEA (Residence Permit)", icon="lea",
             thresholds={"green_min": 15, "amber_min": 30},
             caveat=("Specialty branches exist for skilled workers, students, and refugees — "
                     "check LEA Berlin's website for the right one."),
