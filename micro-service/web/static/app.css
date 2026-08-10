@@ -1026,3 +1026,132 @@ body.life-mode #panel-conn{ display:none !important; }
 /* Empty state when features list is empty on a geo tile */
 .modal-empty                   { padding:14px; color:var(--muted); font-style:italic;
                                  background:var(--neumo-bg); border-radius:10px; }
+
+/* =========================================================================
+   NEUMORPHISM UNIFICATION LAYER (2026-08-10)
+   Extends the Soft-UI Evolution style across every remaining surface —
+   chips, icon-badges, info-tips, popovers, form widgets, modals, table
+   cells — so depth/press-back semantics are consistent app-wide. Preserves
+   tier colors as focal accents. Additive; safe to revert.
+
+   Ruling from ui-ux-pro-max:
+   - Pure Neumorphism = low-contrast risk + light-only. Use the softer
+     multi-layer "Soft UI Evolution" variant with WCAG-AA+ text, visible
+     4.5:1 focus rings, and keep interactive elements ≥ 44×44px tap.
+   - Base surface = --neumo-bg (single monotone); recessed inputs (inset
+     shadow), raised buttons (outset), pressed = inset.
+   ========================================================================= */
+
+/* --- Page canvas: single monotone base so depth actually reads --------- */
+html, body                     { background:var(--neumo-bg); }
+
+/* --- Search-history chips: raised neumorphic pills -------------------- */
+.chip                          { background:var(--neumo-bg); border:none;
+                                 color:var(--ink-2);
+                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
+                                            3px 3px 8px var(--neumo-sh-dark); }
+.chip:hover                    { background:var(--neumo-bg); color:var(--brand);
+                                 box-shadow:-4px -4px 10px var(--neumo-sh-light),
+                                            4px 4px 12px var(--neumo-sh-dark); }
+.chip:active                   { box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light); }
+.chip:focus-visible            { outline:2px solid var(--brand); outline-offset:2px; }
+
+/* --- Icon badges (avatars for tiles + amenity headers) ---------------- */
+.icon-badge                    { background:var(--neumo-bg);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            3px 3px 7px var(--neumo-sh-dark); }
+.cell.active .icon-badge       { background:linear-gradient(135deg,#818CF8,#4F46E5);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            4px 4px 12px rgba(79,70,229,.4); }
+
+/* --- Info-tip disclosure widget --------------------------------------- */
+.info-tip > summary            { background:var(--neumo-bg); border:none; color:var(--muted);
+                                 box-shadow:-2px -2px 4px var(--neumo-sh-light),
+                                            2px 2px 4px var(--neumo-sh-dark); }
+.info-tip[open] > summary,
+.info-tip > summary:hover      { color:var(--brand);
+                                 box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),
+                                            inset -2px -2px 4px var(--neumo-sh-light); }
+.info-tip > summary:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+.info-body                     { background:var(--neumo-bg); border:none;
+                                 box-shadow:-6px -6px 14px var(--neumo-sh-light),
+                                            6px 6px 16px var(--neumo-sh-dark); }
+
+/* --- Stroller-preference form (inline number/select + checkbox) ------- */
+.stroller-form input[type=number],
+.stroller-form select          { background:var(--neumo-bg); border:none; color:var(--ink);
+                                 box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light); }
+.stroller-form input:focus,
+.stroller-form select:focus    { box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light),
+                                            0 0 0 3px rgba(79,70,229,.28); }
+
+/* --- Sad-flow (feedback) widgets -------------------------------------- */
+.sad-chip                      { background:var(--neumo-bg); border:none; color:var(--ink-2);
+                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
+                                            3px 3px 8px var(--neumo-sh-dark); }
+.sad-chip:hover                { color:var(--brand);
+                                 box-shadow:-4px -4px 10px var(--neumo-sh-light),
+                                            4px 4px 12px var(--neumo-sh-dark); }
+.sad-chip:active,
+.sad-chip[aria-pressed=true]   { box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light);
+                                 color:var(--brand); }
+.sad-text                      { background:var(--neumo-bg); border:none; color:var(--ink);
+                                 box-shadow:inset 3px 3px 6px var(--neumo-sh-dark),
+                                            inset -3px -3px 6px var(--neumo-sh-light); }
+.sad-text:focus                { outline:none;
+                                 box-shadow:inset 3px 3px 6px var(--neumo-sh-dark),
+                                            inset -3px -3px 6px var(--neumo-sh-light),
+                                            0 0 0 3px rgba(79,70,229,.28); }
+
+/* --- Explain button ----------------------------------------------------*/
+.explain-btn                   { background:var(--neumo-bg); border:none; color:var(--brand);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            3px 3px 7px var(--neumo-sh-dark); }
+.explain-btn:hover             { background:var(--neumo-bg); color:var(--brand);
+                                 transform:translateY(-1px);
+                                 box-shadow:-4px -4px 9px var(--neumo-sh-light),
+                                            4px 4px 11px var(--neumo-sh-dark); }
+.explain-btn:active            { transform:translateY(0);
+                                 box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light); }
+
+/* --- Amenities & Lens modals — soften shell to neumorphic ------------- */
+.amen-modal                    { background:var(--neumo-bg); backdrop-filter:blur(4px);
+                                 box-shadow:-8px -8px 18px var(--neumo-sh-light),
+                                            8px 8px 22px var(--neumo-sh-dark); }
+.amen-modal-close,
+.lens-modal-close              { background:var(--neumo-bg); color:var(--ink-2); border:none;
+                                 box-shadow:-2px -2px 5px var(--neumo-sh-light),
+                                            2px 2px 5px var(--neumo-sh-dark); }
+.amen-modal-close:hover,
+.lens-modal-close:hover        { color:var(--danger);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            3px 3px 8px var(--neumo-sh-dark); }
+.lens-modal                    { background:var(--neumo-bg); backdrop-filter:blur(4px); }
+
+/* --- Compare table: recessed cells on a neumorphic surface ------------ */
+.compare-table                 { background:var(--neumo-bg); border-collapse:separate;
+                                 border-spacing:6px; border-radius:14px;
+                                 box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
+                                            inset -3px -3px 8px var(--neumo-sh-light);
+                                 padding:8px; }
+.compare-table th,
+.compare-table td              { background:var(--neumo-bg);
+                                 box-shadow:-2px -2px 5px var(--neumo-sh-light),
+                                            2px 2px 5px var(--neumo-sh-dark);
+                                 border-radius:8px; border:none; }
+
+/* --- Global focus ring — visible against soft shadow monochrome ------- */
+:focus-visible                 { outline:2px solid var(--brand); outline-offset:2px; }
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[role="tab"]:focus-visible     { outline:2px solid var(--brand); outline-offset:2px; }
+
+/* --- Muted text contrast bump (WCAG AA on --neumo-bg) ----------------- */
+:root                          { --muted:#5C6473; }   /* was #6B7280 — bump for AA */
