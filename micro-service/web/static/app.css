@@ -1225,3 +1225,32 @@ select:focus-visible,
   .loading > .spinner::after   { animation:none;
                                  transform:rotate(0deg) translateY(-28px); }
 }
+
+/* --- Young Family tier indicator: filled-pill variant (2026-08-10)
+   Replaces the traffic-light dots + tier-positioned thumb with a solid
+   tier-colored pill fill + a static thumb near the top. Tier reads from
+   the fill color, not from thumb position. Marks are hidden. Everything
+   still routes through --tier-color so red/amber/green semantics stay.
+   Accessibility unchanged: role='img' + aria-label + .sr-only text on
+   the .yf-tier-slider wrapper carries the tier for screen readers. */
+.yf-tier-slider                { width:22px; padding:8px 0; }
+.yf-tier-track                 { width:14px; border-radius:99px;
+                                 background:var(--tier-color, #B0B6C0);
+                                 box-shadow:inset 0 0 0 1px rgba(255,255,255,.35),
+                                            inset 2px 2px 4px rgba(0,0,0,.10),
+                                            2px 2px 5px var(--neumo-sh-dark),
+                                            -2px -2px 5px var(--neumo-sh-light); }
+.yf-tier-mark                  { display:none; }                    /* no traffic-light dots */
+.yf-tier-thumb                 { width:20px; height:20px;
+                                 background:var(--neumo-bg);
+                                 border:none;
+                                 box-shadow:-2px -2px 5px var(--neumo-sh-light),
+                                            2px 2px 5px var(--neumo-sh-dark),
+                                            inset 0 0 0 4px rgba(255,255,255,.55); }
+/* Static thumb near the top — position no longer conveys tier */
+.tier-red   .yf-tier-thumb,
+.tier-amber .yf-tier-thumb,
+.tier-green .yf-tier-thumb,
+.tier-unknown .yf-tier-thumb   { top:12px; transform:translate(-50%, 0); }
+.tier-unknown .yf-tier-track   { background:#B0B6C0; }              /* muted fill */
+.tier-unknown .yf-tier-thumb   { opacity:.75; }
