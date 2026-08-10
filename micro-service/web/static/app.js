@@ -94,6 +94,14 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   // conn tab: Leaflet needs a visible container to size tiles; the map was
   // built pre-visibility, so poke it every time this tab opens.
   if(target==='conn' && connMap) requestAnimationFrame(()=>connMap.invalidateSize());
+  // Others tab: lazy Leaflet init on first open, then invalidateSize on each
+  // switch (container was 0×0 while hidden).
+  if(target==='others'){
+    if(!othersState.mapRef && document.getElementById('map-others'))
+      requestAnimationFrame(drawOthersMap);
+    else if(othersState.mapRef)
+      requestAnimationFrame(() => othersState.mapRef.invalidateSize());
+  }
 }));
 
 // button ripple effect
@@ -1270,56 +1278,208 @@ function fmtDistance(m){
 // -- Others tab (raw-mode mirror of the Bureaucracy Life-Mode lens) ---------
 // Reads the SAME data used to build Life Mode's Bureaucracy cards
 // (d.lens.bureaucracy.tiles) so the two views can't drift. No new fetch.
+// Others tab state — mirrors panels['amen'|'med'] shape so it plugs into the
+// same tab-open handler for map init.
+const othersState = { tiles: [], byKey: {}, mapRef: null, layer: null,
+                       markers: [], selected: null, prov: '' };
+
 function renderOthers(d){
   if(!$others) return;
   const bur = d && d.lens && d.lens.bureaucracy;
   if(!bur || bur.error || !Array.isArray(bur.tiles) || !bur.tiles.length){
+    othersState.tiles = []; othersState.byKey = {}; othersState.prov = '';
     $others.innerHTML = `<div class="empty" style="margin-top:14px">
       <p>No public-admin data available for this address.</p></div>`;
     return;
   }
+  othersState.tiles = bur.tiles;
+  othersState.byKey = Object.fromEntries(bur.tiles.map(t => [t.key, t]));
+  othersState.prov  = bur.provenance || '';
+  othersState.selected = null;
+  if(othersState.mapRef){ othersState.mapRef.remove(); othersState.mapRef = null; }
+  othersState.layer = null;
+  othersState.markers = [];
+
   const cards = bur.tiles.map(t => {
     const icon = (ico && ico[t.icon]) || (ico && ico.compass) || '';
     const features = Array.isArray(t.features) ? t.features : [];
     const walkNearest = features.length && features[0].walk_min != null
       ? features[0].walk_min : null;
-    const caveat = t.caveat ? `<p class="prov" style="margin-top:8px">${esc(t.caveat)}</p>` : '';
-    const shown  = features.slice(0, 5);
-    const list = shown.map((f, i) => {
-      const distTxt = f.distance_m != null ? `${f.distance_m} m` : '';
-      const walkTxt = f.walk_min   != null ? `~${f.walk_min} min walk` : '';
-      const addr    = f.address ? `<div class="dim" style="font-size:12.5px">${esc(f.address)}</div>` : '';
-      const webUrl  = (typeof f.website === 'string') ? f.website.trim() : '';
-      const webSafe = /^https?:\/\//i.test(webUrl) ? webUrl : '';
-      const web     = webSafe ? ` · <a href="${esc(webSafe)}" target="_blank" rel="noopener">website ↗</a>` : '';
-      return `<li data-idx="${i}"><span class="nm">${esc(f.name || '')}</span>
-              <span class="dist">${[distTxt, walkTxt].filter(Boolean).join(' · ')}${web}</span>
-              ${addr}</li>`;
-    }).join('') || `<li class="none">No matches nearby.</li>`;
-    const more = features.length > shown.length
-      ? `<p class="amen-more">+${features.length - shown.length} more</p>` : '';
-    const nearestPill = walkNearest != null
-      ? `<span class="amen-tag">~${walkNearest} min walk</span>` : '';
-    return `<div class="cell others-cell" data-cat="${esc(t.key)}">
-      <div class="cell-head">
+    const bigNum = features.length || 0;
+    const tag = walkNearest != null
+      ? `~${walkNearest} min walk` : (bigNum ? 'in range' : 'none nearby');
+    return `<div class="cell amen-cell others-cell" data-cat="${esc(t.key)}">
+      <div class="amen-tile-top">
         <div class="icon-badge">${icon}</div>
-        <span class="cell-label">${esc(t.label)}</span>
+        <div class="metric-big"><span class="n">${bigNum}</span></div>
       </div>
-      <p class="sub" style="margin:6px 0 4px">${esc(t.rule || '')}</p>
-      ${t.numeric ? `<p class="sub" style="margin:0 0 6px">${esc(t.numeric)}</p>` : ''}
-      ${nearestPill}
-      <div class="amen-body" style="margin-top:10px">
-        <ul class="amen-list">${list}</ul>
-        ${more}
-      </div>
-      ${caveat}
+      <span class="cell-label">${esc(t.label)}</span>
+      <span class="amen-tag">${esc(tag)}</span>
     </div>`;
   }).join('');
-  const prov = bur.provenance
-    ? `<footer class="lens-provenance" style="margin-top:10px">${esc(bur.provenance)}</footer>`
-    : '';
-  $others.innerHTML = `<div class="stack" style="margin-top:14px">${cards}${prov}</div>`;
+  const map = `<div class="map-cell amen-map-cell">
+    <div class="map-hint" id="othersHint">Click a card to plot its locations</div>
+    <div id="map-others"></div>
+  </div>`;
+  $others.innerHTML = `<div class="grid">
+    <div class="stack tiles-grid two-per-row">${cards}<div class="amen-modal" id="amen-modal-others" hidden></div></div>
+    ${map}
+  </div>`;
+
+  // Card click → open modal + select on map
+  $others.querySelectorAll('.amen-cell').forEach(cell => cell.addEventListener('click', (e) => {
+    if(e.target.closest('.info-tip')) return;
+    if(e.target.closest('.amen-list li[data-idx]')) return;
+    if(e.target.closest('.amen-modal-close')) return;
+    const cat = cell.dataset.cat;
+    openOthersModal(cat);
+    selectOthersCategory(cat);
+  }));
+
+  // Modal delegation — close btn + per-item highlight
+  const modal = document.getElementById('amen-modal-others');
+  modal && modal.addEventListener('click', (e) => {
+    if(e.target.closest('.amen-modal-close')){ closeOthersModal(); return; }
+    const li = e.target.closest('.amen-list li[data-idx]');
+    if(li){ e.stopPropagation();
+            const cat = li.dataset.cat;
+            highlightOthersItem(cat, +li.dataset.idx); }
+  });
+
+  // Initialise the Leaflet map immediately if the Others tab is already active
+  // (rare — usually user opens it after render); otherwise the tab-open handler
+  // fires drawOthersMap() lazily.
+  if(document.getElementById('panel-others')?.classList.contains('active')){
+    requestAnimationFrame(drawOthersMap);
+  }
 }
+
+function drawOthersMap(){
+  if(othersState.mapRef){ othersState.mapRef.remove(); othersState.mapRef = null; }
+  if(!lastCoord) return;
+  const {lat, lon} = lastCoord;
+  const el = document.getElementById('map-others');
+  if(!el) return;
+  othersState.mapRef = L.map('map-others', {scrollWheelZoom:false}).setView([lat, lon], 13);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    {maxZoom:19, subdomains:'abcd', attribution:'© OpenStreetMap · © CARTO'})
+    .addTo(othersState.mapRef);
+  L.marker([lat, lon], {icon: iconPin(ico.home, '#EC4899')})
+    .addTo(othersState.mapRef).bindPopup('Your address');
+  othersState.layer = null;
+  requestAnimationFrame(() => othersState.mapRef && othersState.mapRef.invalidateSize());
+}
+
+function selectOthersCategory(cat){
+  if(!othersState.mapRef){ drawOthersMap(); }
+  if(!othersState.mapRef) return;
+  if(othersState.layer){ othersState.mapRef.removeLayer(othersState.layer); othersState.layer = null; }
+  othersState.markers = [];
+  const wasSelected = othersState.selected === cat;
+  othersState.selected = wasSelected ? null : cat;
+  $others.querySelectorAll('.amen-cell').forEach(c =>
+    c.classList.toggle('active', c.dataset.cat === othersState.selected));
+  const hint = document.getElementById('othersHint');
+  requestAnimationFrame(() => {
+    if(!othersState.mapRef) return;
+    othersState.mapRef.invalidateSize();
+    if(wasSelected){
+      if(hint) hint.textContent = 'Click a card to plot its locations';
+      othersState.mapRef.setView([lastCoord.lat, lastCoord.lon], 13);
+      return;
+    }
+    const tile = othersState.byKey[cat];
+    const items = ((tile && tile.features) || [])
+      .filter(f => typeof f.lat === 'number' && typeof f.lon === 'number');
+    if(!items.length){
+      if(hint) hint.textContent = `${tile ? tile.label : cat}: no plottable items`;
+      return;
+    }
+    const grp = L.layerGroup();
+    items.forEach((it, i) => {
+      const m = L.marker([it.lat, it.lon], {icon: iconPin(ico[tile.icon] || ico.compass, '#4F46E5')})
+        .bindPopup(`<b>${esc(it.name || '')}</b>${it.address ? '<br>' + esc(it.address) : ''}${
+                    it.walk_min != null ? '<br>~' + it.walk_min + ' min walk' : ''}`);
+      grp.addLayer(m);
+      othersState.markers.push(m);
+    });
+    grp.addTo(othersState.mapRef);
+    othersState.layer = grp;
+    const bounds = L.latLngBounds(items.map(it => [it.lat, it.lon]).concat([[lastCoord.lat, lastCoord.lon]]));
+    othersState.mapRef.fitBounds(bounds, {padding: [30, 30]});
+    if(hint) hint.textContent = `${tile.label}: ${items.length} on map`;
+  });
+}
+
+function highlightOthersItem(cat, idx){
+  const m = othersState.markers[idx];
+  if(m && othersState.mapRef){
+    othersState.mapRef.setView(m.getLatLng(), Math.max(othersState.mapRef.getZoom(), 15));
+    m.openPopup();
+  }
+}
+
+function _othersItemDetailHtml(f){
+  const rows = [];
+  const push = (l, v) => v && rows.push([l, v]);
+  if(f.address)               push('Address', esc(f.address));
+  if(f.walk_min != null)      push('Walk time', `~${f.walk_min} min`);
+  const webUrl  = (typeof f.website === 'string') ? f.website.trim() : '';
+  const webSafe = /^https?:\/\//i.test(webUrl) ? webUrl : '';
+  if(webSafe)                 push('Website',
+    `<a href="${esc(webSafe)}" target="_blank" rel="noopener">Visit ↗</a>`);
+  return rows.map(([l, v]) =>
+    `<div class="det-row"><span class="det-label">${l}</span><span class="det-val">${v}</span></div>`
+  ).join('');
+}
+
+function openOthersModal(cat){
+  const modal = document.getElementById('amen-modal-others'); if(!modal) return;
+  const tile = othersState.byKey[cat]; if(!tile) return;
+  const iconSVG = (ico && ico[tile.icon]) || '';
+  const features = Array.isArray(tile.features) ? tile.features : [];
+  const items = features.slice(0, 25).map((f, i) => {
+    const details = _othersItemDetailHtml(f);
+    const tip = details
+      ? `<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>` : '';
+    const dist = f.distance_m != null && f.walk_min != null
+      ? `${f.distance_m} m · ~${f.walk_min} min walk`
+      : (f.distance_m != null ? `${f.distance_m} m` : '');
+    return `<li data-idx="${i}" data-cat="${esc(cat)}" title="Highlight on map">
+      <span class="nm">${esc(f.name || '')}</span>
+      <span class="dist">${dist}</span>
+      ${tip}
+    </li>`;
+  }).join('') || '<li class="none">No matches nearby.</li>';
+  const more = features.length > 25 ? `<p class="amen-more">+${features.length - 25} more</p>` : '';
+  const caveat = tile.caveat
+    ? `<div class="prov" style="margin-top:8px;font-style:italic">${esc(tile.caveat)}</div>` : '';
+  const prov = othersState.prov
+    ? `<div class="prov">${esc(othersState.prov)}</div>` : '';
+  modal.innerHTML = `
+    <button class="amen-modal-close" aria-label="Close">✕</button>
+    <div class="modal-head"><div class="icon-badge">${iconSVG}</div><h3>${esc(tile.label)}</h3></div>
+    <div class="metric-big"><span class="n">${features.length}</span><span class="cap">nearby offices</span></div>
+    <div class="sub" style="margin:2px 0 8px">${esc(tile.rule || '')}${
+      tile.numeric ? ' · ' + esc(tile.numeric) : ''}</div>
+    <div class="amen-body">
+      <ul class="amen-list">${items}</ul>${more}
+      ${caveat}
+      ${prov}
+    </div>`;
+  modal.hidden = false;
+}
+
+function closeOthersModal(){
+  const modal = document.getElementById('amen-modal-others'); if(!modal) return;
+  modal.hidden = true; modal.innerHTML = '';
+  dropOrphanTooltips();
+}
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Escape') return;
+  const m = document.getElementById('amen-modal-others');
+  if(m && !m.hidden) closeOthersModal();
+});
 
 let connData=null, connMap=null, connLayer=null, connAddressMarker=null, connSelected=null;
 function renderConn(c, prov, addr){
