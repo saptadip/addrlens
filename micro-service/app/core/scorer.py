@@ -5,6 +5,8 @@ __main__ are the reference set. Selfcheck asserts are the exact ones from
 phase3/server.py:_selfcheck.
 """
 
+from typing import Optional
+
 from app.core.geo import haversine_m
 
 TIER_GREEN   = "green"
@@ -264,6 +266,158 @@ def _walk_minutes(dist_m: float) -> float:
     4.8 km/h walking speed × 1.3 route factor ≈ 62 m/min effective.
     Uniform across bureaucracy tiles."""
     return dist_m / 62
+
+
+# ---------------------------------------------------------------- Spec D
+# Feature shape helpers — each _shape_<tile> returns a response-ready
+# feature dict, or None if required fields are missing/invalid.
+
+def _prune(d: dict) -> dict:
+    """Drop keys whose value is None or empty string. Keeps 0, False, [], {}
+    so 'if feature.wheelchair:' still works but 'website: ""' doesn't leak
+    an empty link into the response."""
+    return {k: v for k, v in d.items() if v not in (None, "")}
+
+
+def _int_or_none(x):
+    """Coerce BOD raw field (str-int like '65' from kita e_platz) to int.
+    Returns None on empty/None/unparseable."""
+    try:
+        return int(x) if x not in (None, "") else None
+    except (ValueError, TypeError):
+        return None
+
+
+def _valid_latlon(d: dict) -> bool:
+    """Check `lat`/`lon` are finite floats in real-world range. Prevents
+    the frontend from trying to pin at (NaN, NaN) or (999, 999)."""
+    lat, lon = d.get("lat"), d.get("lon")
+    return (isinstance(lat, (int, float)) and isinstance(lon, (int, float))
+            and -90 <= lat <= 90 and -180 <= lon <= 180)
+
+
+def _shape_kita(o: dict, fm: dict) -> Optional[dict]:
+    """Response-shape a kita feature from Index.kitas_near_bod output.
+    Required: name, lat, lon, distance_m. Optional: capacity (BOD e_platz —
+    int-in-str), operator_type (t_art), approach (ang_1)."""
+    p = o.get("props") or {}
+    r = _prune({
+        "name": (o.get("name") or "").strip(),
+        "lat":  o.get("lat"), "lon": o.get("lon"),
+        "distance_m": o.get("distance_m"),
+        "capacity":       _int_or_none(p.get(fm["capacity"])),
+        "operator_type": (p.get(fm["operator_type"]) or "").strip(),
+        "approach":      (p.get(fm["approach"]) or "").strip(),
+    })
+    if not r.get("name") or not _valid_latlon(r) or r.get("distance_m") is None:
+        return None
+    return r
+
+
+def _shape_playground(o: dict) -> Optional[dict]:
+    """Response-shape a playground feature. BOD side has area (katasterfl
+    or nettospfl) + optional renovation year (sanierjahr). OSM side just
+    has {name, lat, lon, distance_m}. This shape covers both."""
+    p = o.get("props") or {}
+    r = _prune({
+        "name": (o.get("name") or "").strip(),
+        "lat":  o.get("lat"), "lon": o.get("lon"),
+        "distance_m": o.get("distance_m"),
+        "area_m2":        _int_or_none(p.get("katasterfl") or p.get("nettospfl")),
+        "renovated_year": _int_or_none(p.get("sanierjahr")),
+    })
+    if not r.get("name") or not _valid_latlon(r) or r.get("distance_m") is None:
+        return None
+    return r
+
+
+def _shape_paediatric_gp(o: dict) -> Optional[dict]:
+    """Response-shape a paediatric doctor feature from OSM gps bucket.
+    Composes address from OSM addr:* tags. `wheelchair` only surfaced
+    when yes (opt-in disclosure of accessibility)."""
+    t = o.get("tags") or {}
+    street = (t.get("addr:street") or "").strip()
+    hnr    = (t.get("addr:housenumber") or "").strip()
+    plz    = (t.get("addr:postcode") or "").strip()
+    city   = (t.get("addr:city") or "").strip()
+    addr_left  = f"{street} {hnr}".strip()
+    addr_right = f"{plz} {city}".strip()
+    address = ", ".join(p for p in [addr_left, addr_right] if p)
+
+    r = _prune({
+        "name": (o.get("name") or "").strip(),
+        "lat":  o.get("lat"), "lon": o.get("lon"),
+        "distance_m": o.get("distance_m"),
+        "address": address,
+        "phone":   (t.get("phone") or "").strip(),
+        "website": (t.get("website") or "").strip(),
+        "hours":   (t.get("opening_hours") or "").strip(),
+        "wheelchair": True if t.get("wheelchair") == "yes" else None,
+    })
+    if not r.get("name") or not _valid_latlon(r) or r.get("distance_m") is None:
+        return None
+    return r
+
+
+def _shape_office(o: dict) -> Optional[dict]:
+    """Response-shape a bureaucracy office feature. Used for both BOD
+    Bürgerämter (which carry address+website already normalized in
+    Index.buergeramt_near) and curated federal-directory offices
+    (Finanzamt/Standesamt/LEA/Arbeitsagentur — all already
+    {name,address,lat,lon,distance_m}).
+
+    walk_min is computed here from distance_m via _walk_minutes and
+    rounded to int (matches the tile-face rounding rule from Spec B)."""
+    d = o.get("distance_m")
+    r = _prune({
+        "name": (o.get("name") or "").strip(),
+        "lat":  o.get("lat"), "lon": o.get("lon"),
+        "distance_m": d,
+        "address": (o.get("address") or "").strip(),
+        "website": (o.get("website") or "").strip(),
+        "walk_min": round(_walk_minutes(d)) if isinstance(d, (int, float)) else None,
+    })
+    if not r.get("name") or not _valid_latlon(r) or r.get("distance_m") is None:
+        return None
+    return r
+
+
+def _shape_refuge_quiet(q: dict, amber_quiet_m: int) -> list:
+    """Return [feature] iff the quiet zone is within amber radius; else [].
+    Refuge is composite (quiet zone OR tree crown) — a tile that went
+    amber via TREES alone should NOT surface a distant quiet zone as a
+    feature because the map pin would be misleading."""
+    if not q or q.get("distance_m") is None:
+        return []
+    if q["distance_m"] > amber_quiet_m:
+        return []
+    r = _prune({
+        "name": (q.get("name") or "").strip() or "Quiet zone",
+        "lat":  q.get("lat"), "lon": q.get("lon"),
+        "distance_m": q.get("distance_m"),
+        "size_ha": q.get("size_ha"),
+        "kind":    q.get("kind"),
+    })
+    if not _valid_latlon(r):
+        return []
+    return [r]
+
+
+def _shape_refuge_trees(t: dict) -> dict:
+    """Return trees summary for refuge tile's metadata. Passes through
+    Index.trees_bbox keys, pruned. Returns {} if trees fetch failed
+    (frontend hides the trees block when empty)."""
+    if not t or t.get("error"):
+        return {}
+    top = t.get("top_species") or []
+    return _prune({
+        "count":               t.get("count"),
+        "avg_age_yr":          t.get("avg_age_yr"),
+        "tallest_m":           t.get("tallest_m"),
+        "crown_coverage_pct":  t.get("crown_coverage_pct"),
+        "top_species": [{"name": s.get("name"), "n": s.get("n")}
+                        for s in top[:5] if s.get("name")],
+    })
 
 
 def _tier_buergeramt(offices: list, t: dict) -> dict:
@@ -807,3 +961,103 @@ if __name__ == "__main__":
     assert "Finanzamt" in r_a["provenance"] or "Finanzämter" in r_a["provenance"]
 
     print("scorer.py: bureaucracy composer OK")
+
+    # -- Spec D shape helpers -----------------------------------------------
+    # _prune drops None + "" but keeps 0, False, [], {}
+    assert _prune({"a":"x","b":None,"c":"","d":0,"e":False,"f":[],"g":{}}) \
+        == {"a":"x","d":0,"e":False,"f":[],"g":{}}
+
+    # _int_or_none
+    assert _int_or_none("65") == 65
+    assert _int_or_none(65)   == 65
+    assert _int_or_none(None) is None
+    assert _int_or_none("")   is None
+    assert _int_or_none("abc") is None
+
+    # _valid_latlon
+    assert _valid_latlon({"lat": 52.5, "lon": 13.4}) is True
+    assert _valid_latlon({"lat": 100.0, "lon": 13.4}) is False
+    assert _valid_latlon({"lat": None, "lon": 13.4})  is False
+    assert _valid_latlon({"lat": 52.5})                is False
+
+    # _shape_kita — realistic BOD input
+    _fm_k = _CFG_YF.kita_field_map
+    _raw = {"name": "Kita Sonnenschein",
+            "lat": 52.5388, "lon": 13.3948, "distance_m": 180,
+            "props": {_fm_k["capacity"]: "65",
+                      _fm_k["operator_type"]: "freie Träger",
+                      _fm_k["approach"]: "Situationsansatz"}}
+    assert _shape_kita(_raw, _fm_k) == {
+        "name": "Kita Sonnenschein",
+        "lat": 52.5388, "lon": 13.3948, "distance_m": 180,
+        "capacity": 65, "operator_type": "freie Träger",
+        "approach": "Situationsansatz"}
+    # Drops when required fields missing
+    assert _shape_kita({"name": "", "lat": 52.5, "lon": 13.4,
+                        "distance_m": 100, "props": {}}, _fm_k) is None
+    assert _shape_kita({"name": "X", "distance_m": 100, "props": {}}, _fm_k) is None
+
+    # _shape_playground
+    _pg = {"name": "Marheinekeplatz, Spiel", "lat": 52.489, "lon": 13.396,
+           "distance_m": 75, "props": {"katasterfl": 446, "sanierjahr": "2018"}}
+    assert _shape_playground(_pg) == {
+        "name": "Marheinekeplatz, Spiel",
+        "lat": 52.489, "lon": 13.396, "distance_m": 75,
+        "area_m2": 446, "renovated_year": 2018}
+    _pg_bare = {"name": "P2", "lat": 52.5, "lon": 13.4, "distance_m": 200,
+                "props": {}}
+    assert _shape_playground(_pg_bare) == {
+        "name": "P2", "lat": 52.5, "lon": 13.4, "distance_m": 200}
+
+    # _shape_paediatric_gp — realistic OSM tags
+    _gp = {"name": "Praxis für Kinderheilkunde Dr. Berns",
+           "lat": 52.4893, "lon": 13.3889, "distance_m": 430,
+           "tags": {"addr:street": "Bergmannstraße", "addr:housenumber": "5",
+                    "addr:postcode": "10961", "addr:city": "Berlin",
+                    "phone": "+49 30 693 80 05",
+                    "website": "https://kinderarztpraxis-berns.de",
+                    "opening_hours": "Mo-Fr 09:00-12:00; Mo,Tu,Th 15:00-18:00",
+                    "wheelchair": "yes"}}
+    _rgp = _shape_paediatric_gp(_gp)
+    assert _rgp["address"] == "Bergmannstraße 5, 10961 Berlin"
+    assert _rgp["phone"]   == "+49 30 693 80 05"
+    assert _rgp["website"] == "https://kinderarztpraxis-berns.de"
+    assert _rgp["hours"].startswith("Mo-Fr")
+    assert _rgp["wheelchair"] is True
+    # wheelchair only surfaces on "yes" (not "limited" / "no" / missing)
+    _gp2 = {**_gp, "tags": {**_gp["tags"], "wheelchair": "limited"}}
+    assert "wheelchair" not in _shape_paediatric_gp(_gp2)
+
+    # _shape_office — walk_min computed via _walk_minutes and rounded
+    _off = {"name": "Bürgeramt X",
+            "address": "Y-Str. 1, 10000 Berlin",
+            "lat": 52.5, "lon": 13.4, "distance_m": 620,
+            "website": "https://x.example/"}
+    _roff = _shape_office(_off)
+    assert _roff["walk_min"] == 10        # 620 / 62 = 10.0
+    assert _roff["website"]  == "https://x.example/"
+
+    # _shape_refuge_quiet — within amber returns [feature]; beyond returns []
+    _q_within = {"name": "Volkspark", "lat": 52.53, "lon": 13.42,
+                 "distance_m": 350, "size_ha": 29, "kind": "Erholungsgebiet"}
+    assert _shape_refuge_quiet(_q_within, 1000) == [{
+        "name": "Volkspark", "lat": 52.53, "lon": 13.42,
+        "distance_m": 350, "size_ha": 29, "kind": "Erholungsgebiet"}]
+    assert _shape_refuge_quiet({"name": "Far", "lat": 52.6, "lon": 13.5,
+                                "distance_m": 5000}, 1000) == []
+    assert _shape_refuge_quiet(None, 1000) == []
+
+    # _shape_refuge_trees — pass through, drop empties, cap top_species
+    _tr = {"count": 42, "avg_age_yr": 35, "tallest_m": 22,
+           "crown_coverage_pct": 27,
+           "top_species": [{"name":"Silberlinde","n":12},
+                           {"name":"Winterlinde","n":8},
+                           {"name":"","n":0}]}
+    _rtr = _shape_refuge_trees(_tr)
+    assert _rtr["count"] == 42
+    assert _rtr["top_species"] == [{"name":"Silberlinde","n":12},
+                                    {"name":"Winterlinde","n":8}]
+    assert _shape_refuge_trees({"error": "trees down"}) == {}
+    assert _shape_refuge_trees(None) == {}
+
+    print("scorer.py: Spec D shape helpers OK")
