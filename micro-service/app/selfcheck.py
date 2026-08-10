@@ -288,6 +288,31 @@ def run_live_selfcheck() -> None:
         # Marheinekeplatz Spielplatz is ~75m; playground must be green.
         assert _by_b["playground"]["tier"] == "green", \
             f"expected playground green at Bergmannstraße 27: {_by_b['playground']}"
+        # -- Spec D: pediatrician feature has phone + website + hours ---
+        _ped_features = _by_b["pediatrician"]["features"]
+        assert len(_ped_features) >= 1
+        _berns = next((f for f in _ped_features if "Berns" in f.get("name", "")), None)
+        assert _berns is not None, "Dr. Berns expected in pediatrician features"
+        assert _berns.get("phone", "").startswith("+49"), _berns
+        assert _berns.get("website", "").startswith("http"), _berns
+        assert "Mo" in _berns.get("hours", ""), _berns.get("hours")
+    # -- Spec D: feature arrays present ---------------------------------
+    _by = {t["key"]: t for t in lens_yf["tiles"]}
+    _kita_f = _by["kita"]["features"]
+    assert isinstance(_kita_f, list) and len(_kita_f) >= 3, \
+        f"expected ≥3 kita features in dense Pankow, got {len(_kita_f)}"
+    _first = _kita_f[0]
+    assert _first.get("name") and _first.get("distance_m", 0) > 0
+    assert 52.3 < _first["lat"] < 52.7 and 13.0 < _first["lon"] < 13.8
+    # At least one kita should carry BOD e_platz capacity (usually all do)
+    assert any("capacity" in f for f in _kita_f), \
+        "BOD kita records should carry e_platz capacity for most entries"
+    # Aggregate tiles → []
+    assert _by["noise"]["features"] == []
+    assert _by["heat"]["features"]  == []
+    assert _by["air"]["features"]   == []
+    # Refuge metadata carries trees dict (may be empty on trees WFS outage)
+    assert _by["refuge"].get("metadata", {}).get("trees") is not None
     print("  young_family lens asserts OK")
 
     # -- Bureaucracy lens ---------------------------------------------------
@@ -338,6 +363,17 @@ def run_live_selfcheck() -> None:
             assert lea_kbg_min >= lea_pnk_min, \
                 f"LEA from Kreuzberg ({lea_kbg_min}) should be ≥ from Pankow ({lea_pnk_min})"
 
+    # -- Spec D: bureaucracy feature arrays ----------------------------
+    _by_bur = {t["key"]: t for t in lens_bur["tiles"]}
+    # Standesamt: exactly 1 feature, name contains "Pankow"
+    assert len(_by_bur["standesamt"]["features"]) == 1
+    assert "Pankow" in _by_bur["standesamt"]["features"][0]["name"]
+    # LEA: exactly 1 feature, name contains "LEA"
+    assert len(_by_bur["lea"]["features"]) == 1
+    assert "LEA" in _by_bur["lea"]["features"][0]["name"]
+    # Every buergeramt feature has walk_min as int
+    for f in _by_bur["buergeramt"]["features"]:
+        assert isinstance(f.get("walk_min"), int), f
     print("  bureaucracy lens asserts OK")
 
     print("→ live selfcheck OK")
