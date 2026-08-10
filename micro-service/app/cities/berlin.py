@@ -272,7 +272,7 @@ BUREAUCRACY_LENS: LensConfig = LensConfig(
                     "check LEA Berlin's website for the right one."),
         ),
         LensTileConfig(
-            key="arbeitsagentur", label="Arbeitsagentur", icon="arbeitsagentur",
+            key="arbeitsagentur", label="Arbeitsagentur (Employment Agency)", icon="arbeitsagentur",
             thresholds={"green_min": 15, "amber_min": 30},
         ),
     ),

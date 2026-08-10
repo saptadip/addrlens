@@ -1313,7 +1313,7 @@ function renderOthers(d){
         <div class="icon-badge">${icon}</div>
         <div class="metric-big"><span class="n">${bigNum}</span></div>
       </div>
-      <span class="cell-label">${esc(t.label)}</span>
+      <span class="cell-label">${labelWithGlossHtml(t.label)}</span>
       <span class="amen-tag">${esc(tag)}</span>
     </div>`;
   }).join('');
@@ -1458,7 +1458,7 @@ function openOthersModal(cat){
     ? `<div class="prov">${esc(othersState.prov)}</div>` : '';
   modal.innerHTML = `
     <button class="amen-modal-close" aria-label="Close">✕</button>
-    <div class="modal-head"><div class="icon-badge">${iconSVG}</div><h3>${esc(tile.label)}</h3></div>
+    <div class="modal-head"><div class="icon-badge">${iconSVG}</div><h3>${labelWithGlossHtml(tile.label)}</h3></div>
     <div class="metric-big"><span class="n">${features.length}</span><span class="cap">nearby offices</span></div>
     <div class="sub" style="margin:2px 0 8px">${esc(tile.rule || '')}${
       tile.numeric ? ' · ' + esc(tile.numeric) : ''}</div>
@@ -1722,13 +1722,17 @@ function renderCompare(){
   // Life Mode branch: render the 7×N dot matrix instead of the raw table.
   if (document.body.classList.contains('life-mode')) {
     $c.innerHTML = `${header}${renderLensCompare(list)}`;
-    $c.querySelectorAll('.col-remove').forEach(b=>b.addEventListener('click',()=>{
-      const list=compareLoad().filter(x=>x.id!==b.dataset.id);
-      compareSave(list); compareRefreshPill(); refreshSaveBtn(); renderCompare();
-    }));
     const clr=document.getElementById('clear-all-btn');
     if(clr) clr.addEventListener('click',()=>{
       if(confirm('Remove all saved addresses?')){ compareSave([]); compareRefreshPill(); refreshSaveBtn(); renderCompare(); }
+    });
+    const pdf=document.getElementById('export-pdf-btn');
+    if(pdf) pdf.addEventListener('click',()=>{
+      const originalTitle=document.title;
+      document.title='AddrLensComparisonReport';
+      const restore=()=>{ document.title=originalTitle; window.removeEventListener('afterprint',restore); };
+      window.addEventListener('afterprint',restore);
+      window.print();
     });
     return;
   }
@@ -2327,6 +2331,20 @@ function _updateLensMapPins(tile) {
   if (hint) hint.textContent = `${tile.label}: ${features.length} on map`;
 }
 
+// Split a "Main (Gloss)" label so callers can style the parenthetical
+// separately (muted brand accent). Falls back to {main: label, gloss: ''}.
+function splitLabelGloss(label){
+  const m = (label || '').match(/^(.*?)\s*\((.*)\)\s*$/);
+  return m ? { main: m[1].trim(), gloss: m[2].trim() }
+           : { main: (label || '').trim(), gloss: '' };
+}
+function labelWithGlossHtml(label){
+  const { main, gloss } = splitLabelGloss(label);
+  return gloss
+    ? `${escapeHtml(main)} <span class="lm-gloss">(${escapeHtml(gloss)})</span>`
+    : escapeHtml(main);
+}
+
 function renderLensTile(tile, lensSlug) {
   const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
 
@@ -2349,7 +2367,7 @@ function renderLensTile(tile, lensSlug) {
           <div class="icon-badge">${iconSVG}</div>
           <div class="metric-big"><span class="n">${escapeHtml(metricN)}</span>${metricCap}</div>
         </div>
-        <span class="cell-label">${escapeHtml(tile.label)}</span>
+        <span class="cell-label">${labelWithGlossHtml(tile.label)}</span>
         ${pillText ? `<span class="amen-tag">${escapeHtml(pillText)}</span>` : ''}
       </button>
     `;
@@ -2637,7 +2655,7 @@ function renderLensModalBody(tile, lensSlug) {
     <button class="lens-modal-close" aria-label="Close details" type="button">✕</button>
     <div class="modal-head">
       <span class="icon-badge${isInfo ? '' : ` tier-${escapeHtml(tier)}`}" aria-hidden="true">${iconSVG}</span>
-      <h3 id="lens-modal-title">${escapeHtml(tile.label)}</h3>
+      <h3 id="lens-modal-title">${labelWithGlossHtml(tile.label)}</h3>
       ${isInfo ? '' : `<span class="tile-tier-badge tier-${escapeHtml(tier)}">${escapeHtml(badge)}</span>`}
     </div>
     <div class="modal-rule">${escapeHtml(tile.rule || '')}</div>
