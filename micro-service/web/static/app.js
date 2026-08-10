@@ -2091,9 +2091,35 @@ function _updateLensMapPins(tile) {
   if (hint) hint.textContent = `${tile.label}: ${features.length} on map`;
 }
 
-function renderLensTile(tile) {
-  const tier    = tile.tier || 'unknown';
+function renderLensTile(tile, lensSlug) {
   const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
+
+  // Bureaucracy is informational, not verdict-graded — mirror the Amenities
+  // tile face: neutral icon-badge + big walk-min metric, label, nearest-office
+  // pill. No tier color-bar, no GREEN/AMBER/RED badge.
+  if (lensSlug === 'bureaucracy') {
+    const features = Array.isArray(tile.features) ? tile.features : [];
+    const walkMinNearest = features.length ? features[0].walk_min : null;
+    const metricN   = walkMinNearest != null ? String(walkMinNearest) : '—';
+    const metricCap = walkMinNearest != null ? '<span class="cap">min</span>' : '';
+    const pillText  = features.length && features[0].name ? features[0].name : '';
+    const aria      = `${tile.label}: ${tile.rule}`;
+    return `
+      <button class="cell amen-cell lens-tile lens-tile-info"
+              data-tile-key="${escapeHtml(tile.key)}"
+              aria-label="${escapeHtml(aria)}"
+              type="button">
+        <div class="amen-tile-top">
+          <div class="icon-badge">${iconSVG}</div>
+          <div class="metric-big"><span class="n">${escapeHtml(metricN)}</span>${metricCap}</div>
+        </div>
+        <span class="cell-label">${escapeHtml(tile.label)}</span>
+        ${pillText ? `<span class="amen-tag">${escapeHtml(pillText)}</span>` : ''}
+      </button>
+    `;
+  }
+
+  const tier    = tile.tier || 'unknown';
   const badge   = tier === 'unknown' ? 'N/A' : tier.toUpperCase();
   const aria    = `${tile.label}, tier ${tier}: ${tile.rule}`;
   const numeric = tile.numeric
@@ -2128,7 +2154,7 @@ function renderLensSingle(addr) {
       <div class="lens-empty">Lens unavailable for this address.</div>
     `;
   }
-  const tilesHtml = lens.tiles.map(renderLensTile).join('');
+  const tilesHtml = lens.tiles.map(t => renderLensTile(t, active)).join('');
   const audience  = escapeHtml(lens.audience || '');
   const prov = lens.provenance
     ? `<footer class="lens-provenance">${escapeHtml(lens.provenance)}</footer>`
@@ -2290,8 +2316,9 @@ function renderLensTreesBlock(trees) {
   `;
 }
 
-function renderLensModalBody(tile) {
+function renderLensModalBody(tile, lensSlug) {
   const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
+  const isInfo  = lensSlug === 'bureaucracy';   // informational, no tier badge
   const tier    = tile.tier || 'unknown';
   const badge   = tier === 'unknown' ? 'N/A' : tier.toUpperCase();
   const features = Array.isArray(tile.features) ? tile.features : [];
@@ -2331,9 +2358,9 @@ function renderLensModalBody(tile) {
   return `
     <button class="lens-modal-close" aria-label="Close details" type="button">✕</button>
     <div class="modal-head">
-      <span class="icon-badge tier-${escapeHtml(tier)}" aria-hidden="true">${iconSVG}</span>
+      <span class="icon-badge${isInfo ? '' : ` tier-${escapeHtml(tier)}`}" aria-hidden="true">${iconSVG}</span>
       <h3 id="lens-modal-title">${escapeHtml(tile.label)}</h3>
-      <span class="tile-tier-badge tier-${escapeHtml(tier)}">${escapeHtml(badge)}</span>
+      ${isInfo ? '' : `<span class="tile-tier-badge tier-${escapeHtml(tier)}">${escapeHtml(badge)}</span>`}
     </div>
     <div class="modal-rule">${escapeHtml(tile.rule || '')}</div>
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
@@ -2357,7 +2384,7 @@ function openLensModal(tileKey) {
 
   const modal = document.getElementById('lens-modal');
   if (!modal) return;
-  modal.innerHTML = renderLensModalBody(tile);
+  modal.innerHTML = renderLensModalBody(tile, active);
   modal.hidden = false;
   lensLastTileKey = tileKey;
 

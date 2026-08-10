@@ -762,6 +762,37 @@ body.life-mode #panel-conn{ display:none !important; }
 .tier-red  { --tier-color: var(--danger); }
 /* .tier-unknown: --tier-color not set; ::before uses muted gray fallback */
 
+/* Bureaucracy tile — informational, mirrors Amenities .amen-cell face.
+   No tier color-bar, no verdict badge; icon-badge + walk-min metric top,
+   label + nearest-office pill bottom. Content preserved in the modal. */
+.lens-tile.lens-tile-info{ padding:16px 18px; min-height:130px; gap:6px;
+                           justify-content:flex-start; }
+.lens-tile.lens-tile-info::before{ display:none; }
+.lens-tile.lens-tile-info .amen-tile-top{ display:flex; align-items:center;
+                                          justify-content:space-between; gap:12px; }
+.lens-tile.lens-tile-info .icon-badge{ width:38px; height:38px; border-radius:10px;
+                                        background:#FFFFFF; color:var(--brand);
+                                        display:inline-flex; align-items:center; justify-content:center;
+                                        flex-shrink:0; }
+.lens-tile.lens-tile-info .icon-badge svg{ width:20px; height:20px; }
+.lens-tile.lens-tile-info .metric-big{ margin:0; display:flex; align-items:baseline; gap:4px; }
+.lens-tile.lens-tile-info .metric-big .n{ font-size:32px; font-weight:700;
+                                          line-height:1; color:var(--ink, #2a2f3a);
+                                          white-space:nowrap; }
+.lens-tile.lens-tile-info .metric-big .cap{ font-size:11px; color:var(--muted); }
+.lens-tile.lens-tile-info .cell-label{ display:block; font-size:11px; font-weight:700;
+                                        color:var(--muted); text-transform:uppercase;
+                                        letter-spacing:.08em; }
+.lens-tile.lens-tile-info .amen-tag{ display:inline-block; align-self:flex-start;
+                                      max-width:100%; overflow:hidden;
+                                      text-overflow:ellipsis; white-space:nowrap;
+                                      padding:5px 12px; border-radius:99px;
+                                      font-weight:600; font-size:12px; margin-top:4px;
+                                      background:#E0E7FF; color:#3730A3;
+                                      transition:transform .15s cubic-bezier(.34,1.56,.64,1); }
+.lens-tile.lens-tile-info:hover .amen-tag{ transform:translateY(-1px) scale(1.03); }
+.lens-tile.lens-tile-info:hover .icon-badge{ transform:rotate(-6deg) scale(1.08); }
+
 .lens-provenance{
   font:italic 400 .72em/1.4 'Plus Jakarta Sans', system-ui, sans-serif;
   color:#8a8f9a; padding:0 .5em;
