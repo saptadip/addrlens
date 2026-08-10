@@ -2481,22 +2481,14 @@ function renderLensDot(tile, lensSlug) {
                   aria-label="${aria}" title="${short}"><span aria-hidden="true">●</span></button>`;
 }
 
-// renderLensCompare: dot matrix for compare view.
-// `addresses` is the raw compare list from compareLoad() — each item is a
-// snap object; lens data lives at snap.lens[active].
-function renderLensCompare(addresses) {
-  const active = getActiveLens();
+// Extract one lens's matrix (used by both on-screen render and the PDF
+// export path, which needs BOTH lenses stacked in the printout).
+function renderLensCompareMatrix(addresses, slug) {
   if (!addresses || !addresses.length) return '';
-  const first = addresses.find(a => a && a.lens && a.lens[active] && !a.lens[active].error);
-  if (!first) {
-    return `
-      <div class="lens-picker-row">
-        ${renderLensPicker(active)}
-      </div>
-      <div class="lens-empty">Lens unavailable for the current addresses.</div>
-    `;
-  }
-  const rowSpec = first.lens[active].tiles;   // 7 rows if young_family, 5 if bureaucracy
+  const first = addresses.find(a => a && a.lens && a.lens[slug] && !a.lens[slug].error);
+  if (!first) return `<div class="lens-empty">Lens unavailable for the current addresses.</div>`;
+  const lens = first.lens[slug];
+  const rowSpec = lens.tiles;
   const header = `
     <div class="lens-compare-row lens-compare-head">
       <div class="lens-compare-rowlabel"></div>
@@ -2509,10 +2501,10 @@ function renderLensCompare(addresses) {
     </div>`;
   const rows = rowSpec.map(spec => {
     const cells = addresses.map(a => {
-      const t = a && a.lens && a.lens[active] && !a.lens[active].error
-              ? a.lens[active].tiles.find(x => x.key === spec.key)
+      const t = a && a.lens && a.lens[slug] && !a.lens[slug].error
+              ? a.lens[slug].tiles.find(x => x.key === spec.key)
               : null;
-      return `<div class="lens-compare-cellwrap">${renderLensDot(t, active)}</div>`;
+      return `<div class="lens-compare-cellwrap">${renderLensDot(t, slug)}</div>`;
     }).join('');
     return `
       <div class="lens-compare-row">
@@ -2520,13 +2512,34 @@ function renderLensCompare(addresses) {
         ${cells}
       </div>`;
   }).join('');
-  const audience = escapeHtml(first.lens[active].audience || '');
+  const audience = escapeHtml(lens.audience || '');
+  const title = escapeHtml(lens.label || slug);
   return `
-    <div class="lens-picker-row">
-      ${renderLensPicker(active)}
+    <section class="lens-compare-section" data-slug="${escapeHtml(slug)}">
+      <h3 class="lens-compare-section-title">${title}</h3>
       ${audience ? `<p class="lens-audience">${audience}</p>` : ''}
+      <div class="lens-compare">${header}${rows}</div>
+    </section>
+  `;
+}
+
+// renderLensCompare: dot matrix for compare view.
+// Emits BOTH lens matrices; picker toggles which is visible on-screen (via
+// [hidden] attribute). Print CSS reveals both so PDF export includes
+// everything without the tabs.
+function renderLensCompare(addresses) {
+  const active = getActiveLens();
+  if (!addresses || !addresses.length) return '';
+  const yf = renderLensCompareMatrix(addresses, 'young_family');
+  const bu = renderLensCompareMatrix(addresses, 'bureaucracy');
+  return `
+    <div class="lens-picker-row no-print">
+      ${renderLensPicker(active)}
     </div>
-    <div class="lens-compare">${header}${rows}</div>
+    <div class="lens-compare-body" data-active-lens="${escapeHtml(active)}">
+      <div class="lens-compare-slide" data-slug="young_family" ${active === 'bureaucracy' ? 'hidden' : ''}>${yf}</div>
+      <div class="lens-compare-slide" data-slug="bureaucracy" ${active === 'young_family' ? 'hidden' : ''}>${bu}</div>
+    </div>
   `;
 }
 
