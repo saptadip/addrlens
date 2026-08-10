@@ -1254,3 +1254,30 @@ select:focus-visible,
 .tier-unknown .yf-tier-thumb   { top:12px; transform:translate(-50%, 0); }
 .tier-unknown .yf-tier-track   { background:#B0B6C0; }              /* muted fill */
 .tier-unknown .yf-tier-thumb   { opacity:.75; }
+
+/* --- Young Family tier indicator: neumorphic gem-badge (2026-08-10)
+   Replaces the filled-pill with a small circular badge — raised outer
+   disc (--neumo-bg) with a solid --tier-color dot recessed at its
+   center. Not a slider anymore; a static tier gem, one per card,
+   centered vertically on the right of the card. */
+.lens-tile.lens-tile-yf .yf-tier-slider
+                               { width:44px; height:44px; align-self:center;
+                                 padding:0; flex:0 0 auto; }
+.lens-tile.lens-tile-yf .yf-tier-track
+                               { width:100%; height:100%; border-radius:50%;
+                                 background:var(--neumo-bg);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            3px 3px 7px var(--neumo-sh-dark),
+                                            inset 0 0 0 1px rgba(255,255,255,.35); }
+.lens-tile.lens-tile-yf .yf-tier-thumb
+                               { position:absolute; left:50%; top:50%;
+                                 width:24px; height:24px; border-radius:50%;
+                                 transform:translate(-50%, -50%);
+                                 background:var(--tier-color, #B0B6C0);
+                                 border:none;
+                                 box-shadow:inset 2px 2px 4px rgba(0,0,0,.22),
+                                            inset -1px -1px 3px rgba(255,255,255,.18),
+                                            0 1px 2px rgba(0,0,0,.10); }
+.lens-tile.lens-tile-yf .tier-unknown .yf-tier-thumb,
+.lens-tile.lens-tile-yf.tier-unknown .yf-tier-thumb
+                               { background:#B0B6C0; opacity:.7; }
