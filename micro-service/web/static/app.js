@@ -2304,11 +2304,23 @@ function renderLensModalBody(tile) {
   const explBlock = explanation
     ? `<div class="modal-explanation">${escapeHtml(explanation)}</div>`
     : '';
+  // Empty-state message: only show "No matching items" when the tier itself
+  // says nothing qualifies (red / unknown). On green / amber the summary line
+  // already asserts a match, so an empty list means the per-location shape
+  // failed — say so honestly instead of contradicting the tier.
+  let emptyBody = '';
+  if (!features.length) {
+    if (tier === 'red' || tier === 'unknown') {
+      if (!explanation) emptyBody = '<div class="modal-empty">No matching items nearby.</div>';
+    } else if (!trees && !explanation) {
+      emptyBody = '<div class="modal-empty">Match found nearby — per-location details unavailable.</div>';
+    }
+  }
   const featuresHtml = features.length
     ? `<ul class="modal-features-list">${
         features.map((f, i) => renderLensFeature(tile.key, f, i)).join('')
       }</ul>`
-    : (explanation ? '' : '<div class="modal-empty">No matching items nearby.</div>');
+    : emptyBody;
   const treesHtml = renderLensTreesBlock(trees);
   const sourcesHtml = Array.isArray(tile.sources) && tile.sources.length
     ? `<div class="modal-provenance">Sources: ${
