@@ -894,14 +894,35 @@ function render(d){
   const addr=`<div class="cell edu-cell" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span>${explainBtn('edu-address','Address',addrFields)}</div>
     <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin</p>
     <div class="badges">${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}</div></div>`;
-  const schools=ss.length?ss.map((s,idx)=>{
+  // Compute walking distance to each Grundschule so we can sort by proximity.
+  // Some ESBs contain multiple schools; nearer is a reasonable first guess for
+  // where the Bezirksschulamt will place the child (they weigh proximity +
+  // siblings + capacity — we only have proximity here).
+  const ssSorted = (ss || []).map(s => ({
+    ...s,
+    _distance_m: (typeof s.lat === 'number' && typeof s.lon === 'number' && a && a.lat && a.lon)
+      ? Math.round(haversineM(a.lat, a.lon, s.lat, s.lon)) : null,
+  })).sort((x, y) => (x._distance_m ?? Infinity) - (y._distance_m ?? Infinity));
+  const multi = ssSorted.length > 1;
+  const groupLabel = multi
+    ? `Grundschule catchment · ${ssSorted.length} schools in this ESB`
+    : 'Assigned Grundschule';
+  const groupHint = multi
+    ? `<div class="prov" style="margin-top:6px;font-style:italic">This Einschulbereich contains ${ssSorted.length} public Grundschulen. The Bezirksschulamt allocates each child by proximity, siblings, and capacity — nearer is shown first as a proximity hint, not a guarantee.</div>`
+    : '';
+  const schools = ssSorted.length ? ssSorted.map((s, idx) => {
     const sf = {'Name':s.name, 'School type':'Grundschule (primary school, grades 1–6 in Berlin)', 'Träger (operator)':'öffentlich (state-run)', 'Bezirk':c.district, 'Einschulbereich (catchment code)':c.esb, 'SESB bilingual strand':s.sesb_strand||'none', 'School year':s.school_year};
+    const distTxt = s._distance_m != null
+      ? ` · ${s._distance_m} m · ~${walkMin(s._distance_m)} min walk` : '';
+    const cellLabel = multi ? `${groupLabel} — #${idx + 1} (nearest first)` : groupLabel;
     return `<div class="cell edu-cell" data-edu-cat="school-${idx}">
-    <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">Assigned Grundschule</span>${explainBtn('edu-school','Assigned Grundschule',sf)}</div>
-    <h3>${esc(s.name)}</h3><p class="sub">${esc((s.street||'')+' '+(s.hnr||''))}, ${esc(s.plz||'')}${s.website?` · <a href="${esc(s.website)}" target="_blank" rel="noopener">website</a>`:''}</p>
+    <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">${esc(cellLabel)}</span>${explainBtn('edu-school',groupLabel,sf)}</div>
+    <h3>${esc(s.name)}</h3><p class="sub">${esc((s.street||'')+' '+(s.hnr||''))}, ${esc(s.plz||'')}${distTxt}${s.website?` · <a href="${esc(s.website)}" target="_blank" rel="noopener">website</a>`:''}</p>
     <div class="badges"><span class="badge b-public">Public · öffentlich</span>${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${s.sesb_strand?`<span class="badge b-sesb">SESB · ${esc(s.sesb_strand)}</span>`:''}</div>
-    <div class="prov">Assigned by Einschulbereich · Schuljahr ${esc(s.school_year||'')}</div></div>`;
-  }).join(''):'';
+    <div class="prov">${multi ? 'Same catchment (ESB), one of several options' : 'Assigned by Einschulbereich'} · Schuljahr ${esc(s.school_year||'')}</div>
+    ${idx === 0 ? groupHint : ''}
+    </div>`;
+  }).join('') : '';
   const kitaItems=(k.items||[]).slice(0,6).map((it,idx)=>{
     const details=kitaDetailHtml(it);
     const tip=details?`<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>`:'';
