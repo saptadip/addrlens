@@ -1389,8 +1389,18 @@ select:focus-visible,
    panel and restores the Address card to its previous size.            */
 .badges                          { display:flex; flex-wrap:wrap; align-items:center;
                                     gap:8px; }
-.pill-btn.addr-history-btn       { padding:6px 12px; font-size:12px; }
-.pill-btn.addr-history-btn:disabled { opacity:.6; cursor:default; }
+.pill-btn.addr-history-btn       { padding:6px 12px; font-size:12px;
+                                    background:linear-gradient(135deg,#F5EBCF,#EDDFB0);
+                                    color:#5A3F14; border:1px solid rgba(146,110,45,.28);
+                                    box-shadow:-2px -2px 5px rgba(255,250,232,.75),
+                                               2px 2px 6px rgba(146,110,45,.28); }
+.pill-btn.addr-history-btn:hover { color:#4A3612;
+                                    background:linear-gradient(135deg,#EFE1B7,#E4D298);
+                                    box-shadow:-3px -3px 7px rgba(255,250,232,.85),
+                                               3px 3px 8px rgba(146,110,45,.35); }
+.pill-btn.addr-history-btn:active{ box-shadow:inset 2px 2px 5px rgba(146,110,45,.35),
+                                               inset -2px -2px 5px rgba(255,250,232,.85); }
+.pill-btn.addr-history-btn:disabled { opacity:.55; cursor:default; }
 .addr-history-body               { position:relative; margin-top:14px;
                                     padding:16px 20px 16px 20px;
                                     border-radius:14px;
