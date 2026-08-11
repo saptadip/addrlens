@@ -371,17 +371,36 @@ class Index:
     # -------------------------------------------------------------- lookups
 
     def geocode(self, street, hnr, plz):
+        """Look up an address via the city's WFS geocoder. Tolerates the
+        common 'strasse' ↔ 'straße' input variance by retrying with the
+        opposite spelling when the first attempt returns no features."""
         cfg = self.cfg
         gm = cfg.geocoder_field_map
-        cql = (f"{gm['street']}='{cql_esc(street)}' AND "
-               f"{gm['hnr']}='{cql_esc(hnr)}' AND "
-               f"{gm['plz']}='{cql_esc(plz)}'")
-        r = wfs(cfg.geocoder_wfs_url, typeNames=cfg.geocoder_layer,
-                CQL_FILTER=cql, count=1, outputFormat=cfg.wfs_output_format)
-        if not r.get("features"):
+
+        def _try(street_v):
+            cql = (f"{gm['street']}='{cql_esc(street_v)}' AND "
+                   f"{gm['hnr']}='{cql_esc(hnr)}' AND "
+                   f"{gm['plz']}='{cql_esc(plz)}'")
+            r = wfs(cfg.geocoder_wfs_url, typeNames=cfg.geocoder_layer,
+                    CQL_FILTER=cql, count=1, outputFormat=cfg.wfs_output_format)
+            return r.get("features") or []
+
+        feats = _try(street)
+        if not feats:
+            # ß ↔ ss fold — Berlin BOD stores 'Sybelstraße' but many users
+            # (expats especially) type 'Sybelstrasse'. Retry with the opposite
+            # spelling. Symmetric: applies both directions.
+            alt = None
+            if "strasse" in street.lower():
+                alt = street.replace("strasse", "straße").replace("Strasse", "Straße")
+            elif "straße" in street.lower():
+                alt = street.replace("straße", "strasse").replace("Straße", "Strasse")
+            if alt and alt != street:
+                feats = _try(alt)
+        if not feats:
             return None
-        lon, lat = r["features"][0]["geometry"]["coordinates"]
-        return {"lon": lon, "lat": lat, "props": r["features"][0]["properties"]}
+        lon, lat = feats[0]["geometry"]["coordinates"]
+        return {"lon": lon, "lat": lat, "props": feats[0]["properties"]}
 
     def catchment(self, lon, lat):
         pt = Point(lon, lat)
