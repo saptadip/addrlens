@@ -1382,20 +1382,36 @@ select:focus-visible,
                                  color:transparent; }
 
 /* --- Address card "Get History" affordance (v0.1) ------------------------
-   Small button on the Address card in the Education tab; on click the
-   expanded body reveals a neumorphic panel with the AI-generated
-   paragraph, a "History" heading, and an italic disclaimer footer.       */
-.addr-history                    { margin-top:14px; }
+   Button sits inline with the .badges row; click posts /api/history and
+   renders the AI paragraph on parchment-like sepia panel with a serif
+   pairing (Playfair Display heading + Merriweather body) — the typeface
+   convention used for popular history writing. Close ✕ collapses the
+   panel and restores the Address card to its previous size.            */
+.badges                          { display:flex; flex-wrap:wrap; align-items:center;
+                                    gap:8px; }
 .pill-btn.addr-history-btn       { padding:6px 12px; font-size:12px; }
 .pill-btn.addr-history-btn:disabled { opacity:.6; cursor:default; }
-.addr-history-body               { margin-top:10px; padding:14px 16px;
-                                    border-radius:14px; background:var(--neumo-bg);
-                                    box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
-                                               inset -3px -3px 8px var(--neumo-sh-light); }
-.addr-history-heading            { font-family:'Plus Jakarta Sans',sans-serif;
-                                    margin:0 0 6px; font-size:14px;
-                                    color:var(--ink); letter-spacing:.01em; }
-.addr-history-text               { margin:0; font-size:13.5px; line-height:1.55;
-                                    color:var(--ink-2); }
-.addr-history-foot               { margin:10px 0 0; font-size:11px; font-style:italic;
-                                    color:var(--muted); }
+.addr-history-body               { position:relative; margin-top:14px;
+                                    padding:16px 20px 16px 20px;
+                                    border-radius:14px;
+                                    background:linear-gradient(180deg,#F5EBCF 0%,#EDDFB0 100%);
+                                    border:1px solid rgba(146,110,45,.18);
+                                    box-shadow:inset 2px 2px 6px rgba(146,110,45,.14),
+                                               inset -2px -2px 6px rgba(255,255,240,.55); }
+.addr-history-close              { position:absolute; top:8px; right:10px;
+                                    width:28px; height:28px; border-radius:50%;
+                                    border:none; background:rgba(255,250,232,.7);
+                                    color:#7A5A20; font-size:14px; font-weight:600;
+                                    cursor:pointer; line-height:1;
+                                    box-shadow:1px 1px 3px rgba(146,110,45,.22),
+                                               -1px -1px 3px rgba(255,250,232,.9); }
+.addr-history-close:hover        { color:#4A3612;
+                                    box-shadow:inset 1px 1px 3px rgba(146,110,45,.22),
+                                               inset -1px -1px 3px rgba(255,250,232,.9); }
+.addr-history-heading            { font-family:'Playfair Display','Georgia',serif;
+                                    margin:0 30px 8px 0; font-size:18px; font-weight:700;
+                                    color:#5A3F14; letter-spacing:.01em; }
+.addr-history-text               { margin:0; font-family:'Merriweather','Georgia',serif;
+                                    font-size:14px; line-height:1.7; color:#3A2A0F; }
+.addr-history-foot               { margin:12px 0 0; font-family:'Merriweather','Georgia',serif;
+                                    font-size:11px; font-style:italic; color:#7A5A20; }
