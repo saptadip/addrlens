@@ -1,0 +1,1382 @@
+/* Micro-interactions — subtle base, delightful gesture-triggered animations */
+:root{--bg:#FAFBFC;--card:#FFFFFF;
+  --hero-bg:#DCE7F3;                     /* cool sky-clay — neumorphic hero surface */
+  --hero-sh-light:rgba(255,255,255,.95); --hero-sh-dark:rgba(94,120,163,.55);
+  --hero-accent:#0284C7; --hero-accent-2:#38BDF8;
+  --result-bg:#EEF2FF;                    /* soft periwinkle — coherent result group */
+  --result-bg-hover:#DDE7FF;              /* one step deeper on hover, same hue */
+  --ink:#111827;--ink-2:#374151;--muted:#6B7280;
+  --brand:#4F46E5;--brand-2:#818CF8;--success:#22C55E;--danger:#EF4444;--amber:#F59E0B;
+  --border:#E5E7EB;--sh-1:0 1px 2px rgba(17,24,39,.06);--sh-2:0 4px 8px rgba(17,24,39,.06),0 12px 24px rgba(17,24,39,.06);
+  /* Neumorphism (Soft UI) — cool-clay surface + dual shadow. Base is one step
+     deeper than --result-bg so tabs/pills stand apart from the page. */
+  --neumo-bg:#DDE5F1; --neumo-sh-light:rgba(255,255,255,.9); --neumo-sh-dark:rgba(148,163,192,.55)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}   /* HTML spec intent — beats class-based display rules */
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+h1,h2,h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:-.02em}
+a{color:var(--brand);font-weight:600;text-decoration:none;position:relative}
+a::after{content:"";position:absolute;left:0;bottom:-2px;width:100%;height:1.5px;background:currentColor;transform:scaleX(0);transform-origin:right;transition:transform .25s ease}
+a:hover::after{transform:scaleX(1);transform-origin:left}
+
+.page{max-width:1240px;margin:0 auto;padding:26px 22px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#818CF8,#4F46E5);
+  display:grid;place-items:center;box-shadow:var(--sh-1);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.logo:hover{transform:rotate(-6deg) scale(1.05)}
+.logo svg{width:20px;height:20px;stroke:#fff}
+.brand-name{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:19px}
+.brand-name small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.style-pill{padding:8px 14px;border-radius:99px;background:#EEF2FF;color:var(--brand);
+  font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.pill-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:99px;border:none;
+  background:var(--neumo-bg);color:var(--ink-2);font:inherit;font-weight:700;font-size:12px;letter-spacing:.02em;cursor:pointer;
+  text-decoration:none;box-shadow:-3px -3px 8px var(--neumo-sh-light),3px 3px 8px var(--neumo-sh-dark);
+  transition:transform .12s,color .15s,box-shadow .2s}
+.pill-btn::after{display:none}                                          /* depth conveys interactivity, no underline */
+.pill-btn:hover{transform:translateY(-1px);color:var(--brand);
+  box-shadow:-5px -5px 12px var(--neumo-sh-light),5px 5px 12px var(--neumo-sh-dark)}
+.pill-btn:active{transform:translateY(0);
+  box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),inset -2px -2px 5px var(--neumo-sh-light)}
+.pill-btn[disabled]{cursor:default;opacity:.55;
+  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),inset -2px -2px 4px var(--neumo-sh-light)}
+.pill-btn[disabled]:hover{transform:none;color:var(--ink-2);
+  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),inset -2px -2px 4px var(--neumo-sh-light)}
+.pill-btn-brand{background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;
+  box-shadow:-3px -3px 8px var(--neumo-sh-light),4px 4px 14px rgba(99,102,241,.42)}
+.pill-btn-brand:hover{color:#fff;background:linear-gradient(135deg,#4F46E5,#4338CA);
+  box-shadow:-4px -4px 12px var(--neumo-sh-light),6px 6px 18px rgba(79,70,229,.55)}
+.pill-btn-brand:active{box-shadow:inset 2px 2px 6px rgba(55,48,163,.55),inset -2px -2px 5px rgba(255,255,255,.25)}
+
+/* Comparison view — table with addresses as columns, metrics as rows */
+.compare-view{margin-top:14px}
+.compare-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.compare-header h2{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:24px;margin:0}
+.compare-header .compare-actions{margin-left:auto;display:flex;gap:10px}
+.compare-empty{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:60px 30px;text-align:center;
+  box-shadow:var(--sh-1);color:var(--muted)}
+.compare-empty p{max-width:520px;margin:16px auto 0;color:var(--ink);font-weight:600;font-size:16px}
+.compare-empty .icon-badge{width:58px;height:58px;border-radius:14px;margin:0 auto}
+.compare-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:6px;box-shadow:var(--sh-1);overflow-x:auto}
+.compare-table{width:100%;border-collapse:collapse;font-size:14px;min-width:680px}
+.compare-table th,.compare-table td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid #F3F4F6}
+.compare-table thead th{background:var(--result-bg);position:sticky;top:0;z-index:1}
+.compare-table thead th.metric-col{width:180px;border-radius:12px 0 0 0}
+.compare-table thead th.addr-col{min-width:220px}
+.compare-table thead th.addr-col .addr-title{font-weight:700;color:var(--ink);font-size:14px;display:block}
+.compare-table thead th.addr-col .addr-sub{font-weight:500;color:var(--muted);font-size:12px;margin-top:2px;display:block}
+.compare-table thead th.addr-col .col-remove{float:right;background:transparent;border:0;color:var(--muted);font:inherit;font-size:12px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:background .15s,color .15s}
+.compare-table thead th.addr-col .col-remove:hover{color:var(--danger);background:#FEE2E2}
+.compare-table tbody th{font-weight:600;color:var(--ink-2);background:#FAFBFC;font-size:13px}
+.compare-table td{color:var(--ink);font-weight:500}
+.compare-table td.na{color:var(--muted);font-weight:400}
+.compare-table tr.section-row th{background:#F3F4F6;color:var(--ink);font-weight:800;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding-top:18px;padding-bottom:8px}
+.compare-table .metric-num{font-weight:700}
+.compare-table .noise-cell{font-weight:700;padding:8px 12px;border-radius:8px;display:inline-block}
+.compare-table .noise-cell.tier-green   {background:#DCFCE7;color:#166534}
+.compare-table .noise-cell.tier-amber   {background:#FEF3C7;color:#92400E}
+.compare-table .noise-cell.tier-orange  {background:#FFEDD5;color:#9A3412}
+.compare-table .noise-cell.tier-red     {background:#FEE2E2;color:#991B1B}
+.compare-table .noise-cell .noise-sub{font-weight:500;font-size:11px;margin-left:6px;opacity:.85}
+.compare-table .sesb-cell{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;padding:4px 10px;border-radius:99px;font-weight:700;font-size:12px;border:1px solid #F9A8D4;display:inline-block}
+.compare-table .sesb-cell::before{content:"✦ ";color:#DB2777}
+@media(max-width:600px){.compare-table th,.compare-table td{padding:10px}.compare-table{font-size:13px}}
+
+.hero{background:var(--hero-bg);border:none;border-radius:16px;padding:32px 34px;position:relative;overflow:hidden;
+  box-shadow:-10px -10px 26px var(--hero-sh-light),10px 10px 30px var(--hero-sh-dark)}
+.hero h1{margin:0 0 8px;font-size:clamp(28px,4vw,40px);line-height:1.1;color:var(--ink)}
+.hero h1 .grad{background:linear-gradient(135deg,#0EA5E9,#4F46E5);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0 0 20px;color:var(--ink-2);font-size:15px;max-width:640px}
+.hero form{display:flex;gap:10px;flex-wrap:wrap;position:relative}
+.hero .field{flex:1;min-width:240px;position:relative}
+.hero input{width:100%;padding:14px 18px 14px 40px;border:none;background:var(--hero-bg);color:var(--ink);
+  border-radius:10px;font:inherit;font-size:15px;font-weight:500;outline:none;
+  box-shadow:inset 3px 3px 7px var(--hero-sh-dark),inset -3px -3px 7px var(--hero-sh-light);
+  transition:box-shadow .18s,padding-left .25s cubic-bezier(.34,1.56,.64,1)}
+.hero input::placeholder{color:#9CA3AF}
+.hero input:focus{padding-left:44px;
+  box-shadow:inset 3px 3px 7px var(--hero-sh-dark),inset -3px -3px 7px var(--hero-sh-light),0 0 0 3px rgba(14,165,233,.28)}
+.field-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#9CA3AF;width:18px;height:18px;
+  transition:color .18s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+.hero input:focus + .field-ico{color:var(--hero-accent);transform:translateY(-50%) scale(1.15)}
+.btn{cursor:pointer;border:0;padding:14px 22px;border-radius:10px;font:inherit;font-weight:700;font-size:14px;
+  color:#fff;background:linear-gradient(135deg,var(--hero-accent-2),var(--hero-accent));position:relative;overflow:hidden;
+  box-shadow:-3px -3px 8px var(--hero-sh-light),5px 5px 16px rgba(2,132,199,.45);
+  transition:transform .12s,box-shadow .2s}
+.btn:hover{transform:translateY(-1px);
+  box-shadow:-4px -4px 10px var(--hero-sh-light),7px 7px 20px rgba(2,132,199,.6)}
+.btn::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at var(--x,50%) var(--y,50%),rgba(255,255,255,.35) 0%,transparent 45%);opacity:0;transition:opacity .3s}
+.btn:hover::before{opacity:1}
+.btn span{display:inline-block;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.btn:hover span{transform:translateX(3px)}
+.hero-secondary{margin-top:10px;display:flex;justify-content:flex-end}
+.chips{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+.chip{cursor:pointer;padding:7px 14px;border-radius:99px;background:#F3F4F6;color:var(--ink-2);
+  font-size:13px;font-weight:600;border:1px solid var(--border);
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1),background .15s,color .15s,border-color .15s}
+.chip:hover{background:#EEF2FF;color:var(--brand);border-color:var(--brand-2);transform:translateY(-2px)}
+.chip:active{transform:translateY(0) scale(.95)}
+
+/* --- tabs (neumorphic segmented control — recessed groove, extruded active pill) */
+.tabs{display:inline-flex;gap:4px;padding:6px;background:var(--neumo-bg);border:none;
+  border-radius:14px;margin:22px 0 0;
+  box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
+.tab{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;background:transparent;
+  border-radius:10px;font:inherit;font-weight:600;font-size:14px;color:var(--ink-2);cursor:pointer;
+  transition:box-shadow .2s,color .18s,transform .12s}
+.tab svg{width:16px;height:16px}
+.tab:hover:not(.active){color:var(--ink);transform:translateY(-1px)}
+.tab.active{background:var(--neumo-bg);color:var(--brand);
+  box-shadow:-3px -3px 7px var(--neumo-sh-light),3px 3px 7px var(--neumo-sh-dark)}
+.tab:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(99,102,241,.4)}
+.tab.active:focus-visible{box-shadow:-3px -3px 7px var(--neumo-sh-light),3px 3px 7px var(--neumo-sh-dark),0 0 0 3px rgba(99,102,241,.4)}
+.panel{display:none}
+.panel.active{display:block}
+/* soft fade when switching panels */
+.panel.active{animation:panelIn .3s ease-out}
+@keyframes panelIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.grid{margin-top:14px;display:flex;flex-direction:column;gap:14px}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0;position:relative}
+@media(min-width:900px){.grid{flex-direction:row;align-items:stretch}
+  .stack{flex:1.15 1 0;min-width:0}.map-cell{flex:.85 1 0;min-width:0}}
+
+/* Variant A: compact square tiles for Amenities/Medical. Only the head +
+   count show pre-click; body content lives in the modal. min-height keeps
+   the modal + map at a proper display size regardless of tile count. */
+.stack.tiles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;align-content:start;min-height:560px}
+.tiles-grid .amen-cell,.tiles-grid .conn-cell{padding:16px;display:flex;flex-direction:column;
+  transition:background .2s ease,box-shadow .25s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+/* Amenities: compact squares with vertical head + big metric at bottom.
+   Connectivity overrides layout below via .conn-tiles. */
+.tiles-grid .amen-cell{aspect-ratio:1/1;justify-content:space-between}
+.tiles-grid .amen-cell::before,.tiles-grid .conn-cell::before{display:none}                    /* no blue vertical accent bar on tiles */
+.tiles-grid .amen-cell:hover,.tiles-grid .conn-cell:hover{background:var(--result-bg-hover)}   /* hover = colour shift, no accent line */
+.tiles-grid .amen-cell .cell-head{flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:0}
+.tiles-grid .amen-cell .cell-head .chev{display:none}
+.tiles-grid .amen-cell .cell-label,.tiles-grid .conn-cell .cell-label{font-size:11px}
+.tiles-grid .amen-cell .metric-big{margin:0}
+.tiles-grid .amen-cell .metric-big .n{font-size:36px;white-space:nowrap}
+.tiles-grid .amen-cell .metric-big .cap{font-size:11px}
+.tiles-grid .amen-cell .amen-body{display:none !important}
+/* Rectangular tile variant: 2 per row, half-height. Icon + distance in
+   the top row (icon left, distance right); label + station name stacked
+   below, both left-aligned. Only applied to Connectivity via
+   .stack.tiles-grid.conn-tiles — Amenities keeps its compact square
+   tiles unchanged. */
+.stack.tiles-grid.conn-tiles{grid-template-columns:repeat(2,minmax(0,1fr));min-height:0}
+.tiles-grid.conn-tiles .conn-cell{aspect-ratio:auto;min-height:130px;
+  display:flex;flex-direction:column;justify-content:flex-start;gap:8px;padding:16px 18px}
+.tiles-grid.conn-tiles .conn-cell .conn-tile-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tiles-grid.conn-tiles .conn-cell .conn-tile-top .metric-big{margin:0}
+.tiles-grid.conn-tiles .conn-cell .metric-big .n{white-space:nowrap;font-size:32px}
+/* Station name as a soft-contrast pill badge, colour keyed to the transit
+   mode — same visual pattern as .badge / .b-dist / .b-esb on the Education
+   Address card. Berlin-transit palette: S-Bahn green, U-Bahn blue, Tram
+   red, Regional purple, Airport indigo. inline-block + max-width lets a
+   long station name ellipsis-clip inside the tile. */
+.tiles-grid.conn-tiles .conn-cell .conn-stop{display:inline-block;align-self:flex-start;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;margin-top:4px;
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+.tiles-grid.conn-tiles .conn-cell:hover .conn-stop{transform:translateY(-1px) scale(1.03)}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="sbahn"]         .conn-stop{background:#DCFCE7;color:#166534}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="ubahn"]         .conn-stop{background:#DBEAFE;color:#1E40AF}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="tram"]          .conn-stop{background:#FEE2E2;color:#991B1B}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="regional_rail"] .conn-stop{background:#EDE9FE;color:#5B21B6}
+.tiles-grid.conn-tiles .conn-cell[data-conn-key="airport"]       .conn-stop{background:#E0E7FF;color:#3730A3}
+@media(max-width:600px){.stack.tiles-grid.conn-tiles{grid-template-columns:1fr}}
+
+/* Modal panel — absolutely positioned inside .stack, covers ONLY the cards
+   column so the map stays visible on the right. Uses a flex column layout
+   so only the item list scrolls; head, count, and provenance stay pinned. */
+.amen-modal{position:absolute;inset:0;background:rgba(238,242,255,.98);backdrop-filter:blur(8px);
+  border-radius:22px;padding:24px;overflow:hidden;z-index:100;
+  display:flex;flex-direction:column;
+  box-shadow:
+    -10px -10px 22px rgba(255,255,255,1),
+     12px  12px 26px rgba(90,102,145,.5),
+    inset 1px 1px 2px rgba(255,255,255,.65);
+  animation:modalIn .2s ease-out}
+@keyframes modalIn{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+.amen-modal[hidden]{display:none}
+.amen-modal-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;
+  border:none;background:var(--result-bg);color:var(--ink-2);font-size:18px;cursor:pointer;
+  display:grid;place-items:center;
+  box-shadow:-3px -3px 6px rgba(255,255,255,.9),3px 3px 8px rgba(90,102,145,.35)}
+.amen-modal-close:hover{color:var(--ink)}
+.amen-modal .modal-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-shrink:0}
+.amen-modal .modal-head .icon-badge{width:44px;height:44px;border-radius:12px;flex-shrink:0}
+.amen-modal .modal-head .icon-badge svg{width:22px;height:22px}
+.amen-modal .modal-head h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:20px}
+.amen-modal .metric-big{margin:2px 0 14px;flex-shrink:0}
+.amen-modal .amen-body{display:flex !important;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
+.amen-modal .amen-list{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0;padding-right:6px}
+.amen-modal .amen-more{font-size:12px;color:var(--muted);margin:8px 0 0;flex-shrink:0}
+.amen-modal .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.4;flex-shrink:0}
+.amen-modal .amen-list{margin:8px 0 0}
+.amen-modal .prov{margin-top:16px}
+
+/* Neumorphic card chip: same periwinkle surface, no border, paired soft
+   shadows (bright top-left highlight, deep bottom-right shadow). Hover
+   lifts + intensifies the shadow depth without switching hue. */
+.cell{background:var(--result-bg);color:var(--ink);border:none;border-radius:20px;padding:22px 24px;
+  box-shadow:
+    -10px -10px 22px rgba(255,255,255,1),
+     12px  12px 26px rgba(90,102,145,.5),
+     3px  3px  8px rgba(90,102,145,.22),
+    inset 1px 1px 2px rgba(255,255,255,.65);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s;
+  opacity:0;transform:translateY(12px);animation:in .4s ease-out forwards;position:relative;overflow:hidden}
+.cell::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--brand);transform:scaleY(0);transform-origin:top;transition:transform .3s cubic-bezier(.34,1.56,.64,1);border-radius:3px}
+.cell:hover{transform:translateY(-3px);
+  box-shadow:
+    -14px -14px 28px rgba(255,255,255,1),
+     16px  16px 32px rgba(90,102,145,.55),
+     4px  4px 10px rgba(90,102,145,.28),
+    inset 1px 1px 2px rgba(255,255,255,.65)}
+.cell:hover::before{transform:scaleY(1)}
+@keyframes in{to{opacity:1;transform:translateY(0)}}
+.cell:nth-child(1){animation-delay:.04s}.cell:nth-child(2){animation-delay:.10s}
+.cell:nth-child(3){animation-delay:.16s}.cell:nth-child(4){animation-delay:.22s}
+
+.cell-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.icon-badge{width:38px;height:38px;border-radius:10px;background:#FFFFFF;color:var(--brand);
+  display:grid;place-items:center;flex-shrink:0;box-shadow:0 1px 2px rgba(79,70,229,.10);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1),background .2s,color .2s,box-shadow .2s}
+.cell:hover .icon-badge{transform:rotate(-6deg) scale(1.08);
+  background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;box-shadow:0 4px 10px rgba(79,70,229,.28)}
+.icon-badge svg{width:20px;height:20px}
+.cell-label{font-weight:700;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.cell h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:20px;line-height:1.2;margin:4px 0 4px}
+.cell .sub{color:var(--ink-2);font-size:14px;margin:0 0 10px}
+.cell .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+.badge{padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+.badge:hover{transform:translateY(-1px) scale(1.03)}
+.b-public{background:#DCFCE7;color:#166534}
+.b-dist{background:#DBEAFE;color:#1E40AF}
+.b-esb{background:#EEF2FF;color:#4338CA;font-variant-numeric:tabular-nums}
+.b-neutral{background:#F1F5F9;color:#475569}      /* informational, no judgment — UX rule: never rely on colour alone */
+.b-protect{background:#DCFCE7;color:#166534}      /* alias of .b-public for regulatory-protection status */
+.b-heritage{background:#EDE9FE;color:#5B21B6}     /* character/heritage preservation */
+.protect-badges{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.protect-badge-inline{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;
+  font-weight:600;font-size:12px}
+.protect-badge-inline svg{width:14px;height:14px}
+.protect-body{font-size:14px;color:var(--ink-2);line-height:1.55;margin:0 0 8px}
+.protect-body a{color:var(--brand);font-weight:600}
+/* Two-per-row grid for a .stack. Used on Environment (varying-height cards)
+   and Medical (fixed-height tiles). Cards stretch to match the tallest card
+   in the row so paired cards don't leave ragged bottoms; internal flex-column
+   + margin-top:auto on .prov keeps footers pinned to the card bottom.
+   Collapses to a single column below 700 px. When applied on top of
+   .tiles-grid (Medical), the square aspect-ratio + tiles-grid min-height are
+   cleared so tiles read as wide rectangles. */
+.stack.two-per-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;min-height:0}
+/* Amen tile layout when .two-per-row is applied (Amenities + Medical).
+   Same shape as Connectivity's rectangular tiles: icon top-left, big count
+   top-right, label + range pill bottom-left. Single indigo pill across all
+   categories per user request (no per-category colors). */
+.stack.tiles-grid.two-per-row .amen-cell{aspect-ratio:auto;min-height:130px;
+  display:flex;flex-direction:column;gap:6px;padding:16px 18px;justify-content:flex-start}
+.stack.tiles-grid.two-per-row .amen-cell .amen-tile-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.stack.tiles-grid.two-per-row .amen-cell .amen-tile-top .metric-big{margin:0}
+.stack.tiles-grid.two-per-row .amen-cell .metric-big .n{font-size:32px;white-space:nowrap}
+.stack.tiles-grid.two-per-row .amen-cell > .cell-label{display:block;font-size:11px;font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.stack.tiles-grid.two-per-row .amen-cell .amen-tag{display:inline-block;align-self:flex-start;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;margin-top:4px;
+  background:#E0E7FF;color:#3730A3;transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+.stack.tiles-grid.two-per-row .amen-cell:hover .amen-tag{transform:translateY(-1px) scale(1.03)}
+@media(max-width:700px){.stack.two-per-row{grid-template-columns:1fr}}
+.b-sesb{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;
+  border:1px solid #F9A8D4;position:relative;overflow:visible}
+.b-sesb::after{content:"";position:absolute;inset:-1px;border-radius:99px;
+  box-shadow:0 0 0 0 rgba(236,72,153,.5);animation:ping 2s ease-out infinite;pointer-events:none}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(236,72,153,.55)}70%,100%{box-shadow:0 0 0 10px rgba(236,72,153,0)}}
+.b-sesb::before{content:"✦ ";color:#DB2777}
+
+.metric-big{display:flex;align-items:baseline;gap:12px;margin:8px 0 0}
+.metric-big .vote{margin-left:auto;display:flex;gap:8px;align-self:center}
+.vote-btn{width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;background:var(--result-bg);
+  display:grid;place-items:center;padding:0;color:var(--muted);
+  box-shadow:-3px -3px 6px rgba(255,255,255,.9),3px 3px 6px rgba(90,102,145,.35);
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1),color .15s,box-shadow .2s,background .2s}
+.vote-btn svg{width:18px;height:18px}
+.vote-btn.happy:hover{color:#16A34A;transform:scale(1.12)}
+.vote-btn.sad:hover{color:#DC2626;transform:scale(1.12)}
+.vote-btn.active{box-shadow:inset 3px 3px 6px rgba(90,102,145,.35),inset -3px -3px 6px rgba(255,255,255,.9)}
+.vote-btn.active.happy{background:#DCFCE7;color:#16A34A}
+.vote-btn.active.sad{background:#FEE2E2;color:#DC2626}
+
+/* Tile background reflects the vote so the impression is visible at a glance
+   across all tiles without opening the modal. Compound selectors chained with
+   :hover and .active beat the base .cell:hover and .cell.active rules that
+   also paint the background. */
+.amen-cell[data-vote="happy"],
+.amen-cell[data-vote="happy"]:hover,
+.amen-cell.active[data-vote="happy"]{background:#DCFCE7}
+.amen-cell[data-vote="sad"],
+.amen-cell[data-vote="sad"]:hover,
+.amen-cell.active[data-vote="sad"]{background:#FEE2E2}
+.metric-big .n{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:52px;line-height:.95;
+  background:linear-gradient(135deg,#4F46E5,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.metric-big .cap{color:var(--ink-2);font-size:14px;font-weight:500;line-height:1.35}
+.cell.tier-green   .metric-big .n{background:linear-gradient(135deg,#16A34A,#22C55E);-webkit-background-clip:text;background-clip:text}
+.cell.tier-amber   .metric-big .n{background:linear-gradient(135deg,#D97706,#F59E0B);-webkit-background-clip:text;background-clip:text}
+.cell.tier-orange  .metric-big .n{background:linear-gradient(135deg,#EA580C,#F97316);-webkit-background-clip:text;background-clip:text}
+.cell.tier-red     .metric-big .n{background:linear-gradient(135deg,#B91C1C,#EF4444);-webkit-background-clip:text;background-clip:text}
+.cell.tier-unknown .metric-big .n{background:linear-gradient(135deg,#6B7280,#9CA3AF);-webkit-background-clip:text;background-clip:text}
+.cell.tier-green::before,.cell.tier-amber::before,.cell.tier-orange::before,.cell.tier-red::before{transform:scaleY(1)}
+.cell.tier-green::before  {background:#22C55E}
+.cell.tier-amber::before  {background:#F59E0B}
+.cell.tier-orange::before {background:#F97316}
+.cell.tier-red::before    {background:#EF4444}
+
+/* Stroller card — inline mini-form + reasons list */
+.stroller-form{display:flex;flex-wrap:wrap;gap:14px 22px;margin:12px 0 4px;align-items:center}
+.stroller-form label{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--ink-2)}
+.stroller-form input[type=number],.stroller-form select{padding:8px 10px;border:1.5px solid var(--border);background:#fff;border-radius:8px;font:inherit;font-size:14px;font-weight:500;outline:none;width:88px;transition:border-color .15s,box-shadow .15s}
+.stroller-form select{width:auto;min-width:70px}
+.stroller-form input:focus,.stroller-form select:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+.stroller-form input[type=checkbox]{width:16px;height:16px;accent-color:var(--brand);margin:0}
+.stroller-form .chk{cursor:pointer}
+.tier-badge{margin-left:auto;padding:4px 12px;border-radius:99px;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.tier-badge.tier-green   {background:#DCFCE7;color:#166534}
+.tier-badge.tier-amber   {background:#FEF3C7;color:#92400E}
+.tier-badge.tier-red     {background:#FEE2E2;color:#991B1B}
+.tier-badge.tier-unknown {background:#F3F4F6;color:#6B7280}
+.stroller-reasons{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.stroller-reasons li{position:relative;padding:6px 10px 6px 26px;border-radius:6px;color:var(--ink-2);border-bottom:1px dashed rgba(107,114,128,.18)}
+.stroller-reasons li:last-child{border-bottom:0}
+.stroller-reasons li::before{content:"";position:absolute;left:10px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:99px}
+.stroller-reasons li.r-good::before{background:#22C55E}
+.stroller-reasons li.r-warn::before{background:#F59E0B}
+.stroller-reasons li.r-bad::before {background:#EF4444}
+.stroller-reasons li.r-info::before{background:#9CA3AF}
+
+/* Neumorphic map chip: same-surface background, no border, paired soft
+   shadows (bright top-left, deeper bottom-right) so the map reads as an
+   extruded pad. Inner ring gives the tiles a subtle bezel; hover softens
+   the outer shadows to hint at interactivity without switching hue. */
+.map-cell{position:relative;padding:0;overflow:hidden;background:var(--result-bg);
+  border:none;border-radius:22px;display:flex;flex-direction:column;min-height:0;
+  box-shadow:
+    -14px -14px 30px rgba(255,255,255,1),
+     14px  14px 30px rgba(90,102,145,.55),
+     4px  4px 10px rgba(90,102,145,.25),
+    inset 1px 1px 2px rgba(255,255,255,.7);
+  transition:box-shadow .3s ease}
+.map-cell:hover{
+  box-shadow:
+    -8px -8px 20px rgba(255,255,255,.95),
+     8px  8px 20px rgba(90,102,145,.6),
+     3px  3px 8px rgba(90,102,145,.3),
+    inset 1px 1px 2px rgba(255,255,255,.7)}
+.map-hint{box-shadow:
+    -3px -3px 8px rgba(255,255,255,.95),
+     4px  4px 10px rgba(90,102,145,.45) !important;
+  border-radius:12px !important}
+#map,#map-conn{flex:1;min-height:0;height:100%}
+@media(max-width:899px){.map-cell{min-height:340px}#map,#map-conn{min-height:340px;height:340px}}
+
+.loading{margin-top:22px;padding:18px 22px;background:var(--card);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--sh-1);display:flex;align-items:center;gap:14px;color:var(--ink-2);font-weight:500;font-size:14px}
+.spinner{width:18px;height:18px;border:2.5px solid #E0E7FF;border-top-color:var(--brand);border-radius:99px;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{margin-top:22px;padding:16px 20px;background:#FEE2E2;color:#7A1F1F;border-radius:12px;border:1px solid #FCA5A5;font-weight:600}
+.empty{margin-top:36px;text-align:center;padding:42px 22px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--sh-1);color:var(--muted)}
+.empty .row{display:inline-flex;gap:16px;margin-bottom:16px}
+.empty .row .icon-badge{width:58px;height:58px;border-radius:14px;animation:bob 2.4s ease-in-out infinite}
+.empty .row .icon-badge:nth-child(2){animation-delay:.15s}
+.empty .row .icon-badge:nth-child(3){animation-delay:.30s}
+.empty .row .icon-badge svg{width:28px;height:28px}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
+.empty p{font-weight:600;font-size:16px;color:var(--ink);max-width:520px;margin:0 auto}
+
+#map-amen,#map-med,#map-others{flex:1;min-height:0;height:100%}
+@media(max-width:899px){.amen-map-cell{min-height:340px}#map-amen,#map-med,#map-others{min-height:340px;height:340px}}
+.map-hint{position:absolute;top:12px;left:12px;z-index:500;background:rgba(255,255,255,.94);padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ink-2);box-shadow:var(--sh-1);pointer-events:none}
+.amen-pin{width:30px;height:30px;border-radius:99px;display:grid;place-items:center;border:2.5px solid #fff;box-shadow:0 3px 8px rgba(17,24,39,.28);color:#fff}
+.amen-pin svg{width:16px;height:16px;stroke:currentColor}
+.amen-cell,.edu-cell{overflow:visible}   /* let tooltips escape the card */
+.info-tip{position:relative;flex-shrink:0}
+.info-tip>summary{list-style:none;cursor:pointer;width:20px;height:20px;border-radius:99px;display:grid;place-items:center;color:var(--muted);background:#fff;border:1px solid var(--border);transition:color .15s,border-color .15s,background .15s}
+.info-tip>summary::-webkit-details-marker{display:none}
+.info-tip>summary svg{width:12px;height:12px}
+.info-tip>summary:hover,.info-tip[open]>summary{color:var(--brand);border-color:var(--brand-2);background:var(--result-bg)}
+.info-body{position:absolute;top:26px;right:0;z-index:30;width:240px;max-height:70vh;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:var(--ink-2);font-weight:500;white-space:normal;box-shadow:0 8px 22px rgba(17,24,39,.14)}
+.info-body.details-block{width:320px;padding:12px 14px}
+.info-body.details-block .det-row{display:grid;grid-template-columns:82px 1fr;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(107,114,128,.15)}
+.info-body.details-block .det-row:last-child{border-bottom:0}
+.info-body.details-block .det-label{color:var(--muted);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;line-height:1.5;padding-top:1px}
+.info-body.details-block .det-val{color:var(--ink);font-weight:500;overflow-wrap:anywhere}
+.info-body.details-block .det-val a{color:var(--brand);font-weight:600}
+.info-body.details-block .dim{color:var(--muted);font-weight:500;font-size:11.5px}
+.amen-cell,.edu-cell{cursor:pointer}
+.cell[draggable="true"]{cursor:grab}
+.cell[draggable="true"].dragging{opacity:.4;cursor:grabbing}
+.cell.drop-target{outline:2px dashed var(--brand);outline-offset:3px}
+.cell.active{background:var(--result-bg-hover);
+  box-shadow:
+    inset  8px  8px 16px rgba(90,102,145,.35),
+    inset -6px -6px 14px rgba(255,255,255,.9),
+    0 0 0 2px rgba(79,70,229,.22)}
+.cell.active::before{transform:scaleY(1)}
+.cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
+.cell-head .chev{margin-left:auto;color:var(--muted);transition:transform .2s ease,color .2s}
+.cell-head .chev:has(+ .explain-btn){margin-left:0;margin-right:0}                          /* if explain follows chev, chev tucks by label so explain takes the far-right slot */
+.cell-head .chev svg{width:16px;height:16px;display:block}
+.cell.active .cell-head .chev{transform:rotate(180deg);color:var(--brand)}
+.amen-body{display:none}
+.cell.active .amen-body{display:block}
+.amen-cell .metric-big{margin:6px 0 4px}
+.amen-cell .metric-big .n{font-size:44px}
+.amen-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.amen-list li{display:grid;grid-template-columns:1fr auto 20px;align-items:center;gap:10px;font-size:13.5px;color:var(--ink-2);padding:4px 8px;margin:0 -8px;border-radius:6px;border-bottom:1px dashed rgba(107,114,128,.18);transition:background .12s,color .12s}
+.amen-list li[data-idx]{cursor:pointer}
+.amen-list li[data-idx]:hover{background:rgba(79,70,229,.08);color:var(--ink)}
+.amen-list li:last-child{border-bottom:0}
+.amen-list li .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--ink)}
+.amen-list li .dist{color:var(--muted);font-size:12px;font-weight:500;white-space:nowrap;text-align:right}
+.amen-list li.none{color:var(--muted);font-style:italic;border-bottom:0;grid-column:1 / -1}
+.amen-more{margin:8px 0 0;font-size:12px;color:var(--muted);font-weight:500}
+
+/* Explain — small AI pill button + centered modal overlay. Reused across
+   Education/Environment cards and inside the Amenity/Medical tile modals. */
+.explain-btn{margin-left:auto;padding:4px 10px 4px 8px;border-radius:99px;border:1px solid rgba(99,102,241,.28);
+  background:rgba(255,255,255,.7);color:#4F46E5;font:inherit;font-weight:700;font-size:11px;letter-spacing:.02em;
+  cursor:pointer;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+  transition:background .18s,transform .15s,box-shadow .2s}
+.explain-btn:hover{background:#EEF2FF;transform:translateY(-1px);box-shadow:0 3px 8px rgba(99,102,241,.2)}
+.explain-btn::before{content:"✨";font-size:10px}
+.amen-modal .explain-btn{position:absolute;top:14px;right:60px}   /* left of ✕ */
+
+.explain-overlay{position:fixed;inset:0;background:rgba(17,24,39,.42);backdrop-filter:blur(4px);
+  z-index:10001;display:flex;align-items:center;justify-content:center;padding:24px;
+  animation:explainFadeIn .2s ease-out}
+.explain-overlay[hidden]{display:none}
+@keyframes explainFadeIn{from{opacity:0}to{opacity:1}}
+.explain-panel{position:relative;max-width:540px;width:100%;padding:30px 32px 26px;border-radius:22px;background:var(--result-bg);
+  box-shadow:-14px -14px 32px rgba(255,255,255,1),14px 14px 32px rgba(90,102,145,.55),
+             4px 4px 10px rgba(90,102,145,.25),inset 1px 1px 2px rgba(255,255,255,.7);
+  animation:modalIn .3s cubic-bezier(.34,1.56,.64,1)}
+.explain-panel .explain-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;
+  border:none;background:var(--result-bg);color:var(--ink-2);font-size:16px;cursor:pointer;display:grid;place-items:center;
+  box-shadow:-3px -3px 6px rgba(255,255,255,.9),3px 3px 8px rgba(90,102,145,.35)}
+.explain-panel .explain-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.explain-panel .ai-chip{display:inline-flex;align-items:center;gap:6px;
+  background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;padding:4px 10px;
+  border-radius:99px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  box-shadow:0 4px 12px rgba(99,102,241,.35)}
+.explain-panel h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;color:var(--ink)}
+.explain-panel .explain-body{font-size:15px;line-height:1.65;color:var(--ink);font-weight:500;min-height:60px}
+.explain-panel .explain-body::first-letter{font-size:22px;font-weight:700;color:#4F46E5;padding-right:2px}
+.explain-panel .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+.explain-panel .prov::before{content:"✨ ";opacity:.6}
+
+/* Sad-feedback modal — reuses .explain-overlay/.explain-panel base */
+.sad-panel{max-width:460px}
+.sad-hint{margin:0 0 14px;font-size:12px;color:var(--muted)}
+.sad-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.sad-chip{padding:7px 14px;border-radius:99px;border:1.5px solid var(--border);background:#fff;color:var(--ink-2);
+  font:inherit;font-weight:600;font-size:13px;cursor:pointer;transition:all .15s}
+.sad-chip:hover{border-color:#DC2626;color:#DC2626;background:#FEF2F2}
+.sad-chip.active{background:#DC2626;color:#fff;border-color:#DC2626}
+.sad-text{width:100%;padding:10px 12px;border-radius:12px;border:1.5px solid var(--border);background:#fff;
+  font:inherit;font-size:13px;resize:vertical;min-height:44px;margin-bottom:14px;box-sizing:border-box;font-family:inherit}
+.sad-text:focus{outline:none;border-color:var(--brand)}
+.sad-actions{display:flex;gap:10px;justify-content:flex-end}
+
+/* AI Impression — neumorphic launch button + modal with per-tab sections.
+   Launch pill sits right-aligned in the tabs row, opens a modal that shows
+   all tab summaries under sub-headings (no per-tab cards). */
+.tabs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:22px 0 0;flex-wrap:wrap}
+.tabs-row .tabs{margin:0}
+.impression-launch{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:none;border-radius:14px;
+  background:var(--neumo-bg);color:var(--brand);font:inherit;font-weight:700;font-size:13px;letter-spacing:.02em;
+  cursor:pointer;
+  box-shadow:-4px -4px 10px var(--neumo-sh-light),4px 4px 12px var(--neumo-sh-dark);
+  transition:transform .12s,box-shadow .2s}
+.impression-launch::before{content:"✨";font-size:14px;filter:drop-shadow(0 1px 2px rgba(99,102,241,.4))}
+.impression-launch:hover{transform:translateY(-1px);
+  box-shadow:-6px -6px 14px var(--neumo-sh-light),6px 6px 16px var(--neumo-sh-dark)}
+.impression-launch:active{transform:translateY(0);
+  box-shadow:inset 2px 2px 6px var(--neumo-sh-dark),inset -2px -2px 6px var(--neumo-sh-light)}
+.impression-launch .count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 7px;
+  border-radius:99px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;letter-spacing:0}
+
+/* Impression modal — reuses .explain-overlay/.explain-panel base */
+.impression-panel{max-width:640px;width:fit-content;min-width:340px;max-height:80vh;overflow-y:auto}
+.impression-panel .explain-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;row-gap:8px}
+.impression-panel .explain-head .ai-chip{grid-column:1;grid-row:1;justify-self:start;line-height:1;align-self:center}
+.impression-panel .explain-head .addr-chip{grid-column:2;grid-row:1;justify-self:center;line-height:1;align-self:center;min-width:0;max-width:100%}
+.impression-panel .section .votes .up,
+.impression-panel .section .votes .dn{white-space:nowrap}
+.impression-panel .addr-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:99px;
+  background:var(--neumo-bg);color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),inset -2px -2px 4px var(--neumo-sh-light)}
+.impression-panel .addr-chip svg{width:11px;height:11px;color:var(--brand);flex-shrink:0}
+.impression-panel .impression-modal-body{margin-top:4px}
+/* Hide non-content chrome while html2canvas captures the panel */
+.impression-panel.capturing .explain-close,
+.impression-panel.capturing .gen-cta .actions{display:none}
+.impression-panel .section{margin-top:18px;padding:16px 18px;border-radius:14px;background:var(--neumo-bg);
+  box-shadow:-3px -3px 8px var(--neumo-sh-light),3px 3px 10px var(--neumo-sh-dark)}
+.impression-panel .section:first-child{margin-top:6px}
+.impression-panel .section h4{margin:0 0 10px;display:flex;align-items:center;gap:10px;
+  font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted)}
+.impression-panel .section h4::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:currentColor;opacity:.7}
+.impression-panel .section p{margin:0;font-size:14px;line-height:1.65;color:var(--ink);font-weight:500}
+.impression-panel .section p::first-letter{font-size:20px;font-weight:700;color:var(--brand);padding-right:2px}
+.impression-panel .section .votes{margin-top:10px;padding-top:8px;border-top:1px solid rgba(107,114,128,.15);
+  display:flex;gap:12px;font-size:11px;font-weight:600;color:var(--muted)}
+.impression-panel .section .votes .up{color:#16A34A}
+.impression-panel .section .votes .dn{color:#DC2626}
+.impression-panel .empty{padding:22px;border-radius:14px;background:var(--neumo-bg);text-align:center;
+  color:var(--muted);font-size:13px;
+  box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
+.impression-panel .empty b{color:var(--ink)}
+.impression-panel .gen-cta{margin-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:14px}
+.impression-panel .gen-cta .prov{font-size:11px;color:var(--muted);flex:1;text-align:left}
+.impression-panel .gen-cta .prov::before{content:"✨ ";opacity:.6}
+.impression-panel .impression-loading{padding:26px;display:flex;align-items:center;justify-content:center;gap:12px;
+  color:var(--ink-2);font-size:14px;font-weight:500;border-radius:14px;background:var(--neumo-bg);
+  box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
+
+.toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
+  padding:10px 20px;border-radius:99px;font-weight:600;font-size:13px;box-shadow:var(--sh-2);opacity:0;pointer-events:none;
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s;z-index:9999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+footer{max-width:1240px;margin:22px auto 40px;padding:0 22px;color:var(--muted);font-size:12px;line-height:1.7}
+footer a{color:var(--brand)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}.cell{opacity:1;transform:none}}
+
+/* --- PDF export via native print. User clicks "Export PDF" → window.print() →
+       browser dialog with Save-as-PDF. Landscape by default so 3–5 columns fit. */
+.print-only{display:none}
+@media print {
+  @page { size: A4 landscape; margin: 12mm 10mm; }
+  /* Force Chrome/Safari/Firefox to keep colored backgrounds instead of stripping
+     them to save toner. Without this, section headers, thead pills and noise
+     tiers render as white blocks. */
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  body { background:#fff }
+  header, footer, #status, .hero, .tabs, .panel, .header-actions, .compare-header .compare-actions, .col-remove { display:none !important }
+  .page { max-width:none; padding:0 }
+  .compare-view, #view-compare { margin-top:0 !important }
+  .compare-wrap { border:0; box-shadow:none; padding:0; overflow:visible; border-radius:0 }
+  .compare-table { font-size:11px; page-break-inside:auto }
+  .compare-table thead { display:table-header-group }   /* repeat column headers per page */
+  .compare-table tr, .compare-table tr.section-row { page-break-inside:avoid }
+  .compare-table th, .compare-table td { padding:8px 10px }
+  .compare-table thead th { background:#F5F5FF !important }
+  .compare-table thead th.addr-col .addr-title { font-size:12px }
+  .compare-table tbody th { background:#FAFAFA !important }
+  .compare-table tr.section-row th { background:#EEE !important }
+  /* preserve tier / SESB pill colors in the printed PDF */
+  .noise-cell, .noise-cell.tier-green, .noise-cell.tier-amber, .noise-cell.tier-orange, .noise-cell.tier-red, .sesb-cell {
+    -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;
+  }
+  .print-only { display:block !important }
+  .print-header h1 { font-family:'Plus Jakarta Sans',sans-serif; font-size:18px; margin:0 0 4px; letter-spacing:-.01em }
+  .print-header p  { font-family:'Plus Jakarta Sans',sans-serif; font-size:10px; color:#6B7280; margin:0 0 10px }
+  .compare-header h2 { font-family:'Plus Jakarta Sans',sans-serif; font-size:0; margin:0 }   /* hide the on-screen H2, printHeader replaces it */
+  /* Life Mode compare: reveal both lens slides in the PDF (tabs suppressed) */
+  .no-print                          { display:none !important; }
+  .lens-compare-slide[hidden]        { display:block !important; }
+  .lens-compare-section              { page-break-inside:avoid; margin-top:14px; }
+  .lens-compare-section + .lens-compare-section { page-break-before:always; }
+  .lens-compare-section-title        { font-family:'Plus Jakarta Sans',sans-serif;
+                                        font-size:14px; margin:0 0 8px; color:#111827; }
+}
+.lens-compare-section-title          { font-family:'Plus Jakarta Sans',sans-serif;
+                                        font-size:14px; font-weight:700; margin:0 0 8px;
+                                        color:var(--ink); }
+.lens-compare-slide[hidden]          { display:none; }
+
+/* --- Attribution modal (open-data licence text lives behind ⓘ button) --- */
+#site-footer                         { display:flex; align-items:center; gap:10px;
+                                        flex-wrap:wrap; padding-top:14px; padding-bottom:26px; }
+.footer-lede                         { font-size:12px; color:var(--muted); }
+.pill-btn.attribution-btn            { font-size:11.5px; padding:6px 12px;
+                                        letter-spacing:.02em; text-transform:none; }
+.attribution-modal                   { position:fixed; inset:0; z-index:1000;
+                                        background:rgba(38,45,66,.55);
+                                        backdrop-filter:blur(3px);
+                                        display:flex; align-items:center; justify-content:center;
+                                        padding:24px; }
+.attribution-modal[hidden]           { display:none !important; }
+.attribution-modal > *:not(.attribution-body):not(.modal-head):not(.amen-modal-close),
+.attribution-modal .modal-head,
+.attribution-modal .attribution-body { position:relative; }
+.attribution-modal .modal-head       { display:flex; align-items:center; gap:10px;
+                                        padding:20px 22px 4px; max-width:640px; width:100%;
+                                        margin:0 auto; background:var(--neumo-bg);
+                                        border-radius:20px 20px 0 0;
+                                        box-shadow:-8px -8px 20px var(--neumo-sh-light),
+                                                   8px 8px 22px var(--neumo-sh-dark); }
+.attribution-modal .attribution-body { max-width:640px; width:100%; margin:0 auto;
+                                        padding:6px 22px 22px; background:var(--neumo-bg);
+                                        border-radius:0 0 20px 20px;
+                                        box-shadow:-8px -8px 20px var(--neumo-sh-light),
+                                                   8px 8px 22px var(--neumo-sh-dark);
+                                        max-height:70vh; overflow-y:auto; }
+.attribution-modal h3                { font-family:'Plus Jakarta Sans',sans-serif;
+                                        margin:0; font-size:18px; }
+.attribution-modal h4                { font-family:'Plus Jakarta Sans',sans-serif;
+                                        margin:14px 0 4px; font-size:13px;
+                                        letter-spacing:.03em; color:var(--ink-2);
+                                        text-transform:uppercase; }
+.attribution-modal p                 { margin:4px 0; font-size:13px; line-height:1.6;
+                                        color:var(--ink-2); }
+.attribution-modal .attribution-lead { color:var(--ink); font-weight:600; }
+.attribution-modal .attribution-note { font-size:11.5px; color:var(--muted); font-style:italic;
+                                        margin-top:12px; }
+.attribution-modal .amen-modal-close { position:absolute; top:16px; right:calc(50% - 320px);
+                                        z-index:2; }
+@media (max-width:700px){
+  .attribution-modal .amen-modal-close { right:24px; }
+}
+
+/* --- Life Mode toggle -------------------------------------------------
+   Base styling comes from .pill-btn (already defined above). The button
+   holds a static "Life Mode" label plus an iOS-style neumorphic switch.
+   The ON state is tracked by the `.on` class on the button itself — no
+   pill-btn-brand swap. See setLifeMode() in app.js.
+   Shadow colors: var(--neumo-sh-light) / var(--neumo-sh-dark)            */
+
+.lm-toggle{
+  display:inline-flex; align-items:center; gap:10px;
+  padding:6px 6px 6px 14px;
+}
+
+/* Track — inset neumorphic pill; purple gradient when ON. */
+.lm-toggle .lm-track{
+  position:relative;
+  width:42px; height:24px;
+  border-radius:999px;
+  background:var(--neumo-bg);
+  box-shadow:
+    inset 2px 2px 4px var(--neumo-sh-dark),
+    inset -2px -2px 4px var(--neumo-sh-light);
+  transition: background .3s ease;
+  flex-shrink:0;
+}
+.lm-toggle.on .lm-track{
+  background: linear-gradient(135deg, var(--brand-2) 0%, var(--brand) 100%);
+  box-shadow:
+    inset 2px 2px 4px rgba(55,48,163,.45),
+    inset -2px -2px 4px rgba(255,255,255,.20);
+}
+
+/* Knob — raised white circle; slides right when ON. */
+.lm-toggle .lm-knob{
+  position:absolute; top:2px; left:2px;
+  width:20px; height:20px;
+  border-radius:50%;
+  background:#FFFFFF;
+  box-shadow:
+    -1px -1px 2px rgba(255,255,255,.90),
+     1px  1px 3px rgba(94,120,163,.55);
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+}
+.lm-toggle.on .lm-knob{
+  transform: translateX(18px);
+  box-shadow:
+    -1px -1px 2px rgba(255,255,255,.90),
+     1px  1px 3px rgba(55,48,163,.45);
+}
+
+/* Onboarding pulse — draws the eye on first visit.
+   Uses neumorphic shadow language: outer raised + brand-color glow ring. */
+@keyframes lm-pulse{
+  0%,100%{
+    box-shadow:
+      -3px -3px 8px var(--neumo-sh-light),
+       3px  3px 8px var(--neumo-sh-dark),
+       0 0 0 0 rgba(79,70,229,.55);
+  }
+  50%{
+    box-shadow:
+      -3px -3px 8px var(--neumo-sh-light),
+       3px  3px 8px var(--neumo-sh-dark),
+       0 0 0 10px rgba(79,70,229,0);
+  }
+}
+.lm-toggle.pulse{
+  animation: lm-pulse 1.6s ease-out infinite;
+}
+
+/* --- .tier-unknown — companion to .tier-{green,amber,orange,red} --------
+   Left-bar ::before, tile-tier-badge pill, and italic rule text.
+   Uses two grays from the neumorphic palette — no tier color tokens.       */
+
+.cell.tier-unknown::before{
+  transform:scaleY(1);
+  background:#9CA3AF;
+}
+.tier-unknown .tile-tier-badge{
+  background:#F3F4F6;
+  color:#6B7280;
+  font-style:italic;
+}
+.tier-unknown .tile-rule{
+  font-style:italic;
+  color:#9CA3AF;
+}
+
+/* --- Life Mode content (Task 10) ----------------------------------------
+   Hides raw tab buttons + panels when Life Mode is ON; shows .lens-view.
+   Uses real DOM IDs from index.html — no .tab-bar / .tab-panel selectors.  */
+
+body.life-mode #tabs-row,
+body.life-mode #panel-edu,
+body.life-mode #panel-amen,
+body.life-mode #panel-med,
+body.life-mode #panel-env,
+body.life-mode #panel-conn,
+body.life-mode #panel-others{ display:none !important; }
+
+/* Lens picker row — mirrors raw-mode .tabs vertical rhythm (22px above,
+   14px below). Picker sits on the left; audience-hint (right-aligned) on
+   the right of the same row so it aligns with the tab bar.               */
+.lens-picker-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin:22px 0 14px 0;
+  flex-wrap:wrap;
+}
+.lens-audience{
+  margin:0;
+  color:var(--muted, #667);
+  font:500 .88em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  text-align:right;
+}
+
+.lens-grid{
+  display:grid; gap:.9em;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+/* Tile — reuses .cell neumorphic shape; override ::before for tier color bar */
+.lens-tile{
+  position:relative; padding:.9em 1em .9em 1.3em;
+  min-height:118px;
+  display:flex; flex-direction:column; gap:.35em;
+}
+.lens-tile::before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:6px;
+  background:var(--tier-color, var(--muted, #b0b6c0));
+  border-top-left-radius:inherit; border-bottom-left-radius:inherit;
+  transform-origin:top; transform:scaleY(0);
+  transition: transform .28s cubic-bezier(.2,.7,.2,1);
+}
+.lens-tile:hover::before{ transform:scaleY(1); }
+
+.lens-tile .tile-head{ display:flex; align-items:center; gap:.55em; }
+.lens-tile .tile-icon{ width:1.1em; height:1.1em; flex:0 0 auto;
+                       color:var(--tier-color, var(--muted, #b0b6c0)); }
+.lens-tile .tile-icon svg{ width:100%; height:100%; }
+.lens-tile .tile-label{ flex:1;
+                        font:600 .95em/1.2 'Plus Jakarta Sans', system-ui, sans-serif;
+                        color:var(--ink, #2a2f3a); }
+.lens-tile .tile-tier-badge{
+  font:700 .68em/1 'Plus Jakarta Sans', system-ui, sans-serif;
+  letter-spacing:.06em;
+  padding:.32em .55em; border-radius:999px;
+  background:var(--tier-color, #b0b6c0); color:#fff;
+}
+.lens-tile .tile-rule{
+  font:500 .82em/1.3 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:var(--muted, #667);
+}
+.lens-tile .tile-numeric{
+  font:500 .78em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:var(--ink-2, #4a4f5a);
+}
+.lens-tile .tile-caveat{
+  margin-top:.15em;
+  font:italic 400 .72em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:#8a8f9a;
+}
+
+/* Tier color variables — use existing design tokens (pre-flight ruling) */
+.tier-green{ --tier-color: var(--success); }
+.tier-amber{ --tier-color: var(--amber); }
+.tier-red  { --tier-color: var(--danger); }
+/* .tier-unknown: --tier-color not set; ::before uses muted gray fallback */
+
+/* Bureaucracy tile — informational, mirrors Amenities .amen-cell face.
+   No tier color-bar, no verdict badge; icon-badge + walk-min metric top,
+   label + nearest-office pill bottom. Content preserved in the modal. */
+.lens-tile.lens-tile-info{ padding:16px 18px; min-height:130px; gap:6px;
+                           justify-content:flex-start; }
+.lens-tile.lens-tile-info::before{ display:none; }
+.lens-tile.lens-tile-info .amen-tile-top{ display:flex; align-items:center;
+                                          justify-content:space-between; gap:12px; }
+.lens-tile.lens-tile-info .icon-badge{ width:38px; height:38px; border-radius:10px;
+                                        background:#FFFFFF; color:var(--brand);
+                                        display:inline-flex; align-items:center; justify-content:center;
+                                        flex-shrink:0; }
+.lens-tile.lens-tile-info .icon-badge svg{ width:20px; height:20px; }
+.lens-tile.lens-tile-info .metric-big{ margin:0; display:flex; align-items:baseline; gap:4px; }
+.lens-tile.lens-tile-info .metric-big .n{ font-size:32px; font-weight:800;
+                                          line-height:1; white-space:nowrap;
+                                          font-family:'Plus Jakarta Sans',sans-serif;
+                                          background:linear-gradient(135deg,#4F46E5,#EC4899);
+                                          -webkit-background-clip:text; background-clip:text;
+                                          color:transparent; }
+.lens-tile.lens-tile-info .metric-big .cap{ font-size:11px; color:var(--muted); }
+.lens-tile.lens-tile-info .cell-label{ display:block; font-size:12px; font-weight:700;
+                                        color:var(--ink-2); text-transform:none;
+                                        letter-spacing:.01em; }
+.lens-tile.lens-tile-info .amen-tag{ display:inline-block; align-self:flex-start;
+                                      max-width:100%; overflow:hidden;
+                                      text-overflow:ellipsis; white-space:nowrap;
+                                      padding:5px 12px; border-radius:99px;
+                                      font-weight:600; font-size:12px; margin-top:4px;
+                                      background:#E0E7FF; color:#3730A3;
+                                      transition:transform .15s cubic-bezier(.34,1.56,.64,1); }
+.lens-tile.lens-tile-info:hover .amen-tag{ transform:translateY(-1px) scale(1.03); }
+.lens-tile.lens-tile-info:hover .icon-badge{ transform:rotate(-6deg) scale(1.08); }
+
+/* Screen-reader-only text (visually hidden but read aloud) */
+.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+          overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+/* Young Family tile — verdict card with vertical traffic-light indicator on
+   the right. Neumorphic recessed track + raised colored thumb at the current
+   tier position. No persistent ::before color-bar, no verbal GREEN/AMBER/RED
+   badge on the face; tier is conveyed via the indicator (visual) + the
+   .sr-only text (accessibility). Traffic-light order: RED top, AMBER middle,
+   GREEN bottom. --tier-color still drives icon tint + thumb color. */
+.lens-tile.lens-tile-yf{ display:flex; flex-direction:row; align-items:stretch;
+                          gap:14px; padding:14px 14px 14px 16px; min-height:118px; }
+.lens-tile.lens-tile-yf::before{ display:none; }              /* kill left color-bar */
+.lens-tile.lens-tile-yf .yf-tile-main{ flex:1 1 auto; min-width:0;
+                                        display:flex; flex-direction:column;
+                                        gap:.35em; justify-content:flex-start; }
+.lens-tile.lens-tile-yf .tile-tier-badge{ display:none; }     /* verbal badge off */
+
+.yf-tier-slider{ position:relative; flex:0 0 auto; width:26px; align-self:stretch;
+                  display:flex; align-items:center; justify-content:center;
+                  padding:6px 0; }
+.yf-tier-track{ position:relative; width:10px; height:100%; border-radius:99px;
+                background:#E9ECF3;
+                box-shadow: inset 3px 3px 6px rgba(163,177,198,.55),
+                            inset -3px -3px 6px rgba(255,255,255,.9); }
+.yf-tier-mark{ position:absolute; left:50%; width:6px; height:6px;
+                border-radius:50%; transform:translate(-50%,-50%);
+                background:#B8BFCC; opacity:.55; }
+.yf-tier-mark-red  { top:18%; }
+.yf-tier-mark-amber{ top:50%; }
+.yf-tier-mark-green{ top:82%; }
+.yf-tier-thumb{ position:absolute; left:50%; width:18px; height:18px;
+                 border-radius:50%; transform:translate(-50%,-50%);
+                 background:var(--tier-color, #B0B6C0);
+                 border:2px solid #FFFFFF;
+                 box-shadow: 2px 2px 5px rgba(163,177,198,.55),
+                             -2px -2px 5px rgba(255,255,255,.9),
+                             inset 0 -1px 2px rgba(0,0,0,.08);
+                 transition: top .28s cubic-bezier(.2,.7,.2,1);
+                 top:50%; }
+/* Thumb position per tier — matches traffic-light vertical order */
+.tier-red   .yf-tier-thumb{ top:18%; }
+.tier-amber .yf-tier-thumb{ top:50%; }
+.tier-green .yf-tier-thumb{ top:82%; }
+.tier-unknown .yf-tier-thumb{ top:50%; opacity:.5;
+                               background:#B0B6C0;
+                               border-color:#F0F2F7; }
+/* Highlight the active mark under the thumb for extra clarity */
+.tier-red   .yf-tier-mark-red,
+.tier-amber .yf-tier-mark-amber,
+.tier-green .yf-tier-mark-green{ background:var(--tier-color); opacity:.35; }
+
+@media (max-width:520px){
+  .lens-tile.lens-tile-yf{ gap:10px; padding:12px 10px 12px 14px; }
+  .yf-tier-slider{ width:22px; }
+}
+
+.lens-provenance{
+  font:italic 400 .72em/1.4 'Plus Jakarta Sans', system-ui, sans-serif;
+  color:#8a8f9a; padding:0 .5em;
+}
+.lens-empty{ padding:1em; color:var(--muted, #667); font-style:italic; }
+
+/* --- Life Mode compare (Task 11) ---------------------------------------- */
+.lens-compare{
+  display:flex; flex-direction:column; gap:.35em;
+  padding:1em 0;
+  font:500 .82em/1.3 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+.lens-compare-row{
+  display:grid;
+  grid-template-columns: minmax(140px, 1.4fr) repeat(auto-fit, minmax(72px, 1fr));
+  gap:.5em; align-items:center;
+}
+.lens-compare-rowlabel{
+  color:var(--ink, #2a2f3a); font-weight:600;
+  padding-left:.3em;
+}
+.lens-compare-collabel{
+  text-align:center; color:var(--muted, #667);
+  font-weight:600; font-size:.85em;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.lens-compare-head .lens-compare-rowlabel{ min-height:1.6em; }
+
+.lens-compare-cellwrap{ display:flex; justify-content:center; }
+.lens-compare-cell{
+  width:2em; height:2em; border-radius:50%;
+  border:none; padding:0;
+  background:var(--tier-color, #b0b6c0);
+  color:#fff; font-size:1.4em; line-height:1;
+  cursor:default; user-select:none;
+  box-shadow: -2px -2px 4px var(--neumo-sh-light), 2px 2px 4px var(--neumo-sh-dark);
+  transition: transform .12s ease;
+}
+.lens-compare-cell:hover{ transform:scale(1.08); }
+.lens-compare-cell:focus-visible{
+  outline:2px solid var(--brand, #4a5cff); outline-offset:3px;
+}
+.lens-compare-cell.tier-unknown{ background:#eef0f4; color:#7a8090; }
+
+/* Bureaucracy compare cell — walk-minute LABEL (informational, no tier color).
+   Slim indigo chip; typography matches the app's Plus Jakarta Sans scale. */
+.lens-compare-cell.lens-compare-cell-info{
+  width:auto; min-width:52px; height:24px; border-radius:999px;
+  padding:0 10px; gap:5px;
+  background:linear-gradient(135deg,#6366F1,#4F46E5); color:#fff;
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  display:inline-flex; align-items:center; justify-content:center;
+  box-shadow:-1px -1px 3px var(--neumo-sh-light),
+             2px 2px 6px rgba(79,70,229,.38);
+  transition:transform .12s ease, box-shadow .2s ease;
+}
+.lens-compare-cell.lens-compare-cell-info:hover{
+  transform:translateY(-1px);
+  box-shadow:-2px -2px 5px var(--neumo-sh-light),
+             3px 3px 8px rgba(79,70,229,.5);
+}
+.lens-compare-cell.lens-compare-cell-info .cell-num{
+  font-weight:700; font-size:10.2px; line-height:1; letter-spacing:.01em; }
+.lens-compare-cell.lens-compare-cell-info .cell-cap{
+  font-weight:600; font-size:7.2px; color:rgba(255,255,255,.82);
+  text-transform:uppercase; letter-spacing:.08em; line-height:1; }
+/* Unavailable variant: muted, no gradient — no walk time to show */
+.lens-compare-cell.lens-compare-cell-info[aria-label="unavailable"]{
+  background:var(--neumo-bg); color:var(--muted);
+  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),
+             inset -2px -2px 4px var(--neumo-sh-light); }
+
+/* --- Lens picker (Spec B) — mirrors the raw-mode .tabs / .tab pattern
+   (recessed neumorphic groove + extruded active pill). Own selectors so
+   we don't pick up the raw-mode tab click handler bound to `.tab`.       */
+.lens-picker{
+  display:inline-flex; gap:4px; padding:6px;
+  background:var(--neumo-bg); border:none;
+  border-radius:14px;
+  margin:0;                              /* row wrapper controls vertical spacing */
+  box-shadow:
+    inset 3px 3px 7px var(--neumo-sh-dark),
+    inset -3px -3px 7px var(--neumo-sh-light);
+}
+.lens-picker .lens-tab{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 18px; border:0; background:transparent;
+  border-radius:10px;
+  font:inherit; font-weight:600; font-size:14px;
+  color:var(--ink-2); cursor:pointer;
+  transition: box-shadow .2s, color .18s, transform .12s;
+}
+.lens-picker .lens-tab svg{ width:16px; height:16px; }
+.lens-picker .lens-tab:hover:not(.active){
+  color:var(--ink); transform:translateY(-1px);
+}
+.lens-picker .lens-tab.active{
+  background:var(--neumo-bg); color:var(--brand);
+  box-shadow:
+    -3px -3px 7px var(--neumo-sh-light),
+     3px  3px 7px var(--neumo-sh-dark);
+}
+.lens-picker .lens-tab:focus-visible{
+  outline:none; box-shadow: 0 0 0 3px rgba(99,102,241,.4);
+}
+.lens-picker .lens-tab.active:focus-visible{
+  box-shadow:
+    -3px -3px 7px var(--neumo-sh-light),
+     3px  3px 7px var(--neumo-sh-dark),
+     0 0 0 3px rgba(99,102,241,.4);
+}
+
+/* --- Spec D: clickable lens tiles, 2-col layout, modal, map ------------- */
+
+/* 2-col split — mirrors raw-mode Amenities .grid + .map-cell */
+.lens-body        { display:flex; gap:14px; margin-top:0; }
+.lens-tiles-col   { position:relative; flex:1.15 1 0; min-width:0; }
+.lens-map-col     { flex:.85 1 0; min-width:0; position:relative; }
+#lens-map         { height:100%; min-height:500px; border-radius:16px; overflow:hidden; }
+
+@media (max-width: 900px) {
+  .lens-body      { flex-direction:column; }
+  #lens-map       { min-height:320px; }
+}
+
+/* Tile — now a <button>; tighter grid + padding; drop caveat from face */
+.lens-grid        { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+.lens-tile        { min-height:100px; padding:12px 14px 12px 18px; cursor:pointer;
+                    border:0; text-align:left; width:100%; }
+.lens-tile:hover  { background: var(--result-bg-hover); }
+.lens-tile:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+
+/* Modal — reuses .amen-modal visual language via new selectors */
+.lens-modal       { position:absolute; inset:0;
+                    background: rgba(238,242,255,.98); backdrop-filter: blur(8px);
+                    border-radius:16px; padding:20px 24px; overflow-y:auto; z-index:10; }
+.lens-modal[hidden] { display:none; }
+.lens-modal-close { position:absolute; top:14px; right:14px; width:34px; height:34px;
+                    border-radius:50%; border:none; background:rgba(255,255,255,.9);
+                    color:var(--muted); cursor:pointer; font-size:16px; }
+.lens-modal-close:hover { color:var(--ink); }
+
+.lens-modal .modal-head        { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+.lens-modal .modal-head h3     { margin:0; font:700 20px 'Plus Jakarta Sans', sans-serif; flex:1; }
+.lens-modal .modal-head .icon-badge {
+  width:44px; height:44px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--neumo-bg);
+}
+.lens-modal .modal-head .icon-badge svg { width:22px; height:22px; }
+.lens-modal .modal-rule        { font-weight:600; color:var(--ink); margin-bottom:4px; }
+.lens-modal .modal-numeric     { color:var(--ink-2); margin-bottom:12px; }
+.lens-modal .modal-caveat      { font-style:italic; color:var(--muted); font-size:13px;
+                                 padding:8px 12px; background:var(--neumo-bg);
+                                 border-radius:8px; margin-bottom:12px; }
+.lens-modal .modal-explanation { color:var(--ink-2); padding:10px 14px;
+                                 background:var(--neumo-bg); border-radius:10px;
+                                 margin-bottom:12px; line-height:1.4; }
+
+/* Feature list */
+.modal-features-list           { list-style:none; padding:0; margin:0 0 12px 0;
+                                 display:flex; flex-direction:column; gap:8px; }
+.lens-feature                  { display:flex; align-items:center; gap:10px;
+                                 padding:10px 12px; background:rgba(255,255,255,.6);
+                                 border-radius:10px; cursor:pointer;
+                                 transition: background .18s ease; }
+.lens-feature:hover            { background:rgba(255,255,255,.85); }
+.lens-feature.highlighted      { background:#EEF2FF; transition:background .3s ease; }
+.lens-feature .feature-marker  { width:22px; height:22px; border-radius:50%;
+                                 display:flex; align-items:center; justify-content:center;
+                                 background:var(--neumo-bg); color:var(--ink-2);
+                                 font-weight:700; font-size:11px; flex-shrink:0; }
+.lens-feature .feature-name    { flex:1; font-weight:600;
+                                 overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lens-feature .feature-distance{ color:var(--muted); font-size:12px; flex-shrink:0; }
+.lens-feature .info-tip        { flex-shrink:0; }
+
+/* Refuge trees block */
+.modal-trees                   { padding:10px 14px; background:var(--neumo-bg);
+                                 border-radius:10px; margin-bottom:12px; }
+.modal-trees-summary           { font-weight:600; }
+.modal-trees-species           { color:var(--ink-2); font-size:13px; margin-top:4px; }
+
+/* Provenance footer */
+.lens-modal .modal-provenance  { color:var(--muted); font-size:12px;
+                                 padding-top:8px; border-top:1px solid var(--border); }
+
+/* Map hint pill — mirrors raw-mode .map-hint */
+.lens-map-col .map-hint        { position:absolute; top:12px; left:12px; z-index:500;
+                                 background: rgba(255,255,255,.94);
+                                 padding:7px 12px; border-radius:8px;
+                                 font-size:12px; font-weight:600; color:var(--ink-2);
+                                 box-shadow: var(--sh-1); pointer-events:none; }
+
+/* Numbered pin — for L.divIcon HTML */
+.lens-pin                      { width:30px; height:30px; border-radius:50%;
+                                 background:var(--pin-color, #9CA3AF); color:#fff;
+                                 display:flex; align-items:center; justify-content:center;
+                                 font:700 12px 'Plus Jakarta Sans', system-ui, sans-serif;
+                                 box-shadow: 0 2px 6px rgba(17,24,39,.35); }
+
+/* Empty state when features list is empty on a geo tile */
+.modal-empty                   { padding:14px; color:var(--muted); font-style:italic;
+                                 background:var(--neumo-bg); border-radius:10px; }
+
+/* =========================================================================
+   NEUMORPHISM UNIFICATION LAYER (2026-08-10)
+   Extends the Soft-UI Evolution style across every remaining surface —
+   chips, icon-badges, info-tips, popovers, form widgets, modals, table
+   cells — so depth/press-back semantics are consistent app-wide. Preserves
+   tier colors as focal accents. Additive; safe to revert.
+
+   Ruling from ui-ux-pro-max:
+   - Pure Neumorphism = low-contrast risk + light-only. Use the softer
+     multi-layer "Soft UI Evolution" variant with WCAG-AA+ text, visible
+     4.5:1 focus rings, and keep interactive elements ≥ 44×44px tap.
+   - Base surface = --neumo-bg (single monotone); recessed inputs (inset
+     shadow), raised buttons (outset), pressed = inset.
+   ========================================================================= */
+
+/* --- Page canvas: single monotone base so depth actually reads --------- */
+html, body                     { background:var(--neumo-bg); }
+
+/* --- Search-history chips: raised neumorphic pills -------------------- */
+.chip                          { background:var(--neumo-bg); border:none;
+                                 color:var(--ink-2);
+                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
+                                            3px 3px 8px var(--neumo-sh-dark); }
+.chip:hover                    { background:var(--neumo-bg); color:var(--brand);
+                                 box-shadow:-4px -4px 10px var(--neumo-sh-light),
+                                            4px 4px 12px var(--neumo-sh-dark); }
+.chip:active                   { box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light); }
+.chip:focus-visible            { outline:2px solid var(--brand); outline-offset:2px; }
+
+/* --- Icon badges (avatars for tiles + amenity headers) ---------------- */
+.icon-badge                    { background:var(--neumo-bg);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            3px 3px 7px var(--neumo-sh-dark); }
+.cell.active .icon-badge       { background:linear-gradient(135deg,#818CF8,#4F46E5);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            4px 4px 12px rgba(79,70,229,.4); }
+
+/* --- Info-tip disclosure widget --------------------------------------- */
+.info-tip > summary            { background:var(--neumo-bg); border:none; color:var(--muted);
+                                 box-shadow:-2px -2px 4px var(--neumo-sh-light),
+                                            2px 2px 4px var(--neumo-sh-dark); }
+.info-tip[open] > summary,
+.info-tip > summary:hover      { color:var(--brand);
+                                 box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),
+                                            inset -2px -2px 4px var(--neumo-sh-light); }
+.info-tip > summary:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+.info-body                     { background:var(--neumo-bg); border:none;
+                                 box-shadow:-6px -6px 14px var(--neumo-sh-light),
+                                            6px 6px 16px var(--neumo-sh-dark); }
+
+/* --- Stroller-preference form (inline number/select + checkbox) ------- */
+.stroller-form input[type=number],
+.stroller-form select          { background:var(--neumo-bg); border:none; color:var(--ink);
+                                 box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light); }
+.stroller-form input:focus,
+.stroller-form select:focus    { box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light),
+                                            0 0 0 3px rgba(79,70,229,.28); }
+
+/* --- Sad-flow (feedback) widgets -------------------------------------- */
+.sad-chip                      { background:var(--neumo-bg); border:none; color:var(--ink-2);
+                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
+                                            3px 3px 8px var(--neumo-sh-dark); }
+.sad-chip:hover                { color:var(--brand);
+                                 box-shadow:-4px -4px 10px var(--neumo-sh-light),
+                                            4px 4px 12px var(--neumo-sh-dark); }
+.sad-chip:active,
+.sad-chip[aria-pressed=true]   { box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light);
+                                 color:var(--brand); }
+.sad-text                      { background:var(--neumo-bg); border:none; color:var(--ink);
+                                 box-shadow:inset 3px 3px 6px var(--neumo-sh-dark),
+                                            inset -3px -3px 6px var(--neumo-sh-light); }
+.sad-text:focus                { outline:none;
+                                 box-shadow:inset 3px 3px 6px var(--neumo-sh-dark),
+                                            inset -3px -3px 6px var(--neumo-sh-light),
+                                            0 0 0 3px rgba(79,70,229,.28); }
+
+/* --- Explain button ----------------------------------------------------*/
+.explain-btn                   { background:var(--neumo-bg); border:none; color:var(--brand);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            3px 3px 7px var(--neumo-sh-dark); }
+.explain-btn:hover             { background:var(--neumo-bg); color:var(--brand);
+                                 transform:translateY(-1px);
+                                 box-shadow:-4px -4px 9px var(--neumo-sh-light),
+                                            4px 4px 11px var(--neumo-sh-dark); }
+.explain-btn:active            { transform:translateY(0);
+                                 box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light); }
+
+/* --- Amenities & Lens modals — soften shell to neumorphic ------------- */
+.amen-modal                    { background:var(--neumo-bg); backdrop-filter:blur(4px);
+                                 box-shadow:-8px -8px 18px var(--neumo-sh-light),
+                                            8px 8px 22px var(--neumo-sh-dark); }
+.amen-modal-close,
+.lens-modal-close              { background:var(--neumo-bg); color:var(--ink-2); border:none;
+                                 box-shadow:-2px -2px 5px var(--neumo-sh-light),
+                                            2px 2px 5px var(--neumo-sh-dark); }
+.amen-modal-close:hover,
+.lens-modal-close:hover        { color:var(--danger);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            3px 3px 8px var(--neumo-sh-dark); }
+.lens-modal                    { background:var(--neumo-bg); backdrop-filter:blur(4px); }
+
+/* --- Compare table: recessed cells on a neumorphic surface ------------ */
+.compare-table                 { background:var(--neumo-bg); border-collapse:separate;
+                                 border-spacing:6px; border-radius:14px;
+                                 box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
+                                            inset -3px -3px 8px var(--neumo-sh-light);
+                                 padding:8px; }
+.compare-table th,
+.compare-table td              { background:var(--neumo-bg);
+                                 box-shadow:-2px -2px 5px var(--neumo-sh-light),
+                                            2px 2px 5px var(--neumo-sh-dark);
+                                 border-radius:8px; border:none; }
+
+/* --- Global focus ring — visible against soft shadow monochrome ------- */
+:focus-visible                 { outline:2px solid var(--brand); outline-offset:2px; }
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[role="tab"]:focus-visible     { outline:2px solid var(--brand); outline-offset:2px; }
+
+/* --- Muted text contrast bump (WCAG AA on --neumo-bg) ----------------- */
+:root                          { --muted:#5C6473; }   /* was #6B7280 — bump for AA */
+
+/* Parenthetical gloss inside labels (e.g. "Finanzamt (Tax Office)")
+   Rendered in a lighter, muted-brand tone so the English translation
+   stays visually secondary to the German office name. */
+.lm-gloss                      { color:#7A8BB5; font-weight:500; font-size:.9em; }
+
+/* --- Hero primary + secondary buttons: join the neumorphic family ----- */
+/* Primary "Look up" — indigo gradient + neumorphic dual shadow (mirrors
+   .pill-btn-brand). White text on #4F46E5 is 7.7:1 contrast (AA+). */
+.hero .btn                     { background:linear-gradient(135deg,#6366F1,#4F46E5);
+                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
+                                            4px 4px 14px rgba(79,70,229,.42); }
+.hero .btn:hover               { background:linear-gradient(135deg,#4F46E5,#4338CA);
+                                 box-shadow:-4px -4px 12px var(--neumo-sh-light),
+                                            6px 6px 18px rgba(79,70,229,.55); }
+.hero .btn:active              { transform:translateY(0) scale(.98);
+                                 background:linear-gradient(135deg,#4338CA,#3730A3);
+                                 box-shadow:inset 2px 2px 6px rgba(55,48,163,.55),
+                                            inset -2px -2px 5px rgba(255,255,255,.22); }
+
+/* Secondary "Reset" — neutral neumorphic (destructive-adjacent, avoid the
+   indigo pull that would compete with primary CTA). */
+.hero #reset-btn               { background:var(--neumo-bg); color:var(--ink-2);
+                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
+                                            3px 3px 8px var(--neumo-sh-dark); }
+.hero #reset-btn:hover         { background:var(--neumo-bg); color:var(--danger);
+                                 box-shadow:-4px -4px 10px var(--neumo-sh-light),
+                                            4px 4px 12px var(--neumo-sh-dark); }
+.hero #reset-btn:active        { transform:translateY(0) scale(.98);
+                                 color:var(--danger);
+                                 box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                            inset -2px -2px 5px var(--neumo-sh-light); }
+
+/* --- Neumorphic donut loader (replaces flat .loading + .spinner combo)
+   Page-level loading state: raised outer ring (dual-shadow), recessed
+   inner hole (inset shadow), small --brand ball orbiting around the
+   ring's center. Ring is symmetric so the light source stays fixed even
+   as the ball moves. Scoped to `.loading > .spinner` so inline spinners
+   in modals stay compact. */
+.loading                       { margin-top:22px; padding:32px 24px;
+                                 background:var(--neumo-bg); border:none;
+                                 border-radius:20px;
+                                 box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
+                                            inset -3px -3px 8px var(--neumo-sh-light);
+                                 flex-direction:column; gap:18px;
+                                 align-items:center; justify-content:center;
+                                 color:var(--ink-2); font-weight:600; font-size:14px;
+                                 text-align:center; }
+.loading > .spinner            { position:relative; width:84px; height:84px;
+                                 border-radius:50%; background:var(--neumo-bg);
+                                 border:none;                        /* override old flat border */
+                                 box-shadow:-8px -8px 18px var(--neumo-sh-light),
+                                            8px 8px 18px var(--neumo-sh-dark);
+                                 animation:none;                     /* ring itself doesn't spin */
+                                 flex:0 0 auto; }
+.loading > .spinner::before    { content:''; position:absolute; inset:14px;
+                                 border-radius:50%; background:var(--neumo-bg);
+                                 box-shadow:inset 4px 4px 8px var(--neumo-sh-dark),
+                                            inset -4px -4px 8px var(--neumo-sh-light); }
+.loading > .spinner::after     { content:''; position:absolute;
+                                 left:50%; top:50%; width:13px; height:13px;
+                                 margin-left:-6.5px; margin-top:-6.5px;
+                                 border-radius:50%; background:var(--brand);
+                                 box-shadow:0 2px 5px rgba(79,70,229,.45),
+                                            inset 0 -1px 2px rgba(0,0,0,.15);
+                                 transform:rotate(0deg) translateY(-28px);
+                                 animation:spinner-orbit 1.6s linear infinite; }
+@keyframes spinner-orbit       { from { transform:rotate(0deg)   translateY(-28px); }
+                                 to   { transform:rotate(360deg) translateY(-28px); } }
+/* Vestibular safety: freeze ball at start position; ring remains as a
+   static neumorphic panel so the loading state is still visually distinct. */
+@media (prefers-reduced-motion: reduce) {
+  .loading > .spinner::after   { animation:none;
+                                 transform:rotate(0deg) translateY(-28px); }
+}
+
+/* --- Young Family tier indicator: filled-pill variant (2026-08-10)
+   Replaces the traffic-light dots + tier-positioned thumb with a solid
+   tier-colored pill fill + a static thumb near the top. Tier reads from
+   the fill color, not from thumb position. Marks are hidden. Everything
+   still routes through --tier-color so red/amber/green semantics stay.
+   Accessibility unchanged: role='img' + aria-label + .sr-only text on
+   the .yf-tier-slider wrapper carries the tier for screen readers. */
+.yf-tier-slider                { width:22px; padding:8px 0; }
+.yf-tier-track                 { width:14px; border-radius:99px;
+                                 background:var(--tier-color, #B0B6C0);
+                                 box-shadow:inset 0 0 0 1px rgba(255,255,255,.35),
+                                            inset 2px 2px 4px rgba(0,0,0,.10),
+                                            2px 2px 5px var(--neumo-sh-dark),
+                                            -2px -2px 5px var(--neumo-sh-light); }
+.yf-tier-mark                  { display:none; }                    /* no traffic-light dots */
+.yf-tier-thumb                 { width:20px; height:20px;
+                                 background:var(--neumo-bg);
+                                 border:none;
+                                 box-shadow:-2px -2px 5px var(--neumo-sh-light),
+                                            2px 2px 5px var(--neumo-sh-dark),
+                                            inset 0 0 0 4px rgba(255,255,255,.55); }
+/* Static thumb near the top — position no longer conveys tier */
+.tier-red   .yf-tier-thumb,
+.tier-amber .yf-tier-thumb,
+.tier-green .yf-tier-thumb,
+.tier-unknown .yf-tier-thumb   { top:12px; transform:translate(-50%, 0); }
+.tier-unknown .yf-tier-track   { background:#B0B6C0; }              /* muted fill */
+.tier-unknown .yf-tier-thumb   { opacity:.75; }
+
+/* --- Young Family tier indicator: neumorphic gem-badge (2026-08-10)
+   Replaces the filled-pill with a small circular badge — raised outer
+   disc (--neumo-bg) with a solid --tier-color dot recessed at its
+   center. Not a slider anymore; a static tier gem, one per card,
+   centered vertically on the right of the card. */
+.lens-tile.lens-tile-yf .yf-tier-slider
+                               { width:44px; height:44px; align-self:center;
+                                 padding:0; flex:0 0 auto; }
+.lens-tile.lens-tile-yf .yf-tier-track
+                               { width:100%; height:100%; border-radius:50%;
+                                 background:var(--neumo-bg);
+                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                            3px 3px 7px var(--neumo-sh-dark),
+                                            inset 0 0 0 1px rgba(255,255,255,.35); }
+.lens-tile.lens-tile-yf .yf-tier-thumb
+                               { position:absolute; left:50%; top:50%;
+                                 width:24px; height:24px; border-radius:50%;
+                                 transform:translate(-50%, -50%);
+                                 background:var(--tier-color, #B0B6C0);
+                                 border:none;
+                                 box-shadow:inset 2px 2px 4px rgba(0,0,0,.22),
+                                            inset -1px -1px 3px rgba(255,255,255,.18),
+                                            0 1px 2px rgba(0,0,0,.10); }
+.lens-tile.lens-tile-yf .tier-unknown .yf-tier-thumb,
+.lens-tile.lens-tile-yf.tier-unknown .yf-tier-thumb
+                               { background:#B0B6C0; opacity:.7; }
+
+/* --- Hero heading: retint the .grad accent into the --brand indigo family
+   so it matches the neumorphism unification (was sky-blue → indigo,
+   competed with the surface). */
+.hero h1 .grad                 { background:linear-gradient(135deg,#818CF8,#4338CA);
+                                 -webkit-background-clip:text; background-clip:text;
+                                 color:transparent; }

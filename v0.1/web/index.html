@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title id="page-title">Berlin Address Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="/static/app.css?v=20260811a">
+</head>
+<body>
+<div class="page">
+<header>
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg></div>
+    <div class="brand-name" id="brand-name">Berlin Address Lens<small id="brand-tagline">for families in Berlin</small></div>
+  </div>
+  <div class="header-actions">
+    <button id="life-mode-toggle" class="pill-btn lm-toggle" type="button"
+            role="switch" aria-pressed="false"
+            aria-label="Life Mode off (toggle to switch on)"><span class="lm-label">Life Mode</span><span class="lm-track" aria-hidden="true"><span class="lm-knob"></span></span></button>
+    <button id="save-btn" class="pill-btn" hidden>+ Add to Compare</button>
+    <a id="compare-pill" class="pill-btn pill-btn-brand" href="#compare" hidden>Compare (<span id="compare-count">0</span>)</a>
+    <span class="style-pill" id="open-data-pill">Open Data · Berlin</span>
+    <span class="style-pill" style="background:#DCFCE7;color:#166534;margin-left:6px" title="v0.1 — OSM via weekly Geofabrik snapshot instead of live Overpass">v0.1 · Geofabrik</span>
+  </div>
+</header>
+
+<div id="view-main"><section class="hero">
+  <h1>Berlin address insight, <span class="grad">before you sign.</span></h1>
+  <p>Schools, playgrounds, noise, air, transit — every open-data signal for the flat you're about to lease, in plain English. Save up to five and compare side by side.</p>
+  <form id="f" autocomplete="off">
+    <div class="field">
+      <input id="q" type="text" placeholder="Try: Kastanienallee 12, 10435" aria-label="Berlin address">
+      <svg class="field-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    </div>
+    <button class="btn" type="submit"><span>Look up →</span></button>
+  </form>
+  <div class="hero-secondary">
+    <button type="button" class="btn" id="reset-btn" title="Clear all saved votes, feedback, comparisons, and card order">Reset</button>
+  </div>
+  <div class="chips">
+    <span class="chip" data-q="Kastanienallee 12, 10435">Kastanienallee 12</span>
+    <span class="chip" data-q="Bergmannstraße 27, 10961">Bergmannstraße 27</span>
+    <span class="chip" data-q="Kurfürstendamm 195, 10707">Kurfürstendamm 195</span>
+  </div>
+</section>
+
+<div id="status" class="status-area" role="status" aria-live="polite" hidden></div>
+
+<div class="tabs-row" id="tabs-row" hidden>
+<div class="tabs" role="tablist" aria-label="Data categories">
+  <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-edu" data-tab="edu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+    Education
+  </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-amen" data-tab="amen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h.01M15 17h.01"/></svg>
+    Amenities
+  </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-med" data-tab="med">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    Emergency
+  </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-env" data-tab="env">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
+    Environment
+  </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-conn" data-tab="conn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M8 17v3M16 17v3"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/></svg>
+    Connectivity
+  </button>
+  <button class="tab" role="tab" aria-selected="false" aria-controls="panel-others" data-tab="others">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M9 21v-6h6v6"/></svg>
+    Others
+  </button>
+</div>
+<button class="impression-launch" id="impression-launch" hidden aria-label="Open AI impression"><span>Impression</span><span class="count" id="impression-count">0</span></button>
+</div>
+
+<section id="panel-edu" class="panel active" role="tabpanel" aria-labelledby="tab-edu" hidden>
+  <div id="out"></div>
+</section>
+
+<section id="panel-amen" class="panel" role="tabpanel" aria-labelledby="tab-amen" hidden>
+  <div id="amen"></div>
+</section>
+
+<section id="panel-med" class="panel" role="tabpanel" aria-labelledby="tab-med" hidden>
+  <div id="med"></div>
+</section>
+
+<section id="panel-env" class="panel" role="tabpanel" aria-labelledby="tab-env" hidden>
+  <div id="env"></div>
+</section>
+
+<section id="panel-conn" class="panel" role="tabpanel" aria-labelledby="tab-conn" hidden>
+  <div id="conn"></div>
+</section>
+
+<section id="panel-others" class="panel" role="tabpanel" aria-labelledby="tab-others" hidden>
+  <div id="others"></div>
+</section>
+
+</div><!-- /view-main -->
+
+<section id="view-compare" class="compare-view" hidden aria-label="Comparison board">
+  <div id="compare-content"></div>
+</section>
+</div>
+
+<footer id="site-footer">
+  <span class="footer-lede">Built on open data —</span>
+  <button type="button" id="attribution-open" class="pill-btn attribution-btn" aria-haspopup="dialog" aria-controls="attribution-modal">ⓘ Attribution &amp; licences</button>
+  <!-- Print-only mirror: PDF exports always include the full unabridged
+       attribution regardless of modal state, so on-paper compliance holds. -->
+  <div class="print-only attribution-print">
+    <p><strong>Attribution &amp; licences</strong></p>
+    <p><span id="footer-city-attr-print"></span></p>
+    <p>Supplements © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors, licensed under the <a href="https://opendatacommons.org/licenses/odbl/">ODbL</a>, for pharmacies, supermarkets, GPs, transit, plus playground / park gaps not in the city dataset.</p>
+  </div>
+</footer>
+
+<div id="attribution-modal" class="amen-modal attribution-modal" role="dialog" aria-modal="true" aria-labelledby="attribution-title" hidden>
+  <button class="amen-modal-close" aria-label="Close attribution" id="attribution-close">✕</button>
+  <div class="modal-head">
+    <div class="icon-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div>
+    <h3 id="attribution-title">Attribution &amp; licences</h3>
+  </div>
+  <div class="attribution-body">
+    <p class="attribution-lead">Every data point in this app comes from open sources. Attribution is preserved per each dataset's licence.</p>
+    <h4>Berlin Open Data</h4>
+    <p id="footer-city-attr">Berlin Open Data first: Geoportal Berlin / Schulen (dl-de/zero-2.0), Adressen Berlin, Kindertagesstätten, Grünanlagen &amp; Spielplätze, Krankenhäuser, Trinkwasserbrunnen (dl-de/by-2.0).</p>
+    <h4>OpenStreetMap supplements</h4>
+    <p>Contains information from <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>, which is made available under the <a href="https://opendatacommons.org/licenses/odbl/">Open Database License (ODbL)</a>. Used for pharmacies, supermarkets, GPs, transit, plus playground / park gaps not in the city dataset. Delivered via a weekly Berlin extract from <a href="https://download.geofabrik.de/europe/germany/berlin.html">Geofabrik</a> (see their <a href="https://download.geofabrik.de/technical.html">technical policy</a>) — same ODbL terms, refreshed Sundays 03:00 CET.</p>
+    <h4>Map tiles</h4>
+    <p>Basemap tiles © <a href="https://carto.com/attribution">CARTO</a> and © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors.</p>
+    <p class="attribution-note">Data-licence identifiers (dl-de/by-2.0, dl-de/zero-2.0, CC-BY-4.0, ODbL) preserved verbatim per dataset — click a link above for full licence text.</p>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="/static/app.js?v=20260811b" defer></script>
+</body>
+</html>

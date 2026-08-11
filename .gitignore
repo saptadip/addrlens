@@ -6,3 +6,13 @@ __pycache__/
 # Phase 3 (LLM) runtime — venv is ~1.2 GB, recreated with `pip install`.
 # Model weights live in ~/.cache/huggingface, not the repo.
 phase3/venv/
+
+# v0.1 — Geofabrik prototype
+v0.1/.venv
+v0.1/.superpowers/
+v0.1/.playwright-mcp/
+v0.1/logs/
+# OSM snapshots are regenerated weekly by scripts/refresh_osm_amenities.py;
+# too big for git (pbf ~95 MB) and the JSON derives deterministically.
+v0.1/data/osm/*.pbf
+v0.1/data/osm/*.json
