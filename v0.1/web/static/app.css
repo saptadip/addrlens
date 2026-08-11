@@ -1410,7 +1410,12 @@ select:focus-visible,
                                                inset -1px -1px 3px rgba(255,250,232,.9); }
 .addr-history-heading            { font-family:'Playfair Display','Georgia',serif;
                                     margin:0 30px 8px 0; font-size:18px; font-weight:700;
-                                    color:#5A3F14; letter-spacing:.01em; }
+                                    color:#5A3F14; letter-spacing:.01em;
+                                    text-decoration:underline;
+                                    text-decoration-thickness:2px;
+                                    text-underline-offset:4px; }
+.addr-history-foot-lbl           { font-weight:700; font-style:normal;
+                                    color:#5A3F14; }
 .addr-history-text               { margin:0; font-family:'Merriweather','Georgia',serif;
                                     font-size:11.2px; line-height:1.7;
                                     font-style:italic; color:#3A2A0F; }
