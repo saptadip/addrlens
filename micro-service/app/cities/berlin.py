@@ -211,14 +211,14 @@ YOUNG_FAMILY_LENS: LensConfig = LensConfig(
                     "outer districts may under-report."),
         ),
         LensTileConfig(
-            key="transit", label="Transit within stroller walk", icon="transit",
+            key="transit", label="Transit stop within walk", icon="transit",
             thresholds={"green_min": 5, "amber_min": 10},
             caveat=("Combines S-Bahn / U-Bahn / Tram (Berlin BOD + VBB) with the "
                     "nearest OSM-tagged bus stop. Tier is the shortest walk across "
                     "all four modes."),
         ),
         LensTileConfig(
-            key="supermarket", label="Supermarket within stroller walk", icon="cart",
+            key="supermarket", label="Supermarket within walk", icon="cart",
             thresholds={"green_min": 5, "amber_min": 10},
             caveat=("OSM community-tagged — brand + hours coverage varies; "
                     "expect a small kiosk to look identical to a Rewe until you visit."),
