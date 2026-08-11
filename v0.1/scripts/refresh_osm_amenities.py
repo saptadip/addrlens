@@ -46,6 +46,11 @@ _TAG_RULES = {
     # `healthcare=hospital`) are common; either qualifies.
     "hospital":     [("amenity",          {"hospital"}),
                      ("healthcare",       {"hospital"})],
+    # Location history — Stolpersteine, monuments, plaques, ruins, old rail.
+    # Matches any historic=<X> tag; value-agnostic so new categories (e.g.
+    # 'stolperstein' explicitly, 'boundary_stone', 'castle') survive without
+    # a filter change. Value preserved in the emitted tags.
+    "historic":     [("historic",         None)],
 }
 
 # Categories that must have a `name` tag to survive (mirrors _DROP_UNNAMED
@@ -57,11 +62,14 @@ GEOFABRIK_URL = "https://download.geofabrik.de/europe/germany/berlin-latest.osm.
 
 
 def _cat_for(tags) -> str | None:
-    """Return the category slug this OSM feature belongs to, or None."""
+    """Return the category slug this OSM feature belongs to, or None.
+    A rule with vs=None means 'any non-empty value on that key wins'."""
     for cat, rules in _TAG_RULES.items():
         for k, vs in rules:
             v = tags.get(k)
-            if v and v in vs:
+            if not v:
+                continue
+            if vs is None or v in vs:
                 return cat
     return None
 

@@ -19,6 +19,7 @@ from app.core.index import Index
 from app.routes.amenities import router as amenities_router
 from app.routes.config import router as config_router
 from app.routes.explain import router as explain_router
+from app.routes.history import router as history_router
 from app.routes.impression import router as impression_router
 from app.routes.lookup import router as lookup_router
 from app.routes.noise import router as noise_router
@@ -69,6 +70,7 @@ app.include_router(amenities_router)
 app.include_router(noise_router)
 app.include_router(impression_router)
 app.include_router(explain_router)
+app.include_router(history_router)
 
 
 @app.get("/health")
