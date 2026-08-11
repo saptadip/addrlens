@@ -2606,6 +2606,12 @@ function _lensFeatureDetailHtml(tileKey, f) {
   } else if (tileKey === 'playground') {
     if (f.area_m2 != null)       rows.push(row('Area',       `${f.area_m2} m²`));
     if (f.renovated_year != null) rows.push(row('Renovated', escapeHtml(String(f.renovated_year))));
+  } else if (tileKey === 'transit') {
+    if (f.modality)              rows.push(row('Mode',       escapeHtml(f.modality)));
+  } else if (tileKey === 'supermarket') {
+    if (f.brand)                 rows.push(row('Brand',      escapeHtml(f.brand)));
+    if (f.opening_hours)         rows.push(row('Hours',      escapeHtml(f.opening_hours)));
+    if (f.organic)               rows.push(row('Organic',    'Yes'));
   } else if (tileKey === 'refuge') {
     if (f.size_ha != null)       rows.push(row('Size',       `${f.size_ha} ha`));
     if (f.kind)                  rows.push(row('Type',       escapeHtml(f.kind)));

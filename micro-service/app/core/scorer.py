@@ -394,6 +394,101 @@ def _shape_office(o: dict) -> Optional[dict]:
     return r
 
 
+def _shape_transit_stop(o: dict, modality: str) -> Optional[dict]:
+    """Shape a transit-stop feature — same field set across S/U/Tram/Bus so the
+    YF Transit tile can render a uniform list. `modality` is one of
+    'S-Bahn' / 'U-Bahn' / 'Tram' / 'Bus'. Required: name, lat, lon, distance_m."""
+    if not o:
+        return None
+    d = o.get("distance_m")
+    r = _prune({
+        "name": (o.get("name") or "").strip(),
+        "lat":  o.get("lat"), "lon": o.get("lon"),
+        "distance_m": d,
+        "modality":   modality,
+        "walk_min":   round(_walk_minutes(d)) if isinstance(d, (int, float)) else None,
+    })
+    if not r.get("name") or not _valid_latlon(r) or r.get("distance_m") is None:
+        return None
+    return r
+
+
+def _shape_supermarket(o: dict) -> Optional[dict]:
+    """Shape a supermarket feature. Data comes from OSM (Berlin has no BOD
+    supermarket layer). Required: name, lat, lon, distance_m."""
+    if not o:
+        return None
+    d = o.get("distance_m")
+    t = o.get("tags") or {}
+    r = _prune({
+        "name": (o.get("name") or "").strip(),
+        "lat":  o.get("lat"), "lon": o.get("lon"),
+        "distance_m": d,
+        "walk_min":   round(_walk_minutes(d)) if isinstance(d, (int, float)) else None,
+        "brand":         (t.get("brand") or "").strip(),
+        "opening_hours": (t.get("opening_hours") or "").strip(),
+        "wheelchair":    True if t.get("wheelchair") == "yes" else None,
+        "organic":       True if t.get("organic") == "yes" else None,
+    })
+    if not r.get("name") or not _valid_latlon(r) or r.get("distance_m") is None:
+        return None
+    return r
+
+
+def _tier_from_walk(walk_min: Optional[int], green_min: int, amber_min: int) -> str:
+    """Generic proximity → tier. Used for transit + supermarket YF tiles.
+    ≤ green_min = green; ≤ amber_min = amber; else red; None = unknown."""
+    if walk_min is None:
+        return TIER_UNKNOWN
+    if walk_min <= green_min:
+        return TIER_GREEN
+    if walk_min <= amber_min:
+        return TIER_AMBER
+    return TIER_RED
+
+
+def _tier_transit(features: list, t: dict) -> dict:
+    """YF Transit tile — 'is ≥1 public-transport stop reachable with a
+    stroller?' Features is the shaped list of nearest-per-modality stops."""
+    if not features:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Transit data unavailable",
+                "numeric": "no transit stops loaded"}
+    nearest = min(features, key=lambda f: f.get("walk_min", 10**9))
+    walk = nearest.get("walk_min")
+    tier = _tier_from_walk(walk, t["green_min"], t["amber_min"])
+    modes = " · ".join(dict.fromkeys(f.get("modality", "") for f in features if f.get("modality")))
+    if tier == TIER_GREEN:
+        rule = f"≥1 stop within {t['green_min']} min stroller walk"
+    elif tier == TIER_AMBER:
+        rule = f"nearest stop {t['green_min']}–{t['amber_min']} min walk"
+    else:
+        rule = f"no stop within {t['amber_min']} min walk"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"nearest {nearest['name']} ({nearest.get('modality','?')}) — ~{walk} min · {modes}"}
+
+
+def _tier_supermarket(features: list, t: dict) -> dict:
+    """YF Supermarket tile — 'grocery run within stroller walk'."""
+    within_green = [f for f in features if (f.get("walk_min") or 10**9) <= t["green_min"]]
+    within_amber = [f for f in features if (f.get("walk_min") or 10**9) <= t["amber_min"]]
+    if within_green:
+        n = within_green[0]
+        return {"tier": TIER_GREEN,
+                "rule": f"≥1 supermarket within {t['green_min']} min stroller walk",
+                "numeric": (f"{len(within_green)} within {t['green_min']} min · "
+                            f"nearest {n['name']} · ~{n['walk_min']} min")}
+    if within_amber:
+        n = within_amber[0]
+        return {"tier": TIER_AMBER,
+                "rule": f"supermarket {t['green_min']}–{t['amber_min']} min walk",
+                "numeric": f"nearest {n['name']} · ~{n['walk_min']} min"}
+    return {"tier": TIER_RED,
+            "rule": f"no supermarket within {t['amber_min']} min walk",
+            "numeric": (f"nearest {features[0]['name']} · ~{features[0]['walk_min']} min"
+                        if features else "none nearby")}
+
+
 def _shape_refuge_quiet(q: dict, amber_quiet_m: int) -> list:
     """Return [feature] iff the quiet zone is within amber radius; else [].
     Refuge is composite (quiet zone OR tree crown) — a tile that went
@@ -655,6 +750,9 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "heat":         [attr.get("heat")],
         "air":          [attr.get("air")],
         "refuge":       [attr.get("quiet_zone"), attr.get("trees")],
+        "transit":      [attr.get("sbahn"), attr.get("ubahn"), attr.get("tram"),
+                         "© OpenStreetMap contributors (ODbL) — bus stops"],
+        "supermarket":  ["© OpenStreetMap contributors (ODbL)"],
         # Spec B — Bureaucracy lens
         "buergeramt":     [attr.get("buergeramt")],
         "finanzamt":      [attr.get("finanzamt")],
@@ -693,10 +791,46 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
     paediatric = [g for g in gps_items if is_paediatric(g.get("tags"))]
     paediatric.sort(key=lambda x: x.get("distance_m", 10**9))
 
+    # Transit — nearest of each modality (S/U/Tram from Index BOD/VBB, Bus from
+    # OSM Overpass via amenities transit bucket). Consolidated into a single
+    # feature list; tier reads off the minimum walk_min across all modes.
+    _transit_feats = []
+    for modality, points in (("S-Bahn", index.sbahn),
+                              ("U-Bahn", index.ubahn),
+                              ("Tram",   index.tram)):
+        nearest = index.nearest_station(points, lon, lat)
+        f = _shape_transit_stop(nearest, modality) if nearest else None
+        if f:
+            _transit_feats.append(f)
+    # Bus stops via OSM (Overpass) — nearest bus-tagged transit item.
+    _tr_block = (amenities or {}).get("transit") or {}
+    _tr_items = _tr_block.get("items") or []
+    _bus_items = [it for it in _tr_items if (it.get("tags") or {}).get("bus") == "yes"
+                                          or (it.get("tags") or {}).get("highway") == "bus_stop"]
+    if _bus_items:
+        _bus_items.sort(key=lambda x: x.get("distance_m", 10**9))
+        f_bus = _shape_transit_stop(_bus_items[0], "Bus")
+        if f_bus:
+            _transit_feats.append(f_bus)
+    _transit_feats.sort(key=lambda x: x.get("walk_min", 10**9))
+
+    # Supermarkets — OSM-only; take nearest first from amenities bucket.
+    _sm_block = (amenities or {}).get("supermarkets") or {}
+    _sm_items = _sm_block.get("items") or []
+    _sm_error = bool(_sm_block.get("error") or _sm_block.get("_error"))
+    _sm_feats = [f for f in (_shape_supermarket(o) for o in _sm_items) if f]
+    _sm_feats.sort(key=lambda x: x.get("walk_min", 10**9))
+
     results = [
         ("kita",         _tier_kita(kitas, thresholds["kita"])),
         ("playground",   _tier_playground(pg_items, pg_error, thresholds["playground"])),
         ("pediatrician", _tier_pediatrician(paediatric, gps_error, thresholds["pediatrician"])),
+        ("transit",      _tier_transit(_transit_feats, thresholds["transit"])),
+        ("supermarket",  (_tier_supermarket(_sm_feats, thresholds["supermarket"])
+                           if not _sm_error
+                           else {"tier": TIER_UNKNOWN,
+                                 "rule": "Supermarket data unavailable",
+                                 "numeric": "OSM Overpass unavailable"})),
         ("noise",        _tier_noise(noise, thresholds["noise"])),
         ("heat",         _tier_heat(heat, thresholds["heat"])),
         ("air",          _tier_air(air, thresholds["air"])),
@@ -730,6 +864,10 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
             tile["features"] = _shape_refuge_quiet(
                 quiet_zone, thresholds["refuge"]["amber_quiet_m"])
             tile["metadata"] = {"trees": _shape_refuge_trees(trees)}
+        elif key == "transit":
+            tile["features"] = _transit_feats
+        elif key == "supermarket":
+            tile["features"] = _sm_feats[:10]      # top 10 nearest for the modal
         else:
             # noise, heat, air — aggregate readings, no per-feature list
             tile["features"] = []
@@ -858,7 +996,9 @@ if __name__ == "__main__":
     # -- Empty-but-available inputs → red (kita has 0 nearby, noise=100 dB, etc.)
     #    Uses a stub for the only Index method the composer calls.
     class _StubIndex:
+        sbahn = ubahn = tram = []
         def kitas_near_bod(self, lon, lat, r): return []
+        def nearest_station(self, points, lon, lat): return None
     _empty_result = young_family_lens(
         _CFG_YF, _StubIndex(), 13.4, 52.5,
         air={"no2_ugm3": 60}, heat={"day_class": "extreme Belastung"},
@@ -868,6 +1008,10 @@ if __name__ == "__main__":
         quiet_zone={"distance_m": 5000},
     )
     _tiers = {t["key"]: t["tier"] for t in _empty_result["tiles"]}
+    # Transit tile is 'unknown' when no station data reaches the composer (stub
+    # returns None for every modality); everything else is 'red' with the
+    # bad-signal inputs above.
+    assert _tiers.pop("transit") == TIER_UNKNOWN, _tiers
     assert all(v == TIER_RED for v in _tiers.values()), _tiers
 
     # -- Unavailable inputs → unknown where possible, red where not ---------
