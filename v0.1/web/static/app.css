@@ -1380,3 +1380,22 @@ select:focus-visible,
 .hero h1 .grad                 { background:linear-gradient(135deg,#818CF8,#4338CA);
                                  -webkit-background-clip:text; background-clip:text;
                                  color:transparent; }
+
+/* --- Address card "Get History" affordance (v0.1) ------------------------
+   Small button on the Address card in the Education tab; on click the
+   expanded body reveals a neumorphic panel with the AI-generated
+   paragraph, a "History" heading, and an italic disclaimer footer.       */
+.addr-history                    { margin-top:14px; }
+.pill-btn.addr-history-btn       { padding:6px 12px; font-size:12px; }
+.pill-btn.addr-history-btn:disabled { opacity:.6; cursor:default; }
+.addr-history-body               { margin-top:10px; padding:14px 16px;
+                                    border-radius:14px; background:var(--neumo-bg);
+                                    box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
+                                               inset -3px -3px 8px var(--neumo-sh-light); }
+.addr-history-heading            { font-family:'Plus Jakarta Sans',sans-serif;
+                                    margin:0 0 6px; font-size:14px;
+                                    color:var(--ink); letter-spacing:.01em; }
+.addr-history-text               { margin:0; font-size:13.5px; line-height:1.55;
+                                    color:var(--ink-2); }
+.addr-history-foot               { margin:10px 0 0; font-size:11px; font-style:italic;
+                                    color:var(--muted); }
