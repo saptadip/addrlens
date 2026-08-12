@@ -494,7 +494,7 @@ def _tier_gesix(g: dict) -> dict:
     return {"tier": tier, "rule": rule, "numeric": numeric}
 
 
-def _shape_gesix(index, lat: float, lon: float, *,
+def _shape_gesix(cfg, index, lat: float, lon: float, *,
                  card_key: str = "gesix",
                  label: str = "Neighbourhood profile") -> dict:
     """Shape-only GESIx tile. No tier badge, no numeric on face.
@@ -506,6 +506,9 @@ def _shape_gesix(index, lat: float, lon: float, *,
     Used by both the Young Family and Newcomer lenses — the caller
     controls `card_key` and `label` so the insight-template dispatcher
     can route by tile key.
+
+    `cfg` is required so that `sources` resolves to the full licence text
+    string from cfg.attribution rather than the bare dataset key "gesix".
     """
     g = index.gesix_at(lon, lat) if hasattr(index, "gesix_at") else None
     g = g or {}
@@ -519,7 +522,7 @@ def _shape_gesix(index, lat: float, lon: float, *,
         "caveat":   "",
         "features": [],
         "metadata": {"gesix": g},
-        "sources":  ["gesix"],
+        "sources":  [s for s in [cfg.attribution.get("gesix")] if s],
     }
 
 
@@ -942,7 +945,7 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
         # Built via the shared helper so the Newcomer lens can reuse the same
         # logic with a different card_key.
         if key == "supermarket":
-            tiles.append(_shape_gesix(index, lat, lon, card_key="gesix",
+            tiles.append(_shape_gesix(cfg, index, lat, lon, card_key="gesix",
                                       label=tile_meta["gesix"][0]))
 
     return {
@@ -1407,11 +1410,14 @@ if __name__ == "__main__":
     print("scorer.py: Spec D shape helpers OK")
 
     # -- _shape_gesix: default key + newcomer key (Task 3 selfcheck) ---------
+    class _StubCfg:
+        attribution = {"gesix": "Berlin Geoportal — GESIx 2022 · dl-de/by-2-0"}
+
     class _StubGesix:
         def gesix_at(self, lon, lat):
             return {"plr_name": "X", "quintile_5": 3, "rang": 200, "total": 447}
 
-    _sg = _shape_gesix(_StubGesix(), 52.5, 13.4)
+    _sg = _shape_gesix(_StubCfg(), _StubGesix(), 52.5, 13.4)
     assert _sg["key"]  == "gesix", _sg
     assert _sg["tier"] == TIER_UNKNOWN, _sg
     assert _sg["metadata"]["gesix"]["quintile_5"] == 3, _sg
@@ -1419,18 +1425,21 @@ if __name__ == "__main__":
     assert _sg["label"]    == "Neighbourhood profile"
     assert _sg["features"] == []
     assert _sg["caveat"]   == ""
-    assert _sg["sources"]  == ["gesix"]
+    assert _sg["sources"]  == ["Berlin Geoportal — GESIx 2022 · dl-de/by-2-0"]
+    assert _sg["sources"]  != ["gesix"]      # regression guard
 
-    _sg2 = _shape_gesix(_StubGesix(), 52.5, 13.4, card_key="gesix_newcomer",
+    _sg2 = _shape_gesix(_StubCfg(), _StubGesix(), 52.5, 13.4,
+                        card_key="gesix_newcomer",
                         label="Neighbourhood profile")
     assert _sg2["key"]  == "gesix_newcomer", _sg2
     assert _sg2["tier"] == TIER_UNKNOWN, _sg2
     assert _sg2["metadata"]["gesix"]["quintile_5"] == 3
+    assert _sg2["sources"] == ["Berlin Geoportal — GESIx 2022 · dl-de/by-2-0"]
 
     # None from gesix_at → empty metadata dict, still well-formed
     class _StubGesixNone:
         def gesix_at(self, lon, lat): return None
-    _sg_none = _shape_gesix(_StubGesixNone(), 52.5, 13.4)
+    _sg_none = _shape_gesix(_StubCfg(), _StubGesixNone(), 52.5, 13.4)
     assert _sg_none["key"]          == "gesix"
     assert _sg_none["tier"]         == TIER_UNKNOWN
     assert _sg_none["metadata"]     == {"gesix": {}}
