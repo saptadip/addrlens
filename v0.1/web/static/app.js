@@ -190,13 +190,20 @@ const TIER_PIN_COLORS = {
 };
 
 function getActiveLens() {
-  // v0.1: Life Mode is single-lens (Young Family). Bureaucracy moved to the
-  // raw-mode "Others" tab, so the picker was removed. Always return 'young_family'.
-  return 'young_family';
+  // v0.1: iterate through LIFE_MODE_LENSES — persisted lens must still be
+  // in the registry (Bureaucracy dropped when moved to raw-mode 'Others').
+  // Falls through to first registered lens.
+  const known = new Set(LIFE_MODE_LENSES.map(l => l.slug));
+  try {
+    const saved = localStorage.getItem(LM_ACTIVE_KEY);
+    if (saved && known.has(saved)) return saved;
+  } catch (e) {}
+  return (LIFE_MODE_LENSES[0] && LIFE_MODE_LENSES[0].slug) || 'young_family';
 }
 
 function setActiveLens(slug) {
-  if (slug !== 'young_family' && slug !== 'bureaucracy') return;
+  const known = new Set(LIFE_MODE_LENSES.map(l => l.slug));
+  if (!known.has(slug)) return;
   try { localStorage.setItem(LM_ACTIVE_KEY, slug); } catch (e) {}
   // Update picker button states across any rendered picker in the DOM.
   // Uses `.active` on `.lens-tab` — same visual grammar as the raw-mode
@@ -215,11 +222,26 @@ function setActiveLens(slug) {
   if (location.hash === '#compare' && typeof renderCompare === 'function') renderCompare();
 }
 
+// v0.1 lens registry — add a new lens as a row here and the picker + tab
+// switching flow picks it up automatically. Bureaucracy is intentionally
+// omitted (moved to raw-mode 'Others' tab per user spec).
+const LIFE_MODE_LENSES = [
+  {slug: 'young_family', label: 'Young Family',
+   icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="2.5"/><path d="M4 21v-4a5 5 0 0 1 10 0v4"/><circle cx="17" cy="10" r="1.8"/><path d="M13.5 21v-3a3 3 0 0 1 6 0v3"/></svg>'},
+  // Future: {slug: 'student', label: 'Student', icon: '<svg>…</svg>'},
+  // Future: {slug: 'senior',  label: 'Senior',  icon: '<svg>…</svg>'},
+];
+
 function renderLensPicker(activeSlug) {
-  // v0.1: Bureaucracy is now served exclusively via the raw-mode "Others"
-  // tab, so Life Mode is single-lens (Young Family). Picker rendered as an
-  // empty div to preserve layout hooks (lens-picker-row spacing).
-  return `<div class="lens-picker lens-picker-single" aria-hidden="true"></div>`;
+  const active = activeSlug || getActiveLens();
+  const tabs = LIFE_MODE_LENSES.map(lens => {
+    const on = lens.slug === active;
+    return `<button class="lens-tab${on ? ' active' : ''}"
+                    role="tab" aria-selected="${on ? 'true' : 'false'}"
+                    data-lens="${escapeHtml(lens.slug)}"
+                    type="button">${lens.icon}${escapeHtml(lens.label)}</button>`;
+  }).join('');
+  return `<div class="lens-picker" role="tablist" aria-label="Choose a lens">${tabs}</div>`;
 }
 
 function isAnyLensAvailable(addr) {
