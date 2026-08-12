@@ -1412,7 +1412,9 @@ select:focus-visible,
 .gesix-rank                      { font-size:12px; color:var(--muted); margin-bottom:12px; }
 .gesix-bar-large .gesix-track    { height:20px; gap:8px; }
 .gesix-bar-large .gesix-scale    { margin-top:8px; font-size:11.5px; }
-.card-insight-wrap              { margin-top:14px; }
+.card-insight-wrap              { margin-top:18px; padding-top:12px;
+                                    border-top:1px solid rgba(148,163,192,.25);
+                                    text-align:left; }
 .pill-btn.card-insight-btn      { padding:6px 12px; font-size:12px;
                                     background:linear-gradient(135deg,#F5EBCF,#EDDFB0);
                                     color:#5A3F14; border:1px solid rgba(146,110,45,.28);

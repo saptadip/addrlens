@@ -2754,7 +2754,11 @@ function renderLensModalBody(tile, lensSlug) {
   // Naming convention across app + inference: /api/<card_key>_insight →
   // template <card_key>_insight. Add a new card = one modal block below +
   // one route + one template.
-  let insightBlock = '';
+  // Card-specific rich block that lives near the TOP of the modal
+  // (charts, plr name, rank, etc). Kept separate from the insight
+  // affordance so the Get-AI-Insight button always anchors to the
+  // bottom-left of the modal.
+  let cardRichBlock = '';
   if (tile.key === 'gesix') {
     const g = (tile.metadata && tile.metadata.gesix) || null;
     const q = g && g.quintile_5;
@@ -2766,7 +2770,7 @@ function renderLensModalBody(tile, lensSlug) {
     const plr = g?.plr_name ? `<div class="gesix-plr">${escapeHtml(g.plr_name)}</div>` : '';
     const rank = (g?.rang != null && g?.total)
       ? `<div class="gesix-rank">Rank ${g.rang} of ${g.total} Planungsräume citywide</div>` : '';
-    insightBlock = `
+    cardRichBlock = `
       <div class="gesix-modal-block">
         ${plr}
         ${rank}
@@ -2774,23 +2778,27 @@ function renderLensModalBody(tile, lensSlug) {
           <div class="gesix-track">${segs}</div>
           <div class="gesix-scale"><span>Top 20%</span><span>Bottom 20%</span></div>
         </div>
-        <div class="card-insight-wrap" data-endpoint="/api/gesix_insight"
-             data-vintage="GESIx 2022 · refreshed by the Senate every 3–5 years.">
-          <button type="button" class="pill-btn card-insight-btn">✦ Get AI Insight</button>
-          <div class="card-insight-body" hidden></div>
-        </div>
-      </div>`;
-  } else if (tile.key === 'refuge') {
-    // Same architecture as gesix — different endpoint + vintage line.
-    // Backend /api/refuge_insight reads Berlin Ruhige Gebiete + street-tree
-    // canopy and calls template=refuge_insight.
-    insightBlock = `
-      <div class="card-insight-wrap" data-endpoint="/api/refuge_insight"
-           data-vintage="Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.">
-        <button type="button" class="pill-btn card-insight-btn">✦ Get AI Insight</button>
-        <div class="card-insight-body" hidden></div>
       </div>`;
   }
+
+  // Standard AI-Insight affordance — always rendered as the LAST block
+  // of the modal, aligned bottom-left. Data-endpoint keyed by card so a
+  // single handler covers every card. To add a new card's insight in
+  // the future, add one row to _INSIGHT_ENDPOINTS below and ship the
+  // matching backend route + inference template.
+  const _INSIGHT_ENDPOINTS = {
+    gesix:  {ep: '/api/gesix_insight',
+             vintage: 'GESIx 2022 · refreshed by the Senate every 3–5 years.'},
+    refuge: {ep: '/api/refuge_insight',
+             vintage: 'Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.'},
+  };
+  const ins = _INSIGHT_ENDPOINTS[tile.key];
+  const insightBlock = ins ? `
+    <div class="card-insight-wrap" data-endpoint="${ins.ep}"
+         data-vintage="${escapeHtml(ins.vintage || '')}">
+      <button type="button" class="pill-btn card-insight-btn">✦ Get AI Insight</button>
+      <div class="card-insight-body" hidden></div>
+    </div>` : '';
 
   return `
     <button class="lens-modal-close" aria-label="Close details" type="button">✕</button>
@@ -2803,10 +2811,11 @@ function renderLensModalBody(tile, lensSlug) {
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
     ${caveat}
     ${explBlock}
-    ${insightBlock}
+    ${cardRichBlock}
     ${featuresHtml}
     ${treesHtml}
     ${sourcesHtml}
+    ${insightBlock}
   `;
 }
 
