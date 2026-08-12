@@ -2437,39 +2437,11 @@ function renderLensTile(tile, lensSlug) {
     ? `<div class="tile-numeric">${escapeHtml(tile.numeric)}</div>`
     : '';
 
-  // GESIx uses a horizontal 5-segment quintile bar on the tile face instead
-  // of the vertical tier gem — a composite index reads better as "where in
-  // the distribution" than as a green/amber/red badge.
-  if (tile.key === 'gesix') {
-    const g = (tile.metadata && tile.metadata.gesix) || null;
-    const q = g && g.quintile_5;
-    const barSegs = [1,2,3,4,5].map(i => {
-      const active = q === i ? ' active' : '';
-      const grade = i <= 2 ? ' seg-good' : i === 3 ? ' seg-mid' : ' seg-bad';
-      return `<span class="gesix-seg${grade}${active}" aria-hidden="true"></span>`;
-    }).join('');
-    return `
-      <button class="cell lens-tile lens-tile-yf lens-tile-gesix tier-${escapeHtml(tier)}"
-              data-tile-key="${escapeHtml(tile.key)}"
-              aria-label="${escapeHtml(aria)}"
-              type="button">
-        <div class="yf-tile-main">
-          <div class="tile-head">
-            <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
-            <span class="tile-label">${escapeHtml(tile.label)}</span>
-          </div>
-          <div class="tile-rule">${escapeHtml(tile.rule)}</div>
-          ${numeric}
-          <div class="gesix-bar" role="img" aria-label="Quintile ${q || 'unknown'} of 5">
-            <div class="gesix-track">${barSegs}</div>
-            <div class="gesix-scale">
-              <span>Top 20%</span><span>Bottom 20%</span>
-            </div>
-          </div>
-        </div>
-      </button>
-    `;
-  }
+  // Card face intentionally minimal: icon + label + rule (the check
+  // condition). Numeric / details / GESIx progress bar all move to the
+  // modal to reduce at-a-glance clutter. Status is conveyed by the
+  // vertical tier gem on the right — same across every YF tile including
+  // Neighbourhood profile.
   return `
     <button class="cell lens-tile lens-tile-yf tier-${escapeHtml(tier)}"
             data-tile-key="${escapeHtml(tile.key)}"
@@ -2481,7 +2453,6 @@ function renderLensTile(tile, lensSlug) {
           <span class="tile-label">${escapeHtml(tile.label)}</span>
         </div>
         <div class="tile-rule">${escapeHtml(tile.rule)}</div>
-        ${numeric}
       </div>
       <div class="yf-tier-slider" role="img"
            aria-label="Tier: ${escapeHtml(tier)}">
