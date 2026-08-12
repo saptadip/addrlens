@@ -185,6 +185,9 @@ class CityConfig:
     # for a specific audience. Adding more lenses = adding more fields here.
     young_family_lens: LensConfig
 
+    # -- Spec E: Newcomer lens -----------------------------------------
+    newcomer_lens: LensConfig             # required — Spec E lens
+
     # -- Spec B: Bureaucracy lens ---------------------------------------
     # Bezirksgrenzen — 12 polygons for point-in-polygon Bezirk assignment
     bezirksgrenzen_wfs_url:      Optional[str]
