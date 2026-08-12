@@ -51,6 +51,47 @@ _TAG_RULES = {
     # 'stolperstein' explicitly, 'boundary_stone', 'castle') survive without
     # a filter change. Value preserved in the emitted tags.
     "historic":     [("historic",         None)],
+
+    # --- Newcomer / Relocation lens (Spec E) ---
+    # Rules in this block are dicts rather than tuples — all key-value pairs
+    # in a dict must match (AND logic). See _cat_for for the dispatch.
+
+    # intl_food — international grocers + non-german restaurants.
+    # Two disjunct filter groups; entities matching either sub-rule are collected.
+    # German-cuisine restaurants are removed in a post-filter step (_EXCLUDE_CUISINE).
+    # ponytail: post-filter covers only the cuisine tag; origin-tag grocers are
+    # included unconditionally (false-negative risk small — "german" origin rarely
+    # appears on OSM shop nodes in Berlin).
+    "intl_food": [
+        # International-origin grocers: shop tag must be one of the allowed values
+        # AND origin tag must carry an international value.
+        {"shop":   {"supermarket", "greengrocer", "convenience"},
+         "origin": {"asian", "turkish", "indian", "african", "russian",
+                    "polish", "arab", "italian", "vietnamese", "korean"}},
+        # International restaurants: amenity=restaurant with any cuisine tag.
+        # German/regional cuisines are stripped in _INTL_FOOD_EXCLUDE_CUISINE below.
+        {"amenity": {"restaurant"}, "cuisine": None},
+    ],
+
+    # coworking — coworking spaces + laptop-friendly cafés with wifi.
+    "coworking": [
+        {"office": {"coworking"}},
+        {"amenity": {"cafe"}, "internet_access": {"wlan", "yes"}},
+    ],
+
+    # english_clinic — English-language medical practices (OSM community tags).
+    # language:en=yes AND amenity in the medical set (AND logic — dict rule).
+    "english_clinic": [
+        {"amenity": {"doctors", "clinic", "hospital"}, "language:en": {"yes"}},
+    ],
+
+    # buergeramt — Berlin district registration offices (OSM fallback until WFS).
+    # ponytail: WFS replacement planned in Task 12 (buergeramt_wfs_url field).
+    "buergeramt": [
+        {"office": {"government"}, "government": {"register_office"}},
+        # Also catch the German tag which OSM community sometimes uses:
+        {"amenity": {"townhall"}, "government": {"register_office"}},
+    ],
 }
 
 # Categories that must have a `name` tag to survive (mirrors _DROP_UNNAMED
@@ -58,20 +99,66 @@ _TAG_RULES = {
 # if unnamed; a fallback label is applied at read time by amenities_near.
 _DROP_UNNAMED = {"parks", "playgrounds"}
 
+# intl_food post-filter: drop restaurants whose cuisine tag is in this set.
+# Only applied to the restaurant sub-rule of intl_food (the origin-tagged
+# grocer sub-rule is unaffected).
+# ponytail: negation expressed as an exclusion set rather than a NOT-IN operator
+# in the rule engine — the tuple/dict rule format only expresses OR-of-inclusions.
+_INTL_FOOD_EXCLUDE_CUISINE = frozenset({
+    "german", "regional", "european", "bavarian", "berlin", "brandenburg",
+})
+
 GEOFABRIK_URL = "https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf"
+
+
+def _match_rule(rule, tags) -> bool:
+    """Return True if *all* key-value conditions in `rule` match `tags`.
+
+    Supports two rule shapes:
+      - tuple (k, vs): tags[k] exists AND (vs is None OR tags[k] in vs).
+      - dict {k: vs, ...}: every pair must satisfy the tuple condition above.
+    """
+    if isinstance(rule, tuple):
+        k, vs = rule
+        v = tags.get(k)
+        return bool(v) and (vs is None or v in vs)
+    # dict rule — AND of all key-value conditions
+    for k, vs in rule.items():
+        v = tags.get(k)
+        if not v:
+            return False
+        if vs is not None and v not in vs:
+            return False
+    return True
 
 
 def _cat_for(tags) -> str | None:
     """Return the category slug this OSM feature belongs to, or None.
-    A rule with vs=None means 'any non-empty value on that key wins'."""
+    A rule with vs=None means 'any non-empty value on that key wins'.
+    Rules can be tuples (legacy) or dicts (AND-logic, new for newcomer cats).
+    Returns only the first matching category (legacy behaviour, used by node/way)."""
     for cat, rules in _TAG_RULES.items():
-        for k, vs in rules:
-            v = tags.get(k)
-            if not v:
-                continue
-            if vs is None or v in vs:
+        for rule in rules:
+            if _match_rule(rule, tags):
                 return cat
     return None
+
+
+def _cats_for(tags) -> list[str]:
+    """Return ALL category slugs this OSM feature matches.
+
+    Used by node/way handlers so a feature can land in multiple buckets
+    (e.g. a doctor's office with language:en=yes goes into both 'gps' and
+    'english_clinic'). The single-result _cat_for is preserved for callers
+    that only need one category.
+    """
+    matched = []
+    for cat, rules in _TAG_RULES.items():
+        for rule in rules:
+            if _match_rule(rule, tags):
+                matched.append(cat)
+                break   # one match per category is enough
+    return matched
 
 
 class _AmenityCollector(osmium.SimpleHandler):
@@ -93,20 +180,26 @@ class _AmenityCollector(osmium.SimpleHandler):
         name = (tags.get("name") or "").strip()
         if cat in _DROP_UNNAMED and not name:
             return
+        # intl_food post-filter: drop restaurants whose cuisine is in the
+        # excluded set (german/regional etc). Origin-tagged grocers are
+        # unaffected — they carry no cuisine tag.
+        if cat == "intl_food":
+            cuisine = (tags.get("cuisine") or "").lower()
+            if cuisine in _INTL_FOOD_EXCLUDE_CUISINE:
+                return
         # Store as a plain dict — same shape Overpass returns downstream.
         entry = {"name": name, "lat": lat, "lon": lon,
                  "tags": {k: v for k, v in tags}}
         self.buckets[cat].append(entry)
 
     def node(self, n):
-        cat = _cat_for(n.tags)
-        if not cat:
-            return
-        self._add(cat, n.location.lat, n.location.lon, n.tags)
+        cats = _cats_for(n.tags)
+        for cat in cats:
+            self._add(cat, n.location.lat, n.location.lon, n.tags)
 
     def way(self, w):
-        cat = _cat_for(w.tags)
-        if not cat:
+        cats = _cats_for(w.tags)
+        if not cats:
             return
         # locations=True on apply_file populates w.nodes[i].location.
         # Average the node coords for a rough centroid — accurate enough
@@ -123,7 +216,8 @@ class _AmenityCollector(osmium.SimpleHandler):
                 continue
         if n == 0:
             return
-        self._add(cat, lats / n, lons / n, w.tags)
+        for cat in cats:
+            self._add(cat, lats / n, lons / n, w.tags)
 
 
 def download_pbf(url: str, dest: Path) -> Path:
@@ -204,4 +298,60 @@ def main():
 
 
 if __name__ == "__main__":
+    import pathlib
+    # Selfcheck: verify the four newcomer buckets exist in the snapshot
+    # (plan Step 4). Snapshot path matches the default written by main().
+    # The JSON shape is {"meta": {...}, "buckets": {"category": [...]}}
+    snap = pathlib.Path("data/osm/berlin-amenities.json")
+    if snap.exists():
+        import json as _json
+        j = _json.loads(snap.read_text())
+        buckets = j.get("buckets", j)   # tolerate flat shape (legacy)
+        for key in ("intl_food", "coworking", "english_clinic", "buergeramt"):
+            assert key in buckets, f"missing bucket {key!r}"
+            assert isinstance(buckets[key], list), f"{key} not list"
+        print("selfcheck ok:", {k: len(buckets[k]) for k in
+              ("intl_food", "coworking", "english_clinic", "buergeramt")})
+    else:
+        print("selfcheck skipped — no snapshot yet (run scripts.refresh_osm_amenities first)")
+
+    # Pure unit-tests for rule engine (no snapshot required).
+    # Verify tuple rules still work (legacy categories).
+    assert _match_rule(("leisure", {"playground"}), {"leisure": "playground"})
+    assert not _match_rule(("leisure", {"playground"}), {"leisure": "park"})
+    assert _match_rule(("historic", None), {"historic": "anything"})
+    assert not _match_rule(("historic", None), {"amenity": "cafe"})
+    # Verify dict rules (newcomer AND-logic).
+    assert _match_rule({"office": {"coworking"}}, {"office": "coworking"})
+    assert not _match_rule({"office": {"coworking"}}, {"office": "shop"})
+    assert _match_rule(
+        {"amenity": {"doctors", "clinic", "hospital"}, "language:en": {"yes"}},
+        {"amenity": "doctors", "language:en": "yes"},
+    )
+    assert not _match_rule(
+        {"amenity": {"doctors", "clinic", "hospital"}, "language:en": {"yes"}},
+        {"amenity": "doctors"},   # missing language:en
+    )
+    # Verify _cat_for returns correct category for newcomer rules.
+    assert _cat_for({"office": "coworking"}) == "coworking"
+    assert _cat_for({"amenity": "cafe", "internet_access": "wlan"}) == "coworking"
+    assert _cat_for({"office": "government", "government": "register_office"}) == "buergeramt"
+    assert _cat_for({"amenity": "townhall", "government": "register_office"}) == "buergeramt"
+    assert _cat_for({"amenity": "restaurant", "cuisine": "vietnamese"}) == "intl_food"
+    # German cuisine restaurant must NOT match (post-filter catches it, but _cat_for
+    # will still return intl_food — exclusion is in _add, not _cat_for).
+    # (We verify exclusion logic through _INTL_FOOD_EXCLUDE_CUISINE membership.)
+    assert "german" in _INTL_FOOD_EXCLUDE_CUISINE
+    assert "bavarian" in _INTL_FOOD_EXCLUDE_CUISINE
+    assert "vietnamese" not in _INTL_FOOD_EXCLUDE_CUISINE
+    # Verify _cats_for multi-bucket assignment (english_clinic must co-exist with gps).
+    cats_doctor_en = _cats_for({"amenity": "doctors", "language:en": "yes"})
+    assert "gps" in cats_doctor_en, f"expected gps in {cats_doctor_en}"
+    assert "english_clinic" in cats_doctor_en, f"expected english_clinic in {cats_doctor_en}"
+    cats_doctor_only = _cats_for({"amenity": "doctors"})
+    assert "gps" in cats_doctor_only
+    assert "english_clinic" not in cats_doctor_only   # no language:en tag
+    assert _cats_for({"office": "coworking"}) == ["coworking"]
+    print("rule-engine selfcheck ok")
+
     main()
