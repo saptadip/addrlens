@@ -1415,13 +1415,41 @@ select:focus-visible,
 .card-insight-wrap              { margin-top:18px; padding-top:12px;
                                     border-top:1px solid rgba(148,163,192,.25);
                                     text-align:left; }
-.pill-btn.card-insight-btn      { padding:6px 12px; font-size:12px;
-                                    background:linear-gradient(135deg,#F5EBCF,#EDDFB0);
-                                    color:#5A3F14; border:1px solid rgba(146,110,45,.28);
-                                    box-shadow:-2px -2px 5px rgba(255,250,232,.75),
-                                               2px 2px 6px rgba(146,110,45,.28); }
-.pill-btn.card-insight-btn:hover{ background:linear-gradient(135deg,#EFE1B7,#E4D298); }
-.pill-btn.card-insight-btn:disabled { opacity:.55; cursor:default; }
+/* Neumorphic elongated pill: soft raised body on the left, extruded
+   circular disc on the right holding an arrow. All monotone on
+   --neumo-bg. Applies to every card's 'Get Insight' button in Life
+   Mode; the button element carries no side padding on the right so
+   the disc can sit flush at the edge. */
+.card-insight-btn                { position:relative; display:inline-flex;
+                                    align-items:center; justify-content:space-between;
+                                    gap:14px; min-width:200px;
+                                    padding:0 6px 0 22px; height:44px;
+                                    border:none; border-radius:999px; cursor:pointer;
+                                    background:var(--neumo-bg);
+                                    color:var(--ink-2);
+                                    font:600 13px/1 'Plus Jakarta Sans',system-ui,sans-serif;
+                                    letter-spacing:.01em;
+                                    box-shadow:-5px -5px 10px var(--neumo-sh-light),
+                                                5px  5px 12px var(--neumo-sh-dark); }
+.card-insight-btn:hover          { color:var(--ink);
+                                    box-shadow:-6px -6px 12px var(--neumo-sh-light),
+                                                6px  6px 14px var(--neumo-sh-dark); }
+.card-insight-btn:active         { box-shadow:inset 3px 3px 6px var(--neumo-sh-dark),
+                                               inset -3px -3px 6px var(--neumo-sh-light); }
+.card-insight-btn:disabled       { opacity:.55; cursor:default; }
+.card-insight-btn .btn-label     { flex:1 1 auto; text-align:left;
+                                    white-space:nowrap; }
+.card-insight-btn .btn-arrow     { flex:0 0 auto; display:inline-flex;
+                                    align-items:center; justify-content:center;
+                                    width:32px; height:32px; border-radius:50%;
+                                    background:var(--neumo-bg); color:var(--ink-2);
+                                    box-shadow:-3px -3px 6px var(--neumo-sh-light),
+                                                3px  3px 6px var(--neumo-sh-dark),
+                                                inset 0 -1px 2px rgba(0,0,0,.05); }
+.card-insight-btn .btn-arrow svg { width:15px; height:15px; }
+.card-insight-btn:hover .btn-arrow{ color:var(--brand); }
+.card-insight-btn:active .btn-arrow{ box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),
+                                                inset -2px -2px 4px var(--neumo-sh-light); }
 .card-insight-body              { position:relative; margin-top:10px;
                                     padding:16px 20px 16px 20px; border-radius:14px;
                                     background:linear-gradient(180deg,#F5EBCF 0%,#EDDFB0 100%);
