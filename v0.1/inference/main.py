@@ -30,12 +30,19 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 
+from inference.templates import air_insight as air_insight_tpl
 from inference.templates import explain as explain_tpl
 from inference.templates import gesix_insight as gesix_insight_tpl
+from inference.templates import heat_insight as heat_insight_tpl
 from inference.templates import history as history_tpl
 from inference.templates import impression as impression_tpl
+from inference.templates import kita_insight as kita_insight_tpl
 from inference.templates import noise_insight as noise_insight_tpl
+from inference.templates import pediatrician_insight as pediatrician_insight_tpl
+from inference.templates import playground_insight as playground_insight_tpl
 from inference.templates import refuge_insight as refuge_insight_tpl
+from inference.templates import supermarket_insight as supermarket_insight_tpl
+from inference.templates import transit_insight as transit_insight_tpl
 
 # ---------------------------------------------------------------------- config
 
@@ -48,9 +55,16 @@ TEMPLATES = {
     "history":        history_tpl.run,
     # Per-card AI-insight templates. Naming convention: <card_key>_insight.
     # Adding a new insight card = new template file + one row here.
-    "gesix_insight":  gesix_insight_tpl.run,
-    "noise_insight":  noise_insight_tpl.run,
-    "refuge_insight": refuge_insight_tpl.run,
+    "gesix_insight":        gesix_insight_tpl.run,
+    "noise_insight":        noise_insight_tpl.run,
+    "refuge_insight":       refuge_insight_tpl.run,
+    "kita_insight":         kita_insight_tpl.run,
+    "playground_insight":   playground_insight_tpl.run,
+    "pediatrician_insight": pediatrician_insight_tpl.run,
+    "transit_insight":      transit_insight_tpl.run,
+    "supermarket_insight":  supermarket_insight_tpl.run,
+    "heat_insight":         heat_insight_tpl.run,
+    "air_insight":          air_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state
