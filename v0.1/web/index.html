@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title id="page-title">Berlin Address Lens</title>
+<title id="page-title">AddrLens</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Merriweather:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="/static/app.css?v=20260812g">
+<link rel="stylesheet" href="/static/app.css?v=20260812i">
 </head>
 <body>
 <div class="page">
 <header>
   <div class="brand">
     <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z"/></svg></div>
-    <div class="brand-name" id="brand-name">Berlin Address Lens<small id="brand-tagline">for families in Berlin</small></div>
+    <div class="brand-name" id="brand-name">AddrLens</div>
   </div>
   <div class="header-actions">
     <button id="life-mode-toggle" class="pill-btn lm-toggle" type="button"
@@ -37,15 +37,14 @@
       <svg class="field-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
     </div>
     <button class="btn" type="submit"><span>Look up →</span></button>
-  </form>
-  <div class="hero-secondary">
     <button type="button" class="btn" id="reset-btn" title="Clear all saved votes, feedback, comparisons, and card order">Reset</button>
-  </div>
+  </form>
   <div class="chips">
     <span class="chip" data-q="Kastanienallee 12, 10435">Kastanienallee 12</span>
     <span class="chip" data-q="Bergmannstraße 27, 10961">Bergmannstraße 27</span>
     <span class="chip" data-q="Kurfürstendamm 195, 10707">Kurfürstendamm 195</span>
   </div>
+  <img class="hero-art" src="/static/img/brandenburg-gate.png" alt="" aria-hidden="true">
 </section>
 
 <div id="status" class="status-area" role="status" aria-live="polite" hidden></div>
@@ -143,6 +142,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/app.js?v=20260812j" defer></script>
+<script src="/static/app.js?v=20260812k" defer></script>
 </body>
 </html>
