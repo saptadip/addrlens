@@ -1374,6 +1374,80 @@ select:focus-visible,
 .lens-tile.lens-tile-yf.tier-unknown .yf-tier-thumb
                                { background:#B0B6C0; opacity:.7; }
 
+/* --- GESIx tile — 5-segment neumorphic quintile bar (2026-08-12)
+   Replaces the vertical tier gem on the gesix tile since a citywide-
+   percentile signal reads better as "where in the distribution" than as
+   a green/amber/red verdict. Segments 1-2 (top) green, 3 amber, 4-5 red.
+   Active segment is extruded; inactive segments are recessed dots. */
+.lens-tile.lens-tile-gesix       { display:block; padding:14px 16px; }
+.lens-tile.lens-tile-gesix .yf-tier-slider { display:none; }        /* no vertical gem */
+.lens-tile.lens-tile-gesix .yf-tile-main   { max-width:100%; }
+.gesix-bar                       { margin-top:12px; }
+.gesix-track                     { display:grid; grid-template-columns:repeat(5,1fr);
+                                    gap:6px; height:14px; }
+.gesix-seg                       { border-radius:6px;
+                                    box-shadow:inset 2px 2px 4px rgba(163,177,198,.55),
+                                               inset -2px -2px 4px rgba(255,255,255,.85); }
+.gesix-seg.seg-good              { background:linear-gradient(135deg,#C6E9CE,#B6DFC0); }
+.gesix-seg.seg-mid               { background:linear-gradient(135deg,#F6E5B3,#EEDA97); }
+.gesix-seg.seg-bad               { background:linear-gradient(135deg,#F1C7C4,#E7B3AF); }
+.gesix-seg.active                { box-shadow:-2px -2px 5px var(--neumo-sh-light),
+                                              2px 2px 6px var(--neumo-sh-dark),
+                                              inset 0 0 0 2px rgba(79,70,229,.35); }
+.gesix-seg.active.seg-good       { background:linear-gradient(135deg,#22C55E,#16A34A); }
+.gesix-seg.active.seg-mid        { background:linear-gradient(135deg,#F59E0B,#D97706); }
+.gesix-seg.active.seg-bad        { background:linear-gradient(135deg,#EF4444,#B91C1C); }
+.gesix-scale                     { display:flex; justify-content:space-between;
+                                    margin-top:6px; font-size:10.5px;
+                                    color:var(--muted); letter-spacing:.03em; }
+
+/* GESIx modal — bigger bar + PLR name + rank + Get AI Insight affordance */
+.gesix-modal-block               { margin:12px 0; padding:14px 16px;
+                                    border-radius:14px; background:var(--neumo-bg);
+                                    box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
+                                               inset -3px -3px 8px var(--neumo-sh-light); }
+.gesix-plr                       { font-family:'Plus Jakarta Sans',sans-serif;
+                                    font-weight:700; font-size:15px; color:var(--ink);
+                                    margin-bottom:4px; }
+.gesix-rank                      { font-size:12px; color:var(--muted); margin-bottom:12px; }
+.gesix-bar-large .gesix-track    { height:20px; gap:8px; }
+.gesix-bar-large .gesix-scale    { margin-top:8px; font-size:11.5px; }
+.gesix-insight-wrap              { margin-top:14px; }
+.pill-btn.gesix-insight-btn      { padding:6px 12px; font-size:12px;
+                                    background:linear-gradient(135deg,#F5EBCF,#EDDFB0);
+                                    color:#5A3F14; border:1px solid rgba(146,110,45,.28);
+                                    box-shadow:-2px -2px 5px rgba(255,250,232,.75),
+                                               2px 2px 6px rgba(146,110,45,.28); }
+.pill-btn.gesix-insight-btn:hover{ background:linear-gradient(135deg,#EFE1B7,#E4D298); }
+.pill-btn.gesix-insight-btn:disabled { opacity:.55; cursor:default; }
+.gesix-insight-body              { position:relative; margin-top:10px;
+                                    padding:16px 20px 16px 20px; border-radius:14px;
+                                    background:linear-gradient(180deg,#F5EBCF 0%,#EDDFB0 100%);
+                                    border:1px solid rgba(146,110,45,.18);
+                                    box-shadow:inset 2px 2px 6px rgba(146,110,45,.14),
+                                               inset -2px -2px 6px rgba(255,255,240,.55); }
+.gesix-insight-close             { position:absolute; top:8px; right:10px;
+                                    width:28px; height:28px; border-radius:50%;
+                                    border:none; background:rgba(255,250,232,.7);
+                                    color:#7A5A20; font-size:14px; font-weight:600;
+                                    cursor:pointer; line-height:1;
+                                    box-shadow:1px 1px 3px rgba(146,110,45,.22),
+                                               -1px -1px 3px rgba(255,250,232,.9); }
+.gesix-insight-close:hover       { color:#4A3612;
+                                    box-shadow:inset 1px 1px 3px rgba(146,110,45,.22),
+                                               inset -1px -1px 3px rgba(255,250,232,.9); }
+.gesix-insight-heading           { font-family:'Playfair Display','Georgia',serif;
+                                    margin:0 30px 8px 0; font-size:18px; font-weight:700;
+                                    color:#5A3F14; letter-spacing:.01em;
+                                    text-decoration:underline; text-decoration-thickness:2px;
+                                    text-underline-offset:4px; }
+.gesix-insight-text              { margin:0; font-family:'Merriweather','Georgia',serif;
+                                    font-size:11.2px; line-height:1.7; font-style:italic;
+                                    color:#3A2A0F; }
+.gesix-insight-foot              { margin:12px 0 0; font-family:'Merriweather','Georgia',serif;
+                                    font-size:8.8px; font-style:italic; color:#7A5A20; }
+.gesix-insight-foot-lbl          { font-weight:700; font-style:normal; color:#5A3F14; }
+
 /* --- Hero heading: retint the .grad accent into the --brand indigo family
    so it matches the neumorphism unification (was sky-blue → indigo,
    competed with the surface). */

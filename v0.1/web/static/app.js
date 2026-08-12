@@ -30,7 +30,8 @@ const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   finanzamt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3"/><path d="M9 12h6M9 16h4"/></svg>',
   standesamt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h9v16H4z"/><path d="M4 4l4.5 3 4.5-3"/><circle cx="17" cy="15" r="3"/><circle cx="19.5" cy="17.5" r="3"/></svg>',
   lea:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1"/><circle cx="12" cy="10" r="2.5"/><path d="M8 15h8"/><path d="M8 18h8"/></svg>',
-  arbeitsagentur:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M4 12h16"/></svg>'};
+  arbeitsagentur:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M4 12h16"/></svg>',
+  gesix:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="3" height="6" rx="1"/><rect x="8" y="10" width="3" height="10" rx="1"/><rect x="13" y="6" width="3" height="14" rx="1"/><rect x="18" y="3" width="3" height="17" rx="1"/></svg>'};
 const AMEN=[
   ['playgrounds','Playgrounds',ico.playground,'#22C55E'],
   ['parks','Parks / green space',ico.tree,'#10B981'],
@@ -177,6 +178,7 @@ const LENS_TILE_EXPLANATIONS = {
   noise: "L_DEN is EU-standard day-evening-night noise averaging. WHO recommends ≤55 dB in residential areas; above 60 dB is linked to sleep disturbance.",
   heat:  "Berlin's Umweltatlas classifies each block's bioclimate (PET at 14:00 in summer). 'Belastung' = burden; higher classes indicate more heat stress.",
   air:   "NO₂ measured µg/m³ per street segment (Umweltatlas trend scenario). WHO 2021 annual guideline is 10 µg/m³; Germany's legal limit is 40.",
+  gesix: "Berlin's Senate publishes a composite of 20 health, social and employment indicators per Planungsraum (~10k residents). Higher quintile = healthier / more stable neighbourhood context. The signal describes the polygon around the flat, not the building itself.",
 };
 
 // -- Spec D: map-pin color per tier ------------------------------------------
@@ -188,11 +190,9 @@ const TIER_PIN_COLORS = {
 };
 
 function getActiveLens() {
-  try {
-    const saved = localStorage.getItem(LM_ACTIVE_KEY);
-    if (saved === 'young_family' || saved === 'bureaucracy') return saved;
-  } catch (e) {}
-  return LM_DEFAULT_LENS;
+  // v0.1: Life Mode is single-lens (Young Family). Bureaucracy moved to the
+  // raw-mode "Others" tab, so the picker was removed. Always return 'young_family'.
+  return 'young_family';
 }
 
 function setActiveLens(slug) {
@@ -216,23 +216,10 @@ function setActiveLens(slug) {
 }
 
 function renderLensPicker(activeSlug) {
-  const active = activeSlug || getActiveLens();
-  const yfCls  = active === 'young_family' ? 'lens-tab active' : 'lens-tab';
-  const bCls   = active === 'bureaucracy'  ? 'lens-tab active' : 'lens-tab';
-  const yfSel  = active === 'young_family' ? 'true'  : 'false';
-  const bSel   = active === 'bureaucracy'  ? 'true'  : 'false';
-  // Inline SVGs match the raw-mode .tab icon style: 24×24 viewBox,
-  // stroke="currentColor", 2px stroke, round joins.
-  const yfIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="2.5"/><path d="M4 21v-4a5 5 0 0 1 10 0v4"/><circle cx="17" cy="10" r="1.8"/><path d="M13.5 21v-3a3 3 0 0 1 6 0v3"/></svg>`;
-  const bIcon  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M12 3l9 6H3z"/><path d="M5 9v12M9 9v12M15 9v12M19 9v12"/></svg>`;
-  return `
-    <div class="lens-picker" role="tablist" aria-label="Choose a lens">
-      <button class="${yfCls}" data-lens="young_family"
-              role="tab" aria-selected="${yfSel}">${yfIcon}Young Family</button>
-      <button class="${bCls}" data-lens="bureaucracy"
-              role="tab" aria-selected="${bSel}">${bIcon}Bureaucracy</button>
-    </div>
-  `;
+  // v0.1: Bureaucracy is now served exclusively via the raw-mode "Others"
+  // tab, so Life Mode is single-lens (Young Family). Picker rendered as an
+  // empty div to preserve layout hooks (lens-picker-row spacing).
+  return `<div class="lens-picker lens-picker-single" aria-hidden="true"></div>`;
 }
 
 function isAnyLensAvailable(addr) {
@@ -2449,6 +2436,40 @@ function renderLensTile(tile, lensSlug) {
   const numeric = tile.numeric
     ? `<div class="tile-numeric">${escapeHtml(tile.numeric)}</div>`
     : '';
+
+  // GESIx uses a horizontal 5-segment quintile bar on the tile face instead
+  // of the vertical tier gem — a composite index reads better as "where in
+  // the distribution" than as a green/amber/red badge.
+  if (tile.key === 'gesix') {
+    const g = (tile.metadata && tile.metadata.gesix) || null;
+    const q = g && g.quintile_5;
+    const barSegs = [1,2,3,4,5].map(i => {
+      const active = q === i ? ' active' : '';
+      const grade = i <= 2 ? ' seg-good' : i === 3 ? ' seg-mid' : ' seg-bad';
+      return `<span class="gesix-seg${grade}${active}" aria-hidden="true"></span>`;
+    }).join('');
+    return `
+      <button class="cell lens-tile lens-tile-yf lens-tile-gesix tier-${escapeHtml(tier)}"
+              data-tile-key="${escapeHtml(tile.key)}"
+              aria-label="${escapeHtml(aria)}"
+              type="button">
+        <div class="yf-tile-main">
+          <div class="tile-head">
+            <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
+            <span class="tile-label">${escapeHtml(tile.label)}</span>
+          </div>
+          <div class="tile-rule">${escapeHtml(tile.rule)}</div>
+          ${numeric}
+          <div class="gesix-bar" role="img" aria-label="Quintile ${q || 'unknown'} of 5">
+            <div class="gesix-track">${barSegs}</div>
+            <div class="gesix-scale">
+              <span>Top 20%</span><span>Bottom 20%</span>
+            </div>
+          </div>
+        </div>
+      </button>
+    `;
+  }
   return `
     <button class="cell lens-tile lens-tile-yf tier-${escapeHtml(tier)}"
             data-tile-key="${escapeHtml(tile.key)}"
@@ -2734,6 +2755,35 @@ function renderLensModalBody(tile, lensSlug) {
       }</div>`
     : '';
 
+  // GESIx tile — bigger quintile bar in the modal + Get Insight AI fetch.
+  let gesixBlock = '';
+  if (tile.key === 'gesix') {
+    const g = (tile.metadata && tile.metadata.gesix) || null;
+    const q = g && g.quintile_5;
+    const segs = [1,2,3,4,5].map(i => {
+      const active = q === i ? ' active' : '';
+      const grade = i <= 2 ? ' seg-good' : i === 3 ? ' seg-mid' : ' seg-bad';
+      return `<span class="gesix-seg${grade}${active}" aria-hidden="true"></span>`;
+    }).join('');
+    const plr = g?.plr_name ? `<div class="gesix-plr">${escapeHtml(g.plr_name)}</div>` : '';
+    const rank = (g?.rang != null && g?.total)
+      ? `<div class="gesix-rank">Rank ${g.rang} of ${g.total} Planungsräume citywide</div>` : '';
+    gesixBlock = `
+      <div class="gesix-modal-block">
+        ${plr}
+        ${rank}
+        <div class="gesix-bar gesix-bar-large" role="img" aria-label="Quintile ${q || 'unknown'} of 5">
+          <div class="gesix-track">${segs}</div>
+          <div class="gesix-scale"><span>Top 20%</span><span>Bottom 20%</span></div>
+        </div>
+        <div class="gesix-insight-wrap"
+             data-lat="${g?.lat || ''}" data-lon="${g?.lon || ''}">
+          <button type="button" class="pill-btn gesix-insight-btn">✦ Get AI Insight</button>
+          <div class="gesix-insight-body" hidden></div>
+        </div>
+      </div>`;
+  }
+
   return `
     <button class="lens-modal-close" aria-label="Close details" type="button">✕</button>
     <div class="modal-head">
@@ -2745,6 +2795,7 @@ function renderLensModalBody(tile, lensSlug) {
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
     ${caveat}
     ${explBlock}
+    ${gesixBlock}
     ${featuresHtml}
     ${treesHtml}
     ${sourcesHtml}
@@ -2779,6 +2830,39 @@ function openLensModal(tileKey) {
     marker.off('click');
     marker.on('click', () => _highlightLensRow(marker._lensFeatureIdx));
   });
+
+  // GESIx: wire the "Get AI Insight" button to /api/insight
+  const insightBtn = modal.querySelector('.gesix-insight-btn');
+  if (insightBtn && tile.key === 'gesix') {
+    insightBtn.addEventListener('click', async () => {
+      const wrap = insightBtn.closest('.gesix-insight-wrap');
+      const body = wrap.querySelector('.gesix-insight-body');
+      const a = eduData.address || {};
+      insightBtn.disabled = true;
+      body.hidden = false;
+      body.innerHTML = `<div class="loading" style="margin-top:10px"><span class="spinner"></span> Composing insight…</div>`;
+      try {
+        const qs = new URLSearchParams({ lat: a.lat, lon: a.lon, lens: active }).toString();
+        const r = await fetch(`/api/insight?${qs}`);
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
+        body.innerHTML = `
+          <button type="button" class="gesix-insight-close" aria-label="Close insight">✕</button>
+          <h4 class="gesix-insight-heading">What this means for you</h4>
+          <p class="gesix-insight-text">${escapeHtml(d.insight || '')}</p>
+          <p class="gesix-insight-foot"><span class="gesix-insight-foot-lbl">Disclaimer:</span> Generated by AI and may display incorrect information. GESIx 2022 · refreshed by the Senate every 3–5 years.</p>`;
+        insightBtn.hidden = true;
+        const closeBtn = body.querySelector('.gesix-insight-close');
+        if (closeBtn) closeBtn.addEventListener('click', () => {
+          body.hidden = true; body.innerHTML = ''; insightBtn.hidden = false;
+        });
+      } catch (err) {
+        body.innerHTML = `<div class="error" style="margin-top:8px">${escapeHtml(String(err.message || err))}</div>`;
+      } finally {
+        insightBtn.disabled = false;
+      }
+    });
+  }
 }
 
 function closeLensModal() {

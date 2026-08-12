@@ -468,6 +468,32 @@ def _tier_transit(features: list, t: dict) -> dict:
             "numeric": f"nearest {nearest['name']} ({nearest.get('modality','?')}) — ~{walk} min · {modes}"}
 
 
+def _tier_gesix(g: dict) -> dict:
+    """Neighbourhood health & social composite (Berlin Senate GESIx 2022).
+    g is the dict returned by Index.gesix_at, or None.
+    Mapping — top two quintiles green, middle quintile amber, bottom two red.
+    Explicit unknown when the address sits outside any polygon (rare)."""
+    if not g or g.get("quintile_5") is None:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Neighbourhood profile unavailable",
+                "numeric": "no GESIx polygon covers this address"}
+    q = g["quintile_5"]
+    plr = g.get("plr_name") or "Unnamed Planungsraum"
+    rang = g.get("rang")
+    total = g.get("total") or 447
+    if q <= 2:
+        tier = TIER_GREEN
+        rule = "Top two quintiles citywide (health + social composite)"
+    elif q == 3:
+        tier = TIER_AMBER
+        rule = "Middle quintile citywide (health + social composite)"
+    else:
+        tier = TIER_RED
+        rule = "Bottom two quintiles citywide (health + social composite)"
+    numeric = f"{plr} — quintile {q} of 5 · rank {rang}/{total}"
+    return {"tier": tier, "rule": rule, "numeric": numeric}
+
+
 def _tier_supermarket(features: list, t: dict) -> dict:
     """YF Supermarket tile — 'grocery run within stroller walk'."""
     within_green = [f for f in features if (f.get("walk_min") or 10**9) <= t["green_min"]]
@@ -753,6 +779,7 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "transit":      [attr.get("sbahn"), attr.get("ubahn"), attr.get("tram"),
                          "© OpenStreetMap contributors (ODbL) — bus stops"],
         "supermarket":  ["© OpenStreetMap contributors (ODbL)"],
+        "gesix":        [attr.get("gesix")],
         # Spec B — Bureaucracy lens
         "buergeramt":     [attr.get("buergeramt")],
         "finanzamt":      [attr.get("finanzamt")],
@@ -821,6 +848,11 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
     _sm_feats = [f for f in (_shape_supermarket(o) for o in _sm_items) if f]
     _sm_feats.sort(key=lambda x: x.get("walk_min", 10**9))
 
+    # GESIx (Berlin Senate 2022 health & social composite per Planungsraum).
+    # Index.gesix_at returns None outside covered polygons — _tier_gesix
+    # handles that with tier=unknown.
+    _gesix = index.gesix_at(lon, lat) if hasattr(index, "gesix_at") else None
+
     results = [
         ("kita",         _tier_kita(kitas, thresholds["kita"])),
         ("playground",   _tier_playground(pg_items, pg_error, thresholds["playground"])),
@@ -831,6 +863,7 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
                            else {"tier": TIER_UNKNOWN,
                                  "rule": "Supermarket data unavailable",
                                  "numeric": "OSM Overpass unavailable"})),
+        ("gesix",        _tier_gesix(_gesix)),
         ("noise",        _tier_noise(noise, thresholds["noise"])),
         ("heat",         _tier_heat(heat, thresholds["heat"])),
         ("air",          _tier_air(air, thresholds["air"])),
@@ -868,6 +901,12 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
             tile["features"] = _transit_feats
         elif key == "supermarket":
             tile["features"] = _sm_feats[:10]      # top 10 nearest for the modal
+        elif key == "gesix":
+            # Aggregate index — no features. Payload for the frontend chart +
+            # AI-insight modal goes on metadata so it doesn't accidentally
+            # get plotted as a map pin.
+            tile["features"] = []
+            tile["metadata"] = {"gesix": _gesix} if _gesix else {}
         else:
             # noise, heat, air — aggregate readings, no per-feature list
             tile["features"] = []
@@ -999,6 +1038,7 @@ if __name__ == "__main__":
         sbahn = ubahn = tram = []
         def kitas_near_bod(self, lon, lat, r): return []
         def nearest_station(self, points, lon, lat): return None
+        def gesix_at(self, lon, lat): return None
     _empty_result = young_family_lens(
         _CFG_YF, _StubIndex(), 13.4, 52.5,
         air={"no2_ugm3": 60}, heat={"day_class": "extreme Belastung"},
@@ -1011,7 +1051,10 @@ if __name__ == "__main__":
     # Transit tile is 'unknown' when no station data reaches the composer (stub
     # returns None for every modality); everything else is 'red' with the
     # bad-signal inputs above.
+    # Transit + gesix are 'unknown' when their inputs are absent from the
+    # stub Index; everything else is 'red' with the bad-signal inputs above.
     assert _tiers.pop("transit") == TIER_UNKNOWN, _tiers
+    assert _tiers.pop("gesix")   == TIER_UNKNOWN, _tiers
     assert all(v == TIER_RED for v in _tiers.values()), _tiers
 
     # -- Unavailable inputs → unknown where possible, red where not ---------

@@ -33,6 +33,7 @@ from fastapi import FastAPI, HTTPException, Request
 from inference.templates import explain as explain_tpl
 from inference.templates import history as history_tpl
 from inference.templates import impression as impression_tpl
+from inference.templates import insight as insight_tpl
 
 # ---------------------------------------------------------------------- config
 
@@ -43,6 +44,7 @@ TEMPLATES = {
     "impression": impression_tpl.run,
     "explain":    explain_tpl.run,
     "history":    history_tpl.run,
+    "insight":    insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state

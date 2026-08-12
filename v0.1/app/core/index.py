@@ -305,6 +305,32 @@ class Index:
                 self.bezirksgrenzen.append((f["properties"], shape(f["geometry"])))
             print(f"{len(self.bezirksgrenzen)} Bezirke")
 
+        # -- GESIx (Gesundheits- und Sozialindex) 2022 preload -----------
+        # 447 Planungsraum polygons + composite index. Small enough to keep
+        # in memory (§14.6). Point-in-polygon per lookup — no per-request
+        # WFS call. Fails soft: absent config or WFS timeout → gesix stays
+        # empty and lookups return None (Young Family lens tile becomes
+        # tier=unknown, doesn't break /api/lookup).
+        self.gesix = []
+        self._gesix_wert_sorted = []            # for percentile / quintile calc
+        if getattr(cfg, "gesix_wfs_url", None) and getattr(cfg, "gesix_layer", None):
+            sys.stdout.write("loading GESIx (health + social index)… "); sys.stdout.flush()
+            try:
+                gx = wfs(cfg.gesix_wfs_url, typeNames=cfg.gesix_layer,
+                         count=1000, outputFormat=cfg.wfs_output_format)
+                for f in gx.get("features", []):
+                    if not f.get("geometry"): continue
+                    p = f["properties"] or {}
+                    if p.get("gesix_wert") is None:
+                        continue                # planungsräume with no valid data
+                    self.gesix.append((p, shape(f["geometry"])))
+                self._gesix_wert_sorted = sorted(p.get("gesix_wert")
+                                                 for p, _ in self.gesix
+                                                 if p.get("gesix_wert") is not None)
+                print(f"{len(self.gesix)} Planungsräume")
+            except Exception as e:
+                print(f"failed ({type(e).__name__}: {e})")
+
         # Bürgerämter — service.berlin.de GeoJSON (~50 unique locations city-wide);
         # sentinel layer "_geojson" triggers custom REST loader instead of WFS.
         self.buergeramts = []
@@ -413,6 +439,39 @@ class Index:
             if geom.contains(pt):
                 return props, geom, self.esb_to_gs.get(props[self.cfg.catchment_field_map["id"]], [])
         return None, None, []
+
+    def gesix_at(self, lon, lat):
+        """Point-in-polygon over the 447 GESIx planungsraum polygons.
+        Returns {plr_name, plr_id, wert, rang, schicht, quintile_5} or None
+        when the address falls outside any GESIx polygon (rare: Berlin
+        outer edges, industrial zones without residential Planungsräume).
+        quintile_5 is derived from the address's rank against the sorted
+        wert distribution — 1 = top fifth, 5 = bottom fifth."""
+        if not self.gesix:
+            return None
+        pt = Point(lon, lat)
+        for props, geom in self.gesix:
+            if geom.contains(pt):
+                wert = props.get("gesix_wert")
+                n = len(self._gesix_wert_sorted)
+                # Quintile from the wert distribution — higher wert = better,
+                # so quintile 1 = top of the sorted list from the top.
+                if wert is None or n == 0:
+                    q = None
+                else:
+                    # Count how many werts are strictly greater than mine.
+                    higher = sum(1 for w in self._gesix_wert_sorted if w > wert)
+                    q = min(5, higher * 5 // n + 1)
+                return {
+                    "plr_name": (props.get("plr_name") or "").strip(),
+                    "plr_id":   props.get("plr_id") or props.get("plr"),
+                    "wert":     wert,
+                    "rang":     props.get("gesix_rang"),
+                    "schicht":  props.get("gesix_schicht"),
+                    "quintile_5": q,
+                    "total":    n,
+                }
+        return None
 
     def nearest_gs_public(self, lon, lat, k=2):
         """Return the k nearest public Grundschulen by straight-line distance.
