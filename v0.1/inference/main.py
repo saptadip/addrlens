@@ -34,6 +34,7 @@ from inference.templates import explain as explain_tpl
 from inference.templates import gesix_insight as gesix_insight_tpl
 from inference.templates import history as history_tpl
 from inference.templates import impression as impression_tpl
+from inference.templates import noise_insight as noise_insight_tpl
 from inference.templates import refuge_insight as refuge_insight_tpl
 
 # ---------------------------------------------------------------------- config
@@ -48,6 +49,7 @@ TEMPLATES = {
     # Per-card AI-insight templates. Naming convention: <card_key>_insight.
     # Adding a new insight card = new template file + one row here.
     "gesix_insight":  gesix_insight_tpl.run,
+    "noise_insight":  noise_insight_tpl.run,
     "refuge_insight": refuge_insight_tpl.run,
 }
 

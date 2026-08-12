@@ -24,6 +24,7 @@ from app.routes.history import router as history_router
 from app.routes.impression import router as impression_router
 from app.routes.lookup import router as lookup_router
 from app.routes.noise import router as noise_router
+from app.routes.noise_insight import router as noise_insight_router
 from app.routes.refuge_insight import router as refuge_insight_router
 
 
@@ -75,6 +76,7 @@ app.include_router(explain_router)
 app.include_router(history_router)
 app.include_router(gesix_insight_router)
 app.include_router(refuge_insight_router)
+app.include_router(noise_insight_router)
 
 
 @app.get("/health")
