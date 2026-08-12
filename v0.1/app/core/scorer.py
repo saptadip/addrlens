@@ -494,6 +494,35 @@ def _tier_gesix(g: dict) -> dict:
     return {"tier": tier, "rule": rule, "numeric": numeric}
 
 
+def _shape_gesix(index, lat: float, lon: float, *,
+                 card_key: str = "gesix",
+                 label: str = "Neighbourhood profile") -> dict:
+    """Shape-only GESIx tile. No tier badge, no numeric on face.
+    Face renders label + one-line hint; modal renders the 5-segment
+    quintile bar (frontend responsibility). Metadata carries the raw
+    GESIx attributes; the insight template consumes them via
+    _ctx_gesix in card_insight.py.
+
+    Used by both the Young Family and Newcomer lenses — the caller
+    controls `card_key` and `label` so the insight-template dispatcher
+    can route by tile key.
+    """
+    g = index.gesix_at(lon, lat) if hasattr(index, "gesix_at") else None
+    g = g or {}
+    return {
+        "key":      card_key,
+        "label":    label,
+        "icon":     "gesix",
+        "tier":     TIER_UNKNOWN,
+        "rule":     "socioeconomic band of this Planungsraum · tap for detail",
+        "numeric":  "",
+        "caveat":   "",
+        "features": [],
+        "metadata": {"gesix": g},
+        "sources":  ["gesix"],
+    }
+
+
 def _tier_supermarket(features: list, t: dict) -> dict:
     """YF Supermarket tile — 'grocery run within stroller walk'."""
     within_green = [f for f in features if (f.get("walk_min") or 10**9) <= t["green_min"]]
@@ -848,11 +877,6 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
     _sm_feats = [f for f in (_shape_supermarket(o) for o in _sm_items) if f]
     _sm_feats.sort(key=lambda x: x.get("walk_min", 10**9))
 
-    # GESIx (Berlin Senate 2022 health & social composite per Planungsraum).
-    # Index.gesix_at returns None outside covered polygons — _tier_gesix
-    # handles that with tier=unknown.
-    _gesix = index.gesix_at(lon, lat) if hasattr(index, "gesix_at") else None
-
     results = [
         ("kita",         _tier_kita(kitas, thresholds["kita"])),
         ("playground",   _tier_playground(pg_items, pg_error, thresholds["playground"])),
@@ -863,7 +887,6 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
                            else {"tier": TIER_UNKNOWN,
                                  "rule": "Supermarket data unavailable",
                                  "numeric": "OSM Overpass unavailable"})),
-        ("gesix",        _tier_gesix(_gesix)),
         ("noise",        _tier_noise(noise, thresholds["noise"])),
         ("heat",         _tier_heat(heat, thresholds["heat"])),
         ("air",          _tier_air(air, thresholds["air"])),
@@ -901,12 +924,6 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
             tile["features"] = _transit_feats
         elif key == "supermarket":
             tile["features"] = _sm_feats[:10]      # top 10 nearest for the modal
-        elif key == "gesix":
-            # Aggregate index — no features. Payload for the frontend chart +
-            # AI-insight modal goes on metadata so it doesn't accidentally
-            # get plotted as a map pin.
-            tile["features"] = []
-            tile["metadata"] = {"gesix": _gesix} if _gesix else {}
         else:
             # noise, heat, air — aggregate readings, no per-feature list.
             # Attach the raw reading on metadata so the AI-insight route can
@@ -921,6 +938,12 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
             elif key == "air":
                 tile["metadata"] = {"no2_ugm3": (air or {}).get("no2_ugm3")}
         tiles.append(tile)
+        # GESIx shape-only tile follows supermarket in the original tile order.
+        # Built via the shared helper so the Newcomer lens can reuse the same
+        # logic with a different card_key.
+        if key == "supermarket":
+            tiles.append(_shape_gesix(index, lat, lon, card_key="gesix",
+                                      label=tile_meta["gesix"][0]))
 
     return {
         "slug":       lens.slug,
@@ -1382,3 +1405,35 @@ if __name__ == "__main__":
     assert _shape_refuge_trees(None) == {}
 
     print("scorer.py: Spec D shape helpers OK")
+
+    # -- _shape_gesix: default key + newcomer key (Task 3 selfcheck) ---------
+    class _StubGesix:
+        def gesix_at(self, lon, lat):
+            return {"plr_name": "X", "quintile_5": 3, "rang": 200, "total": 447}
+
+    _sg = _shape_gesix(_StubGesix(), 52.5, 13.4)
+    assert _sg["key"]  == "gesix", _sg
+    assert _sg["tier"] == TIER_UNKNOWN, _sg
+    assert _sg["metadata"]["gesix"]["quintile_5"] == 3, _sg
+    assert _sg["icon"]     == "gesix"
+    assert _sg["label"]    == "Neighbourhood profile"
+    assert _sg["features"] == []
+    assert _sg["caveat"]   == ""
+    assert _sg["sources"]  == ["gesix"]
+
+    _sg2 = _shape_gesix(_StubGesix(), 52.5, 13.4, card_key="gesix_newcomer",
+                        label="Neighbourhood profile")
+    assert _sg2["key"]  == "gesix_newcomer", _sg2
+    assert _sg2["tier"] == TIER_UNKNOWN, _sg2
+    assert _sg2["metadata"]["gesix"]["quintile_5"] == 3
+
+    # None from gesix_at → empty metadata dict, still well-formed
+    class _StubGesixNone:
+        def gesix_at(self, lon, lat): return None
+    _sg_none = _shape_gesix(_StubGesixNone(), 52.5, 13.4)
+    assert _sg_none["key"]          == "gesix"
+    assert _sg_none["tier"]         == TIER_UNKNOWN
+    assert _sg_none["metadata"]     == {"gesix": {}}
+    assert _sg_none["features"]     == []
+
+    print("scorer.py: _shape_gesix selfcheck OK")
