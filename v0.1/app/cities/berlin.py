@@ -251,6 +251,14 @@ YOUNG_FAMILY_LENS: LensConfig = LensConfig(
                 "green_crown_pct": 25, "amber_crown_pct": 15,
             },
         ),
+        LensTileConfig(
+            key="gesix", label="Neighbourhood profile", icon="gesix",
+            thresholds={},                       # quintiles derived from the Senate's own distribution
+            caveat=("Senate GESIx 2022 composite — 20 employment / social / health "
+                    "indicators aggregated per Planungsraum (~10k residents). "
+                    "Reflects the polygon around your flat, not the individual "
+                    "building. Refreshed by the Senate every 3–5 years."),
+        ),
     ),
 )
 
@@ -496,6 +504,7 @@ BERLIN = CityConfig(
         "air":           "Geoportal Berlin / Umweltatlas — Luftreinhalteplan 2018–2025 (Trend-Szenario 2020) (dl-de/zero-2.0)",
         "heat":          "Geoportal Berlin / Umweltatlas — Klimabewertungskarten 2022 (Bioklima Tag) (dl-de/zero-2.0)",
         "bezirksgrenzen": "Geoportal Berlin / Bezirksgrenzen (dl-de/by-2.0)",
+        "gesix":          "Senatsverwaltung für Wissenschaft, Gesundheit, Pflege und Gleichstellung / Gesundheits- und Sozialstrukturatlas — GESIx 2022 (dl-de/zero-2.0)",
         "buergeramt":     "Berlin ServicePortal / Bürgerämter-Standorte (service.berlin.de)",
         "finanzamt":      "Curated from berlin.de Finanzamt-Verzeichnis (public reference)",
         "standesamt":     "Curated from berlin.de Standesamt-Verzeichnis (public reference)",
@@ -505,6 +514,12 @@ BERLIN = CityConfig(
     # Geofabrik weekly snapshot lives at data/osm/berlin-amenities.json.
     # Env override for prod: OSM_LOCAL_PATH=/mnt/osm/berlin-amenities.json.
     osm_local_path=os.environ.get("OSM_LOCAL_PATH", "data/osm/berlin-amenities.json"),
+
+    # GESIx 2022 — Senate's neighbourhood health & social composite index
+    # per Planungsraum. 447 polygons total. Published 2022, refresh cadence
+    # ~3-5 years. dl-de/zero-2.0 (no attribution burden).
+    gesix_wfs_url="https://gdi.berlin.de/services/wfs/gssa_gesix2022",
+    gesix_layer="gssa_gesix2022:gssa_gesix2022",
 
     young_family_lens=YOUNG_FAMILY_LENS,
 

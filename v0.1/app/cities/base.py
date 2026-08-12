@@ -173,6 +173,14 @@ class CityConfig:
     # Prod: point at a Docker-mounted volume.
     osm_local_path: Optional[str]
 
+    # -- GESIx (health & social composite index per Planungsraum) ---------
+    # Berlin Senate 2022 open-data WFS. Optional per city; None disables the
+    # neighbourhood-profile tile. When set, Index preloads all polygons at
+    # boot and gesix_at(lon, lat) resolves to the address's Planungsraum
+    # composite score + rank + stratum.
+    gesix_wfs_url: Optional[str]
+    gesix_layer:   Optional[str]
+
     # -- Lenses (Spec A: Young Family). Per-city view over amenities/environment
     # for a specific audience. Adding more lenses = adding more fields here.
     young_family_lens: LensConfig
