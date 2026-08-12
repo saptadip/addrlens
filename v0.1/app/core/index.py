@@ -402,16 +402,24 @@ class Index:
     # -------------------------------------------------------------- lookups
 
     def geocode(self, street, hnr, plz):
-        """Look up an address via the city's WFS geocoder. Tolerates the
-        common 'strasse' ↔ 'straße' input variance by retrying with the
-        opposite spelling when the first attempt returns no features."""
+        """Look up an address via the city's WFS geocoder. Tolerates:
+          - 'strasse' ↔ 'straße' spelling (retry with opposite fold);
+          - letter suffix on hnr ('44A', '5c') — Berlin BOD stores the
+            digits in `hnr` (integer) and the letter in `hnr_zusatz`;
+            with a suffix we split + query both fields, else int compare
+            against the raw digits works as string in CQL."""
+        import re
         cfg = self.cfg
         gm = cfg.geocoder_field_map
+        m = re.match(r"^(\d+)([A-Za-z]?)$", (hnr or "").strip())
+        hnr_num, hnr_letter = (m.group(1), m.group(2).upper()) if m else (hnr, "")
 
         def _try(street_v):
             cql = (f"{gm['street']}='{cql_esc(street_v)}' AND "
-                   f"{gm['hnr']}='{cql_esc(hnr)}' AND "
+                   f"{gm['hnr']}={cql_esc(hnr_num)} AND "
                    f"{gm['plz']}='{cql_esc(plz)}'")
+            if hnr_letter:
+                cql += f" AND {gm.get('hnr_zusatz','hnr_zusatz')}='{cql_esc(hnr_letter)}'"
             r = wfs(cfg.geocoder_wfs_url, typeNames=cfg.geocoder_layer,
                     CQL_FILTER=cql, count=1, outputFormat=cfg.wfs_output_format)
             return r.get("features") or []

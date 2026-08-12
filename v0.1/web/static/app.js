@@ -158,7 +158,7 @@ $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.tri
   try{
     const r=await fetch('/api/lookup?address='+encodeURIComponent(q));
     const d=await r.json();
-    if(!r.ok){ clearResultState(); showStatus('error', d.error||'Something went wrong.'); return; }
+    if(!r.ok){ clearResultState(); showStatus('error', d.detail || d.error || 'Something went wrong.'); return; }
     render(d);   // render() calls showResults() once the panels are populated
   }catch(e){ clearResultState(); showStatus('error', 'Network error: '+e.message); }
 });
