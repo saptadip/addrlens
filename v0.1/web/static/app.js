@@ -2748,8 +2748,13 @@ function renderLensModalBody(tile, lensSlug) {
       }</div>`
     : '';
 
-  // GESIx tile — bigger quintile bar in the modal + Get Insight AI fetch.
-  let gesixBlock = '';
+  // Per-card AI-Insight block. Each card that ships an insight AI paragraph
+  // renders the same .card-insight-* markup with card-specific data-endpoint
+  // and data-vintage; a single handler in openLensModal wires the flow.
+  // Naming convention across app + inference: /api/<card_key>_insight →
+  // template <card_key>_insight. Add a new card = one modal block below +
+  // one route + one template.
+  let insightBlock = '';
   if (tile.key === 'gesix') {
     const g = (tile.metadata && tile.metadata.gesix) || null;
     const q = g && g.quintile_5;
@@ -2761,7 +2766,7 @@ function renderLensModalBody(tile, lensSlug) {
     const plr = g?.plr_name ? `<div class="gesix-plr">${escapeHtml(g.plr_name)}</div>` : '';
     const rank = (g?.rang != null && g?.total)
       ? `<div class="gesix-rank">Rank ${g.rang} of ${g.total} Planungsräume citywide</div>` : '';
-    gesixBlock = `
+    insightBlock = `
       <div class="gesix-modal-block">
         ${plr}
         ${rank}
@@ -2769,11 +2774,21 @@ function renderLensModalBody(tile, lensSlug) {
           <div class="gesix-track">${segs}</div>
           <div class="gesix-scale"><span>Top 20%</span><span>Bottom 20%</span></div>
         </div>
-        <div class="gesix-insight-wrap"
-             data-lat="${g?.lat || ''}" data-lon="${g?.lon || ''}">
-          <button type="button" class="pill-btn gesix-insight-btn">✦ Get AI Insight</button>
-          <div class="gesix-insight-body" hidden></div>
+        <div class="card-insight-wrap" data-endpoint="/api/gesix_insight"
+             data-vintage="GESIx 2022 · refreshed by the Senate every 3–5 years.">
+          <button type="button" class="pill-btn card-insight-btn">✦ Get AI Insight</button>
+          <div class="card-insight-body" hidden></div>
         </div>
+      </div>`;
+  } else if (tile.key === 'refuge') {
+    // Same architecture as gesix — different endpoint + vintage line.
+    // Backend /api/refuge_insight reads Berlin Ruhige Gebiete + street-tree
+    // canopy and calls template=refuge_insight.
+    insightBlock = `
+      <div class="card-insight-wrap" data-endpoint="/api/refuge_insight"
+           data-vintage="Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.">
+        <button type="button" class="pill-btn card-insight-btn">✦ Get AI Insight</button>
+        <div class="card-insight-body" hidden></div>
       </div>`;
   }
 
@@ -2788,7 +2803,7 @@ function renderLensModalBody(tile, lensSlug) {
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
     ${caveat}
     ${explBlock}
-    ${gesixBlock}
+    ${insightBlock}
     ${featuresHtml}
     ${treesHtml}
     ${sourcesHtml}
@@ -2824,28 +2839,36 @@ function openLensModal(tileKey) {
     marker.on('click', () => _highlightLensRow(marker._lensFeatureIdx));
   });
 
-  // GESIx: wire the "Get AI Insight" button to /api/insight
-  const insightBtn = modal.querySelector('.gesix-insight-btn');
-  if (insightBtn && tile.key === 'gesix') {
+  // Generic per-card AI-Insight handler. One rule for every card that
+  // ships a .card-insight-wrap block in its modal — reads endpoint +
+  // vintage note from data-attrs. Adding a new card's insight = no JS
+  // change once the modal block is rendered by renderLensModalBody.
+  modal.querySelectorAll('.card-insight-btn').forEach(insightBtn => {
     insightBtn.addEventListener('click', async () => {
-      const wrap = insightBtn.closest('.gesix-insight-wrap');
-      const body = wrap.querySelector('.gesix-insight-body');
+      const wrap     = insightBtn.closest('.card-insight-wrap');
+      const body     = wrap.querySelector('.card-insight-body');
+      const endpoint = wrap.dataset.endpoint || '';
+      const vintage  = wrap.dataset.vintage  || '';
       const a = eduData.address || {};
+      if (!endpoint || !a.lat || !a.lon) {
+        body.innerHTML = `<div class="error" style="margin-top:8px">Missing endpoint or coordinates.</div>`;
+        body.hidden = false; return;
+      }
       insightBtn.disabled = true;
       body.hidden = false;
       body.innerHTML = `<div class="loading" style="margin-top:10px"><span class="spinner"></span> Composing insight…</div>`;
       try {
         const qs = new URLSearchParams({ lat: a.lat, lon: a.lon, lens: active }).toString();
-        const r = await fetch(`/api/insight?${qs}`);
+        const r = await fetch(`${endpoint}?${qs}`);
         const d = await r.json();
         if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
         body.innerHTML = `
-          <button type="button" class="gesix-insight-close" aria-label="Close insight">✕</button>
-          <h4 class="gesix-insight-heading">What this means for you</h4>
-          <p class="gesix-insight-text">${escapeHtml(d.insight || '')}</p>
-          <p class="gesix-insight-foot"><span class="gesix-insight-foot-lbl">Disclaimer:</span> Generated by AI and may display incorrect information. GESIx 2022 · refreshed by the Senate every 3–5 years.</p>`;
+          <button type="button" class="card-insight-close" aria-label="Close insight">✕</button>
+          <h4 class="card-insight-heading">What this means for you</h4>
+          <p class="card-insight-text">${escapeHtml(d.insight || '')}</p>
+          <p class="card-insight-foot"><span class="card-insight-foot-lbl">Disclaimer:</span> Generated by AI and may display incorrect information.${vintage ? ' ' + escapeHtml(vintage) : ''}</p>`;
         insightBtn.hidden = true;
-        const closeBtn = body.querySelector('.gesix-insight-close');
+        const closeBtn = body.querySelector('.card-insight-close');
         if (closeBtn) closeBtn.addEventListener('click', () => {
           body.hidden = true; body.innerHTML = ''; insightBtn.hidden = false;
         });
@@ -2855,7 +2878,7 @@ function openLensModal(tileKey) {
         insightBtn.disabled = false;
       }
     });
-  }
+  });
 }
 
 function closeLensModal() {

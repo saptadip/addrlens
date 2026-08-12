@@ -31,9 +31,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 
 from inference.templates import explain as explain_tpl
+from inference.templates import gesix_insight as gesix_insight_tpl
 from inference.templates import history as history_tpl
 from inference.templates import impression as impression_tpl
-from inference.templates import insight as insight_tpl
+from inference.templates import refuge_insight as refuge_insight_tpl
 
 # ---------------------------------------------------------------------- config
 
@@ -41,10 +42,13 @@ BACKEND_NAME = os.environ.get("INFERENCE_BACKEND", "mlx")   # mlx | llama
 MODEL_ID     = os.environ.get("INFERENCE_MODEL_ID")         # optional override
 
 TEMPLATES = {
-    "impression": impression_tpl.run,
-    "explain":    explain_tpl.run,
-    "history":    history_tpl.run,
-    "insight":    insight_tpl.run,
+    "impression":     impression_tpl.run,
+    "explain":        explain_tpl.run,
+    "history":        history_tpl.run,
+    # Per-card AI-insight templates. Naming convention: <card_key>_insight.
+    # Adding a new insight card = new template file + one row here.
+    "gesix_insight":  gesix_insight_tpl.run,
+    "refuge_insight": refuge_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state

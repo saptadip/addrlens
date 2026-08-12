@@ -1,4 +1,4 @@
-"""/api/insight — plain-English gloss of the Senate GESIx composite index.
+"""/api/gesix_insight — plain-English gloss of the Senate GESIx composite index.
 
 Pipeline (v0.1):
   1. Read GESIx metadata for the address's Planungsraum from index.gesix_at.
@@ -21,7 +21,7 @@ from app.deps import get_city, get_index
 router = APIRouter()
 
 
-@router.get("/api/insight")
+@router.get("/api/gesix_insight")
 async def insight(
     lat: float, lon: float, lens: str = "young_family",
     cfg: CityConfig = Depends(get_city),
@@ -39,7 +39,7 @@ async def insight(
         }
 
     payload = {
-        "template": "insight",
+        "template": "gesix_insight",
         "city":     cfg.slug,
         "context":  {
             "plr_name":   g.get("plr_name"),
