@@ -908,8 +908,18 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
             tile["features"] = []
             tile["metadata"] = {"gesix": _gesix} if _gesix else {}
         else:
-            # noise, heat, air — aggregate readings, no per-feature list
+            # noise, heat, air — aggregate readings, no per-feature list.
+            # Attach the raw reading on metadata so the AI-insight route can
+            # send structured facts to the LLM instead of a formatted string.
             tile["features"] = []
+            if key == "noise":
+                tile["metadata"] = {"l_den": (noise or {}).get("l_den"),
+                                     "l_night": (noise or {}).get("l_night")}
+            elif key == "heat":
+                tile["metadata"] = {"day_class": (heat or {}).get("day_class"),
+                                     "night_class": (heat or {}).get("night_class")}
+            elif key == "air":
+                tile["metadata"] = {"no2_ugm3": (air or {}).get("no2_ugm3")}
         tiles.append(tile)
 
     return {

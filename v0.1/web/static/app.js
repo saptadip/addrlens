@@ -2786,18 +2786,23 @@ function renderLensModalBody(tile, lensSlug) {
   // single handler covers every card. To add a new card's insight in
   // the future, add one row to _INSIGHT_ENDPOINTS below and ship the
   // matching backend route + inference template.
-  const _INSIGHT_ENDPOINTS = {
-    gesix:  {ep: '/api/gesix_insight',
-             vintage: 'GESIx 2022 · refreshed by the Senate every 3–5 years.'},
-    refuge: {ep: '/api/refuge_insight',
-             vintage: 'Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.'},
-    noise:  {ep: '/api/noise_insight',
-             vintage: 'Strategische Lärmkarten 2022 (dl-de/by-2.0) — refreshed every 5 years.'},
+  // Per-card vintage note appended to the AI-insight disclaimer. Card key
+  // must match an entry in the backend's _CARD_CONTEXT_BUILDERS.
+  const _INSIGHT_VINTAGE = {
+    kita:         'Kindertagesstätten (dl-de/by-2.0) — refreshed annually.',
+    playground:   'Grünanlagen — Spielplätze (dl-de/by-2.0) — refreshed annually.',
+    pediatrician: 'OpenStreetMap community-tagged — coverage varies by district.',
+    transit:      'VBB stations (CC-BY-4.0) + BVG Straßenbahn (dl-de/by-2.0) + OSM bus stops (ODbL).',
+    supermarket:  'OpenStreetMap community-tagged (ODbL).',
+    gesix:        'GESIx 2022 · refreshed by the Senate every 3–5 years.',
+    refuge:       'Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.',
+    noise:        'Strategische Lärmkarten 2022 (dl-de/by-2.0) — refreshed every 5 years.',
+    heat:         'Umweltatlas Klimabewertungskarten 2022 (dl-de/zero-2.0).',
+    air:          'Umweltatlas Luftreinhalteplan 2018–2025 trend scenario (dl-de/zero-2.0).',
   };
-  const ins = _INSIGHT_ENDPOINTS[tile.key];
-  const insightBlock = ins ? `
-    <div class="card-insight-wrap" data-endpoint="${ins.ep}"
-         data-vintage="${escapeHtml(ins.vintage || '')}">
+  const insightBlock = _INSIGHT_VINTAGE[tile.key] ? `
+    <div class="card-insight-wrap" data-card="${escapeHtml(tile.key)}"
+         data-vintage="${escapeHtml(_INSIGHT_VINTAGE[tile.key])}">
       <button type="button" class="card-insight-btn">
         <span class="btn-label">Get Insight</span>
         <span class="btn-arrow" aria-hidden="true">
@@ -2861,21 +2866,23 @@ function openLensModal(tileKey) {
   // change once the modal block is rendered by renderLensModalBody.
   modal.querySelectorAll('.card-insight-btn').forEach(insightBtn => {
     insightBtn.addEventListener('click', async () => {
-      const wrap     = insightBtn.closest('.card-insight-wrap');
-      const body     = wrap.querySelector('.card-insight-body');
-      const endpoint = wrap.dataset.endpoint || '';
-      const vintage  = wrap.dataset.vintage  || '';
-      const a = eduData.address || {};
-      if (!endpoint || !a.lat || !a.lon) {
-        body.innerHTML = `<div class="error" style="margin-top:8px">Missing endpoint or coordinates.</div>`;
+      const wrap    = insightBtn.closest('.card-insight-wrap');
+      const body    = wrap.querySelector('.card-insight-body');
+      const card    = wrap.dataset.card || '';
+      const vintage = wrap.dataset.vintage || '';
+      if (!card || !tile) {
+        body.innerHTML = `<div class="error" style="margin-top:8px">Missing card context.</div>`;
         body.hidden = false; return;
       }
       insightBtn.disabled = true;
       body.hidden = false;
       body.innerHTML = `<div class="loading" style="margin-top:10px"><span class="spinner"></span> Composing insight…</div>`;
       try {
-        const qs = new URLSearchParams({ lat: a.lat, lon: a.lon, lens: active }).toString();
-        const r = await fetch(`${endpoint}?${qs}`);
+        const r = await fetch('/api/card_insight', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({card, tile, lens: active}),
+        });
         const d = await r.json();
         if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
         body.innerHTML = `
