@@ -19,11 +19,12 @@ from app.core.index import Index
 from app.routes.amenities import router as amenities_router
 from app.routes.config import router as config_router
 from app.routes.explain import router as explain_router
+from app.routes.gesix_insight import router as gesix_insight_router
 from app.routes.history import router as history_router
 from app.routes.impression import router as impression_router
-from app.routes.insight import router as insight_router
 from app.routes.lookup import router as lookup_router
 from app.routes.noise import router as noise_router
+from app.routes.refuge_insight import router as refuge_insight_router
 
 
 @asynccontextmanager
@@ -72,7 +73,8 @@ app.include_router(noise_router)
 app.include_router(impression_router)
 app.include_router(explain_router)
 app.include_router(history_router)
-app.include_router(insight_router)
+app.include_router(gesix_insight_router)
+app.include_router(refuge_insight_router)
 
 
 @app.get("/health")
