@@ -41,9 +41,14 @@ def lookup(
     try:
         geo = index.geocode(street, hnr, plz)
     except Exception as e:
-        raise HTTPException(502, f"Geocoder unavailable: {e}")
+        # Common cause: BOD WFS 400 when a field type mismatches — surface
+        # a short user-facing message instead of the raw HTTP error.
+        msg = str(e)
+        if "HTTP Error 400" in msg or "Bad Request" in msg:
+            raise HTTPException(404, f"Address '{street} {hnr}, {plz}' not recognised — check street number.")
+        raise HTTPException(502, f"Geocoder unavailable, please retry.")
     if not geo:
-        raise HTTPException(404, f"No {cfg.display_name} address matched '{street} {hnr}, {plz}'.")
+        raise HTTPException(404, f"Address '{street} {hnr}, {plz}' not found in Berlin.")
 
     lon, lat = geo["lon"], geo["lat"]
     esb_props, polygon, schools = index.catchment(lon, lat)
