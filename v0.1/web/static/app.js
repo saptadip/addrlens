@@ -1783,7 +1783,7 @@ function renderCompare(){
       <a class="pill-btn pill-btn-brand" href="#">← Back to lookup</a>
     </div></div>`;
   const printHeader = list.length ? `<div class="print-only print-header">
-    <h1>Berlin Address Lens — comparison of ${list.length} addresses</h1>
+    <h1>AddrLens — comparison of ${list.length} addresses</h1>
     <p>Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · Berlin Open Data + OpenStreetMap</p>
   </div>` : '';
   if(!list.length){
@@ -3103,11 +3103,9 @@ compareRefreshPill();showView();initLifeMode();
 fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
   if(!cfg) return;
   const dn = cfg.display_name || 'Berlin';
-  document.title = `${dn} Address Lens`;
+  document.title = 'AddrLens';
   const $bn = document.getElementById('brand-name');
-  if ($bn) $bn.firstChild.data = `${dn} Address Lens`;
-  const $tag = document.getElementById('brand-tagline');
-  if ($tag) $tag.textContent = `for families in ${dn}`;
+  if ($bn) $bn.textContent = 'AddrLens';
   const $pill = document.getElementById('open-data-pill');
   if ($pill) $pill.textContent = `Open Data · ${dn}`;
   const $attr = document.getElementById('footer-city-attr');
