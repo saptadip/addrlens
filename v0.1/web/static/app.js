@@ -2796,7 +2796,12 @@ function renderLensModalBody(tile, lensSlug) {
   const insightBlock = ins ? `
     <div class="card-insight-wrap" data-endpoint="${ins.ep}"
          data-vintage="${escapeHtml(ins.vintage || '')}">
-      <button type="button" class="pill-btn card-insight-btn">✦ Get AI Insight</button>
+      <button type="button" class="card-insight-btn">
+        <span class="btn-label">Get Insight</span>
+        <span class="btn-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
+      </button>
       <div class="card-insight-body" hidden></div>
     </div>` : '';
 
