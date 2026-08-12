@@ -2791,6 +2791,8 @@ function renderLensModalBody(tile, lensSlug) {
              vintage: 'GESIx 2022 · refreshed by the Senate every 3–5 years.'},
     refuge: {ep: '/api/refuge_insight',
              vintage: 'Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.'},
+    noise:  {ep: '/api/noise_insight',
+             vintage: 'Strategische Lärmkarten 2022 (dl-de/by-2.0) — refreshed every 5 years.'},
   };
   const ins = _INSIGHT_ENDPOINTS[tile.key];
   const insightBlock = ins ? `
