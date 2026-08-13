@@ -75,7 +75,7 @@ def build_messages(ctx: dict) -> list[dict]:
 def run(backend, ctx: dict) -> dict:
     if not isinstance(ctx, dict):
         raise ValueError("context must be an object")
-    if not (ctx.get("features") or []) and ctx.get("tier") == "red":
+    if not (ctx.get("features") or []):
         return {"insight": (
             "No English-tagged practices found nearby (OSM community data — outer "
             "districts may under-report). TK and AOK both offer English-language "

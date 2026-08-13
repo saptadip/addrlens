@@ -153,7 +153,7 @@ def lookup(
     # hot path. Wrapped in try/except so a bug here never breaks /api/lookup
     # for users not using the Newcomer lens (§14.7).
     try:
-        lens_newcomer = scorer.newcomer_lens(cfg, index, lat, lon)
+        lens_newcomer = scorer.newcomer_lens(cfg, index, lon, lat)
     except Exception as e:
         lens_newcomer = {"slug": "newcomer",
                          "error": f"{type(e).__name__}: {e}"}
