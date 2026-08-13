@@ -1268,7 +1268,13 @@ def newcomer_lens(cfg, index, lat: float, lon: float) -> dict:
     tiles.append(_shape_gesix(cfg, index, lat, lon, card_key="gesix_newcomer",
                               label=tile_meta["gesix_newcomer"][0]))
 
-    return {"version": 1, "tiles": tiles}
+    return {
+        "slug":       lens.slug,
+        "label":      lens.label,
+        "audience":   lens.audience_hint,
+        "tiles":      tiles,
+        "provenance": _lens_provenance(cfg, tiles),
+    }
 
 
 if __name__ == "__main__":
@@ -1883,8 +1889,11 @@ if __name__ == "__main__":
             return {"plr_name": "X", "quintile_5": 3, "rang": 200, "total": 447}
 
     _out = newcomer_lens(_CFG_NL, _StubNLIdx(), 52.5, 13.4)
-    # Version + tile count.
-    assert _out["version"] == 1
+    # Full envelope — canonical keys.
+    assert all(k in _out for k in ("slug", "label", "audience", "tiles", "provenance")), \
+        f"missing envelope keys: {sorted(_out)}"
+    assert _out["slug"] == "newcomer"
+    assert _out["label"] == "Newcomer"
     assert len(_out["tiles"]) == 6
     # Tile key order (plan-specified).
     _keys_nl = [t["key"] for t in _out["tiles"]]
