@@ -1215,7 +1215,24 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
             if d <= th["transit_newcomer"]["any_rail_m"] * 2:  # wide pre-filter
                 _transit_raw.append({**p, "distance_m": round(d), "mode": mode_tag})
     _transit_raw.sort(key=lambda x: x["distance_m"])
-    transit_feats = _transit_raw   # full sorted list for tier fn; shaped for features below
+    # Cluster platform pairs sharing a station name.  VBB / BOD tram stores
+    # each direction as its own point ("Freienwalder Str. -> Stadt" and
+    # "-> Land"), which without dedup produces near-duplicate rows in the
+    # feature list.  Keep the nearest platform per (mode, base_name);
+    # collect direction suffixes so the UI can surface both bearings.
+    _clusters: dict = {}
+    for _p in _transit_raw:
+        _base, _sep, _dir = _p["name"].partition(" -> ")
+        _base = _base.strip()
+        _dir = _dir.strip()
+        _ck = (_p["mode"], _base)
+        _entry = _clusters.get(_ck)
+        if _entry is None:
+            _entry = {**_p, "name": _base, "directions": []}
+            _clusters[_ck] = _entry
+        if _dir and _dir not in _entry["directions"]:
+            _entry["directions"].append(_dir)
+    transit_feats = sorted(_clusters.values(), key=lambda x: x["distance_m"])
 
     # -- OSM local buckets: intl_food, coworking, english_clinic -------------
     oc = getattr(index, "osm_local", None)
@@ -1248,7 +1265,8 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
         "buergeramt":      buergeramt_feats,
         "transit_newcomer": [{"name": f["name"], "lat": f["lat"], "lon": f["lon"],
                                "distance_m": f["distance_m"], "mode": f["mode"],
-                               "walk_min": round(_walk_minutes(f["distance_m"]))}
+                               "walk_min": round(_walk_minutes(f["distance_m"])),
+                               "directions": f.get("directions", [])}
                               for f in transit_feats[:10]],
         "intl_food":       intl_food_feats[:10],
         "coworking":       coworking_feats[:10],

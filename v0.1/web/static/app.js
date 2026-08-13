@@ -2686,6 +2686,13 @@ function _lensFeatureDetailHtml(tileKey, f) {
     if (f.renovated_year != null) rows.push(row('Renovated', escapeHtml(String(f.renovated_year))));
   } else if (tileKey === 'transit') {
     if (f.modality)              rows.push(row('Mode',       escapeHtml(f.modality)));
+  } else if (tileKey === 'transit_newcomer') {
+    const modeLabel = {S: 'S-Bahn', U: 'U-Bahn', T: 'Tram'}[f.mode] || f.mode || '';
+    if (modeLabel)               rows.push(row('Mode',       escapeHtml(modeLabel)));
+    if (f.distance_m != null)    rows.push(row('Distance',   `${f.distance_m} m`));
+    if (Array.isArray(f.directions) && f.directions.length)
+      rows.push(row(f.directions.length > 1 ? 'Directions' : 'Direction',
+                    f.directions.map(escapeHtml).join(' · ')));
   } else if (tileKey === 'supermarket') {
     if (f.brand)                 rows.push(row('Brand',      escapeHtml(f.brand)));
     if (f.opening_hours)         rows.push(row('Hours',      escapeHtml(f.opening_hours)));
