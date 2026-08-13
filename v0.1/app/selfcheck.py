@@ -243,7 +243,7 @@ def run_live_selfcheck() -> None:
         return _lens, _amen, _noise, _heat, _air
 
     lens_yf, _amen, n_raw, h_raw, a_raw = _compute_lens(geo["lon"], geo["lat"])
-    assert len(lens_yf["tiles"]) == 7, f"expected 7 tiles, got {len(lens_yf['tiles'])}"
+    assert len(lens_yf["tiles"]) >= 7, f"expected ≥7 YF tiles, got {len(lens_yf['tiles'])}"
     _keys = [t["key"] for t in lens_yf["tiles"]]
     assert _keys == ["kita","playground","pediatrician","noise","heat","air","refuge"], _keys
     for t in lens_yf["tiles"]:
