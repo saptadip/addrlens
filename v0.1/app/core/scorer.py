@@ -828,6 +828,10 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "intl_food":       ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "coworking":       ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "english_clinic":  ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "language_school": ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "library":         ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "packstation":     ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "wochenmarkt":     ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "gesix_newcomer":  [attr.get("gesix")],
     }
     return [s for s in (mapping.get(key) or []) if s]
@@ -1177,6 +1181,118 @@ def _tier_english_clinic(features: list, th: dict) -> dict:
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
 
+def _tier_language_school(features: list, th: dict) -> dict:
+    """Distance-to-nearest language school (VHS + private Sprachschulen).
+
+    Thresholds (metres, inclusive on greener side):
+      green_m  ≤ 1500m  → walkable evening class
+      amber_m  ≤ 3500m  → one S/U hop to class
+      > amber_m         → learning becomes a logistics problem
+    """
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no Sprachschule or VHS branch nearby",
+                "numeric": ""}
+    nearest = features[0]
+    d = nearest["distance_m"]
+    if d <= th["green_m"]:
+        tier = TIER_GREEN
+        rule = "German classes in walking distance"
+    elif d <= th["amber_m"]:
+        tier = TIER_AMBER
+        rule = "reachable, one transit hop to class"
+    else:
+        tier = TIER_RED
+        rule = "learning German becomes a logistics problem"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{int(d)} m to {nearest['name']}"}
+
+
+def _tier_library(features: list, th: dict) -> dict:
+    """Distance-to-nearest public library (VÖBB + Uni libraries).
+
+    Thresholds (metres, inclusive on greener side):
+      green_m  ≤ 1000m  → walk-in comfort zone
+      amber_m  ≤ 2500m  → still a habit-forming distance
+      > amber_m         → not a spontaneous stop
+    """
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no public library nearby",
+                "numeric": ""}
+    nearest = features[0]
+    d = nearest["distance_m"]
+    if d <= th["green_m"]:
+        tier = TIER_GREEN
+        rule = "free Wi-Fi, English fiction, warm study space at walking distance"
+    elif d <= th["amber_m"]:
+        tier = TIER_AMBER
+        rule = "a short walk or one transit stop"
+    else:
+        tier = TIER_RED
+        rule = "not a spontaneous stop from here"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{int(d)} m to {nearest['name']}"}
+
+
+def _tier_packstation(features: list, th: dict) -> dict:
+    """Distance-to-nearest parcel pickup point (DHL Packstation + Post branch).
+
+    Thresholds (metres, inclusive on greener side):
+      green_m  ≤ 400m   → daily-carry radius
+      amber_m  ≤ 1000m  → tolerable evening detour
+      > amber_m         → parcel pickup becomes a chore
+    """
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no parcel pickup point nearby — expect long detours",
+                "numeric": ""}
+    nearest = features[0]
+    d = nearest["distance_m"]
+    if d <= th["green_m"]:
+        tier = TIER_GREEN
+        rule = "parcels within a daily-carry radius"
+    elif d <= th["amber_m"]:
+        tier = TIER_AMBER
+        rule = "reachable evening detour"
+    else:
+        tier = TIER_RED
+        rule = "pickup becomes a chore"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{int(d)} m to {nearest['name']}"}
+
+
+def _tier_wochenmarkt(features: list, th: dict) -> dict:
+    """Distance-to-nearest permitted weekly market (Wochenmarkt).
+
+    Thresholds (metres, inclusive on greener side):
+      green_m  ≤ 800m   → weekly-walk habit distance
+      amber_m  ≤ 2000m  → a short bike or tram
+      > amber_m         → not a weekly ritual
+
+    ponytail: OSM/BOD closure lag can be 6-12 months; a "green" tile at an
+    address next to a recently-closed market will look wrong for a season.
+    Caveat surfaced via LensTileConfig.caveat.
+    """
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no registered Wochenmarkt nearby",
+                "numeric": ""}
+    nearest = features[0]
+    d = nearest["distance_m"]
+    if d <= th["green_m"]:
+        tier = TIER_GREEN
+        rule = "weekly market in walking distance"
+    elif d <= th["amber_m"]:
+        tier = TIER_AMBER
+        rule = "a short bike or tram to the stalls"
+    else:
+        tier = TIER_RED
+        rule = "not a weekly ritual from here"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{int(d)} m to {nearest['name']}"}
+
+
 def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     """Assemble the 6-tile Newcomer lens block.
 
@@ -1246,10 +1362,20 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     intl_food_raw     = _osm_near("intl_food",     th["intl_food"]["radius_m"])
     coworking_raw     = _osm_near("coworking",      th["coworking"]["radius_m"])
     english_clinic_raw = _osm_near("english_clinic", 3500)
+    # 4 new distance-to-nearest tiles.  Radius fetched wide (~amber×1.5)
+    # so the tile can honestly render "no match" when nothing qualifies.
+    language_school_raw = _osm_near("language_school", th["language_school"]["amber_m"] + 1500)
+    library_raw         = _osm_near("library",         th["library"]["amber_m"] + 1500)
+    packstation_raw     = _osm_near("packstation",     th["packstation"]["amber_m"] + 500)
+    wochenmarkt_raw     = _osm_near("wochenmarkt",     th["wochenmarkt"]["amber_m"] + 1000)
 
     intl_food_feats     = [f for f in (_shape_osm_feature(o) for o in intl_food_raw)     if f]
     coworking_feats     = [f for f in (_shape_osm_feature(o) for o in coworking_raw)     if f]
     english_clinic_feats = [f for f in (_shape_osm_feature(o) for o in english_clinic_raw) if f]
+    language_school_feats = [f for f in (_shape_osm_feature(o) for o in language_school_raw) if f]
+    library_feats       = [f for f in (_shape_osm_feature(o) for o in library_raw)       if f]
+    packstation_feats   = [f for f in (_shape_osm_feature(o) for o in packstation_raw)   if f]
+    wochenmarkt_feats   = [f for f in (_shape_osm_feature(o) for o in wochenmarkt_raw)   if f]
 
     # -- Tier computations ---------------------------------------------------
     results = [
@@ -1258,6 +1384,10 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
         ("intl_food",      _tier_intl_food(intl_food_feats,            th["intl_food"])),
         ("coworking",      _tier_coworking(coworking_feats,            th["coworking"])),
         ("english_clinic", _tier_english_clinic(english_clinic_feats,  th["english_clinic"])),
+        ("language_school", _tier_language_school(language_school_feats, th["language_school"])),
+        ("library",        _tier_library(library_feats,                th["library"])),
+        ("packstation",    _tier_packstation(packstation_feats,        th["packstation"])),
+        ("wochenmarkt",    _tier_wochenmarkt(wochenmarkt_feats,        th["wochenmarkt"])),
     ]
 
     tiles = []
@@ -1271,6 +1401,10 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
         "intl_food":       intl_food_feats[:10],
         "coworking":       coworking_feats[:10],
         "english_clinic":  english_clinic_feats[:10],
+        "language_school": language_school_feats[:10],
+        "library":         library_feats[:10],
+        "packstation":     packstation_feats[:10],
+        "wochenmarkt":     wochenmarkt_feats[:10],
     }
 
     for key, res in results:
@@ -1896,6 +2030,33 @@ if __name__ == "__main__":
     assert _tier_english_clinic(_ef(3001),    _TEC)["tier"] == TIER_RED
     assert _tier_english_clinic([],           _TEC)["tier"] == TIER_RED
 
+    # -- _tier_language_school / library / packstation / wochenmarkt ---------
+    _mkf = lambda d, name="X": [{"name": name, "lat": 52.5, "lon": 13.4, "distance_m": d}]
+    _TLS = _TN["language_school"]
+    assert _tier_language_school(_mkf(1500), _TLS)["tier"] == TIER_GREEN
+    assert _tier_language_school(_mkf(1501), _TLS)["tier"] == TIER_AMBER
+    assert _tier_language_school(_mkf(3500), _TLS)["tier"] == TIER_AMBER
+    assert _tier_language_school(_mkf(3501), _TLS)["tier"] == TIER_RED
+    assert _tier_language_school([],         _TLS)["tier"] == TIER_RED
+    _TLB = _TN["library"]
+    assert _tier_library(_mkf(1000), _TLB)["tier"] == TIER_GREEN
+    assert _tier_library(_mkf(1001), _TLB)["tier"] == TIER_AMBER
+    assert _tier_library(_mkf(2500), _TLB)["tier"] == TIER_AMBER
+    assert _tier_library(_mkf(2501), _TLB)["tier"] == TIER_RED
+    assert _tier_library([],         _TLB)["tier"] == TIER_RED
+    _TPK = _TN["packstation"]
+    assert _tier_packstation(_mkf(400),  _TPK)["tier"] == TIER_GREEN
+    assert _tier_packstation(_mkf(401),  _TPK)["tier"] == TIER_AMBER
+    assert _tier_packstation(_mkf(1000), _TPK)["tier"] == TIER_AMBER
+    assert _tier_packstation(_mkf(1001), _TPK)["tier"] == TIER_RED
+    assert _tier_packstation([],         _TPK)["tier"] == TIER_RED
+    _TWM = _TN["wochenmarkt"]
+    assert _tier_wochenmarkt(_mkf(800),  _TWM)["tier"] == TIER_GREEN
+    assert _tier_wochenmarkt(_mkf(801),  _TWM)["tier"] == TIER_AMBER
+    assert _tier_wochenmarkt(_mkf(2000), _TWM)["tier"] == TIER_AMBER
+    assert _tier_wochenmarkt(_mkf(2001), _TWM)["tier"] == TIER_RED
+    assert _tier_wochenmarkt([],         _TWM)["tier"] == TIER_RED
+
     # -- newcomer_lens composer smoke test ------------------------------------
     from app.cities.berlin import BERLIN as _CFG_NL
 
@@ -1918,11 +2079,13 @@ if __name__ == "__main__":
         f"missing envelope keys: {sorted(_out)}"
     assert _out["slug"] == "newcomer"
     assert _out["label"] == "Newcomer"
-    assert len(_out["tiles"]) == 6
+    assert len(_out["tiles"]) == 10
     # Tile key order (plan-specified).
     _keys_nl = [t["key"] for t in _out["tiles"]]
     assert _keys_nl == ["buergeramt", "transit_newcomer", "intl_food",
-                        "coworking", "english_clinic", "gesix_newcomer"], _keys_nl
+                        "coworking", "english_clinic",
+                        "language_school", "library", "packstation", "wochenmarkt",
+                        "gesix_newcomer"], _keys_nl
     # gesix_newcomer is shape-only → tier unknown.
     _by_nl = {t["key"]: t for t in _out["tiles"]}
     assert _by_nl["gesix_newcomer"]["tier"] == TIER_UNKNOWN

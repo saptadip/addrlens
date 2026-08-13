@@ -331,6 +331,25 @@ NEWCOMER_LENS: LensConfig = LensConfig(
             caveat="OSM community-tagged — inner-district coverage good, outer may under-report",
         ),
         LensTileConfig(
+            key="language_school", label="German classes", icon="language_school",
+            thresholds={"green_m": 1500, "amber_m": 3500},
+            caveat="Covers VHS branches + private Sprachschulen tagged in OSM; small independent schools may be missing.",
+        ),
+        LensTileConfig(
+            key="library", label="Public library", icon="library",
+            thresholds={"green_m": 1000, "amber_m": 2500},
+        ),
+        LensTileConfig(
+            key="packstation", label="Parcel pickup", icon="packstation",
+            thresholds={"green_m": 400, "amber_m": 1000},
+            caveat="DHL Packstation + Deutsche Post branches from OSM; DHL Packstation locker moves may take a few weeks to reflect.",
+        ),
+        LensTileConfig(
+            key="wochenmarkt", label="Wochenmarkt", icon="wochenmarkt",
+            thresholds={"green_m": 800, "amber_m": 2000},
+            caveat="Only permitted weekly markets; closures may take a season to disappear from the feed.",
+        ),
+        LensTileConfig(
             key="gesix_newcomer", label="Neighbourhood profile", icon="gesix",
             thresholds={},   # shape-only — no tier logic
         ),
@@ -581,6 +600,8 @@ if __name__ == "__main__":
     assert BERLIN.buergeramt_wfs_url is not None    # Spec B: WFS already wired; not None in Berlin
     keys = [t.key for t in BERLIN.newcomer_lens.tiles]
     assert keys == ["buergeramt", "transit_newcomer", "intl_food",
-                    "coworking", "english_clinic", "gesix_newcomer"], keys
+                    "coworking", "english_clinic",
+                    "language_school", "library", "packstation", "wochenmarkt",
+                    "gesix_newcomer"], keys
     assert "buergeramt" in BERLIN.attribution
     print("selfcheck ok: NEWCOMER_LENS wired")

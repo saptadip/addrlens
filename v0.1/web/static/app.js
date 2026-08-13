@@ -34,7 +34,11 @@ const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   gesix:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="14" width="3" height="6" rx="1"/><rect x="8" y="10" width="3" height="10" rx="1"/><rect x="13" y="6" width="3" height="14" rx="1"/><rect x="18" y="3" width="3" height="17" rx="1"/></svg>',
   intl_food:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12h11l2-8H6"/><circle cx="12" cy="8" r="3"/></svg>',
   coworking:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="16" height="12" rx="1"/><path d="M18 8a3 3 0 0 1 3 3M18 10a5 5 0 0 1 5 5"/><line x1="2" y1="16" x2="18" y2="16"/></svg>',
-  english_clinic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M12 9v8M8 13h8"/><path d="M14 3c1 0 2 1 2 2v2h3"/><circle cx="17" cy="17" r="2.5"/></svg>'};
+  english_clinic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M12 9v8M8 13h8"/><path d="M14 3c1 0 2 1 2 2v2h3"/><circle cx="17" cy="17" r="2.5"/></svg>',
+  language_school:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/></svg>',
+  library:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/></svg>',
+  packstation:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
+  wochenmarkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l2-4h14l2 4"/><path d="M3 10h18v3H3z"/><path d="M5 13v8h14v-8"/><path d="M9 21v-5h6v5"/></svg>'};
 const AMEN=[
   ['playgrounds','Playgrounds',ico.playground,'#22C55E'],
   ['parks','Parks / green space',ico.tree,'#10B981'],
@@ -183,6 +187,10 @@ const LENS_TILE_EXPLANATIONS = {
   air:   "NO₂ measured µg/m³ per street segment (Umweltatlas trend scenario). WHO 2021 annual guideline is 10 µg/m³; Germany's legal limit is 40.",
   gesix: "Berlin's Senate publishes a composite of 20 health, social and employment indicators per Planungsraum (~10k residents). Higher quintile = healthier / more stable neighbourhood context. The signal describes the polygon around the flat, not the building itself.",
   gesix_newcomer: "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band. Lower and higher quintiles both come with real tradeoffs for a newcomer — language mix, rent band, mutual-aid density — so walk the block before you sign.",
+  language_school: "Walking distance to the nearest Sprachschule or Volkshochschule (VHS) branch. B1 German is the practical gate to Aufenthaltstitel and Einbürgerung — course finish rates track attendance, and attendance tracks how close class is to home.",
+  library: "Distance to the nearest public library (VÖBB) or university library. For newcomers the library is the lowest-friction 'third place' — free Wi-Fi, warm study space, English fiction, integration events, no purchase pressure.",
+  packstation: "Distance to the nearest DHL Packstation locker or Deutsche Post branch. Germany's parcel logistics assume you can retrieve mis-timed deliveries; a long walk turns weekly pickups into a chore.",
+  wochenmarkt: "Distance to the nearest permitted Wochenmarkt. Cash-friendly, no-German-required, international vendors — a weekly market makes the neighbourhood feel like home faster than any single supermarket run.",
 };
 
 // -- Spec D: map-pin color per tier ------------------------------------------
@@ -2823,6 +2831,10 @@ function renderLensModalBody(tile, lensSlug) {
     intl_food:        'OSM Geofabrik weekly extract',
     coworking:        'OSM Geofabrik weekly extract',
     english_clinic:   'OSM Geofabrik weekly extract',
+    language_school:  'OSM Geofabrik weekly extract',
+    library:          'OSM Geofabrik weekly extract',
+    packstation:      'OSM Geofabrik weekly extract',
+    wochenmarkt:      'OSM Geofabrik weekly extract',
     gesix_newcomer:   'BOD GESIx · 2022',
   };
   const insightBlock = _INSIGHT_VINTAGE[tile.key] ? `

@@ -399,7 +399,9 @@ def run_live_selfcheck() -> None:
         _nl_tiles_k = {t["key"]: t for t in _nl_k["tiles"]}
         assert set(_nl_tiles_k) == {
             "buergeramt", "transit_newcomer", "intl_food",
-            "coworking", "english_clinic", "gesix_newcomer"
+            "coworking", "english_clinic",
+            "language_school", "library", "packstation", "wochenmarkt",
+            "gesix_newcomer"
         }, f"unexpected tile keys: {set(_nl_tiles_k)}"
         for _t in _nl_k["tiles"]:
             assert _t["tier"] in {"green", "amber", "red", "unknown"}, _t

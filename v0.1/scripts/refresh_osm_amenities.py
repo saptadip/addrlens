@@ -92,6 +92,47 @@ _TAG_RULES = {
         # Also catch the German tag which OSM community sometimes uses:
         {"amenity": {"townhall"}, "government": {"register_office"}},
     ],
+
+    # language_school — Sprachschulen + Volkshochschule (VHS) branches.
+    # Two sub-rules: explicit language_school tag (Berlitz, Kapitel Zwei,
+    # DeutSCHule, Speakeasy…), and VHS branches which OSM tags as
+    # office=educational_institution. The VHS name-filter is applied
+    # post-collection in scorer._shape / rule-fn: we accept the wider
+    # office rule here since VHS is the dominant public-education office
+    # brand in Berlin.
+    # ponytail: office=educational_institution also catches other adult-ed
+    # (Musikschule, Berufsschule); accepting all is honest since a
+    # newcomer's "reach to structured learning" tile covers those too.
+    "language_school": [
+        {"amenity": {"language_school"}},
+        {"office":  {"educational_institution"}},
+    ],
+
+    # library — public libraries (VÖBB) and university libraries.
+    # OSM covers both VÖBB and Uni libraries under amenity=library.
+    # VÖBB dominates by count in Berlin so no name filter needed.
+    "library": [
+        {"amenity": {"library"}},
+    ],
+
+    # packstation — DHL Packstation lockers + Deutsche Post branches.
+    # Two sub-rules: parcel_locker (DHL/DPD/Amazon Hub) and post_office
+    # (staffed branch — accepts pickup, prints labels, ID mail).
+    # ponytail: brand-tag filter not applied; a newcomer just needs
+    # "where do I fetch my parcel", not "specifically DHL".
+    "packstation": [
+        {"amenity": {"parcel_locker"}},
+        {"amenity": {"post_office"}},
+    ],
+
+    # wochenmarkt — permitted weekly markets (Bezirks-Ordnungsamt licence).
+    # OSM community keeps these fairly current; BOD publishes a canonical
+    # list but coverage overlaps and OSM is refreshed weekly by our snapshot.
+    # ponytail: closures may lag 6-12 months on both OSM and BOD — surfaced
+    # via LensTileConfig.caveat.
+    "wochenmarkt": [
+        {"amenity": {"marketplace"}},
+    ],
 }
 
 # Categories that must have a `name` tag to survive (mirrors _DROP_UNNAMED
@@ -330,6 +371,13 @@ if __name__ == "__main__":
     assert _cat_for({"office": "government", "government": "register_office"}) == "buergeramt"
     assert _cat_for({"amenity": "townhall", "government": "register_office"}) == "buergeramt"
     assert _cat_for({"amenity": "restaurant", "cuisine": "vietnamese"}) == "intl_food"
+    # Newcomer-lens additions (4 new tiles).
+    assert _cat_for({"amenity": "language_school"}) == "language_school"
+    assert _cat_for({"office":  "educational_institution"}) == "language_school"
+    assert _cat_for({"amenity": "library"}) == "library"
+    assert _cat_for({"amenity": "parcel_locker"}) == "packstation"
+    assert _cat_for({"amenity": "post_office"})   == "packstation"
+    assert _cat_for({"amenity": "marketplace"})   == "wochenmarkt"
     # German cuisine restaurant must NOT match (post-filter catches it, but _cat_for
     # will still return intl_food — exclusion is in _add, not _cat_for).
     # (We verify exclusion logic through _INTL_FOOD_EXCLUDE_CUISINE membership.)
@@ -355,10 +403,12 @@ if __name__ == "__main__":
         import json as _json
         j = _json.loads(snap.read_text())
         buckets = j.get("buckets", j)   # tolerate flat shape (legacy)
-        for key in ("intl_food", "coworking", "english_clinic", "buergeramt"):
+        for key in ("intl_food", "coworking", "english_clinic", "buergeramt",
+                    "language_school", "library", "packstation", "wochenmarkt"):
             assert key in buckets, f"missing bucket {key!r}"
             assert isinstance(buckets[key], list), f"{key} not list"
         print("selfcheck ok:", {k: len(buckets[k]) for k in
-              ("intl_food", "coworking", "english_clinic", "buergeramt")})
+              ("intl_food", "coworking", "english_clinic", "buergeramt",
+               "language_school", "library", "packstation", "wochenmarkt")})
     else:
         print("selfcheck skipped — main() did not write a snapshot")
