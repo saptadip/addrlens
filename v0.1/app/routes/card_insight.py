@@ -103,6 +103,10 @@ _CARD_CONTEXT_BUILDERS = {
     "intl_food":        _ctx_features,
     "coworking":        _ctx_features,
     "english_clinic":   _ctx_features,
+    "language_school":  _ctx_features,
+    "library":          _ctx_features,
+    "packstation":      _ctx_features,
+    "wochenmarkt":      _ctx_features,
     "gesix_newcomer":   _ctx_gesix,
 }
 
@@ -140,9 +144,11 @@ async def card_insight(request: Request, cfg: CityConfig = Depends(get_city)):
 
 
 if __name__ == "__main__":
-    # Verify all six newcomer-lens card keys are registered
+    # Verify all newcomer-lens card keys are registered (6 original + 4 additions)
     expected_new_keys = {"buergeramt", "transit_newcomer", "intl_food",
-                         "coworking", "english_clinic", "gesix_newcomer"}
+                         "coworking", "english_clinic",
+                         "language_school", "library", "packstation", "wochenmarkt",
+                         "gesix_newcomer"}
     actual_keys = set(_CARD_CONTEXT_BUILDERS.keys())
     for key in expected_new_keys:
         assert key in actual_keys, f"missing card key {key!r}"
@@ -153,6 +159,10 @@ if __name__ == "__main__":
     assert _CARD_CONTEXT_BUILDERS["intl_food"] is _ctx_features
     assert _CARD_CONTEXT_BUILDERS["coworking"] is _ctx_features
     assert _CARD_CONTEXT_BUILDERS["english_clinic"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["language_school"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["library"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["packstation"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["wochenmarkt"] is _ctx_features
     assert _CARD_CONTEXT_BUILDERS["gesix_newcomer"] is _ctx_gesix
 
-    print("selfcheck ok: all 6 newcomer-lens cards registered in _CARD_CONTEXT_BUILDERS")
+    print("selfcheck ok: all 10 newcomer-lens cards registered in _CARD_CONTEXT_BUILDERS")

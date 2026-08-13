@@ -42,13 +42,17 @@ from inference.templates import history as history_tpl
 from inference.templates import impression as impression_tpl
 from inference.templates import intl_food_insight as intl_food_insight_tpl
 from inference.templates import kita_insight as kita_insight_tpl
+from inference.templates import language_school_insight as language_school_insight_tpl
+from inference.templates import library_insight as library_insight_tpl
 from inference.templates import noise_insight as noise_insight_tpl
+from inference.templates import packstation_insight as packstation_insight_tpl
 from inference.templates import pediatrician_insight as pediatrician_insight_tpl
 from inference.templates import playground_insight as playground_insight_tpl
 from inference.templates import refuge_insight as refuge_insight_tpl
 from inference.templates import supermarket_insight as supermarket_insight_tpl
 from inference.templates import transit_insight as transit_insight_tpl
 from inference.templates import transit_newcomer_insight as transit_newcomer_insight_tpl
+from inference.templates import wochenmarkt_insight as wochenmarkt_insight_tpl
 
 # ---------------------------------------------------------------------- config
 
@@ -79,6 +83,10 @@ TEMPLATES = {
     "gesix_newcomer_insight":    gesix_newcomer_insight_tpl.run,
     "intl_food_insight":         intl_food_insight_tpl.run,
     "transit_newcomer_insight":  transit_newcomer_insight_tpl.run,
+    "language_school_insight":   language_school_insight_tpl.run,
+    "library_insight":           library_insight_tpl.run,
+    "packstation_insight":       packstation_insight_tpl.run,
+    "wochenmarkt_insight":       wochenmarkt_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state
