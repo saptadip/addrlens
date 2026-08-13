@@ -228,6 +228,8 @@ function setActiveLens(slug) {
 const LIFE_MODE_LENSES = [
   {slug: 'young_family', label: 'Young Family',
    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="2.5"/><path d="M4 21v-4a5 5 0 0 1 10 0v4"/><circle cx="17" cy="10" r="1.8"/><path d="M13.5 21v-3a3 3 0 0 1 6 0v3"/></svg>'},
+  {slug: 'newcomer', label: 'Newcomer',
+   icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M17 4l3 3-3 3"/><path d="M14 7h6"/></svg>'},
   // Future: {slug: 'student', label: 'Student', icon: '<svg>…</svg>'},
   // Future: {slug: 'senior',  label: 'Senior',  icon: '<svg>…</svg>'},
 ];
@@ -246,9 +248,7 @@ function renderLensPicker(activeSlug) {
 
 function isAnyLensAvailable(addr) {
   const lens = (addr && addr.lens) || {};
-  const y = lens.young_family;
-  const b = lens.bureaucracy;
-  return (y && !y.error) || (b && !b.error);
+  return LIFE_MODE_LENSES.some(l => lens[l.slug] && !lens[l.slug].error);
 }
 
 // -- Card impressions (happy / sad vote per card, per address) --------------
@@ -2458,6 +2458,11 @@ function renderLensTile(tile, lensSlug) {
   const numeric = tile.numeric
     ? `<div class="tile-numeric">${escapeHtml(tile.numeric)}</div>`
     : '';
+  // gesix-family tiles (shape-only, no tier gem) get the CSS class that
+  // hides the yf-tier-slider via .lens-tile-gesix { display:block } +
+  // .lens-tile-gesix .yf-tier-slider { display:none }. Without this class
+  // the CSS rule is dead — the gem renders in the muted "unknown" position.
+  const gesixClass = (tile.key === 'gesix' || tile.key === 'gesix_newcomer') ? ' lens-tile-gesix' : '';
 
   // Card face intentionally minimal: icon + label + rule (the check
   // condition). Numeric / details / GESIx progress bar all move to the
@@ -2465,7 +2470,7 @@ function renderLensTile(tile, lensSlug) {
   // vertical tier gem on the right — same across every YF tile including
   // Neighbourhood profile.
   return `
-    <button class="cell lens-tile lens-tile-yf tier-${escapeHtml(tier)}"
+    <button class="cell lens-tile lens-tile-yf${gesixClass} tier-${escapeHtml(tier)}"
             data-tile-key="${escapeHtml(tile.key)}"
             aria-label="${escapeHtml(aria)}"
             type="button">
@@ -2602,21 +2607,23 @@ function renderLensCompareMatrix(addresses, slug) {
 }
 
 // renderLensCompare: dot matrix for compare view.
-// Emits BOTH lens matrices; picker toggles which is visible on-screen (via
-// [hidden] attribute). Print CSS reveals both so PDF export includes
-// everything without the tabs.
+// Emits a matrix per registered LIFE_MODE_LENSES entry; picker toggles
+// which slide is visible on-screen (via [hidden] attribute). Print CSS
+// reveals all so PDF export includes every lens without the tabs.
 function renderLensCompare(addresses) {
   const active = getActiveLens();
   if (!addresses || !addresses.length) return '';
-  const yf = renderLensCompareMatrix(addresses, 'young_family');
-  const bu = renderLensCompareMatrix(addresses, 'bureaucracy');
+  const slides = LIFE_MODE_LENSES.map(lens => {
+    const matrix = renderLensCompareMatrix(addresses, lens.slug);
+    const hidden = lens.slug !== active ? 'hidden' : '';
+    return `<div class="lens-compare-slide" data-slug="${escapeHtml(lens.slug)}" ${hidden}>${matrix}</div>`;
+  }).join('');
   return `
     <div class="lens-picker-row no-print">
       ${renderLensPicker(active)}
     </div>
     <div class="lens-compare-body" data-active-lens="${escapeHtml(active)}">
-      <div class="lens-compare-slide" data-slug="young_family" ${active === 'bureaucracy' ? 'hidden' : ''}>${yf}</div>
-      <div class="lens-compare-slide" data-slug="bureaucracy" ${active === 'young_family' ? 'hidden' : ''}>${bu}</div>
+      ${slides}
     </div>
   `;
 }
@@ -2759,7 +2766,7 @@ function renderLensModalBody(tile, lensSlug) {
   // affordance so the Get-AI-Insight button always anchors to the
   // bottom-left of the modal.
   let cardRichBlock = '';
-  if (tile.key === 'gesix') {
+  if (tile.key === 'gesix' || tile.key === 'gesix_newcomer') {
     const g = (tile.metadata && tile.metadata.gesix) || null;
     const q = g && g.quintile_5;
     const segs = [1,2,3,4,5].map(i => {
@@ -2789,16 +2796,23 @@ function renderLensModalBody(tile, lensSlug) {
   // Per-card vintage note appended to the AI-insight disclaimer. Card key
   // must match an entry in the backend's _CARD_CONTEXT_BUILDERS.
   const _INSIGHT_VINTAGE = {
-    kita:         'Kindertagesstätten (dl-de/by-2.0) — refreshed annually.',
-    playground:   'Grünanlagen — Spielplätze (dl-de/by-2.0) — refreshed annually.',
-    pediatrician: 'OpenStreetMap community-tagged — coverage varies by district.',
-    transit:      'VBB stations (CC-BY-4.0) + BVG Straßenbahn (dl-de/by-2.0) + OSM bus stops (ODbL).',
-    supermarket:  'OpenStreetMap community-tagged (ODbL).',
-    gesix:        'GESIx 2022 · refreshed by the Senate every 3–5 years.',
-    refuge:       'Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.',
-    noise:        'Strategische Lärmkarten 2022 (dl-de/by-2.0) — refreshed every 5 years.',
-    heat:         'Umweltatlas Klimabewertungskarten 2022 (dl-de/zero-2.0).',
-    air:          'Umweltatlas Luftreinhalteplan 2018–2025 trend scenario (dl-de/zero-2.0).',
+    kita:             'Kindertagesstätten (dl-de/by-2.0) — refreshed annually.',
+    playground:       'Grünanlagen — Spielplätze (dl-de/by-2.0) — refreshed annually.',
+    pediatrician:     'OpenStreetMap community-tagged — coverage varies by district.',
+    transit:          'VBB stations (CC-BY-4.0) + BVG Straßenbahn (dl-de/by-2.0) + OSM bus stops (ODbL).',
+    supermarket:      'OpenStreetMap community-tagged (ODbL).',
+    gesix:            'GESIx 2022 · refreshed by the Senate every 3–5 years.',
+    refuge:           'Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.',
+    noise:            'Strategische Lärmkarten 2022 (dl-de/by-2.0) — refreshed every 5 years.',
+    heat:             'Umweltatlas Klimabewertungskarten 2022 (dl-de/zero-2.0).',
+    air:              'Umweltatlas Luftreinhalteplan 2018–2025 trend scenario (dl-de/zero-2.0).',
+    // Newcomer lens cards
+    buergeramt:       'BOD Bezirks-Services · 2026',
+    transit_newcomer: 'VBB · 2026',
+    intl_food:        'OSM Geofabrik weekly extract',
+    coworking:        'OSM Geofabrik weekly extract',
+    english_clinic:   'OSM Geofabrik weekly extract',
+    gesix_newcomer:   'BOD GESIx · 2022',
   };
   const insightBlock = _INSIGHT_VINTAGE[tile.key] ? `
     <div class="card-insight-wrap" data-card="${escapeHtml(tile.key)}"
