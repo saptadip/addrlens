@@ -38,7 +38,9 @@ const ico={home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
   language_school:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><path d="M22 10v6"/></svg>',
   library:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/></svg>',
   packstation:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
-  wochenmarkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l2-4h14l2 4"/><path d="M3 10h18v3H3z"/><path d="M5 13v8h14v-8"/><path d="M9 21v-5h6v5"/></svg>'};
+  wochenmarkt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l2-4h14l2 4"/><path d="M3 10h18v3H3z"/><path d="M5 13v8h14v-8"/><path d="M9 21v-5h6v5"/></svg>',
+  nightlife:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16l-8 9-8-9z"/><path d="M12 13v7"/><path d="M8 20h8"/></svg>',
+  bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>'};
 const AMEN=[
   ['playgrounds','Playgrounds',ico.playground,'#22C55E'],
   ['parks','Parks / green space',ico.tree,'#10B981'],
@@ -47,6 +49,7 @@ const AMEN=[
   ['gps','Doctors',ico.gp,'#14B8A6'],
   ['hospitals','Hospitals',ico.hospital,'#DC2626','within ~2 km'],
   ['fountains','Drinking fountains',ico.fountain,'#0EA5E9'],
+  ['ev_charging','EV charging',ico.bolt,'#EAB308'],
   ['transit','Transit stops',ico.transit,'#8B5CF6'],
   // Phase 1: /api/lookup-derived tiles bridged into the amenities pipeline
   // via _hydrateLookupTiles(). Same tile shape, click opens the same modal.
@@ -191,6 +194,7 @@ const LENS_TILE_EXPLANATIONS = {
   library: "Distance to the nearest public library (VÖBB) or university library. For newcomers the library is the lowest-friction 'third place' — free Wi-Fi, warm study space, English fiction, integration events, no purchase pressure.",
   packstation: "Distance to the nearest DHL Packstation locker or Deutsche Post branch. Germany's parcel logistics assume you can retrieve mis-timed deliveries; a long walk turns weekly pickups into a chore.",
   wochenmarkt: "Distance to the nearest permitted Wochenmarkt. Cash-friendly, no-German-required, international vendors — a weekly market makes the neighbourhood feel like home faster than any single supermarket run.",
+  nightlife_density: "Count of tagged bars, pubs, and nightclubs within a 1 km walk. Berlin's nightlife is famously part of its draw — but the same density is what can turn a bedroom window into a night-noise complaint. No verdict from us; the number is the signal.",
 };
 
 // -- Spec D: map-pin color per tier ------------------------------------------
@@ -2470,11 +2474,10 @@ function renderLensTile(tile, lensSlug) {
   const numeric = tile.numeric
     ? `<div class="tile-numeric">${escapeHtml(tile.numeric)}</div>`
     : '';
-  // gesix-family tiles (shape-only, no tier gem) get the CSS class that
-  // hides the yf-tier-slider via .lens-tile-gesix { display:block } +
-  // .lens-tile-gesix .yf-tier-slider { display:none }. Without this class
-  // the CSS rule is dead — the gem renders in the muted "unknown" position.
-  const gesixClass = (tile.key === 'gesix' || tile.key === 'gesix_newcomer') ? ' lens-tile-gesix' : '';
+  // gesix-family tiles now carry a quintile-based tier verdict, so the
+  // vertical tier gem renders like every other tile.  The 5-segment
+  // quintile bar still shows inside the modal (see renderLensModalBody).
+  const gesixClass = '';
 
   // Card face intentionally minimal: icon + label + rule (the check
   // condition). Numeric / details / GESIx progress bar all move to the
