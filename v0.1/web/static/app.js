@@ -182,6 +182,7 @@ const LENS_TILE_EXPLANATIONS = {
   heat:  "Berlin's Umweltatlas classifies each block's bioclimate (PET at 14:00 in summer). 'Belastung' = burden; higher classes indicate more heat stress.",
   air:   "NO₂ measured µg/m³ per street segment (Umweltatlas trend scenario). WHO 2021 annual guideline is 10 µg/m³; Germany's legal limit is 40.",
   gesix: "Berlin's Senate publishes a composite of 20 health, social and employment indicators per Planungsraum (~10k residents). Higher quintile = healthier / more stable neighbourhood context. The signal describes the polygon around the flat, not the building itself.",
+  gesix_newcomer: "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band. Lower and higher quintiles both come with real tradeoffs for a newcomer — language mix, rent band, mutual-aid density — so walk the block before you sign.",
 };
 
 // -- Spec D: map-pin color per tier ------------------------------------------

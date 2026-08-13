@@ -1177,7 +1177,7 @@ def _tier_english_clinic(features: list, th: dict) -> dict:
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
 
-def newcomer_lens(cfg, index, lat: float, lon: float) -> dict:
+def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     """Assemble the 6-tile Newcomer lens block.
 
     Reads only pre-loaded Index state — no live fetch on the hot path.
@@ -1185,9 +1185,14 @@ def newcomer_lens(cfg, index, lat: float, lon: float) -> dict:
     thresholds to a tier dict; the composer wraps each in the Spec D
     tile shape and resolves provenance strings from cfg.attribution.
 
+    Args follow the project-wide (lon, lat) convention — same as
+    bureaucracy_lens and young_family_lens.
+
     Tile order (fixed): buergeramt, transit_newcomer, intl_food,
     coworking, english_clinic, gesix_newcomer.
     """
+    assert -60 <= lat <= 60, f"lat out of range: {lat}"
+    assert -180 <= lon <= 180, f"lon out of range: {lon}"
     lens = cfg.newcomer_lens
     th         = {t.key: t.thresholds for t in lens.tiles}
     tile_meta  = {t.key: (t.label, t.icon, t.caveat) for t in lens.tiles}
@@ -1199,13 +1204,14 @@ def newcomer_lens(cfg, index, lat: float, lon: float) -> dict:
     buergeramt_feats = [f for f in (_shape_office(o) for o in buergeramt_raw) if f]
 
     # -- Transit: S/U/Tram from preloaded VBB+BOD lists ----------------------
-    # No vbb_query() method exists; access per-modality lists directly.
+    # ponytail: No vbb_query() method exists; access per-modality lists
+    # directly.  Upgrade path: extract vbb_query() on Index when a third
+    # lens needs S/U/Tram unified access.
     _transit_raw = []
     for mode_tag, points in (("S", index.sbahn), ("U", index.ubahn),
                               ("T", index.tram)):
         for p in points:
-            from app.core.geo import haversine_m as _hav
-            d = _hav(lon, lat, p["lon"], p["lat"])
+            d = haversine_m(lon, lat, p["lon"], p["lat"])
             if d <= th["transit_newcomer"]["any_rail_m"] * 2:  # wide pre-filter
                 _transit_raw.append({**p, "distance_m": round(d), "mode": mode_tag})
     _transit_raw.sort(key=lambda x: x["distance_m"])
@@ -1888,7 +1894,7 @@ if __name__ == "__main__":
         def gesix_at(self, lon, lat):
             return {"plr_name": "X", "quintile_5": 3, "rang": 200, "total": 447}
 
-    _out = newcomer_lens(_CFG_NL, _StubNLIdx(), 52.5, 13.4)
+    _out = newcomer_lens(_CFG_NL, _StubNLIdx(), 13.4, 52.5)  # lon, lat — Berlin centre
     # Full envelope — canonical keys.
     assert all(k in _out for k in ("slug", "label", "audience", "tiles", "provenance")), \
         f"missing envelope keys: {sorted(_out)}"

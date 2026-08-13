@@ -392,7 +392,7 @@ def run_live_selfcheck() -> None:
     if not berg:
         print("  Bergmannstraße 27 geocode failed — skipped newcomer Kreuzberg assert")
     else:
-        _nl_k = scorer.newcomer_lens(cfg, idx, berg["lat"], berg["lon"])
+        _nl_k = scorer.newcomer_lens(cfg, idx, berg["lon"], berg["lat"])
         assert _nl_k.get("slug") == "newcomer", _nl_k.get("slug")
         assert set(_nl_k) >= {"slug", "label", "audience", "tiles", "provenance"}, \
             f"newcomer envelope missing keys: {set(_nl_k)}"
@@ -425,7 +425,7 @@ def run_live_selfcheck() -> None:
     if not marz:
         print("  Marzahner Promenade 1 geocode failed — skipped newcomer outer-east assert")
     else:
-        _nl_m = scorer.newcomer_lens(cfg, idx, marz["lat"], marz["lon"])
+        _nl_m = scorer.newcomer_lens(cfg, idx, marz["lon"], marz["lat"])
         assert _nl_m.get("slug") == "newcomer", _nl_m.get("slug")
         _nl_tiles_m = {t["key"]: t for t in _nl_m["tiles"]}
         assert set(_nl_tiles_m) == {
