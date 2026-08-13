@@ -818,6 +818,17 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "standesamt":     [attr.get("standesamt"), attr.get("bezirksgrenzen")],
         "lea":            [attr.get("lea")],
         "arbeitsagentur": [attr.get("arbeitsagentur")],
+        # Spec E — Newcomer lens
+        # buergeramt reuses the same BOD attribution key as Spec B.
+        # Transit uses the same VBB attribution as the YF transit tile.
+        # OSM buckets cite Geofabrik; no separate attribution key in berlin.py
+        # so we inline the standard ODbL line (ponytail: add per-key entries
+        # to attribution once the snapshot source is pinned per-city).
+        "transit_newcomer": [attr.get("sbahn"), attr.get("ubahn"), attr.get("tram")],
+        "intl_food":       ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "coworking":       ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "english_clinic":  ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "gesix_newcomer":  [attr.get("gesix")],
     }
     return [s for s in (mapping.get(key) or []) if s]
 
@@ -955,6 +966,309 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
         "tiles":      tiles,
         "provenance": _lens_provenance(cfg, tiles),
     }
+
+
+# ======================================================================== #
+# Spec E — Newcomer Lens (Task 4)                                          #
+# Pure tier functions + composer.  No I/O; all data flows through Index.   #
+# ======================================================================== #
+
+
+def _tile(key: str, label: str, icon: str, *,
+          tier: str, rule: str, numeric: str = "",
+          caveat: str = "", features: list = None,
+          sources: list = None, metadata: dict = None) -> dict:
+    """Lightweight Spec D tile dict builder.  Fills every mandatory key with a
+    safe default so callers only supply the fields that vary.
+
+    ponytail: no schema validation here — callers are responsible for correct
+    types; a future Pydantic model could replace this at v2."""
+    d = {
+        "key":      key,
+        "label":    label,
+        "icon":     icon,
+        "tier":     tier,
+        "rule":     rule,
+        "numeric":  numeric,
+        "caveat":   caveat,
+        "features": features if features is not None else [],
+        "sources":  sources  if sources  is not None else [],
+    }
+    if metadata is not None:
+        d["metadata"] = metadata
+    return d
+
+
+def _shape_osm_feature(o: dict) -> Optional[dict]:
+    """Shape an OSM local snapshot entry into the newcomer feature dict.
+    Items from OsmLocalCache.near() carry: lat, lon, name (optional), tags
+    (dict), distance_m (added by .near()), source='osm'.  Required: lat,
+    lon, distance_m — name falls back to the amenity tag."""
+    t = o.get("tags") or {}
+    name = (o.get("name") or t.get("name") or
+            t.get("amenity") or t.get("shop") or
+            t.get("office") or "").strip()
+    d = o.get("distance_m")
+    # Build address from addr:* tags when present.
+    street = (t.get("addr:street") or "").strip()
+    hnr    = (t.get("addr:housenumber") or "").strip()
+    plz    = (t.get("addr:postcode") or "").strip()
+    city   = (t.get("addr:city") or "").strip()
+    addr_l = f"{street} {hnr}".strip()
+    addr_r = f"{plz} {city}".strip()
+    address = ", ".join(p for p in [addr_l, addr_r] if p)
+    r = _prune({
+        "name":       name,
+        "lat":        o.get("lat"),
+        "lon":        o.get("lon"),
+        "distance_m": d,
+        "address":    address,
+        "phone":      (t.get("phone") or t.get("contact:phone") or "").strip(),
+        "website":    (t.get("website") or t.get("contact:website") or "").strip(),
+        "hours":      (t.get("opening_hours") or "").strip(),
+        "walk_min":   round(_walk_minutes(d)) if isinstance(d, (int, float)) else None,
+    })
+    if not r.get("name") or not _valid_latlon(r) or r.get("distance_m") is None:
+        return None
+    return r
+
+
+def _tier_buergeramt_newcomer(features: list, th: dict) -> dict:
+    """Newcomer Bürgeramt tile — distance-to-nearest logic.
+
+    Thresholds (metres, inclusive on greener side):
+      green_m  ≤ 1500m  → within a 15-minute walk
+      amber_m  ≤ 3000m  → reachable but you'll need transit
+      >  3000m           → cross-district trip required
+
+    `features` is the pre-shaped & distance-sorted list from
+    index.buergeramt_near() — dicts with {name, lat, lon, distance_m, ...}.
+
+    Sources string is added by the composer via _sources_for.
+    """
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no Bürgeramt data loaded",
+                "numeric": ""}
+    nearest = features[0]
+    d = nearest["distance_m"]
+    if d <= th["green_m"]:
+        tier = TIER_GREEN
+        rule = "Bürgeramt within a 15-minute walk"
+    elif d <= th["amber_m"]:
+        tier = TIER_AMBER
+        rule = "reachable but you'll need transit"
+    else:
+        tier = TIER_RED
+        rule = "cross-district trip required"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{int(d)} m to {nearest['name']}"}
+
+
+def _tier_transit_newcomer(features: list, th: dict) -> dict:
+    """Newcomer transit tile — prefers S/U rail over tram; surfaces
+    intercity-rail access.
+
+    `features`: list of dicts with {name, lat, lon, distance_m, mode}
+    where mode is one of 'S', 'U', 'T' (tram).  Sorted ascending by
+    distance_m.  Built by newcomer_lens() by scanning index.sbahn /
+    index.ubahn / index.tram and tagging each with its mode.
+
+    Green conditions (inclusive on the greener side):
+      • any S-Bahn ≤ sbahn_m (800 m), OR
+      • any U-Bahn ≤ ubahn_m (500 m)
+    Amber:
+      • any rail (S / U / T) ≤ any_rail_m (1 200 m)
+    Red:
+      • nothing within any_rail_m.
+    """
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no rail stop within 1.2 km",
+                "numeric": ""}
+    # Green — S or U within their respective limits.
+    for f in features:
+        d = f["distance_m"]
+        mode = f.get("mode", "")
+        if "S" in mode and d <= th["sbahn_m"]:
+            return {"tier": TIER_GREEN,
+                    "rule": "rail door-to-door for arrivals and departures",
+                    "numeric": f"{int(d)} m to S-Bahn {f['name']}"}
+        if "U" in mode and d <= th["ubahn_m"]:
+            return {"tier": TIER_GREEN,
+                    "rule": "rail door-to-door for arrivals and departures",
+                    "numeric": f"{int(d)} m to U-Bahn {f['name']}"}
+    # Amber — any rail within any_rail_m.
+    for f in features:
+        if f["distance_m"] <= th["any_rail_m"]:
+            mode_label = {"S": "S-Bahn", "U": "U-Bahn", "T": "Tram"}.get(
+                f.get("mode", ""), f.get("mode", "Rail"))
+            return {"tier": TIER_AMBER,
+                    "rule": "one interchange for intercity",
+                    "numeric": f"{int(f['distance_m'])} m to {mode_label} {f['name']}"}
+    # Red.
+    nearest = features[0]
+    return {"tier": TIER_RED,
+            "rule": "cabs or long transfers to leave the city",
+            "numeric": ""}
+
+
+def _tier_intl_food(features: list, th: dict) -> dict:
+    """Count-based tier for international food & grocers within radius_m.
+    green_count / amber_count are inclusive lower bounds."""
+    n = len(features)
+    if n >= th["green_count"]:
+        tier = TIER_GREEN
+        rule = "cluster of international food and grocery"
+    elif n >= th["amber_count"]:
+        tier = TIER_AMBER
+        rule = "a few options, mostly one direction"
+    else:
+        tier = TIER_RED
+        rule = "mainstream Rewe/Edeka territory"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{n} international spots within {th['radius_m']} m walk"}
+
+
+def _tier_coworking(features: list, th: dict) -> dict:
+    """Count-based tier for coworking spaces + Wi-Fi cafés within radius_m."""
+    n = len(features)
+    if n >= th["green_count"]:
+        tier = TIER_GREEN
+        rule = "walkable coworking scene"
+    elif n >= th["amber_count"]:
+        tier = TIER_AMBER
+        rule = "one or two anchors"
+    else:
+        tier = TIER_RED
+        rule = "no laptop-friendly options nearby"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{n} remote-work spots within {th['radius_m']} m"}
+
+
+def _tier_english_clinic(features: list, th: dict) -> dict:
+    """Distance-to-nearest English-tagged medical practice.
+
+    Thresholds (metres, inclusive on greener side):
+      green_m  ≤ 1200m  → walking distance
+      amber_m  ≤ 3000m  → short transit ride
+      > 3000m            → telemedicine territory
+
+    ponytail: OSM 'language:en=yes' tagging is community-maintained;
+    inner-district coverage is good, outer Berlin may under-report.
+    The caveat string is surfaced from cfg.newcomer_lens tile config.
+    """
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no English-tagged practice nearby — expect German or telemedicine",
+                "numeric": ""}
+    nearest = features[0]
+    d = nearest["distance_m"]
+    if d <= th["green_m"]:
+        tier = TIER_GREEN
+        rule = "English-speaking medical care in walking distance"
+    elif d <= th["amber_m"]:
+        tier = TIER_AMBER
+        rule = "reachable, will need a short transit ride"
+    else:
+        tier = TIER_RED
+        rule = "no English-tagged practice nearby — expect German or telemedicine"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{int(d)} m to {nearest['name']}"}
+
+
+def newcomer_lens(cfg, index, lat: float, lon: float) -> dict:
+    """Assemble the 6-tile Newcomer lens block.
+
+    Reads only pre-loaded Index state — no live fetch on the hot path.
+    Each tier function is a small pure translation from feature list +
+    thresholds to a tier dict; the composer wraps each in the Spec D
+    tile shape and resolves provenance strings from cfg.attribution.
+
+    Tile order (fixed): buergeramt, transit_newcomer, intl_food,
+    coworking, english_clinic, gesix_newcomer.
+    """
+    lens = cfg.newcomer_lens
+    th         = {t.key: t.thresholds for t in lens.tiles}
+    tile_meta  = {t.key: (t.label, t.icon, t.caveat) for t in lens.tiles}
+
+    # -- Bürgeramt: BOD-first (preloaded via buergeramt_near) ----------------
+    # Berlin has a live BOD ServicePortal feed wired in Spec B; OSM bucket
+    # is the v2-cities fallback only.  BOD-first per Global Constraints.
+    buergeramt_raw = index.buergeramt_near(lon, lat, 5000)
+    buergeramt_feats = [f for f in (_shape_office(o) for o in buergeramt_raw) if f]
+
+    # -- Transit: S/U/Tram from preloaded VBB+BOD lists ----------------------
+    # No vbb_query() method exists; access per-modality lists directly.
+    _transit_raw = []
+    for mode_tag, points in (("S", index.sbahn), ("U", index.ubahn),
+                              ("T", index.tram)):
+        for p in points:
+            from app.core.geo import haversine_m as _hav
+            d = _hav(lon, lat, p["lon"], p["lat"])
+            if d <= th["transit_newcomer"]["any_rail_m"] * 2:  # wide pre-filter
+                _transit_raw.append({**p, "distance_m": round(d), "mode": mode_tag})
+    _transit_raw.sort(key=lambda x: x["distance_m"])
+    transit_feats = _transit_raw   # full sorted list for tier fn; shaped for features below
+
+    # -- OSM local buckets: intl_food, coworking, english_clinic -------------
+    oc = getattr(index, "osm_local", None)
+
+    def _osm_near(bucket: str, radius_m: int) -> list:
+        """Query OsmLocalCache or return [] when the cache is absent."""
+        if oc is None:
+            return []
+        return oc.near(bucket, lon, lat, radius_m)
+
+    intl_food_raw     = _osm_near("intl_food",     th["intl_food"]["radius_m"])
+    coworking_raw     = _osm_near("coworking",      th["coworking"]["radius_m"])
+    english_clinic_raw = _osm_near("english_clinic", 3500)
+
+    intl_food_feats     = [f for f in (_shape_osm_feature(o) for o in intl_food_raw)     if f]
+    coworking_feats     = [f for f in (_shape_osm_feature(o) for o in coworking_raw)     if f]
+    english_clinic_feats = [f for f in (_shape_osm_feature(o) for o in english_clinic_raw) if f]
+
+    # -- Tier computations ---------------------------------------------------
+    results = [
+        ("buergeramt",     _tier_buergeramt_newcomer(buergeramt_feats, th["buergeramt"])),
+        ("transit_newcomer", _tier_transit_newcomer(transit_feats,     th["transit_newcomer"])),
+        ("intl_food",      _tier_intl_food(intl_food_feats,            th["intl_food"])),
+        ("coworking",      _tier_coworking(coworking_feats,            th["coworking"])),
+        ("english_clinic", _tier_english_clinic(english_clinic_feats,  th["english_clinic"])),
+    ]
+
+    tiles = []
+    feat_map = {
+        "buergeramt":      buergeramt_feats,
+        "transit_newcomer": [{"name": f["name"], "lat": f["lat"], "lon": f["lon"],
+                               "distance_m": f["distance_m"], "mode": f["mode"],
+                               "walk_min": round(_walk_minutes(f["distance_m"]))}
+                              for f in transit_feats[:10]],
+        "intl_food":       intl_food_feats[:10],
+        "coworking":       coworking_feats[:10],
+        "english_clinic":  english_clinic_feats[:10],
+    }
+
+    for key, res in results:
+        label, icon, caveat = tile_meta[key]
+        tile = {
+            "key":      key,
+            "label":    label,
+            "icon":     icon,
+            "tier":     res["tier"],
+            "rule":     res["rule"],
+            "numeric":  res["numeric"],
+            "caveat":   caveat,
+            "features": feat_map.get(key, []),
+            "sources":  _sources_for(cfg, key, res["tier"]),
+        }
+        tiles.append(tile)
+
+    # GESIx shape-only tile last.
+    tiles.append(_shape_gesix(cfg, index, lat, lon, card_key="gesix_newcomer",
+                              label=tile_meta["gesix_newcomer"][0]))
+
+    return {"version": 1, "tiles": tiles}
 
 
 if __name__ == "__main__":
@@ -1446,3 +1760,165 @@ if __name__ == "__main__":
     assert _sg_none["features"]     == []
 
     print("scorer.py: _shape_gesix selfcheck OK")
+
+    # ===================================================================== #
+    # Task 4 — Newcomer tier functions + composer selfchecks               #
+    # ===================================================================== #
+
+    # _tile helper — mandatory keys always present, metadata only when given.
+    _t0 = _tile("k", "L", "i", tier="green", rule="r")
+    assert _t0["key"] == "k" and _t0["tier"] == "green"
+    assert _t0["features"] == [] and _t0["sources"] == []
+    assert "metadata" not in _t0
+    _t1 = _tile("k", "L", "i", tier="green", rule="r",
+                metadata={"x": 1})
+    assert "metadata" in _t1 and _t1["metadata"]["x"] == 1
+
+    # _shape_osm_feature — well-formed and malformed inputs.
+    _osm_ok = {"lat": 52.5, "lon": 13.4, "distance_m": 400, "source": "osm",
+               "name": "Grocery X",
+               "tags": {"addr:street": "Bergmannstraße", "addr:housenumber": "5",
+                        "opening_hours": "Mo-Su 08:00-20:00"}}
+    _so = _shape_osm_feature(_osm_ok)
+    assert _so is not None
+    assert _so["name"] == "Grocery X"
+    assert _so["distance_m"] == 400
+    assert _so["hours"] == "Mo-Su 08:00-20:00"
+    assert isinstance(_so["walk_min"], int)
+    # Missing lat → None
+    assert _shape_osm_feature({"lon": 13.4, "distance_m": 100}) is None
+    # Empty name falls back to amenity tag
+    _osm_noname = {"lat": 52.5, "lon": 13.4, "distance_m": 200, "source": "osm",
+                   "tags": {"amenity": "restaurant"}}
+    assert _shape_osm_feature(_osm_noname)["name"] == "restaurant"
+
+    # -- _tier_buergeramt_newcomer -------------------------------------------
+    _TN = {t.key: t.thresholds for t in _CFG_YF.newcomer_lens.tiles}
+
+    _B_f = lambda d: [{"name": "BA-Test", "lat": 52.5, "lon": 13.4,
+                        "distance_m": d}]
+    # At exactly green boundary → green (inclusive).
+    assert _tier_buergeramt_newcomer(_B_f(1500),    _TN["buergeramt"])["tier"] == TIER_GREEN
+    # One metre beyond → amber.
+    assert _tier_buergeramt_newcomer(_B_f(1501),    _TN["buergeramt"])["tier"] == TIER_AMBER
+    assert _tier_buergeramt_newcomer(_B_f(3000),    _TN["buergeramt"])["tier"] == TIER_AMBER
+    # One metre beyond amber → red.
+    assert _tier_buergeramt_newcomer(_B_f(3001),    _TN["buergeramt"])["tier"] == TIER_RED
+    # Empty list → red (no data).
+    assert _tier_buergeramt_newcomer([],            _TN["buergeramt"])["tier"] == TIER_RED
+
+    # Numeric carries distance + name for green/amber/red (non-empty).
+    _bn = _tier_buergeramt_newcomer(_B_f(1000), _TN["buergeramt"])
+    assert "1000" in _bn["numeric"] and "BA-Test" in _bn["numeric"]
+
+    # -- _tier_transit_newcomer -----------------------------------------------
+    _TRN = _TN["transit_newcomer"]
+
+    def _tr_f(mode, d):
+        return [{"name": "Ost", "lat": 52.5, "lon": 13.4,
+                 "distance_m": d, "mode": mode}]
+
+    # S-Bahn ≤ 800 m → green.
+    assert _tier_transit_newcomer(_tr_f("S", 800),  _TRN)["tier"] == TIER_GREEN
+    # S-Bahn 801 m → not green; then amber if ≤ 1200 m.
+    assert _tier_transit_newcomer(_tr_f("S", 801),  _TRN)["tier"] == TIER_AMBER
+    # U-Bahn ≤ 500 m → green.
+    assert _tier_transit_newcomer(_tr_f("U", 500),  _TRN)["tier"] == TIER_GREEN
+    # U-Bahn 501 m → not green U; amber (within any_rail_m=1200).
+    assert _tier_transit_newcomer(_tr_f("U", 501),  _TRN)["tier"] == TIER_AMBER
+    # Tram ≤ 1200 m → amber.
+    assert _tier_transit_newcomer(_tr_f("T", 1200), _TRN)["tier"] == TIER_AMBER
+    # Tram 1201 m → red.
+    assert _tier_transit_newcomer(_tr_f("T", 1201), _TRN)["tier"] == TIER_RED
+    # Empty → red.
+    assert _tier_transit_newcomer([],               _TRN)["tier"] == TIER_RED
+
+    # -- _tier_intl_food ------------------------------------------------------
+    _TIF = _TN["intl_food"]
+    _ff  = lambda n: [{"name": f"Shop{i}", "lat": 52.5, "lon": 13.4,
+                        "distance_m": 100}      for i in range(n)]
+    assert _tier_intl_food(_ff(5),  _TIF)["tier"] == TIER_GREEN   # green_count=5, inclusive
+    assert _tier_intl_food(_ff(4),  _TIF)["tier"] == TIER_AMBER   # ≥ amber_count=2
+    assert _tier_intl_food(_ff(2),  _TIF)["tier"] == TIER_AMBER   # amber_count=2, inclusive
+    assert _tier_intl_food(_ff(1),  _TIF)["tier"] == TIER_RED
+    assert _tier_intl_food([],      _TIF)["tier"] == TIER_RED
+    # Numeric always carries count + radius.
+    _tn = _tier_intl_food(_ff(3), _TIF)
+    assert "3" in _tn["numeric"] and str(_TIF["radius_m"]) in _tn["numeric"]
+
+    # -- _tier_coworking -------------------------------------------------------
+    _TCW = _TN["coworking"]
+    _cf  = lambda n: [{"name": f"Desk{i}", "lat": 52.5, "lon": 13.4,
+                        "distance_m": 200}      for i in range(n)]
+    assert _tier_coworking(_cf(3), _TCW)["tier"] == TIER_GREEN    # green_count=3, inclusive
+    assert _tier_coworking(_cf(2), _TCW)["tier"] == TIER_AMBER    # < green but ≥ amber_count=1
+    assert _tier_coworking(_cf(1), _TCW)["tier"] == TIER_AMBER    # amber_count=1, inclusive
+    assert _tier_coworking([],     _TCW)["tier"] == TIER_RED
+
+    # -- _tier_english_clinic --------------------------------------------------
+    _TEC = _TN["english_clinic"]
+    _ef  = lambda d: [{"name": "Clinic", "lat": 52.5, "lon": 13.4,
+                        "distance_m": d}]
+    # green_m=1200, inclusive.
+    assert _tier_english_clinic(_ef(1200),    _TEC)["tier"] == TIER_GREEN
+    assert _tier_english_clinic(_ef(1201),    _TEC)["tier"] == TIER_AMBER
+    assert _tier_english_clinic(_ef(3000),    _TEC)["tier"] == TIER_AMBER
+    assert _tier_english_clinic(_ef(3001),    _TEC)["tier"] == TIER_RED
+    assert _tier_english_clinic([],           _TEC)["tier"] == TIER_RED
+
+    # -- newcomer_lens composer smoke test ------------------------------------
+    from app.cities.berlin import BERLIN as _CFG_NL
+
+    class _StubNLIdx:
+        """Stub Index for newcomer_lens composer — returns empty for everything."""
+        sbahn = []
+        ubahn = []
+        tram  = []
+        osm_local = None   # will be replaced below
+
+        def buergeramt_near(self, lon, lat, radius_m=5000):
+            return []
+
+        def gesix_at(self, lon, lat):
+            return {"plr_name": "X", "quintile_5": 3, "rang": 200, "total": 447}
+
+    _out = newcomer_lens(_CFG_NL, _StubNLIdx(), 52.5, 13.4)
+    # Version + tile count.
+    assert _out["version"] == 1
+    assert len(_out["tiles"]) == 6
+    # Tile key order (plan-specified).
+    _keys_nl = [t["key"] for t in _out["tiles"]]
+    assert _keys_nl == ["buergeramt", "transit_newcomer", "intl_food",
+                        "coworking", "english_clinic", "gesix_newcomer"], _keys_nl
+    # gesix_newcomer is shape-only → tier unknown.
+    _by_nl = {t["key"]: t for t in _out["tiles"]}
+    assert _by_nl["gesix_newcomer"]["tier"] == TIER_UNKNOWN
+    # All traffic-light tiles have mandatory Spec D keys.
+    _spec_d_keys = {"key","label","icon","tier","rule","numeric","caveat","sources","features"}
+    for t in _out["tiles"]:
+        assert _spec_d_keys <= set(t.keys()), t
+
+    # gesix_newcomer carries metadata.gesix.
+    assert "metadata" in _by_nl["gesix_newcomer"]
+    assert "gesix" in _by_nl["gesix_newcomer"]["metadata"]
+
+    # sources uses attribution TEXT, not keys (regression guard from Task 3 fix).
+    # _shape_gesix populates sources directly from cfg.attribution["gesix"] —
+    # it does not route through _sources_for, so sources is non-empty even when
+    # tier == "unknown".
+    _nl_gesix_sources = _by_nl["gesix_newcomer"]["sources"]
+    assert _nl_gesix_sources != ["gesix"] and _nl_gesix_sources != ["gesix_newcomer"], \
+        f"sources must be attribution TEXT, not key: {_nl_gesix_sources}"
+    assert any("GESIx" in s or "Senatsverwaltung" in s for s in _nl_gesix_sources), \
+        f"gesix sources must cite attribution text: {_nl_gesix_sources}"
+    # Confirm _sources_for resolves newcomer keys to text (not bare key strings).
+    _src_chk = _sources_for(_CFG_NL, "gesix_newcomer", "green")
+    assert _src_chk != ["gesix_newcomer"] and _src_chk != ["gesix"]
+    assert any("GESIx" in s or "Senatsverwaltung" in s for s in _src_chk), _src_chk
+
+    # Buergeramt tile sources use BOD attribution text (not key "buergeramt").
+    _bur_src = _sources_for(_CFG_NL, "buergeramt", "green")
+    assert _bur_src != ["buergeramt"], _bur_src
+    assert any("ServicePortal" in s or "service.berlin.de" in s for s in _bur_src), _bur_src
+
+    print("scorer.py: Newcomer lens (Task 4) selfchecks OK")
