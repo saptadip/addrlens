@@ -180,7 +180,7 @@ function shortUrl(u){ try{ return new URL(u).hostname.replace(/^www\./,''); } ca
 const LM_STATE_KEY  = 'berlin-lens-mode-v1';       // "on" | "off"
 const LM_SEEN_KEY   = 'berlin-lens-mode-seen-v1';  // "1" once seen or dismissed
 const LM_PULSE_MS   = 30000;                       // auto-stop pulse after 30 s
-const LM_ACTIVE_KEY  = 'berlin-lens-active-v1';    // "young_family"|"bureaucracy"
+const LM_ACTIVE_KEY  = 'berlin-lens-active-v1';    // "young_family"|"newcomer"
 const LM_DEFAULT_LENS = 'young_family';            // default for first-time users
 
 // -- Spec D: aggregate-tile explanations (rendered in modal only) -----------
@@ -1364,11 +1364,12 @@ function fmtDistance(m){
   if(m==null) return '—';
   return m < 1000 ? `${m} m` : `${(m/1000).toFixed(1)} km`;
 }
-// -- Others tab (raw-mode mirror of the Bureaucracy Life-Mode lens) ---------
-// Reads the SAME data used to build Life Mode's Bureaucracy cards
-// (d.lens.bureaucracy.tiles) so the two views can't drift. No new fetch.
-// Others tab state — mirrors panels['amen'|'med'] shape so it plugs into the
-// same tab-open handler for map init.
+// -- Others tab: German admin office reach (buergeramt / finanzamt / -------
+// standesamt / lea / arbeitsagentur). Reads d.lens.bureaucracy.tiles from
+// the /api/lookup response — the "bureaucracy" backend lens now exists
+// solely to feed this tab (it is not shown in the Life Mode picker).
+// Others tab state — mirrors panels['amen'|'med'] shape so it plugs into
+// the same tab-open handler for map init.
 const othersState = { tiles: [], byKey: {}, mapRef: null, layer: null,
                        markers: [], selected: null, prov: '' };
 
@@ -2437,31 +2438,6 @@ function labelWithGlossHtml(label){
 function renderLensTile(tile, lensSlug) {
   const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
 
-  // Bureaucracy is informational, not verdict-graded — mirror the Amenities
-  // tile face: neutral icon-badge + big walk-min metric, label, nearest-office
-  // pill. No tier color-bar, no GREEN/AMBER/RED badge.
-  if (lensSlug === 'bureaucracy') {
-    const features = Array.isArray(tile.features) ? tile.features : [];
-    const walkMinNearest = features.length ? features[0].walk_min : null;
-    const metricN   = walkMinNearest != null ? String(walkMinNearest) : '—';
-    const metricCap = walkMinNearest != null ? '<span class="cap">min</span>' : '';
-    const pillText  = features.length && features[0].name ? features[0].name : '';
-    const aria      = `${tile.label}: ${tile.rule}`;
-    return `
-      <button class="cell amen-cell lens-tile lens-tile-info"
-              data-tile-key="${escapeHtml(tile.key)}"
-              aria-label="${escapeHtml(aria)}"
-              type="button">
-        <div class="amen-tile-top">
-          <div class="icon-badge">${iconSVG}</div>
-          <div class="metric-big"><span class="n">${escapeHtml(metricN)}</span>${metricCap}</div>
-        </div>
-        <span class="cell-label">${labelWithGlossHtml(tile.label)}</span>
-        ${pillText ? `<span class="amen-tag">${escapeHtml(pillText)}</span>` : ''}
-      </button>
-    `;
-  }
-
   // Young Family: verdict-graded card. Tier communicated via a static vertical
   // traffic-light indicator on the right (RED top, AMBER middle, GREEN bottom)
   // — not an interactive slider (role="img", not "slider"). Card face carries
@@ -2547,27 +2523,9 @@ function renderLensSingle(addr) {
 }
 
 // -- Life Mode compare-view render (Task 11) --------------------------------
-// renderLensDot: single cell for the compare matrix.
-// Young Family → verdict-graded colored dot; Bureaucracy → walk-minutes
-// text on a neutral neumorphic cell (informational, not verdict-graded).
+// renderLensDot: single cell for the compare matrix.  Verdict-graded colored
+// dot; unavailable cells fall through to the tier-unknown gray dot.
 function renderLensDot(tile, lensSlug) {
-  if (lensSlug === 'bureaucracy') {
-    if (!tile) {
-      return `<button class="lens-compare-cell lens-compare-cell-info" type="button"
-                      aria-label="unavailable" title="unavailable">—</button>`;
-    }
-    const features = Array.isArray(tile.features) ? tile.features : [];
-    const walkMin  = features.length ? features[0].walk_min : null;
-    const name     = features.length && features[0].name ? features[0].name : '';
-    const label    = walkMin != null ? String(walkMin) : '—';
-    const suffix   = walkMin != null ? '<span class="cell-cap">min</span>' : '';
-    const title    = escapeHtml(tile.label + (name ? ' — ' + name : '')
-                     + (walkMin != null ? ' (~' + walkMin + ' min walk)' : ''));
-    const aria     = escapeHtml(tile.label + ': '
-                     + (walkMin != null ? '~' + walkMin + ' min walk' : 'unavailable'));
-    return `<button class="lens-compare-cell lens-compare-cell-info" type="button"
-                    aria-label="${aria}" title="${title}"><span class="cell-num">${escapeHtml(label)}</span>${suffix}</button>`;
-  }
   if (!tile) {
     return `<button class="lens-compare-cell tier-unknown" type="button"
                     aria-label="unavailable" title="unavailable">•</button>`;
@@ -2737,8 +2695,7 @@ function renderLensTreesBlock(trees) {
 
 function renderLensModalBody(tile, lensSlug) {
   const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
-  // Both lenses now suppress the GREEN/AMBER/RED text badge in the modal
-  // head: Bureaucracy because it's informational; Young Family because the
+  // Modal head suppresses the GREEN/AMBER/RED text badge because the
   // vertical tier-slider on the tile face already communicates the verdict.
   const isInfo  = true;
   const tier    = tile.tier || 'unknown';
