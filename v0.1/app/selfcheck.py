@@ -376,6 +376,74 @@ def run_live_selfcheck() -> None:
         assert isinstance(f.get("walk_min"), int), f
     print("  bureaucracy lens asserts OK")
 
+    # -- Newcomer lens (Spec E) -----------------------------------------------
+    # Two known-good Berlin addresses exercise the lens shape and broad tier
+    # expectations.  Tier assertions are intentionally soft (range checks, not
+    # pinned values) to survive OSM data drift and temporary rail closures.
+    #
+    # Bergmannstraße 27 (Friedrichshain-Kreuzberg) — dense inner district;
+    # expect mostly green on transit and food, unknown on gesix_newcomer.
+    #
+    # Marzahner Promenade 1 (Marzahn-Hellersdorf) — outer east; English-tagged
+    # OSM medical coverage is thinner at the periphery, so english_clinic
+    # skews amber or red.
+
+    # Bergmannstraße 27 — reuse `berg` geocode result from bureaucracy block.
+    if not berg:
+        print("  Bergmannstraße 27 geocode failed — skipped newcomer Kreuzberg assert")
+    else:
+        _nl_k = scorer.newcomer_lens(cfg, idx, berg["lat"], berg["lon"])
+        assert _nl_k.get("slug") == "newcomer", _nl_k.get("slug")
+        assert set(_nl_k) >= {"slug", "label", "audience", "tiles", "provenance"}, \
+            f"newcomer envelope missing keys: {set(_nl_k)}"
+        _nl_tiles_k = {t["key"]: t for t in _nl_k["tiles"]}
+        assert set(_nl_tiles_k) == {
+            "buergeramt", "transit_newcomer", "intl_food",
+            "coworking", "english_clinic", "gesix_newcomer"
+        }, f"unexpected tile keys: {set(_nl_tiles_k)}"
+        for _t in _nl_k["tiles"]:
+            assert _t["tier"] in {"green", "amber", "red", "unknown"}, _t
+            assert _t["label"], f"tile missing label: {_t}"
+            assert _t["rule"], f"tile missing rule: {_t}"
+        # Transit: Kreuzberg has multiple S/U stops within walking distance.
+        # Softened to green-or-amber in case of a temporary closure.
+        assert _nl_tiles_k["transit_newcomer"]["tier"] in ("green", "amber"), \
+            f"expected transit green/amber at Bergmannstraße 27: {_nl_tiles_k['transit_newcomer']}"
+        # International food: Kreuzberg is one of Berlin's most international districts.
+        assert _nl_tiles_k["intl_food"]["tier"] in ("green", "amber"), \
+            f"expected intl_food green/amber at Bergmannstraße 27: {_nl_tiles_k['intl_food']}"
+        # GESIx shape-only tile must always be unknown.
+        assert _nl_tiles_k["gesix_newcomer"]["tier"] == "unknown", \
+            f"gesix_newcomer must be unknown: {_nl_tiles_k['gesix_newcomer']}"
+        # GESIx metadata key must be present (may be empty dict when outside a Planungsraum).
+        assert "gesix" in _nl_tiles_k["gesix_newcomer"].get("metadata", {}), \
+            f"gesix_newcomer missing metadata.gesix: {_nl_tiles_k['gesix_newcomer']}"
+        print("  newcomer lens Bergmannstraße 27 asserts OK")
+
+    # Marzahner Promenade 1 (outer east, Marzahn-Hellersdorf).
+    marz = idx.geocode("Marzahner Promenade", "1", "12679")
+    if not marz:
+        print("  Marzahner Promenade 1 geocode failed — skipped newcomer outer-east assert")
+    else:
+        _nl_m = scorer.newcomer_lens(cfg, idx, marz["lat"], marz["lon"])
+        assert _nl_m.get("slug") == "newcomer", _nl_m.get("slug")
+        _nl_tiles_m = {t["key"]: t for t in _nl_m["tiles"]}
+        assert set(_nl_tiles_m) == {
+            "buergeramt", "transit_newcomer", "intl_food",
+            "coworking", "english_clinic", "gesix_newcomer"
+        }, f"unexpected tile keys: {set(_nl_tiles_m)}"
+        for _t in _nl_m["tiles"]:
+            assert _t["tier"] in {"green", "amber", "red", "unknown"}, _t
+        # English-tagged OSM coverage thins out in outer districts; amber or red expected.
+        assert _nl_tiles_m["english_clinic"]["tier"] in ("amber", "red"), \
+            f"expected english_clinic amber/red at Marzahner Promenade 1: {_nl_tiles_m['english_clinic']}"
+        # GESIx shape-only tile must always be unknown regardless of location.
+        assert _nl_tiles_m["gesix_newcomer"]["tier"] == "unknown", \
+            f"gesix_newcomer must be unknown: {_nl_tiles_m['gesix_newcomer']}"
+        print("  newcomer lens Marzahner Promenade 1 asserts OK")
+
+    print("  newcomer lens asserts OK")
+
     print("→ live selfcheck OK")
 
 
