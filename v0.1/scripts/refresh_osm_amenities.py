@@ -133,6 +133,20 @@ _TAG_RULES = {
     "wochenmarkt": [
         {"amenity": {"marketplace"}},
     ],
+
+    # ev_charging — public electric-vehicle charging stations. Surfaced in
+    # the raw-view Amenities strip (not a lens tile) as a count-in-radius.
+    # OSM Berlin coverage is dense (~1000+ points, community-maintained).
+    "ev_charging": [
+        {"amenity": {"charging_station"}},
+    ],
+
+    # nightlife — bars, pubs, and nightclubs. Newcomer-lens numeric-only tile
+    # (no green/amber/red verdict — density is context, not judgement).
+    # OSM Berlin coverage is excellent (nightlife is a documented city draw).
+    "nightlife": [
+        {"amenity": {"bar", "pub", "nightclub"}},
+    ],
 }
 
 # Categories that must have a `name` tag to survive (mirrors _DROP_UNNAMED
@@ -378,6 +392,11 @@ if __name__ == "__main__":
     assert _cat_for({"amenity": "parcel_locker"}) == "packstation"
     assert _cat_for({"amenity": "post_office"})   == "packstation"
     assert _cat_for({"amenity": "marketplace"})   == "wochenmarkt"
+    # EV charging (raw-view Amenities) + nightlife density (Newcomer tile).
+    assert _cat_for({"amenity": "charging_station"}) == "ev_charging"
+    assert _cat_for({"amenity": "bar"})       == "nightlife"
+    assert _cat_for({"amenity": "pub"})       == "nightlife"
+    assert _cat_for({"amenity": "nightclub"}) == "nightlife"
     # German cuisine restaurant must NOT match (post-filter catches it, but _cat_for
     # will still return intl_food — exclusion is in _add, not _cat_for).
     # (We verify exclusion logic through _INTL_FOOD_EXCLUDE_CUISINE membership.)
@@ -404,11 +423,13 @@ if __name__ == "__main__":
         j = _json.loads(snap.read_text())
         buckets = j.get("buckets", j)   # tolerate flat shape (legacy)
         for key in ("intl_food", "coworking", "english_clinic", "buergeramt",
-                    "language_school", "library", "packstation", "wochenmarkt"):
+                    "language_school", "library", "packstation", "wochenmarkt",
+                    "ev_charging", "nightlife"):
             assert key in buckets, f"missing bucket {key!r}"
             assert isinstance(buckets[key], list), f"{key} not list"
         print("selfcheck ok:", {k: len(buckets[k]) for k in
               ("intl_food", "coworking", "english_clinic", "buergeramt",
-               "language_school", "library", "packstation", "wochenmarkt")})
+               "language_school", "library", "packstation", "wochenmarkt",
+               "ev_charging", "nightlife")})
     else:
         print("selfcheck skipped — main() did not write a snapshot")

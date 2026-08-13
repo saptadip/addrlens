@@ -512,11 +512,26 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
     """
     g = index.gesix_at(lon, lat) if hasattr(index, "gesix_at") else None
     g = g or {}
+    # Quintile → tier verdict (5-band GESIx socioeconomic index).
+    # GESIx convention: quintile 1 = TOP 20% (most advantaged Planungsraum),
+    # quintile 5 = BOTTOM 20%.  Rank is ascending on advantage — rank 1 is
+    # the top-scoring Planungsraum, rank N the lowest.  The modal's
+    # 5-segment bar already renders leftmost = "Top 20%" and maps segments
+    # 1-2 green · 3 amber · 4-5 red; the tile-face gem must agree.
+    _q = g.get("quintile_5")
+    if _q == 1 or _q == 2:
+        tier = TIER_GREEN
+    elif _q == 3:
+        tier = TIER_AMBER
+    elif _q == 4 or _q == 5:
+        tier = TIER_RED
+    else:
+        tier = TIER_UNKNOWN
     return {
         "key":      card_key,
         "label":    label,
         "icon":     "gesix",
-        "tier":     TIER_UNKNOWN,
+        "tier":     tier,
         "rule":     "socioeconomic band of this Planungsraum · tap for detail",
         "numeric":  "",
         "caveat":   "",
@@ -1262,6 +1277,27 @@ def _tier_packstation(features: list, th: dict) -> dict:
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
 
+def _tier_nightlife_density(features: list, th: dict) -> dict:
+    """Numeric-only nightlife density tile — always tier=unknown.
+
+    The same feature (dense bars / clubs / pubs) is a positive for one
+    newcomer and a negative for another; we present the number, not a
+    verdict.  The noise tile carries the sound-level side of the same
+    signal for anyone who cares about sleep.
+
+    `th` is expected to be an empty dict; radius is fixed at 1 km via
+    the composer.
+    """
+    n = len(features)
+    if n == 0:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "no tagged bars, pubs, or clubs within 1 km",
+                "numeric": ""}
+    return {"tier": TIER_UNKNOWN,
+            "rule": "count within a 1 km walk — no verdict, just the number",
+            "numeric": f"{n} bars / clubs / pubs within 1 km"}
+
+
 def _tier_wochenmarkt(features: list, th: dict) -> dict:
     """Distance-to-nearest permitted weekly market (Wochenmarkt).
 
@@ -1368,6 +1404,8 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     library_raw         = _osm_near("library",         th["library"]["amber_m"] + 1500)
     packstation_raw     = _osm_near("packstation",     th["packstation"]["amber_m"] + 500)
     wochenmarkt_raw     = _osm_near("wochenmarkt",     th["wochenmarkt"]["amber_m"] + 1000)
+    # Nightlife density is numeric-only (no verdict) — fixed 1 km radius.
+    nightlife_raw       = _osm_near("nightlife",       1000)
 
     intl_food_feats     = [f for f in (_shape_osm_feature(o) for o in intl_food_raw)     if f]
     coworking_feats     = [f for f in (_shape_osm_feature(o) for o in coworking_raw)     if f]
@@ -1376,6 +1414,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     library_feats       = [f for f in (_shape_osm_feature(o) for o in library_raw)       if f]
     packstation_feats   = [f for f in (_shape_osm_feature(o) for o in packstation_raw)   if f]
     wochenmarkt_feats   = [f for f in (_shape_osm_feature(o) for o in wochenmarkt_raw)   if f]
+    nightlife_feats     = [f for f in (_shape_osm_feature(o) for o in nightlife_raw)     if f]
 
     # -- Tier computations ---------------------------------------------------
     results = [
@@ -1388,6 +1427,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
         ("library",        _tier_library(library_feats,                th["library"])),
         ("packstation",    _tier_packstation(packstation_feats,        th["packstation"])),
         ("wochenmarkt",    _tier_wochenmarkt(wochenmarkt_feats,        th["wochenmarkt"])),
+        ("nightlife_density", _tier_nightlife_density(nightlife_feats, th["nightlife_density"])),
     ]
 
     tiles = []
@@ -1405,10 +1445,19 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
         "library":         library_feats[:10],
         "packstation":     packstation_feats[:10],
         "wochenmarkt":     wochenmarkt_feats[:10],
+        "nightlife_density": nightlife_feats[:10],
     }
 
     for key, res in results:
         label, icon, caveat = tile_meta[key]
+        # Numeric-only tiles are tier=UNKNOWN by design; _sources_for()
+        # returns [] for unknown, which would drop the OSM attribution for
+        # a count that IS a real fact.  Override for these keys so the
+        # citation still renders.
+        if key == "nightlife_density":
+            sources = ["© OpenStreetMap contributors (ODbL) via Geofabrik"]
+        else:
+            sources = _sources_for(cfg, key, res["tier"])
         tile = {
             "key":      key,
             "label":    label,
@@ -1418,7 +1467,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
             "numeric":  res["numeric"],
             "caveat":   caveat,
             "features": feat_map.get(key, []),
-            "sources":  _sources_for(cfg, key, res["tier"]),
+            "sources":  sources,
         }
         tiles.append(tile)
 
@@ -1897,7 +1946,8 @@ if __name__ == "__main__":
 
     _sg = _shape_gesix(_StubCfg(), _StubGesix(), 52.5, 13.4)
     assert _sg["key"]  == "gesix", _sg
-    assert _sg["tier"] == TIER_UNKNOWN, _sg
+    # Quintile 3 → amber verdict (mid-band).
+    assert _sg["tier"] == TIER_AMBER, _sg
     assert _sg["metadata"]["gesix"]["quintile_5"] == 3, _sg
     assert _sg["icon"]     == "gesix"
     assert _sg["label"]    == "Neighbourhood profile"
@@ -1910,11 +1960,23 @@ if __name__ == "__main__":
                         card_key="gesix_newcomer",
                         label="Neighbourhood profile")
     assert _sg2["key"]  == "gesix_newcomer", _sg2
-    assert _sg2["tier"] == TIER_UNKNOWN, _sg2
+    assert _sg2["tier"] == TIER_AMBER, _sg2
     assert _sg2["metadata"]["gesix"]["quintile_5"] == 3
     assert _sg2["sources"] == ["Berlin Geoportal — GESIx 2022 · dl-de/by-2-0"]
 
-    # None from gesix_at → empty metadata dict, still well-formed
+    # Quintile boundary sweep — Q1,Q2 green (top bands) · Q3 amber · Q4,Q5 red
+    # (bottom bands).  Convention matches modal's leftmost=Top segment.
+    class _StubGQ:
+        def __init__(self, q): self.q = q
+        def gesix_at(self, lon, lat):
+            return {"plr_name": "X", "quintile_5": self.q, "rang": 100, "total": 447}
+    assert _shape_gesix(_StubCfg(), _StubGQ(1), 52.5, 13.4)["tier"] == TIER_GREEN
+    assert _shape_gesix(_StubCfg(), _StubGQ(2), 52.5, 13.4)["tier"] == TIER_GREEN
+    assert _shape_gesix(_StubCfg(), _StubGQ(3), 52.5, 13.4)["tier"] == TIER_AMBER
+    assert _shape_gesix(_StubCfg(), _StubGQ(4), 52.5, 13.4)["tier"] == TIER_RED
+    assert _shape_gesix(_StubCfg(), _StubGQ(5), 52.5, 13.4)["tier"] == TIER_RED
+
+    # None from gesix_at → empty metadata dict, tier unknown, still well-formed
     class _StubGesixNone:
         def gesix_at(self, lon, lat): return None
     _sg_none = _shape_gesix(_StubCfg(), _StubGesixNone(), 52.5, 13.4)
@@ -2057,6 +2119,16 @@ if __name__ == "__main__":
     assert _tier_wochenmarkt(_mkf(2001), _TWM)["tier"] == TIER_RED
     assert _tier_wochenmarkt([],         _TWM)["tier"] == TIER_RED
 
+    # -- _tier_nightlife_density (numeric-only, always tier=unknown) ---------
+    _TNL = _TN.get("nightlife_density", {})
+    _r = _tier_nightlife_density([{"name": "Bar", "lat": 52.5, "lon": 13.4, "distance_m": 300}], _TNL)
+    assert _r["tier"] == TIER_UNKNOWN, _r
+    assert "1 bars / clubs / pubs within 1 km" in _r["numeric"], _r
+    _r0 = _tier_nightlife_density([], _TNL)
+    assert _r0["tier"] == TIER_UNKNOWN, _r0
+    assert _r0["numeric"] == "", _r0
+    assert "no tagged" in _r0["rule"], _r0
+
     # -- newcomer_lens composer smoke test ------------------------------------
     from app.cities.berlin import BERLIN as _CFG_NL
 
@@ -2079,16 +2151,23 @@ if __name__ == "__main__":
         f"missing envelope keys: {sorted(_out)}"
     assert _out["slug"] == "newcomer"
     assert _out["label"] == "Newcomer"
-    assert len(_out["tiles"]) == 10
+    assert len(_out["tiles"]) == 11
     # Tile key order (plan-specified).
     _keys_nl = [t["key"] for t in _out["tiles"]]
     assert _keys_nl == ["buergeramt", "transit_newcomer", "intl_food",
                         "coworking", "english_clinic",
                         "language_school", "library", "packstation", "wochenmarkt",
+                        "nightlife_density",
                         "gesix_newcomer"], _keys_nl
-    # gesix_newcomer is shape-only → tier unknown.
+    # Numeric-only nightlife tile: tier must be UNKNOWN even with features,
+    # and sources must still cite OSM (override in composer).
+    _nl_night = {t["key"]: t for t in _out["tiles"]}["nightlife_density"]
+    assert _nl_night["tier"] == TIER_UNKNOWN, _nl_night
+    assert any("OpenStreetMap" in s for s in _nl_night["sources"]), _nl_night["sources"]
+    # gesix_newcomer now carries a quintile-based tier verdict.
+    # Stub quintile_5=3 → amber.
     _by_nl = {t["key"]: t for t in _out["tiles"]}
-    assert _by_nl["gesix_newcomer"]["tier"] == TIER_UNKNOWN
+    assert _by_nl["gesix_newcomer"]["tier"] == TIER_AMBER
     # All traffic-light tiles have mandatory Spec D keys.
     _spec_d_keys = {"key","label","icon","tier","rule","numeric","caveat","sources","features"}
     for t in _out["tiles"]:

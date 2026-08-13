@@ -20,6 +20,7 @@ AMENITIES = [
     ("supermarkets", '["shop"="supermarket"]',                       "Supermarket"),
     ("gps",          '["amenity"="doctors"]',                        "Doctor's office"),
     ("transit",      '["public_transport"~"^(platform|station)$"]',  "Transit stop"),
+    ("ev_charging",  '["amenity"="charging_station"]',               "EV charger"),
 ]
 
 # For these categories, an unnamed item is signal-free noise for a user
@@ -69,6 +70,7 @@ def _classify_amenity(tags):
     if tags.get("shop") == "supermarket":                          return "supermarkets"
     if tags.get("amenity") == "doctors":                           return "gps"
     if tags.get("public_transport") in ("platform", "station"):    return "transit"
+    if tags.get("amenity") == "charging_station":                  return "ev_charging"
     return None
 
 
@@ -115,6 +117,20 @@ def _summarize(cat, tags):
         if tags.get("access") and tags["access"] != "yes":  parts.append(tags["access"].title())
         if tags.get("dog") == "leashed":         parts.append("Dogs on leash")
         if tags.get("wheelchair") == "yes":      parts.append("Step-free")
+    elif cat == "ev_charging":
+        # Socket types: prefer explicit `socket:*` counts, fall back to the
+        # legacy `socket_types` list.  Newcomer sees "Type 2 · CCS" style.
+        sockets = []
+        for k in ("socket:type2", "socket:type2_combo", "socket:ccs",
+                  "socket:chademo", "socket:schuko"):
+            if tags.get(k):
+                pretty = k.split(":", 1)[1].upper().replace("_COMBO", " combo")
+                sockets.append(pretty)
+        if sockets:                              parts.append(" · ".join(sockets))
+        if tags.get("capacity"):                 parts.append(f"{tags['capacity']} sockets")
+        if tags.get("operator"):                 parts.append(tags["operator"])
+        if tags.get("fee") == "yes":             parts.append("Paid")
+        elif tags.get("fee") == "no":            parts.append("Free")
     return " · ".join(parts)
 
 
@@ -309,6 +325,7 @@ if __name__ == "__main__":
     # Pure asserts only (network paths exercised in app.selfcheck).
     assert _classify_amenity({"leisure": "playground"}) == "playgrounds"
     assert _classify_amenity({"public_transport": "station"}) == "transit"
+    assert _classify_amenity({"amenity": "charging_station"}) == "ev_charging"
     assert _classify_amenity({"random": "tag"}) is None
     assert _short_hours("Mo-Fr 08:00-20:00") == "Mo-Fr 08:00-20:00"
     long = "Mo-Fr 08:00-20:00; Sa 09:00-18:00; Su 10:00-16:00"
@@ -318,6 +335,11 @@ if __name__ == "__main__":
     assert _summarize("playgrounds", {"min_age": "3", "max_age": "12", "surface": "sand"}) == "Ages 3–12 · Surface: sand"
     assert _summarize("supermarkets", {}) == ""
     assert _summarize("parks", {"dog": "leashed", "wheelchair": "yes"}) == "Dogs on leash · Step-free"
+    # ev_charging summarizer covers socket types + capacity + operator + fee.
+    assert _summarize("ev_charging", {"socket:type2": "2", "operator": "Ubitricity", "fee": "yes"}) == \
+        "TYPE2 · Ubitricity · Paid"
+    assert _summarize("ev_charging", {"capacity": "4", "fee": "no"}) == "4 sockets · Free"
+    assert _summarize("ev_charging", {}) == ""
 
     # Ship B: provenance composition + bod_layers derivation come from CityConfig.
     from app.cities.berlin import BERLIN as _CFG

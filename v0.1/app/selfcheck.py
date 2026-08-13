@@ -401,6 +401,7 @@ def run_live_selfcheck() -> None:
             "buergeramt", "transit_newcomer", "intl_food",
             "coworking", "english_clinic",
             "language_school", "library", "packstation", "wochenmarkt",
+            "nightlife_density",
             "gesix_newcomer"
         }, f"unexpected tile keys: {set(_nl_tiles_k)}"
         for _t in _nl_k["tiles"]:
@@ -414,9 +415,10 @@ def run_live_selfcheck() -> None:
         # International food: Kreuzberg is one of Berlin's most international districts.
         assert _nl_tiles_k["intl_food"]["tier"] in ("green", "amber"), \
             f"expected intl_food green/amber at Bergmannstraße 27: {_nl_tiles_k['intl_food']}"
-        # GESIx shape-only tile must always be unknown.
-        assert _nl_tiles_k["gesix_newcomer"]["tier"] == "unknown", \
-            f"gesix_newcomer must be unknown: {_nl_tiles_k['gesix_newcomer']}"
+        # GESIx tile now carries a quintile-based verdict; still must be one of
+        # the four canonical tiers.  Unknown = outside a Planungsraum polygon.
+        assert _nl_tiles_k["gesix_newcomer"]["tier"] in ("green", "amber", "red", "unknown"), \
+            f"gesix_newcomer tier invalid: {_nl_tiles_k['gesix_newcomer']}"
         # GESIx metadata key must be present (may be empty dict when outside a Planungsraum).
         assert "gesix" in _nl_tiles_k["gesix_newcomer"].get("metadata", {}), \
             f"gesix_newcomer missing metadata.gesix: {_nl_tiles_k['gesix_newcomer']}"
@@ -432,16 +434,20 @@ def run_live_selfcheck() -> None:
         _nl_tiles_m = {t["key"]: t for t in _nl_m["tiles"]}
         assert set(_nl_tiles_m) == {
             "buergeramt", "transit_newcomer", "intl_food",
-            "coworking", "english_clinic", "gesix_newcomer"
+            "coworking", "english_clinic",
+            "language_school", "library", "packstation", "wochenmarkt",
+            "nightlife_density",
+            "gesix_newcomer"
         }, f"unexpected tile keys: {set(_nl_tiles_m)}"
         for _t in _nl_m["tiles"]:
             assert _t["tier"] in {"green", "amber", "red", "unknown"}, _t
         # English-tagged OSM coverage thins out in outer districts; amber or red expected.
         assert _nl_tiles_m["english_clinic"]["tier"] in ("amber", "red"), \
             f"expected english_clinic amber/red at Marzahner Promenade 1: {_nl_tiles_m['english_clinic']}"
-        # GESIx shape-only tile must always be unknown regardless of location.
-        assert _nl_tiles_m["gesix_newcomer"]["tier"] == "unknown", \
-            f"gesix_newcomer must be unknown: {_nl_tiles_m['gesix_newcomer']}"
+        # GESIx tile now carries a quintile-based verdict; still must be one of
+        # the four canonical tiers.
+        assert _nl_tiles_m["gesix_newcomer"]["tier"] in ("green", "amber", "red", "unknown"), \
+            f"gesix_newcomer tier invalid: {_nl_tiles_m['gesix_newcomer']}"
         print("  newcomer lens Marzahner Promenade 1 asserts OK")
 
     print("  newcomer lens asserts OK")

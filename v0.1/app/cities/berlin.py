@@ -345,9 +345,14 @@ NEWCOMER_LENS: LensConfig = LensConfig(
             caveat="DHL Packstation + Deutsche Post branches from OSM; DHL Packstation locker moves may take a few weeks to reflect.",
         ),
         LensTileConfig(
-            key="wochenmarkt", label="Wochenmarkt", icon="wochenmarkt",
+            key="wochenmarkt", label="Open market", icon="wochenmarkt",
             thresholds={"green_m": 800, "amber_m": 2000},
             caveat="Only permitted weekly markets; closures may take a season to disappear from the feed.",
+        ),
+        LensTileConfig(
+            key="nightlife_density", label="Nightlife density", icon="nightlife",
+            thresholds={},   # numeric-only — no tier logic, no verdict
+            caveat="Numeric only — no green/amber/red verdict. Dense nightlife is a positive for some newcomers and a negative for others; the noise tile covers the sound-level side of the same signal.",
         ),
         LensTileConfig(
             key="gesix_newcomer", label="Neighbourhood profile", icon="gesix",
@@ -602,6 +607,7 @@ if __name__ == "__main__":
     assert keys == ["buergeramt", "transit_newcomer", "intl_food",
                     "coworking", "english_clinic",
                     "language_school", "library", "packstation", "wochenmarkt",
+                    "nightlife_density",
                     "gesix_newcomer"], keys
     assert "buergeramt" in BERLIN.attribution
     print("selfcheck ok: NEWCOMER_LENS wired")
