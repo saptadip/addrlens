@@ -299,21 +299,13 @@ def main():
 
 if __name__ == "__main__":
     import pathlib
-    # Selfcheck: verify the four newcomer buckets exist in the snapshot
-    # (plan Step 4). Snapshot path matches the default written by main().
-    # The JSON shape is {"meta": {...}, "buckets": {"category": [...]}}
-    snap = pathlib.Path("data/osm/berlin-amenities.json")
-    if snap.exists():
-        import json as _json
-        j = _json.loads(snap.read_text())
-        buckets = j.get("buckets", j)   # tolerate flat shape (legacy)
-        for key in ("intl_food", "coworking", "english_clinic", "buergeramt"):
-            assert key in buckets, f"missing bucket {key!r}"
-            assert isinstance(buckets[key], list), f"{key} not list"
-        print("selfcheck ok:", {k: len(buckets[k]) for k in
-              ("intl_food", "coworking", "english_clinic", "buergeramt")})
-    else:
-        print("selfcheck skipped — no snapshot yet (run scripts.refresh_osm_amenities first)")
+    # Order:
+    #   1. rule-engine pure asserts (fast, no I/O — fail fast on bad rules).
+    #   2. main() — download + parse + write the fresh snapshot.
+    #   3. snapshot-shape selfcheck — verify main() actually wrote the four
+    #      newcomer buckets. Running this AFTER main() means `python -m
+    #      scripts.refresh_osm_amenities` always does the refresh even when
+    #      the on-disk snapshot is stale or missing.
 
     # Pure unit-tests for rule engine (no snapshot required).
     # Verify tuple rules still work (legacy categories).
@@ -355,3 +347,18 @@ if __name__ == "__main__":
     print("rule-engine selfcheck ok")
 
     main()
+
+    # Snapshot-shape selfcheck (plan Step 4). Runs AFTER main() so the
+    # snapshot is guaranteed fresh. JSON shape: {"meta": {...}, "buckets": {...}}.
+    snap = pathlib.Path("data/osm/berlin-amenities.json")
+    if snap.exists():
+        import json as _json
+        j = _json.loads(snap.read_text())
+        buckets = j.get("buckets", j)   # tolerate flat shape (legacy)
+        for key in ("intl_food", "coworking", "english_clinic", "buergeramt"):
+            assert key in buckets, f"missing bucket {key!r}"
+            assert isinstance(buckets[key], list), f"{key} not list"
+        print("selfcheck ok:", {k: len(buckets[k]) for k in
+              ("intl_food", "coworking", "english_clinic", "buergeramt")})
+    else:
+        print("selfcheck skipped — main() did not write a snapshot")
