@@ -31,11 +31,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 
 from inference.templates import air_insight as air_insight_tpl
+from inference.templates import buergeramt_insight as buergeramt_insight_tpl
+from inference.templates import coworking_insight as coworking_insight_tpl
+from inference.templates import english_clinic_insight as english_clinic_insight_tpl
 from inference.templates import explain as explain_tpl
 from inference.templates import gesix_insight as gesix_insight_tpl
+from inference.templates import gesix_newcomer_insight as gesix_newcomer_insight_tpl
 from inference.templates import heat_insight as heat_insight_tpl
 from inference.templates import history as history_tpl
 from inference.templates import impression as impression_tpl
+from inference.templates import intl_food_insight as intl_food_insight_tpl
 from inference.templates import kita_insight as kita_insight_tpl
 from inference.templates import noise_insight as noise_insight_tpl
 from inference.templates import pediatrician_insight as pediatrician_insight_tpl
@@ -43,6 +48,7 @@ from inference.templates import playground_insight as playground_insight_tpl
 from inference.templates import refuge_insight as refuge_insight_tpl
 from inference.templates import supermarket_insight as supermarket_insight_tpl
 from inference.templates import transit_insight as transit_insight_tpl
+from inference.templates import transit_newcomer_insight as transit_newcomer_insight_tpl
 
 # ---------------------------------------------------------------------- config
 
@@ -55,6 +61,7 @@ TEMPLATES = {
     "history":        history_tpl.run,
     # Per-card AI-insight templates. Naming convention: <card_key>_insight.
     # Adding a new insight card = new template file + one row here.
+    # Young Family lens templates:
     "gesix_insight":        gesix_insight_tpl.run,
     "noise_insight":        noise_insight_tpl.run,
     "refuge_insight":       refuge_insight_tpl.run,
@@ -65,6 +72,13 @@ TEMPLATES = {
     "supermarket_insight":  supermarket_insight_tpl.run,
     "heat_insight":         heat_insight_tpl.run,
     "air_insight":          air_insight_tpl.run,
+    # Newcomer lens templates (Spec E):
+    "buergeramt_insight":        buergeramt_insight_tpl.run,
+    "coworking_insight":         coworking_insight_tpl.run,
+    "english_clinic_insight":    english_clinic_insight_tpl.run,
+    "gesix_newcomer_insight":    gesix_newcomer_insight_tpl.run,
+    "intl_food_insight":         intl_food_insight_tpl.run,
+    "transit_newcomer_insight":  transit_newcomer_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state

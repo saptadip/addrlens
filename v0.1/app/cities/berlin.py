@@ -300,6 +300,43 @@ BUREAUCRACY_LENS: LensConfig = LensConfig(
     ),
 )
 
+# --- Newcomer lens (Spec E) ------------------------------------------------
+# Six traffic-light tiles for English-speaking expats in their first 90 days.
+# Threshold convention: inclusive on the greener side (≤ green_m is green).
+# See docs/superpowers/specs/2026-08-12-newcomer-lens-design.md.
+NEWCOMER_LENS: LensConfig = LensConfig(
+    slug="newcomer",
+    label="Newcomer",
+    audience_hint="First 90 days in Berlin — registration, transit, English-friendly services.",
+    tiles=(
+        LensTileConfig(
+            key="buergeramt", label="Bürgeramt reach", icon="buergeramt",
+            thresholds={"green_m": 1500, "amber_m": 3000},
+        ),
+        LensTileConfig(
+            key="transit_newcomer", label="Transit reach", icon="transit",
+            thresholds={"sbahn_m": 800, "ubahn_m": 500, "any_rail_m": 1200},
+        ),
+        LensTileConfig(
+            key="intl_food", label="International food", icon="intl_food",
+            thresholds={"radius_m": 800, "green_count": 5, "amber_count": 2},
+        ),
+        LensTileConfig(
+            key="coworking", label="Coworking + Wi-Fi cafés", icon="coworking",
+            thresholds={"radius_m": 1000, "green_count": 3, "amber_count": 1},
+        ),
+        LensTileConfig(
+            key="english_clinic", label="English-speaking clinic", icon="english_clinic",
+            thresholds={"green_m": 1200, "amber_m": 3000},
+            caveat="OSM community-tagged — inner-district coverage good, outer may under-report",
+        ),
+        LensTileConfig(
+            key="gesix_newcomer", label="Neighbourhood profile", icon="gesix",
+            thresholds={},   # shape-only — no tier logic
+        ),
+    ),
+)
+
 BERLIN = CityConfig(
     slug="berlin",
     display_name="Berlin",
@@ -522,6 +559,7 @@ BERLIN = CityConfig(
     gesix_layer="gssa_gesix2022:gssa_gesix2022",
 
     young_family_lens=YOUNG_FAMILY_LENS,
+    newcomer_lens=NEWCOMER_LENS,
 
     # --- Spec B: Bureaucracy lens ---------------------------------
     bezirksgrenzen_wfs_url=_WFS_BEZIRKE,
@@ -536,3 +574,13 @@ BERLIN = CityConfig(
     lea_office=_LEA_OFFICE,
     bureaucracy_lens=BUREAUCRACY_LENS,
 )
+
+if __name__ == "__main__":
+    from app.cities.berlin import BERLIN, NEWCOMER_LENS
+    assert BERLIN.newcomer_lens is NEWCOMER_LENS
+    assert BERLIN.buergeramt_wfs_url is not None    # Spec B: WFS already wired; not None in Berlin
+    keys = [t.key for t in BERLIN.newcomer_lens.tiles]
+    assert keys == ["buergeramt", "transit_newcomer", "intl_food",
+                    "coworking", "english_clinic", "gesix_newcomer"], keys
+    assert "buergeramt" in BERLIN.attribution
+    print("selfcheck ok: NEWCOMER_LENS wired")

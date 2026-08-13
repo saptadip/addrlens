@@ -148,6 +148,16 @@ def lookup(
         lens_bur = {"slug": "bureaucracy",
                     "error": f"{type(e).__name__}: {e}"}
 
+    # --- Newcomer lens (Spec E) -------------------------------------------
+    # Pure Python — reads only pre-loaded Index state, no live-fetch on
+    # hot path. Wrapped in try/except so a bug here never breaks /api/lookup
+    # for users not using the Newcomer lens (§14.7).
+    try:
+        lens_newcomer = scorer.newcomer_lens(cfg, index, lon, lat)
+    except Exception as e:
+        lens_newcomer = {"slug": "newcomer",
+                         "error": f"{type(e).__name__}: {e}"}
+
     return {
         "address": {"street": street, "hnr": hnr, "plz": plz,
                     "lon": lon, "lat": lat, "raw": geo["props"]},
@@ -168,7 +178,8 @@ def lookup(
         "trees":        trees_summary,
         "air":          air,
         "heat":         heat,
-        "lens":         {"young_family": lens_yf, "bureaucracy": lens_bur},
+        "lens":         {"young_family": lens_yf, "bureaucracy": lens_bur,
+                         "newcomer": lens_newcomer},
         "provenance": {
             "catchment":     cfg.attribution["catchment"],
             "schools":       cfg.attribution["schools"],

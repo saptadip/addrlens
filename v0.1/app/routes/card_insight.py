@@ -97,6 +97,13 @@ _CARD_CONTEXT_BUILDERS = {
     "noise":        _ctx_noise,
     "heat":         _ctx_heat,
     "air":          _ctx_air,
+    # Newcomer lens cards (Task 7)
+    "buergeramt":       _ctx_features,
+    "transit_newcomer": _ctx_features,
+    "intl_food":        _ctx_features,
+    "coworking":        _ctx_features,
+    "english_clinic":   _ctx_features,
+    "gesix_newcomer":   _ctx_gesix,
 }
 
 
@@ -130,3 +137,22 @@ async def card_insight(request: Request, cfg: CityConfig = Depends(get_city)):
     return {"insight": summary.get("insight", ""),
             "card":    card,
             "model":   resp.get("model", "unknown")}
+
+
+if __name__ == "__main__":
+    # Verify all six newcomer-lens card keys are registered
+    expected_new_keys = {"buergeramt", "transit_newcomer", "intl_food",
+                         "coworking", "english_clinic", "gesix_newcomer"}
+    actual_keys = set(_CARD_CONTEXT_BUILDERS.keys())
+    for key in expected_new_keys:
+        assert key in actual_keys, f"missing card key {key!r}"
+
+    # Verify context builders are assigned correctly
+    assert _CARD_CONTEXT_BUILDERS["buergeramt"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["transit_newcomer"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["intl_food"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["coworking"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["english_clinic"] is _ctx_features
+    assert _CARD_CONTEXT_BUILDERS["gesix_newcomer"] is _ctx_gesix
+
+    print("selfcheck ok: all 6 newcomer-lens cards registered in _CARD_CONTEXT_BUILDERS")
