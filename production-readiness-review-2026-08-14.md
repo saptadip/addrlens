@@ -9,9 +9,11 @@
 ## TL;DR
 
 The application is **soft-launch ready with four hard blockers resolved**. Feature
-completeness for a v1 is genuinely there — three lenses (Young Family, Newcomer,
-Bureaucracy), a raw-view Amenities strip, an Environment tab, per-tile AI insight
-paragraphs, and provenance strings on every dataset. The engineering shape is
+completeness for a v1 is genuinely there — two Life Mode lenses (Young Family,
+Newcomer), a raw-view Amenities strip, an Environment tab, an Others tab for
+German admin office reach (Bürgeramt, Finanzamt, Standesamt, LEA, Arbeitsagentur),
+per-tile AI insight paragraphs, and provenance strings on every dataset. The
+engineering shape is
 right: two-service split (per-city app + shared inference service), background
 model load with a `/ready` gate, honest per-module selfchecks.
 
@@ -27,9 +29,10 @@ during it.
 
 ## What is already solid
 
-- **Feature scope:** 3 lenses, ~27 tiles, raw-view amenities across 11
-  categories including the newly added EV charging, environment tab covering
-  noise / air / heat / street trees / quiet zones.
+- **Feature scope:** 2 Life Mode lenses (Young Family with 10 tiles, Newcomer
+  with 11 tiles), Others tab with 5 admin-office reach cards, raw-view
+  amenities across 11 categories including the newly added EV charging,
+  environment tab covering noise / air / heat / street trees / quiet zones.
 - **Data model + provenance:** Every tile carries a `sources` field pulled
   from `cfg.attribution`. Provenance strings preserve dl-de, ODbL, CC-BY
   licences correctly.
