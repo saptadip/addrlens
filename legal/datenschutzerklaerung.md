@@ -1,6 +1,6 @@
 # Datenschutzerklärung
 
-_Stand: {{DATE}}_
+_Stand: 14.08.2026_
 
 ## 1. Verantwortlicher
 
@@ -8,17 +8,17 @@ Verantwortlicher im Sinne der Datenschutz-Grundverordnung (DSGVO) und
 anderer nationaler Datenschutzgesetze der Mitgliedstaaten sowie
 sonstiger datenschutzrechtlicher Bestimmungen ist:
 
-{{FULL_NAME}}
-{{POSTAL_STREET_HNR}}
-{{POSTAL_PLZ_CITY}}
+Saptadip Sarkar
+Hanns-Eisler-Platz 3
+39128, Magdeburg
 Deutschland
 
-E-Mail: {{EMAIL}}
-Website: https://{{DOMAIN}}
+E-Mail: informsapta@gmail.com
+Website: https://addrlens.de
 
 ## 2. Zweck und Charakter der Website
 
-{{PRODUCT_NAME}} ist ein öffentlich zugängliches Werkzeug, das Berliner
+Berlin Address Intelligence ist ein öffentlich zugängliches Werkzeug, das Berliner
 Adressen mit offenen Geo- und Statistikdaten anreichert. Die Website
 erfordert keine Registrierung und speichert keine Nutzerkonten.
 Sämtliche fachlichen Auswertungen erfolgen serverseitig, ohne
@@ -72,7 +72,7 @@ den Sie aktiv angefordert haben) sowie Art. 6 Abs. 1 lit. f DSGVO
 
 Beim Aufruf einer KI-generierten Erklärung zu einer Datenkarte werden
 die zugehörigen Sachdaten (Zahlen, Kategorien, Distanzen) an unseren
-Inferenz-Dienst ({{INFERENCE_HOST}}) übermittelt und dort verarbeitet.
+Inferenz-Dienst (self-hosted on the same server) übermittelt und dort verarbeitet.
 Es werden **keine personenbezogenen Daten** an den Inferenz-Dienst
 gesendet — insbesondere keine IP-Adresse, kein Nutzer-Identifier und
 keine Adresse in Freitextform.
@@ -106,7 +106,9 @@ folgenden, für den Betrieb der Website notwendigen Auftragsverarbeiter:
 
 ### 5.1 Hosting
 
-{{HOSTING_PROVIDER}}
+Hetzner Online GmbH,
+Industriestr. 25,
+91710 Gunzenhausen
 
 Der Hostinganbieter verarbeitet in unserem Auftrag Server-Logfiles
 (siehe Abschnitt 3.1) auf Grundlage eines Auftragsverarbeitungsvertrags
@@ -114,7 +116,7 @@ gemäß Art. 28 DSGVO.
 
 ### 5.2 Fehleranalyse
 
-{{ERROR_TRACKING}}
+None
 
 _Falls konfiguriert, verarbeitet unser Fehlerprotokollierungsdienst
 technische Fehlermeldungen (Stacktraces, Browsertypen, HTTP-Statuscodes)
@@ -123,7 +125,7 @@ Fehlermeldungen soweit technisch möglich entfernt._
 
 ### 5.3 Reichweiten- und Nutzungsanalyse
 
-{{ANALYTICS_PROVIDER}}
+None
 
 _Falls konfiguriert, verwenden wir einen datenschutzfreundlichen
 Analyse-Dienst, der ohne Cookies und ohne IP-Speicherung arbeitet und
@@ -166,7 +168,7 @@ Sofern wir personenbezogene Daten auf Grundlage berechtigter Interessen
 gemäß Art. 6 Abs. 1 lit. f DSGVO verarbeiten, haben Sie das Recht, aus
 Gründen, die sich aus Ihrer besonderen Situation ergeben, jederzeit
 Widerspruch gegen die Verarbeitung Ihrer personenbezogenen Daten
-einzulegen. Der Widerspruch kann formfrei per E-Mail an {{EMAIL}}
+einzulegen. Der Widerspruch kann formfrei per E-Mail an informsapta@gmail.com
 erfolgen.
 
 ## 9. Datensicherheit
@@ -190,11 +192,11 @@ abgeleitet.
 ## 11. Aktualität und Änderung dieser Datenschutzerklärung
 
 Diese Datenschutzerklärung ist aktuell gültig und hat den Stand
-{{DATE}}. Durch die Weiterentwicklung der Website oder aufgrund
+14.08.2026. Durch die Weiterentwicklung der Website oder aufgrund
 geänderter gesetzlicher bzw. behördlicher Vorgaben kann es notwendig
 werden, diese Datenschutzerklärung anzupassen. Die jeweils aktuelle
 Datenschutzerklärung kann jederzeit auf der Website unter
-`https://{{DOMAIN}}/datenschutzerklaerung` abgerufen werden.
+`https://addrlens.de/datenschutzerklaerung` abgerufen werden.
 
 ---
 
@@ -204,7 +206,7 @@ _This English text is provided for the convenience of international
 visitors. In case of any dispute, the German version above is legally
 authoritative._
 
-_Version: {{DATE}}_
+_Version: 14.08.2026_
 
 ## 1. Data Controller
 
@@ -212,17 +214,17 @@ The data controller within the meaning of the General Data Protection
 Regulation (GDPR) and other national data protection laws of the
 Member States as well as other data protection regulations is:
 
-{{FULL_NAME}}
-{{POSTAL_STREET_HNR}}
-{{POSTAL_PLZ_CITY}}
-Germany
+Saptadip Sarkar
+Hanns-Eisler-Platz 3
+39128, Magdeburg
+Deutschland
 
-Email: {{EMAIL}}
-Website: https://{{DOMAIN}}
+E-Mail: informsapta@gmail.com
+Website: https://addrlens.de
 
 ## 2. Purpose and character of the website
 
-{{PRODUCT_NAME}} is a publicly accessible tool that enriches Berlin
+Berlin Address Intelligence is a publicly accessible tool that enriches Berlin
 addresses with open geo and statistical data. The website requires no
 registration and stores no user accounts. All processing occurs
 server-side, without personal reference to the end user.
@@ -274,7 +276,7 @@ operational and error analysis).
 
 When you request an AI-generated explanation for a data card, the
 related factual data (numbers, categories, distances) is transmitted
-to our inference service ({{INFERENCE_HOST}}) and processed there.
+to our inference service (self-hosted on the same server) and processed there.
 **No personal data** is sent to the inference service — in particular,
 no IP address, no user identifier, and no free-text address.
 
@@ -307,14 +309,16 @@ necessary for the operation of the website:
 
 ### 5.1 Hosting
 
-{{HOSTING_PROVIDER}}
+Hetzner Online GmbH,
+Industriestr. 25,
+91710 Gunzenhausen
 
 The hosting provider processes server logfiles (see section 3.1) on our
 behalf under a data processing agreement pursuant to Art. 28 GDPR.
 
 ### 5.2 Error tracking
 
-{{ERROR_TRACKING}}
+None
 
 _If configured, our error tracking service processes technical error
 messages (stacktraces, browser types, HTTP status codes) for the purpose
@@ -323,7 +327,7 @@ messages to the extent technically possible._
 
 ### 5.3 Reach and usage analysis
 
-{{ANALYTICS_PROVIDER}}
+None
 
 _If configured, we use a privacy-friendly analytics service that
 operates without cookies and without IP storage, and does not create
@@ -364,7 +368,7 @@ Insofar as we process personal data on the basis of legitimate
 interests pursuant to Art. 6 (1) (f) GDPR, you have the right, for
 reasons arising from your particular situation, to object at any time
 to the processing of your personal data. The objection can be made
-informally by email to {{EMAIL}}.
+informally by email to informsapta@gmail.com.
 
 ## 9. Data security
 
@@ -384,8 +388,8 @@ binding effects for the user are derived from them.
 
 ## 11. Currency and modification of this privacy policy
 
-This privacy policy is currently valid and dated {{DATE}}. Due to the
+This privacy policy is currently valid and dated 14.08.2026. Due to the
 further development of the website or due to changed legal or
 regulatory requirements, it may become necessary to adapt this privacy
 policy. The current privacy policy can be accessed on the website at
-any time at `https://{{DOMAIN}}/datenschutzerklaerung`.
+any time at `https://addrlens.de/datenschutzerklaerung`.

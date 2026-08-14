@@ -264,7 +264,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .badge:hover{transform:translateY(-1px) scale(1.03)}
 .b-public{background:#DCFCE7;color:#166534}
 .b-dist{background:#DBEAFE;color:#1E40AF}
-.b-esb{background:#EEF2FF;color:#4338CA;font-variant-numeric:tabular-nums}
+.b-esb{background:#DBEAFE;color:#1E40AF;font-variant-numeric:tabular-nums}
 .b-neutral{background:#F1F5F9;color:#475569}      /* informational, no judgment — UX rule: never rely on colour alone */
 .b-protect{background:#DCFCE7;color:#166534}      /* alias of .b-public for regulatory-protection status */
 .b-heritage{background:#EDE9FE;color:#5B21B6}     /* character/heritage preservation */
@@ -614,6 +614,10 @@ footer a{color:var(--brand)}
 .footer-lede                         { font-size:12px; color:var(--muted); }
 .pill-btn.attribution-btn            { font-size:11.5px; padding:6px 12px;
                                         letter-spacing:.02em; text-transform:none; }
+.footer-legal-links                   { margin-left:auto; display:flex; align-items:center;
+                                        gap:6px; font-size:12px; color:var(--muted); }
+.footer-legal-links a                 { color:var(--muted); text-decoration:none; }
+.footer-legal-links a:hover           { color:var(--brand); text-decoration:underline; }
 .attribution-modal                   { position:fixed; inset:0; z-index:1000;
                                         background:rgba(38,45,66,.55);
                                         backdrop-filter:blur(3px);
@@ -1496,17 +1500,23 @@ select:focus-visible,
    panel and restores the Address card to its previous size.            */
 .badges                          { display:flex; flex-wrap:wrap; align-items:center;
                                     gap:8px; }
-.pill-btn.addr-history-btn       { padding:6px 12px; font-size:12px;
-                                    background:linear-gradient(135deg,#F5EBCF,#EDDFB0);
-                                    color:#5A3F14; border:1px solid rgba(146,110,45,.28);
-                                    box-shadow:-2px -2px 5px rgba(255,250,232,.75),
-                                               2px 2px 6px rgba(146,110,45,.28); }
-.pill-btn.addr-history-btn:hover { color:#4A3612;
-                                    background:linear-gradient(135deg,#EFE1B7,#E4D298);
-                                    box-shadow:-3px -3px 7px rgba(255,250,232,.85),
-                                               3px 3px 8px rgba(146,110,45,.35); }
-.pill-btn.addr-history-btn:active{ box-shadow:inset 2px 2px 5px rgba(146,110,45,.35),
-                                               inset -2px -2px 5px rgba(255,250,232,.85); }
+/* Mirror .explain-btn shape/tone so both AI affordances read the same:
+   small purple pill on the neumorphic base with a sparkle prefix. */
+.pill-btn.addr-history-btn       { padding:4px 10px 4px 8px; font-size:11px;
+                                    font-weight:700; letter-spacing:.02em;
+                                    display:inline-flex; align-items:center; gap:4px;
+                                    background:var(--neumo-bg); color:var(--brand);
+                                    border:1px solid rgba(99,102,241,.28);
+                                    box-shadow:-3px -3px 7px var(--neumo-sh-light),
+                                               3px 3px 7px var(--neumo-sh-dark); }
+.pill-btn.addr-history-btn::before { content:"✨"; font-size:10px; }
+.pill-btn.addr-history-btn:hover { background:#EEF2FF; color:var(--brand);
+                                    transform:translateY(-1px);
+                                    box-shadow:-4px -4px 9px var(--neumo-sh-light),
+                                               4px 4px 11px var(--neumo-sh-dark); }
+.pill-btn.addr-history-btn:active{ transform:translateY(0);
+                                    box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
+                                               inset -2px -2px 5px var(--neumo-sh-light); }
 .pill-btn.addr-history-btn:disabled { opacity:.55; cursor:default; }
 .addr-history-body               { position:relative; margin-top:14px;
                                     padding:16px 20px 16px 20px;
