@@ -4,21 +4,21 @@ _Angaben gemäß § 5 DDG (Digitale-Dienste-Gesetz)_
 
 ## Diensteanbieter
 
-{{FULL_NAME}}
-{{POSTAL_STREET_HNR}}
-{{POSTAL_PLZ_CITY}}
+Saptadip Sarkar
+Hanns-Eisler-Platz 3
+39128, Magdeburg
 Deutschland
 
 ## Kontakt
 
-E-Mail: {{EMAIL}}
-Website: https://{{DOMAIN}}
+E-Mail: informsapta@gmail.com
+Website: https://addrlens.de
 
 ## Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV
 
-{{RESPONSIBLE_NAME}}
-{{POSTAL_STREET_HNR}}
-{{POSTAL_PLZ_CITY}}
+Saptadip Sarkar
+Hanns-Eisler-Platz 3
+39128, Magdeburg
 Deutschland
 
 ## Verbraucherstreitbeilegung / Universalschlichtungsstelle
@@ -103,21 +103,21 @@ authoritative._
 
 ## Service Provider
 
-{{FULL_NAME}}
-{{POSTAL_STREET_HNR}}
-{{POSTAL_PLZ_CITY}}
+Saptadip Sarkar
+Hanns-Eisler-Platz 3
+39128, Magdeburg
 Germany
 
 ## Contact
 
-Email: {{EMAIL}}
-Website: https://{{DOMAIN}}
+E-Mail: informsapta@gmail.com
+Website: https://addrlens.de
 
 ## Responsible for content under § 18 (2) MStV
 
-{{RESPONSIBLE_NAME}}
-{{POSTAL_STREET_HNR}}
-{{POSTAL_PLZ_CITY}}
+Saptadip Sarkar
+Hanns-Eisler-Platz 3
+39128, Magdeburg
 Germany
 
 ## Consumer dispute resolution

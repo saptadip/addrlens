@@ -61,6 +61,18 @@ def index():
     return FileResponse(WEB_DIR / "index.html", media_type="text/html; charset=utf-8")
 
 
+@app.get("/impressum", include_in_schema=False)
+def impressum():
+    """Serve the §5 DDG Imprint page (bilingual DE + EN)."""
+    return FileResponse(WEB_DIR / "impressum.html", media_type="text/html; charset=utf-8")
+
+
+@app.get("/datenschutzerklaerung", include_in_schema=False)
+def datenschutzerklaerung():
+    """Serve the DSGVO/GDPR privacy policy (bilingual DE + EN)."""
+    return FileResponse(WEB_DIR / "datenschutzerklaerung.html", media_type="text/html; charset=utf-8")
+
+
 # Static assets (app.css, app.js, future vendored bundles). Kept as a plain
 # StaticFiles mount — zero build step, browser caches these once per revision.
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")

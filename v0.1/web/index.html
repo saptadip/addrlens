@@ -19,12 +19,11 @@
     <div class="brand-name" id="brand-name">AddrLens</div>
   </div>
   <div class="header-actions">
+    <button id="save-btn" class="pill-btn" hidden>+ Add to Compare</button>
+    <a id="compare-pill" class="pill-btn pill-btn-brand" href="#compare" hidden>Compare (<span id="compare-count">0</span>)</a>
     <button id="life-mode-toggle" class="pill-btn lm-toggle" type="button"
             role="switch" aria-pressed="false"
             aria-label="Life Mode off (toggle to switch on)"><span class="lm-label">Life Mode</span><span class="lm-track" aria-hidden="true"><span class="lm-knob"></span></span></button>
-    <button id="save-btn" class="pill-btn" hidden>+ Add to Compare</button>
-    <a id="compare-pill" class="pill-btn pill-btn-brand" href="#compare" hidden>Compare (<span id="compare-count">0</span>)</a>
-    <span class="style-pill" style="background:#DCFCE7;color:#166534" title="v0.1 — OSM via weekly Geofabrik snapshot instead of live Overpass">v0.1 · Geofabrik</span>
   </div>
 </header>
 
@@ -113,6 +112,11 @@
 <footer id="site-footer">
   <span class="footer-lede">Built on open data —</span>
   <button type="button" id="attribution-open" class="pill-btn attribution-btn" aria-haspopup="dialog" aria-controls="attribution-modal">ⓘ Attribution &amp; licences</button>
+  <nav class="footer-legal-links" aria-label="Legal">
+    <a href="/impressum">Impressum</a>
+    <span aria-hidden="true">·</span>
+    <a href="/datenschutzerklaerung">Datenschutz</a>
+  </nav>
   <!-- Print-only mirror: PDF exports always include the full unabridged
        attribution regardless of modal state, so on-paper compliance holds. -->
   <div class="print-only attribution-print">
