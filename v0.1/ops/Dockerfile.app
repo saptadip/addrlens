@@ -10,6 +10,7 @@ FROM python:3.11-slim AS base
 # structured log timestamps and ca-certificates for outbound HTTPS to WFS).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates tzdata \
+        libexpat1 \
     && rm -rf /var/lib/apt/lists/*
 
 # uv is the fastest resolver + installer; the copy comes from the official image
@@ -23,6 +24,11 @@ WORKDIR /srv
 # app code has changed.
 COPY pyproject.toml ./
 RUN uv pip install --system --no-cache -r pyproject.toml
+# Prod-only deps: Sentry SDK (env-guarded init) + osmium (weekly OSM refresh
+# script runs inside this image). Kept out of pyproject.toml to avoid pulling
+# them into the local bare-uvicorn dev environment.
+RUN uv pip install --system --no-cache \
+        "sentry-sdk[fastapi]>=2.0" "osmium>=3.7"
 
 # ---- app layer ----
 COPY app ./app
