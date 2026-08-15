@@ -13,3 +13,12 @@ logs/
 .playwright-mcp/
 *.qa.png
 young-family-lens-qa-shipped.png
+
+# Production runtime state — lives on the box, never in git
+.env.production
+/srv/
+
+# Large binaries — kept out of the repo; fetched separately on the box
+models/*.gguf
+data/osm/*.pbf
+data/osm/berlin-amenities.json
