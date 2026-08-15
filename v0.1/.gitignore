@@ -19,6 +19,6 @@ young-family-lens-qa-shipped.png
 /srv/
 
 # Large binaries — kept out of the repo; fetched separately on the box
-models/*.gguf
+# (models/*.gguf already covered above)
 data/osm/*.pbf
 data/osm/berlin-amenities.json

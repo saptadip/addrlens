@@ -20,7 +20,11 @@ services:
     env_file:
       - /srv/addrlens/.env.production
     volumes:
-      - /srv/addrlens/data/osm:/srv/data/osm:ro
+      # Read-write so `docker compose run --rm app -m scripts.refresh_osm_amenities`
+      # (systemd weekly timer) can rewrite the snapshot atomically. The running
+      # app only reads from this path; write access here is exercised only by
+      # the one-shot refresh container that reuses the same image.
+      - /srv/addrlens/data/osm:/srv/data/osm
     mem_limit: 700m
     memswap_limit: 1200m
     restart: unless-stopped

@@ -33,6 +33,10 @@ RUN uv pip install --system --no-cache \
 # ---- app layer ----
 COPY app ./app
 COPY web ./web
+# scripts/refresh_osm_amenities.py is invoked inside this image by the weekly
+# systemd timer (see ops/systemd/refresh-osm-amenities.service). osmium is
+# already installed above.
+COPY scripts ./scripts
 
 # Non-root user (production security). uid 10001 avoids collisions with
 # base-image system users.
