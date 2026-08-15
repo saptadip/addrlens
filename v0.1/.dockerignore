@@ -7,5 +7,8 @@ __pycache__/
 tests/
 docker-compose.yml
 ops/Dockerfile.inference
-# inference/ stays out of the app image — separate service, separate build
-inference/
+# NOTE: inference/ used to be excluded here — removed 2026-08-15 so that
+# `docker build -f ops/Dockerfile.inference .` from the v0.1/ tree works.
+# App image (Dockerfile.app) uses explicit `COPY app ./app` and `COPY web
+# ./web`, so inference/ was never actually copied into the app image;
+# the exclusion was a stale optimisation.
