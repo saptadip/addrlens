@@ -1,0 +1,63 @@
+# Prod overlay. Load with:
+#   docker compose \
+#       -f docker-compose.yml \
+#       -f docker-compose.prod.yml \
+#       --env-file /srv/addrlens/.env.production \
+#       up -d
+#
+# What it changes vs docker-compose.yml:
+# 1. Cancels "ports:" publishing (containers stay on internal bridge).
+# 2. Adds cloudflared as the only ingress path.
+# 3. Bind-mounts /srv/addrlens/{models,data/osm} as read-only.
+# 4. Adds mem_limit + memswap_limit so a runaway service OOM-kills itself,
+#    not the box.
+# 5. restart: unless-stopped for docker-managed liveness.
+# 6. Reads secrets from /srv/addrlens/.env.production (git-ignored).
+
+services:
+  app:
+    ports: !reset []
+    env_file:
+      - /srv/addrlens/.env.production
+    volumes:
+      - /srv/addrlens/data/osm:/srv/data/osm:ro
+    mem_limit: 700m
+    memswap_limit: 1200m
+    restart: unless-stopped
+    depends_on:
+      inference:
+        condition: service_healthy
+    networks:
+      - addrlens_net
+
+  inference:
+    ports: !reset []
+    env_file:
+      - /srv/addrlens/.env.production
+    volumes:
+      - /srv/addrlens/models:/models:ro
+    environment:
+      LLAMA_MODEL_PATH: /models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
+    mem_limit: 2800m
+    memswap_limit: 3600m
+    restart: unless-stopped
+    networks:
+      - addrlens_net
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    env_file:
+      - /srv/addrlens/.env.production
+    mem_limit: 128m
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - addrlens_net
+
+networks:
+  addrlens_net:
+    driver: bridge
+    internal: false
