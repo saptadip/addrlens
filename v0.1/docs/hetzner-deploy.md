@@ -40,12 +40,11 @@ Zero-to-live playbook for deploying addrlens to a fresh Hetzner box behind a Clo
   sudo bash ops/deploy/bootstrap.sh
   ```
 - **Log out and back in** so the `sapta` user picks up the newly-added `docker` group.
-- **Fetch the GGUF model file** (about 1 GB, one time).
+- **Fetch the GGUF model file** (about 940 MB, one time). Debian 13 ships without `pip` and blocks system-wide pip installs via PEP 668, so we skip the `hf` CLI and pull the file directly:
   ```bash
-  pip install --user 'huggingface_hub[cli]'
-  hf download bartowski/Qwen2.5-1.5B-Instruct-GGUF \
-      Qwen2.5-1.5B-Instruct-Q4_K_M.gguf \
-      --local-dir /srv/addrlens/models
+  mkdir -p /srv/addrlens/models
+  curl -L -o /srv/addrlens/models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf \
+      "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf?download=true"
   ls -lh /srv/addrlens/models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
   ```
 - **Create `/srv/addrlens/.env.production`** from the template. Required values: `TUNNEL_TOKEN`, `SENTRY_DSN_APP`, `SENTRY_DSN_INFERENCE`.
