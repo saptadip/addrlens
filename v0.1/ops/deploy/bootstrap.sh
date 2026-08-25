@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-shot Hetzner Ubuntu 24.04 provisioning for addrlens.de.
+# One-shot Hetzner Debian 13 (trixie) provisioning for addrlens.de.
 # Idempotent — safe to re-run after partial failures.
 # Invocation (on the box, as root): sudo bash ops/deploy/bootstrap.sh
 set -euo pipefail
@@ -29,11 +29,11 @@ timedatectl set-timezone Europe/Berlin
 if ! command -v docker >/dev/null 2>&1; then
     log "installing docker"
     install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    curl -fsSL https://download.docker.com/linux/debian/gpg \
         | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
     echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] \
-        https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+        https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
         > /etc/apt/sources.list.d/docker.list
     apt-get update
     apt-get install -y docker-ce docker-ce-cli containerd.io \

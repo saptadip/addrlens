@@ -2,7 +2,10 @@
 
 ## First deploy on a fresh box
 
-Prerequisites: Ubuntu 24.04 x86_64, sudo user `sapta`, SSH access.
+Prerequisites: Debian 13 (trixie) x86_64, sudo user `sapta`, SSH access. The
+`bootstrap.sh` script uses Docker's Debian apt repo; the Ubuntu Hetzner image
+will not work without swapping the Docker repo path in `bootstrap.sh` back to
+`linux/ubuntu`.
 
 1. **Clone the repo:**
 
