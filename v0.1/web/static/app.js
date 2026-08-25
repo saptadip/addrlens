@@ -1365,9 +1365,9 @@ function fmtDistance(m){
   return m < 1000 ? `${m} m` : `${(m/1000).toFixed(1)} km`;
 }
 // -- Others tab: German admin office reach (buergeramt / finanzamt / -------
-// standesamt / lea / arbeitsagentur). Reads d.lens.bureaucracy.tiles from
-// the /api/lookup response — the "bureaucracy" backend lens now exists
-// solely to feed this tab (it is not shown in the Life Mode picker).
+// standesamt / lea / arbeitsagentur). Reads d.others.bureaucracy.tiles
+// from the /api/lookup response — the raw-view "Others" tab is the sole
+// consumer of this bundle (Bureaucracy was removed from Life Mode).
 // Others tab state — mirrors panels['amen'|'med'] shape so it plugs into
 // the same tab-open handler for map init.
 const othersState = { tiles: [], byKey: {}, mapRef: null, layer: null,
@@ -1375,7 +1375,7 @@ const othersState = { tiles: [], byKey: {}, mapRef: null, layer: null,
 
 function renderOthers(d){
   if(!$others) return;
-  const bur = d && d.lens && d.lens.bureaucracy;
+  const bur = d && d.others && d.others.bureaucracy;
   if(!bur || bur.error || !Array.isArray(bur.tiles) || !bur.tiles.length){
     othersState.tiles = []; othersState.byKey = {}; othersState.prov = '';
     $others.innerHTML = `<div class="empty" style="margin-top:14px">

@@ -27,15 +27,18 @@ WORKDIR /srv
 # ---- deps layer ----
 COPY inference/pyproject.toml ./pyproject.toml
 RUN uv pip install --system --no-cache ".[prod]"
+# Prod-only: Sentry SDK. Init in inference/main.py is env-guarded so local
+# dev (bare uvicorn on Apple Silicon) is unaffected.
+RUN uv pip install --system --no-cache "sentry-sdk[fastapi]>=2.0"
 
-# ---- inference code + model ----
+# ---- inference code ----
 COPY inference ./inference
-# Bake the GGUF in — plan §7.4 default. Comment out + mount if you'd rather
-# ship the model separately.
-COPY models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf /models/
+# Model file is bind-mounted at runtime from /srv/addrlens/models/ into
+# /models/:ro (see docker-compose.prod.yml). The mountpoint must exist.
+RUN mkdir -p /models
 
 RUN useradd -u 10001 -m -s /sbin/nologin addrlens \
-    && chown -R addrlens:addrlens /srv /models
+    && chown -R addrlens:addrlens /srv
 USER addrlens
 
 ENV INFERENCE_BACKEND=llama \

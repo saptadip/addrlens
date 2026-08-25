@@ -1,0 +1,11 @@
+[Unit]
+Description=Trigger weekly Berlin OSM refresh on Sunday 03:00 Europe/Berlin
+
+[Timer]
+OnCalendar=Sun 03:00
+Persistent=true
+RandomizedDelaySec=15min
+Unit=refresh-osm-amenities.service
+
+[Install]
+WantedBy=timers.target

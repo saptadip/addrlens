@@ -6,6 +6,7 @@ it and both are exposed on app.state for routes to pick up via app.deps.
 Ship D-1: /ready returns 503 until Index is loaded so an orchestrator that
 promotes the pod on /health won't send user traffic to a cold container.
 """
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -24,6 +25,23 @@ from app.routes.history import router as history_router
 from app.routes.impression import router as impression_router
 from app.routes.lookup import router as lookup_router
 from app.routes.noise import router as noise_router
+
+# ---------- Sentry (production error tracking) ----------
+# Env-guarded: local dev leaves SENTRY_DSN_APP unset, so this block is a no-op
+# and sentry_sdk is never imported. Prod-only sentry-sdk dep is installed at
+# the Dockerfile layer (see ops/Dockerfile.app), not in pyproject.toml.
+if os.environ.get("SENTRY_DSN_APP"):
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=os.environ["SENTRY_DSN_APP"],
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+        traces_sample_rate=0.1,
+        environment=os.environ.get("SENTRY_ENV", "production"),
+        release=os.environ.get("GIT_SHA") or None,
+    )
 
 
 @asynccontextmanager

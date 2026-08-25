@@ -315,10 +315,12 @@ def run_live_selfcheck() -> None:
     assert _by["refuge"].get("metadata", {}).get("trees") is not None
     print("  young_family lens asserts OK")
 
-    # -- Bureaucracy lens ---------------------------------------------------
-    # Two known-good addresses cover Bezirk-based assignment (Pankow +
-    # Friedrichshain-Kreuzberg) and distance-based tier variation.
-    # Kastanienallee 12 is reused from geocode `geo` above.
+    # -- Admin-offices bundle (Others tab) ---------------------------------
+    # Same tile-shaped output the Bureaucracy lens used to produce; now
+    # surfaced only via /api/lookup `others.bureaucracy` and the raw-view
+    # "Others" tab in the SPA. Two known-good addresses cover Bezirk-based
+    # assignment (Pankow + Friedrichshain-Kreuzberg) and distance-based
+    # tier variation. Kastanienallee 12 is reused from geocode `geo` above.
     lens_bur = scorer.bureaucracy_lens(cfg, idx, geo["lon"], geo["lat"])
     assert len(lens_bur["tiles"]) == 5, f"expected 5 tiles, got {len(lens_bur['tiles'])}"
     _bk = [t["key"] for t in lens_bur["tiles"]]
@@ -363,7 +365,7 @@ def run_live_selfcheck() -> None:
             assert lea_kbg_min >= lea_pnk_min, \
                 f"LEA from Kreuzberg ({lea_kbg_min}) should be ≥ from Pankow ({lea_pnk_min})"
 
-    # -- Spec D: bureaucracy feature arrays ----------------------------
+    # -- Spec D: admin-offices feature arrays --------------------------
     _by_bur = {t["key"]: t for t in lens_bur["tiles"]}
     # Standesamt: exactly 1 feature, name contains "Pankow"
     assert len(_by_bur["standesamt"]["features"]) == 1
@@ -374,7 +376,7 @@ def run_live_selfcheck() -> None:
     # Every buergeramt feature has walk_min as int
     for f in _by_bur["buergeramt"]["features"]:
         assert isinstance(f.get("walk_min"), int), f
-    print("  bureaucracy lens asserts OK")
+    print("  admin-offices (Others tab) asserts OK")
 
     # -- Newcomer lens (Spec E) -----------------------------------------------
     # Two known-good Berlin addresses exercise the lens shape and broad tier
@@ -388,7 +390,7 @@ def run_live_selfcheck() -> None:
     # OSM medical coverage is thinner at the periphery, so english_clinic
     # skews amber or red.
 
-    # Bergmannstraße 27 — reuse `berg` geocode result from bureaucracy block.
+    # Bergmannstraße 27 — reuse `berg` geocode result from admin-offices block.
     if not berg:
         print("  Bergmannstraße 27 geocode failed — skipped newcomer Kreuzberg assert")
     else:
