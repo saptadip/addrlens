@@ -39,7 +39,7 @@ diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach den
 nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit
 hinweisen.
 
-Die auf {{DOMAIN}} dargestellten Informationen stammen aus offen
+Die auf addrlens.de dargestellten Informationen stammen aus offen
 lizenzierten Datenquellen (u.a. Berliner Geoportal / FIS-Broker,
 OpenStreetMap, VBB, BVG, Senatsverwaltung Berlin) und werden nach bestem
 Wissen und Gewissen aufbereitet. Die Ausgaben umfassen automatisch
@@ -79,7 +79,7 @@ Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der
 Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des
 jeweiligen Autors bzw. Erstellers.
 
-Auf {{DOMAIN}} verwendete Datenquellen und deren Lizenzen:
+Auf addrlens.de verwendete Datenquellen und deren Lizenzen:
 
 - **Berliner Geoportal / FIS-Broker** — dl-de/by-2-0 und dl-de/zero-2-0
   (Senatsverwaltung Berlin, jeweils gekennzeichnet).
@@ -137,7 +137,7 @@ DDG, however, as a service provider we are not obliged to monitor
 third-party information transmitted or stored on our service, or to
 investigate circumstances that indicate unlawful activity.
 
-The information displayed on {{DOMAIN}} originates from openly licensed
+The information displayed on addrlens.de originates from openly licensed
 data sources (including the Berlin Geoportal / FIS-Broker,
 OpenStreetMap, VBB, BVG, Senate Department of Berlin) and is prepared to
 the best of our knowledge and belief. Outputs include automatically
@@ -169,7 +169,7 @@ subject to German copyright law. Duplication, processing, distribution
 and any form of exploitation outside the limits of copyright require
 the written consent of the respective author or creator.
 
-Data sources used on {{DOMAIN}} and their licences:
+Data sources used on addrlens.de and their licences:
 
 - **Berlin Geoportal / FIS-Broker** — dl-de/by-2-0 and dl-de/zero-2-0
   (Berlin Senate Department, individually labelled).
