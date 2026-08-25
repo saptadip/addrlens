@@ -22,3 +22,7 @@ young-family-lens-qa-shipped.png
 # (models/*.gguf already covered above)
 data/osm/*.pbf
 data/osm/berlin-amenities.json
+
+# Local-dev docker compose override — mounts the host models/ + data/osm/
+# into the containers; not used in prod (docker-compose.prod.yml handles that).
+docker-compose.override.yml
