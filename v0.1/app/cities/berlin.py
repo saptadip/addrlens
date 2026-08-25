@@ -314,8 +314,16 @@ NEWCOMER_LENS: LensConfig = LensConfig(
             thresholds={"green_m": 1500, "amber_m": 3000},
         ),
         LensTileConfig(
-            key="transit_newcomer", label="Transit reach", icon="transit",
+            key="rail_transit", label="Rail Transit", icon="transit",
             thresholds={"sbahn_m": 800, "ubahn_m": 500, "any_rail_m": 1200},
+        ),
+        LensTileConfig(
+            key="tram_transit", label="Tram Transit", icon="transit",
+            thresholds={"green_m": 500, "amber_m": 1000},
+        ),
+        LensTileConfig(
+            key="bus_transit", label="Bus Transit", icon="transit",
+            thresholds={"green_m": 300, "amber_m": 600},
         ),
         LensTileConfig(
             key="intl_food", label="International food", icon="intl_food",

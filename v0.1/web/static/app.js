@@ -2655,8 +2655,16 @@ function _lensFeatureDetailHtml(tileKey, f) {
     if (f.renovated_year != null) rows.push(row('Renovated', escapeHtml(String(f.renovated_year))));
   } else if (tileKey === 'transit') {
     if (f.modality)              rows.push(row('Mode',       escapeHtml(f.modality)));
-  } else if (tileKey === 'transit_newcomer') {
-    const modeLabel = {S: 'S-Bahn', U: 'U-Bahn', T: 'Tram'}[f.mode] || f.mode || '';
+  } else if (tileKey === 'rail_transit' || tileKey === 'tram_transit'
+                                        || tileKey === 'bus_transit') {
+    // Backend may emit multi-mode codes for S+U hubs (e.g. "S,U"); map each
+    // code to its label and join for display. Tram/Bus tiles emit a single
+    // code ('T' / 'B') that also flows through this same map.
+    const _modeMap = {S: 'S-Bahn', U: 'U-Bahn', T: 'Tram', B: 'Bus'};
+    const modeLabel = String(f.mode || '').split(',')
+      .map(m => _modeMap[m.trim()] || m.trim())
+      .filter(Boolean)
+      .join(' · ');
     if (modeLabel)               rows.push(row('Mode',       escapeHtml(modeLabel)));
     if (f.distance_m != null)    rows.push(row('Distance',   `${f.distance_m} m`));
     if (Array.isArray(f.directions) && f.directions.length)
@@ -2787,7 +2795,9 @@ function renderLensModalBody(tile, lensSlug) {
     air:              'Umweltatlas Luftreinhalteplan 2018–2025 trend scenario (dl-de/zero-2.0).',
     // Newcomer lens cards
     buergeramt:       'BOD Bezirks-Services · 2026',
-    transit_newcomer: 'VBB · 2026',
+    rail_transit:     'VBB · 2026',
+    tram_transit:     'VBB · 2026',
+    bus_transit:      'OSM Geofabrik weekly extract',
     intl_food:        'OSM Geofabrik weekly extract',
     coworking:        'OSM Geofabrik weekly extract',
     english_clinic:   'OSM Geofabrik weekly extract',

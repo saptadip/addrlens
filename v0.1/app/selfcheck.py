@@ -400,8 +400,9 @@ def run_live_selfcheck() -> None:
             f"newcomer envelope missing keys: {set(_nl_k)}"
         _nl_tiles_k = {t["key"]: t for t in _nl_k["tiles"]}
         assert set(_nl_tiles_k) == {
-            "buergeramt", "transit_newcomer", "intl_food",
-            "coworking", "english_clinic",
+            "buergeramt",
+            "rail_transit", "tram_transit", "bus_transit",
+            "intl_food", "coworking", "english_clinic",
             "language_school", "library", "packstation", "wochenmarkt",
             "nightlife_density",
             "gesix_newcomer"
@@ -410,10 +411,10 @@ def run_live_selfcheck() -> None:
             assert _t["tier"] in {"green", "amber", "red", "unknown"}, _t
             assert _t["label"], f"tile missing label: {_t}"
             assert _t["rule"], f"tile missing rule: {_t}"
-        # Transit: Kreuzberg has multiple S/U stops within walking distance.
+        # Rail: Kreuzberg has multiple S/U stops within walking distance.
         # Softened to green-or-amber in case of a temporary closure.
-        assert _nl_tiles_k["transit_newcomer"]["tier"] in ("green", "amber"), \
-            f"expected transit green/amber at Bergmannstraße 27: {_nl_tiles_k['transit_newcomer']}"
+        assert _nl_tiles_k["rail_transit"]["tier"] in ("green", "amber"), \
+            f"expected rail_transit green/amber at Bergmannstraße 27: {_nl_tiles_k['rail_transit']}"
         # International food: Kreuzberg is one of Berlin's most international districts.
         assert _nl_tiles_k["intl_food"]["tier"] in ("green", "amber"), \
             f"expected intl_food green/amber at Bergmannstraße 27: {_nl_tiles_k['intl_food']}"
@@ -435,8 +436,9 @@ def run_live_selfcheck() -> None:
         assert _nl_m.get("slug") == "newcomer", _nl_m.get("slug")
         _nl_tiles_m = {t["key"]: t for t in _nl_m["tiles"]}
         assert set(_nl_tiles_m) == {
-            "buergeramt", "transit_newcomer", "intl_food",
-            "coworking", "english_clinic",
+            "buergeramt",
+            "rail_transit", "tram_transit", "bus_transit",
+            "intl_food", "coworking", "english_clinic",
             "language_school", "library", "packstation", "wochenmarkt",
             "nightlife_density",
             "gesix_newcomer"

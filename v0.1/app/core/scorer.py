@@ -839,7 +839,9 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         # OSM buckets cite Geofabrik; no separate attribution key in berlin.py
         # so we inline the standard ODbL line (ponytail: add per-key entries
         # to attribution once the snapshot source is pinned per-city).
-        "transit_newcomer": [attr.get("sbahn"), attr.get("ubahn"), attr.get("tram")],
+        "rail_transit":    [attr.get("sbahn"), attr.get("ubahn")],
+        "tram_transit":    [attr.get("tram")],
+        "bus_transit":     ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "intl_food":       ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "coworking":       ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "english_clinic":  ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
@@ -902,6 +904,39 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
         if f_bus:
             _transit_feats.append(f_bus)
     _transit_feats.sort(key=lambda x: x.get("walk_min", 10**9))
+    # Cap the feature list at the tile's amber walk budget. Nearest-per-
+    # modality can otherwise surface a modality with zero coverage in the
+    # neighbourhood (e.g. Emser Str.: nearest Tram is S+U Warschauer Str.
+    # 4 km away), which contradicts the tile's own rule ("≥1 stop within
+    # 5 min stroller walk"). Tier is still min(walk_min) over the filtered
+    # list, so a nearby Bus keeps a legitimately green verdict.
+    _amber_min = thresholds["transit"]["amber_min"]
+    _transit_feats = [f for f in _transit_feats
+                      if f.get("walk_min") is not None
+                      and f["walk_min"] <= _amber_min]
+    # Dedup platform pairs that share a station name across modalities.
+    # At S+U hubs (S+U Alexanderplatz, S+U Yorckstr., …) the nearest S-Bahn
+    # and nearest U-Bahn resolve to the same physical station; VBB / BOD
+    # tram also stores each direction as its own point ("… -> Stadt" /
+    # "… -> Land"). Without dedup the UI card lists identical station
+    # names twice. Collapse onto the closest hit per base name (partition
+    # off the " -> DIR" suffix) and join modalities with " · " so the
+    # single row still surfaces every mode the station serves.
+    _clusters: dict = {}
+    for _f in _transit_feats:
+        _base = _f.get("name", "").partition(" -> ")[0].strip()
+        if not _base:
+            continue
+        _entry = _clusters.get(_base)
+        if _entry is None:
+            _clusters[_base] = {**_f, "name": _base}
+            continue
+        _new = (_f.get("modality") or "").strip()
+        if _new and _new not in (_entry.get("modality") or "").split(" · "):
+            _existing = _entry.get("modality") or ""
+            _entry["modality"] = f"{_existing} · {_new}" if _existing else _new
+    _transit_feats = sorted(_clusters.values(),
+                            key=lambda x: x.get("walk_min", 10**9))
 
     # Supermarkets — OSM-only; take nearest first from amenities bucket.
     _sm_block = (amenities or {}).get("supermarkets") or {}
@@ -1084,20 +1119,20 @@ def _tier_buergeramt_newcomer(features: list, th: dict) -> dict:
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
 
-def _tier_transit_newcomer(features: list, th: dict) -> dict:
-    """Newcomer transit tile — prefers S/U rail over tram; surfaces
-    intercity-rail access.
+def _tier_rail_transit(features: list, th: dict) -> dict:
+    """Newcomer Rail-Transit tile — heavy-rail (S-Bahn + U-Bahn) only.
+    Tram is scored by _tier_tram_transit as its own tile.
 
     `features`: list of dicts with {name, lat, lon, distance_m, mode}
-    where mode is one of 'S', 'U', 'T' (tram).  Sorted ascending by
-    distance_m.  Built by newcomer_lens() by scanning index.sbahn /
-    index.ubahn / index.tram and tagging each with its mode.
+    where mode is one of 'S' or 'U' (comma-joined at S+U hubs).
+    Sorted ascending by distance_m.  Built by newcomer_lens() by
+    scanning index.sbahn + index.ubahn and tagging each with its mode.
 
     Green conditions (inclusive on the greener side):
       • any S-Bahn ≤ sbahn_m (800 m), OR
       • any U-Bahn ≤ ubahn_m (500 m)
     Amber:
-      • any rail (S / U / T) ≤ any_rail_m (1 200 m)
+      • any S/U rail ≤ any_rail_m (1 200 m)
     Red:
       • nothing within any_rail_m.
     """
@@ -1117,19 +1152,67 @@ def _tier_transit_newcomer(features: list, th: dict) -> dict:
             return {"tier": TIER_GREEN,
                     "rule": "rail door-to-door for arrivals and departures",
                     "numeric": f"{int(d)} m to U-Bahn {f['name']}"}
-    # Amber — any rail within any_rail_m.
+    # Amber — any S/U rail within any_rail_m.
     for f in features:
         if f["distance_m"] <= th["any_rail_m"]:
-            mode_label = {"S": "S-Bahn", "U": "U-Bahn", "T": "Tram"}.get(
-                f.get("mode", ""), f.get("mode", "Rail"))
+            mode_label = {"S": "S-Bahn", "U": "U-Bahn"}.get(
+                f.get("mode", "")[:1], "Rail")
             return {"tier": TIER_AMBER,
                     "rule": "one interchange for intercity",
                     "numeric": f"{int(f['distance_m'])} m to {mode_label} {f['name']}"}
     # Red.
-    nearest = features[0]
     return {"tier": TIER_RED,
             "rule": "cabs or long transfers to leave the city",
             "numeric": ""}
+
+
+def _tier_tram_transit(features: list, th: dict) -> dict:
+    """Newcomer Tram-Transit tile — distance-to-nearest tram stop.
+
+    Same tier shape as Rail Transit but a single-mode source.
+    `features`: list of dicts with {name, lat, lon, distance_m},
+    sorted ascending by distance_m. Thresholds in metres."""
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no tram stop nearby",
+                "numeric": ""}
+    nearest = features[0]
+    d = nearest["distance_m"]
+    if d <= th["green_m"]:
+        tier = TIER_GREEN
+        rule = "tram door-to-door for daily hops"
+    elif d <= th["amber_m"]:
+        tier = TIER_AMBER
+        rule = "tram within a short walk"
+    else:
+        tier = TIER_RED
+        rule = "no tram within walking distance"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{int(d)} m to Tram {nearest['name']}"}
+
+
+def _tier_bus_transit(features: list, th: dict) -> dict:
+    """Newcomer Bus-Transit tile — distance-to-nearest bus stop.
+
+    Same tier shape as Tram Transit but drawn from the OSM `transit`
+    bucket filtered to bus-tagged items. Thresholds in metres."""
+    if not features:
+        return {"tier": TIER_RED,
+                "rule": "no bus stop nearby",
+                "numeric": ""}
+    nearest = features[0]
+    d = nearest["distance_m"]
+    if d <= th["green_m"]:
+        tier = TIER_GREEN
+        rule = "bus at the doorstep"
+    elif d <= th["amber_m"]:
+        tier = TIER_AMBER
+        rule = "bus within a short walk"
+    else:
+        tier = TIER_RED
+        rule = "no bus within walking distance"
+    return {"tier": tier, "rule": rule,
+            "numeric": f"{int(d)} m to Bus {nearest['name']}"}
 
 
 def _tier_intl_food(features: list, th: dict) -> dict:
@@ -1329,7 +1412,8 @@ def _tier_wochenmarkt(features: list, th: dict) -> dict:
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
 
-def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
+def newcomer_lens(cfg, index, lon: float, lat: float, *,
+                  amenities: dict | None = None) -> dict:
     """Assemble the 6-tile Newcomer lens block.
 
     Reads only pre-loaded Index state — no live fetch on the hot path.
@@ -1340,8 +1424,13 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     Args follow the project-wide (lon, lat) convention — same as
     bureaucracy_lens and young_family_lens.
 
-    Tile order (fixed): buergeramt, transit_newcomer, intl_food,
-    coworking, english_clinic, gesix_newcomer.
+    Tile order (fixed): buergeramt, rail_transit, tram_transit,
+    bus_transit, intl_food, coworking, english_clinic, gesix_newcomer.
+
+    `amenities` is the OSM buckets dict from amenities_near() — only the
+    "transit" bucket is consumed here (nearest bus-tagged stop for the
+    bus_transit tile). Passed as kwarg so tests / phase3 parity checks
+    can call this without an amenities snapshot.
     """
     assert -60 <= lat <= 60, f"lat out of range: {lat}"
     assert -180 <= lon <= 180, f"lon out of range: {lon}"
@@ -1355,36 +1444,74 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     buergeramt_raw = index.buergeramt_near(lon, lat, 5000)
     buergeramt_feats = [f for f in (_shape_office(o) for o in buergeramt_raw) if f]
 
-    # -- Transit: S/U/Tram from preloaded VBB+BOD lists ----------------------
+    # -- Rail (S+U) from preloaded VBB+BOD lists -----------------------------
     # ponytail: No vbb_query() method exists; access per-modality lists
     # directly.  Upgrade path: extract vbb_query() on Index when a third
-    # lens needs S/U/Tram unified access.
-    _transit_raw = []
-    for mode_tag, points in (("S", index.sbahn), ("U", index.ubahn),
-                              ("T", index.tram)):
+    # lens needs S/U unified access.
+    def _cluster_by_base(raw: list) -> list:
+        """Dedup platform pairs sharing a station name. Two effects to
+        collapse: (a) VBB / BOD tram stores each direction as its own
+        point ("Freienwalder Str. -> Stadt" / "-> Land"); (b) at S+U
+        hubs (S+U Hermannstr., S+U Alexanderplatz…) VBB stores S-Bahn
+        and U-Bahn platforms as separate points with identical base
+        names. Cluster by base_name only. Keep nearest hit; join
+        distinct modes with "," so the SPA can map to labels; union
+        the direction suffixes."""
+        clusters: dict = {}
+        for p in raw:
+            base, _sep, direction = p["name"].partition(" -> ")
+            base = base.strip()
+            direction = direction.strip()
+            entry = clusters.get(base)
+            if entry is None:
+                entry = {**p, "name": base, "directions": []}
+                clusters[base] = entry
+            existing_modes = entry.get("mode", "").split(",")
+            if p.get("mode") and p["mode"] not in existing_modes:
+                entry["mode"] = ",".join(
+                    [m for m in existing_modes if m] + [p["mode"]])
+            if direction and direction not in entry["directions"]:
+                entry["directions"].append(direction)
+        return sorted(clusters.values(), key=lambda x: x["distance_m"])
+
+    _rail_raw = []
+    _rail_cap = th["rail_transit"]["any_rail_m"] * 2  # wide pre-filter
+    for mode_tag, points in (("S", index.sbahn), ("U", index.ubahn)):
         for p in points:
             d = haversine_m(lon, lat, p["lon"], p["lat"])
-            if d <= th["transit_newcomer"]["any_rail_m"] * 2:  # wide pre-filter
-                _transit_raw.append({**p, "distance_m": round(d), "mode": mode_tag})
-    _transit_raw.sort(key=lambda x: x["distance_m"])
-    # Cluster platform pairs sharing a station name.  VBB / BOD tram stores
-    # each direction as its own point ("Freienwalder Str. -> Stadt" and
-    # "-> Land"), which without dedup produces near-duplicate rows in the
-    # feature list.  Keep the nearest platform per (mode, base_name);
-    # collect direction suffixes so the UI can surface both bearings.
-    _clusters: dict = {}
-    for _p in _transit_raw:
-        _base, _sep, _dir = _p["name"].partition(" -> ")
-        _base = _base.strip()
-        _dir = _dir.strip()
-        _ck = (_p["mode"], _base)
-        _entry = _clusters.get(_ck)
-        if _entry is None:
-            _entry = {**_p, "name": _base, "directions": []}
-            _clusters[_ck] = _entry
-        if _dir and _dir not in _entry["directions"]:
-            _entry["directions"].append(_dir)
-    transit_feats = sorted(_clusters.values(), key=lambda x: x["distance_m"])
+            if d <= _rail_cap:
+                _rail_raw.append({**p, "distance_m": round(d), "mode": mode_tag})
+    _rail_raw.sort(key=lambda x: x["distance_m"])
+    rail_feats = _cluster_by_base(_rail_raw)
+
+    # -- Tram from preloaded VBB tram list -----------------------------------
+    _tram_raw = []
+    _tram_cap = th["tram_transit"]["amber_m"] * 2  # wide pre-filter
+    for p in index.tram:
+        d = haversine_m(lon, lat, p["lon"], p["lat"])
+        if d <= _tram_cap:
+            _tram_raw.append({**p, "distance_m": round(d), "mode": "T"})
+    _tram_raw.sort(key=lambda x: x["distance_m"])
+    tram_feats = _cluster_by_base(_tram_raw)
+
+    # -- Bus from OSM `transit` bucket (bus-tagged only) --------------------
+    # amenities_near() is called by the /api/lookup handler and passed in;
+    # newcomer_lens tolerates its absence (returns [] → red tile).
+    _tr_block = (amenities or {}).get("transit") or {}
+    _tr_items = _tr_block.get("items") or []
+    _bus_items = [it for it in _tr_items
+                  if (it.get("tags") or {}).get("bus") == "yes"
+                  or (it.get("tags") or {}).get("highway") == "bus_stop"]
+    _bus_items.sort(key=lambda x: x.get("distance_m", 10**9))
+    bus_feats = []
+    for it in _bus_items:
+        d = it.get("distance_m")
+        name = (it.get("name") or "").strip()
+        if d is None or not name:
+            continue
+        bus_feats.append({"name": name,
+                          "lat": it.get("lat"), "lon": it.get("lon"),
+                          "distance_m": round(d)})
 
     # -- OSM local buckets: intl_food, coworking, english_clinic -------------
     oc = getattr(index, "osm_local", None)
@@ -1419,7 +1546,9 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     # -- Tier computations ---------------------------------------------------
     results = [
         ("buergeramt",     _tier_buergeramt_newcomer(buergeramt_feats, th["buergeramt"])),
-        ("transit_newcomer", _tier_transit_newcomer(transit_feats,     th["transit_newcomer"])),
+        ("rail_transit",   _tier_rail_transit(rail_feats,              th["rail_transit"])),
+        ("tram_transit",   _tier_tram_transit(tram_feats,              th["tram_transit"])),
+        ("bus_transit",    _tier_bus_transit(bus_feats,                th["bus_transit"])),
         ("intl_food",      _tier_intl_food(intl_food_feats,            th["intl_food"])),
         ("coworking",      _tier_coworking(coworking_feats,            th["coworking"])),
         ("english_clinic", _tier_english_clinic(english_clinic_feats,  th["english_clinic"])),
@@ -1433,11 +1562,20 @@ def newcomer_lens(cfg, index, lon: float, lat: float) -> dict:
     tiles = []
     feat_map = {
         "buergeramt":      buergeramt_feats,
-        "transit_newcomer": [{"name": f["name"], "lat": f["lat"], "lon": f["lon"],
-                               "distance_m": f["distance_m"], "mode": f["mode"],
-                               "walk_min": round(_walk_minutes(f["distance_m"])),
-                               "directions": f.get("directions", [])}
-                              for f in transit_feats[:10]],
+        "rail_transit":    [{"name": f["name"], "lat": f["lat"], "lon": f["lon"],
+                              "distance_m": f["distance_m"], "mode": f["mode"],
+                              "walk_min": round(_walk_minutes(f["distance_m"])),
+                              "directions": f.get("directions", [])}
+                             for f in rail_feats[:10]],
+        "tram_transit":    [{"name": f["name"], "lat": f["lat"], "lon": f["lon"],
+                              "distance_m": f["distance_m"], "mode": "T",
+                              "walk_min": round(_walk_minutes(f["distance_m"])),
+                              "directions": f.get("directions", [])}
+                             for f in tram_feats[:10]],
+        "bus_transit":     [{"name": f["name"], "lat": f["lat"], "lon": f["lon"],
+                              "distance_m": f["distance_m"], "mode": "B",
+                              "walk_min": round(_walk_minutes(f["distance_m"]))}
+                             for f in bus_feats[:10]],
         "intl_food":       intl_food_feats[:10],
         "coworking":       coworking_feats[:10],
         "english_clinic":  english_clinic_feats[:10],
@@ -2037,27 +2175,43 @@ if __name__ == "__main__":
     _bn = _tier_buergeramt_newcomer(_B_f(1000), _TN["buergeramt"])
     assert "1000" in _bn["numeric"] and "BA-Test" in _bn["numeric"]
 
-    # -- _tier_transit_newcomer -----------------------------------------------
-    _TRN = _TN["transit_newcomer"]
+    # -- _tier_rail_transit ---------------------------------------------------
+    _TRN = _TN["rail_transit"]
 
     def _tr_f(mode, d):
         return [{"name": "Ost", "lat": 52.5, "lon": 13.4,
                  "distance_m": d, "mode": mode}]
 
     # S-Bahn ≤ 800 m → green.
-    assert _tier_transit_newcomer(_tr_f("S", 800),  _TRN)["tier"] == TIER_GREEN
+    assert _tier_rail_transit(_tr_f("S", 800),  _TRN)["tier"] == TIER_GREEN
     # S-Bahn 801 m → not green; then amber if ≤ 1200 m.
-    assert _tier_transit_newcomer(_tr_f("S", 801),  _TRN)["tier"] == TIER_AMBER
+    assert _tier_rail_transit(_tr_f("S", 801),  _TRN)["tier"] == TIER_AMBER
     # U-Bahn ≤ 500 m → green.
-    assert _tier_transit_newcomer(_tr_f("U", 500),  _TRN)["tier"] == TIER_GREEN
+    assert _tier_rail_transit(_tr_f("U", 500),  _TRN)["tier"] == TIER_GREEN
     # U-Bahn 501 m → not green U; amber (within any_rail_m=1200).
-    assert _tier_transit_newcomer(_tr_f("U", 501),  _TRN)["tier"] == TIER_AMBER
-    # Tram ≤ 1200 m → amber.
-    assert _tier_transit_newcomer(_tr_f("T", 1200), _TRN)["tier"] == TIER_AMBER
-    # Tram 1201 m → red.
-    assert _tier_transit_newcomer(_tr_f("T", 1201), _TRN)["tier"] == TIER_RED
+    assert _tier_rail_transit(_tr_f("U", 501),  _TRN)["tier"] == TIER_AMBER
     # Empty → red.
-    assert _tier_transit_newcomer([],               _TRN)["tier"] == TIER_RED
+    assert _tier_rail_transit([],               _TRN)["tier"] == TIER_RED
+
+    # -- _tier_tram_transit ---------------------------------------------------
+    _TTM = _TN["tram_transit"]
+    def _tm_f(d):
+        return [{"name": "TramStop", "lat": 52.5, "lon": 13.4, "distance_m": d}]
+    assert _tier_tram_transit(_tm_f(500),  _TTM)["tier"] == TIER_GREEN  # green_m=500 inclusive
+    assert _tier_tram_transit(_tm_f(501),  _TTM)["tier"] == TIER_AMBER
+    assert _tier_tram_transit(_tm_f(1000), _TTM)["tier"] == TIER_AMBER  # amber_m=1000 inclusive
+    assert _tier_tram_transit(_tm_f(1001), _TTM)["tier"] == TIER_RED
+    assert _tier_tram_transit([],          _TTM)["tier"] == TIER_RED
+
+    # -- _tier_bus_transit ----------------------------------------------------
+    _TBS = _TN["bus_transit"]
+    def _bs_f(d):
+        return [{"name": "BusStop", "lat": 52.5, "lon": 13.4, "distance_m": d}]
+    assert _tier_bus_transit(_bs_f(300),  _TBS)["tier"] == TIER_GREEN   # green_m=300 inclusive
+    assert _tier_bus_transit(_bs_f(301),  _TBS)["tier"] == TIER_AMBER
+    assert _tier_bus_transit(_bs_f(600),  _TBS)["tier"] == TIER_AMBER   # amber_m=600 inclusive
+    assert _tier_bus_transit(_bs_f(601),  _TBS)["tier"] == TIER_RED
+    assert _tier_bus_transit([],          _TBS)["tier"] == TIER_RED
 
     # -- _tier_intl_food ------------------------------------------------------
     _TIF = _TN["intl_food"]
@@ -2151,11 +2305,12 @@ if __name__ == "__main__":
         f"missing envelope keys: {sorted(_out)}"
     assert _out["slug"] == "newcomer"
     assert _out["label"] == "Newcomer"
-    assert len(_out["tiles"]) == 11
+    assert len(_out["tiles"]) == 13
     # Tile key order (plan-specified).
     _keys_nl = [t["key"] for t in _out["tiles"]]
-    assert _keys_nl == ["buergeramt", "transit_newcomer", "intl_food",
-                        "coworking", "english_clinic",
+    assert _keys_nl == ["buergeramt",
+                        "rail_transit", "tram_transit", "bus_transit",
+                        "intl_food", "coworking", "english_clinic",
                         "language_school", "library", "packstation", "wochenmarkt",
                         "nightlife_density",
                         "gesix_newcomer"], _keys_nl
