@@ -54,6 +54,22 @@ from inference.templates import transit_insight as transit_insight_tpl
 from inference.templates import transit_newcomer_insight as transit_newcomer_insight_tpl
 from inference.templates import wochenmarkt_insight as wochenmarkt_insight_tpl
 
+# ---------- Sentry (production error tracking) ----------
+# Env-guarded. Local dev (Apple Silicon, INFERENCE_BACKEND=mlx) leaves the DSN
+# unset, so this is a no-op and sentry_sdk is never imported.
+if os.environ.get("SENTRY_DSN_INFERENCE"):
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=os.environ["SENTRY_DSN_INFERENCE"],
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+        traces_sample_rate=0.1,
+        environment=os.environ.get("SENTRY_ENV", "production"),
+        release=os.environ.get("GIT_SHA") or None,
+    )
+
 # ---------------------------------------------------------------------- config
 
 BACKEND_NAME = os.environ.get("INFERENCE_BACKEND", "mlx")   # mlx | llama
