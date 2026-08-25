@@ -136,17 +136,19 @@ def lookup(
         lens_yf = {"slug": "young_family",
                    "error": f"{type(e).__name__}: {e}"}
 
-    # --- Bureaucracy lens (Spec B) ----------------------------------------
-    # Deterministic — no external fetches on the hot path. Data is either
-    # preloaded on Index (Bezirksgrenzen, Bürgerämter) or read from
-    # CityConfig curated directories (Finanzamt, Standesamt, Arbeitsagentur,
-    # LEA). Wrapped in try/except purely to isolate programming bugs
-    # (never break /api/lookup for lens issues, §14.7).
+    # --- Admin-offices bundle (raw view "Others" tab) --------------------
+    # Same tile-shaped data the Bureaucracy lens produced, but no longer
+    # surfaced in Life Mode — the raw view already renders these under the
+    # "Others" tab. Deterministic — no external fetches on the hot path.
+    # Data is either preloaded on Index (Bezirksgrenzen, Bürgerämter) or
+    # read from CityConfig curated directories (Finanzamt, Standesamt,
+    # Arbeitsagentur, LEA). Wrapped in try/except so a bug here never
+    # breaks /api/lookup for other consumers (§14.7).
     try:
-        lens_bur = scorer.bureaucracy_lens(cfg, index, lon, lat)
+        others_admin = scorer.bureaucracy_lens(cfg, index, lon, lat)
     except Exception as e:
-        lens_bur = {"slug": "bureaucracy",
-                    "error": f"{type(e).__name__}: {e}"}
+        others_admin = {"slug": "bureaucracy",
+                        "error": f"{type(e).__name__}: {e}"}
 
     # --- Newcomer lens (Spec E) -------------------------------------------
     # Pure Python — reads only pre-loaded Index state, no live-fetch on
@@ -178,8 +180,9 @@ def lookup(
         "trees":        trees_summary,
         "air":          air,
         "heat":         heat,
-        "lens":         {"young_family": lens_yf, "bureaucracy": lens_bur,
+        "lens":         {"young_family": lens_yf,
                          "newcomer": lens_newcomer},
+        "others":       {"bureaucracy": others_admin},
         "provenance": {
             "catchment":     cfg.attribution["catchment"],
             "schools":       cfg.attribution["schools"],
