@@ -44,6 +44,14 @@ usermod -aG docker "$DEPLOY_USER"
 # --- 3. Directory layout ----------------------------------------------------
 mkdir -p "$SRV_ROOT"/{models,data/osm,logs}
 chown -R "$DEPLOY_USER:$DEPLOY_USER" "$SRV_ROOT"
+# The app + inference images run as the non-root user `addrlens` (uid 10001,
+# set in ops/Dockerfile.app / ops/Dockerfile.inference). The bind-mounted
+# data/osm and models directories need to be writable by that in-container
+# user so the weekly refresh script can rewrite the snapshot atomically,
+# and so `docker compose run` can drop a downloaded PBF into data/osm.
+# Change ownership to the container uid — a simpler and more resilient
+# choice than granting the host user membership in a matching group.
+chown -R 10001:10001 "$SRV_ROOT/data/osm" "$SRV_ROOT/models"
 touch "$SRV_ROOT/.env.production"
 chmod 600 "$SRV_ROOT/.env.production"
 chown "$DEPLOY_USER:$DEPLOY_USER" "$SRV_ROOT/.env.production"
@@ -98,7 +106,8 @@ else
 fi
 
 log "bootstrap complete. next:"
-log "  1. hf download bartowski/Qwen2.5-1.5B-Instruct-GGUF Qwen2.5-1.5B-Instruct-Q4_K_M.gguf --local-dir $SRV_ROOT/models"
+log "  1. curl -L -o $SRV_ROOT/models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf \\"
+log "        'https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf?download=true'"
 log "  2. fill $SRV_ROOT/.env.production"
 log "  3. cd $REPO_ROOT && docker compose -f docker-compose.yml -f docker-compose.prod.yml build"
 log "  4. cd $REPO_ROOT && docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm --entrypoint python app -m scripts.refresh_osm_amenities"
