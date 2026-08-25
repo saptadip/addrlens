@@ -40,7 +40,7 @@ Inherited from Spec A (Young Family) and Spec D (Clickable Lens Tiles):
 | `app/core/scorer.py` | Extract shared `_shape_gesix(index, lat, lon)` helper used by both lenses | 3 |
 | `app/core/scorer.py` | Add 5 tier functions + `newcomer_lens(cfg, index, ...)` composer + pure selfchecks | 4 |
 | `app/routes/lookup.py` | Call `newcomer_lens` at end of handler; fold under `lens.newcomer` behind try/except | 5 |
-| `inference/templates/*.py` | 6 new template files (`buergeramt_insight`, `transit_newcomer_insight`, `intl_food_insight`, `coworking_insight`, `english_clinic_insight`, `gesix_newcomer_insight`) | 6 |
+| `inference/templates/*.py` | 6 new template files (`buergeramt_insight`, `rail_transit_insight`, `intl_food_insight`, `coworking_insight`, `english_clinic_insight`, `gesix_newcomer_insight`) | 6 |
 | `inference/main.py` | Register 6 new templates in `TEMPLATES` | 6 |
 | `app/routes/card_insight.py` | Extend `_CARD_CONTEXT_BUILDERS` with 6 new rows | 7 |
 | `app/selfcheck.py` | Live asserts for Bergmannstraße 27 (mid-quintile, mostly green) + Marzahner Promenade (higher quintile, mixed) | 10 |
@@ -209,7 +209,7 @@ NEWCOMER_LENS = LensConfig(
             thresholds={"green_m": 1500, "amber_m": 3000},
             caveat=""),
         LensTileConfig(
-            key="transit_newcomer", label="Transit reach", icon="transit",
+            key="rail_transit", label="Rail Transit", icon="transit",
             thresholds={"sbahn_m": 800, "ubahn_m": 500, "any_rail_m": 1200},
             caveat=""),
         LensTileConfig(
@@ -247,7 +247,7 @@ if __name__ == "__main__":
     assert BERLIN.newcomer_lens is NEWCOMER_LENS
     assert BERLIN.buergeramt_wfs_url is None    # v1: OSM fallback
     keys = [t.key for t in BERLIN.newcomer_lens.tiles]
-    assert keys == ["buergeramt", "transit_newcomer", "intl_food",
+    assert keys == ["buergeramt", "rail_transit", "intl_food",
                     "coworking", "english_clinic", "gesix_newcomer"], keys
     assert "buergeramt" in BERLIN.attribution
     print("selfcheck ok: NEWCOMER_LENS wired")
@@ -353,7 +353,7 @@ git commit -m "scorer: extract _shape_gesix helper for reuse across lenses"
 - Consumes: `Index` public methods (`Index.osm_local.query(bucket, lat, lon, radius_m)`, `Index.vbb_query(lat, lon, radius_m)`, `Index.gesix_at`), `CityConfig` (for thresholds + attribution keys)
 - Produces:
   - `_tier_buergeramt(features, thresholds) -> tile_dict`
-  - `_tier_transit_newcomer(features, thresholds) -> tile_dict`
+  - `_tier_rail_transit(features, thresholds) -> tile_dict`
   - `_tier_intl_food(features, thresholds) -> tile_dict`
   - `_tier_coworking(features, thresholds) -> tile_dict`
   - `_tier_english_clinic(features, thresholds) -> tile_dict`
@@ -388,15 +388,15 @@ def _tier_buergeramt(features: list[dict], th: dict) -> dict:
 
 (`_tile(...)` is a lightweight helper already present in the YF composer path; if it does not yet exist, factor it out here.)
 
-- [ ] **Step 2: Add `_tier_transit_newcomer`**
+- [ ] **Step 2: Add `_tier_rail_transit`**
 
 ```python
-def _tier_transit_newcomer(features: list[dict], th: dict) -> dict:
+def _tier_rail_transit(features: list[dict], th: dict) -> dict:
     """Newcomer framing: prefers S/U over tram; surfaces intercity access.
     features: VBB stops with {name, mode ∈ {'S','U','SU','R','T','B'}, distance_m}.
     """
     if not features:
-        return _tile("transit_newcomer", "Transit reach", "transit",
+        return _tile("rail_transit", "Rail Transit", "transit",
                      tier="red", rule="no rail stop within 1.2 km",
                      numeric="", features=[], sources=["vbb"])
     # green: S-Bahn ≤ 800m OR U-Bahn ≤ 500m
@@ -404,13 +404,13 @@ def _tier_transit_newcomer(features: list[dict], th: dict) -> dict:
         if f["distance_m"] > max(th["sbahn_m"], th["ubahn_m"]):
             break
         if "S" in f.get("mode","") and f["distance_m"] <= th["sbahn_m"]:
-            return _tile("transit_newcomer", "Transit reach", "transit",
+            return _tile("rail_transit", "Rail Transit", "transit",
                          tier="green",
                          rule="rail door-to-door for arrivals and departures",
                          numeric=f"{int(f['distance_m'])}m to {f['mode']}-Bahn {f['name']}",
                          features=features, sources=["vbb"])
         if "U" in f.get("mode","") and f["distance_m"] <= th["ubahn_m"]:
-            return _tile("transit_newcomer", "Transit reach", "transit",
+            return _tile("rail_transit", "Rail Transit", "transit",
                          tier="green",
                          rule="rail door-to-door for arrivals and departures",
                          numeric=f"{int(f['distance_m'])}m to {f['mode']}-Bahn {f['name']}",
@@ -418,13 +418,13 @@ def _tier_transit_newcomer(features: list[dict], th: dict) -> dict:
     # amber: any rail within 1.2 km
     for f in features:
         if f["distance_m"] <= th["any_rail_m"]:
-            return _tile("transit_newcomer", "Transit reach", "transit",
+            return _tile("rail_transit", "Rail Transit", "transit",
                          tier="amber",
                          rule="one interchange for intercity",
                          numeric=f"{int(f['distance_m'])}m to {f['mode']} {f['name']}",
                          features=features, sources=["vbb"])
     # red
-    return _tile("transit_newcomer", "Transit reach", "transit",
+    return _tile("rail_transit", "Rail Transit", "transit",
                  tier="red", rule="cabs or long transfers to leave the city",
                  numeric="", features=features, sources=["vbb"])
 ```
@@ -498,9 +498,9 @@ def newcomer_lens(cfg, index, lat: float, lon: float) -> dict:
         _tier_buergeramt(
             _walk_features(index.osm_local.query("buergeramt", lat, lon, 3500), lat, lon),
             th["buergeramt"]),
-        _tier_transit_newcomer(
+        _tier_rail_transit(
             _walk_features(index.vbb_query(lat, lon, 1500), lat, lon),
-            th["transit_newcomer"]),
+            th["rail_transit"]),
         _tier_intl_food(
             _walk_features(index.osm_local.query("intl_food", lat, lon,
                 th["intl_food"]["radius_m"]), lat, lon),
@@ -542,7 +542,7 @@ class _StubIdx:
     def gesix_at(self, lon, lat): return {"plr_name":"X","quintile_5":3,"rang":1,"total":1}
 out = newcomer_lens(BERLIN, _StubIdx(), 52.5, 13.4)
 assert [t["key"] for t in out["tiles"]] == \
-    ["buergeramt","transit_newcomer","intl_food","coworking","english_clinic","gesix_newcomer"]
+    ["buergeramt","rail_transit","intl_food","coworking","english_clinic","gesix_newcomer"]
 ```
 
 - [ ] **Step 7: Run selfcheck**
@@ -622,7 +622,7 @@ git commit -m "lookup: fold lens.newcomer into /api/lookup response"
 
 **Files:**
 - Create: `v0.1/inference/templates/buergeramt_insight.py`
-- Create: `v0.1/inference/templates/transit_newcomer_insight.py`
+- Create: `v0.1/inference/templates/rail_transit_insight.py`
 - Create: `v0.1/inference/templates/intl_food_insight.py`
 - Create: `v0.1/inference/templates/coworking_insight.py`
 - Create: `v0.1/inference/templates/english_clinic_insight.py`
@@ -679,7 +679,7 @@ if __name__ == "__main__":
 **Per-template `_SYSTEM` variations:**
 
 - `buergeramt_insight` — mention that Bürgeramt slots are city-wide bookable; proximity matters for last-minute openings.
-- `transit_newcomer_insight` — mention Hauptbahnhof + BER access, not tram frequency.
+- `rail_transit_insight` — mention Hauptbahnhof + BER access, not tram frequency.
 - `intl_food_insight` — mention weekly-shop convenience, not restaurant nightlife.
 - `coworking_insight` — mention first-month laptop-friendly anchor before permanent desk.
 - `english_clinic_insight` — surface the OSM caveat; mention TK/AOK helplines and Doctolib as English-language backups.
@@ -732,12 +732,12 @@ from inference.templates import coworking_insight as coworking_insight_tpl
 from inference.templates import english_clinic_insight as english_clinic_insight_tpl
 from inference.templates import gesix_newcomer_insight as gesix_newcomer_insight_tpl
 from inference.templates import intl_food_insight as intl_food_insight_tpl
-from inference.templates import transit_newcomer_insight as transit_newcomer_insight_tpl
+from inference.templates import rail_transit_insight as rail_transit_insight_tpl
 
 TEMPLATES = {
     # ...existing entries...
     "buergeramt_insight":        buergeramt_insight_tpl.run,
-    "transit_newcomer_insight":  transit_newcomer_insight_tpl.run,
+    "rail_transit_insight":  rail_transit_insight_tpl.run,
     "intl_food_insight":         intl_food_insight_tpl.run,
     "coworking_insight":         coworking_insight_tpl.run,
     "english_clinic_insight":    english_clinic_insight_tpl.run,
@@ -749,7 +749,7 @@ TEMPLATES = {
 
 ```bash
 cd v0.1
-for t in buergeramt_insight transit_newcomer_insight intl_food_insight \
+for t in buergeramt_insight rail_transit_insight intl_food_insight \
          coworking_insight english_clinic_insight gesix_newcomer_insight; do
   uv run python -m inference.templates.$t
 done
@@ -780,7 +780,7 @@ git commit -m "inference: 6 newcomer-lens insight templates + register"
 _CARD_CONTEXT_BUILDERS = {
     # ...existing YF entries...
     "buergeramt":         _ctx_features,   # or _ctx_buergeramt if WFS meta needed
-    "transit_newcomer":   _ctx_features,
+    "rail_transit":   _ctx_features,
     "intl_food":          _ctx_features,
     "coworking":          _ctx_features,
     "english_clinic":     _ctx_features,
@@ -825,10 +825,10 @@ const LIFE_MODE_LENSES = {
   newcomer: {
     label: 'Newcomer',
     desc:  'First 90 days in Berlin — registration, transit, English-friendly services.',
-    tiles: ['buergeramt','transit_newcomer','intl_food','coworking','english_clinic','gesix_newcomer'],
+    tiles: ['buergeramt','rail_transit','intl_food','coworking','english_clinic','gesix_newcomer'],
     insightKeys: {
       buergeramt:       'buergeramt_insight',
-      transit_newcomer: 'transit_newcomer_insight',
+      rail_transit: 'rail_transit_insight',
       intl_food:        'intl_food_insight',
       coworking:        'coworking_insight',
       english_clinic:   'english_clinic_insight',
@@ -844,7 +844,7 @@ const LIFE_MODE_LENSES = {
 const _INSIGHT_VINTAGE = {
   // ...existing YF entries...
   buergeramt:       'BOD Bezirks-Services · 2026',
-  transit_newcomer: 'VBB · 2026',
+  rail_transit: 'VBB · 2026',
   intl_food:        'OSM Geofabrik weekly extract',
   coworking:        'OSM Geofabrik weekly extract',
   english_clinic:   'OSM Geofabrik weekly extract',
@@ -925,9 +925,9 @@ git commit -m "icons: buergeramt / intl_food / coworking / english_clinic SVGs"
 r = client.get("/api/lookup?address=Bergmannstra%C3%9Fe+27%2C+10961").json()
 assert "newcomer" in r["lens"]
 tiles = {t["key"]: t for t in r["lens"]["newcomer"]["tiles"]}
-assert set(tiles) == {"buergeramt","transit_newcomer","intl_food",
+assert set(tiles) == {"buergeramt","rail_transit","intl_food",
                       "coworking","english_clinic","gesix_newcomer"}
-assert tiles["transit_newcomer"]["tier"] == "green"     # multiple S/U nearby
+assert tiles["rail_transit"]["tier"] == "green"     # multiple S/U nearby
 assert tiles["intl_food"]["tier"] in ("green","amber")  # Kreuzberg → international
 assert tiles["gesix_newcomer"]["tier"] == "unknown"     # shape-only
 assert "gesix" in tiles["gesix_newcomer"]["metadata"]

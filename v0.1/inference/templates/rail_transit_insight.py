@@ -1,5 +1,5 @@
-"""`transit_newcomer_insight` — plain-English gloss of the 'Transit reach' tile
-for the Newcomer lens.
+"""`rail_transit_insight` — plain-English gloss of the 'Rail Transit' tile
+for the Newcomer lens (S-Bahn + U-Bahn only; Tram + Bus are separate tiles).
 
 Response schema: { "insight": "<one paragraph, 70–110 words>" }.
 
@@ -107,4 +107,4 @@ if __name__ == "__main__":
         "red exemplar must not positively invert"
     # Final user message
     assert msgs[-1]["role"] == "user"
-    print("transit_newcomer_insight.py selfcheck OK")
+    print("rail_transit_insight.py selfcheck OK")

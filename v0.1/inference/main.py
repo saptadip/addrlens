@@ -51,7 +51,9 @@ from inference.templates import playground_insight as playground_insight_tpl
 from inference.templates import refuge_insight as refuge_insight_tpl
 from inference.templates import supermarket_insight as supermarket_insight_tpl
 from inference.templates import transit_insight as transit_insight_tpl
-from inference.templates import transit_newcomer_insight as transit_newcomer_insight_tpl
+from inference.templates import rail_transit_insight as rail_transit_insight_tpl
+from inference.templates import tram_transit_insight as tram_transit_insight_tpl
+from inference.templates import bus_transit_insight  as bus_transit_insight_tpl
 from inference.templates import wochenmarkt_insight as wochenmarkt_insight_tpl
 
 # ---------- Sentry (production error tracking) ----------
@@ -98,7 +100,9 @@ TEMPLATES = {
     "english_clinic_insight":    english_clinic_insight_tpl.run,
     "gesix_newcomer_insight":    gesix_newcomer_insight_tpl.run,
     "intl_food_insight":         intl_food_insight_tpl.run,
-    "transit_newcomer_insight":  transit_newcomer_insight_tpl.run,
+    "rail_transit_insight":      rail_transit_insight_tpl.run,
+    "tram_transit_insight":      tram_transit_insight_tpl.run,
+    "bus_transit_insight":       bus_transit_insight_tpl.run,
     "language_school_insight":   language_school_insight_tpl.run,
     "library_insight":           library_insight_tpl.run,
     "packstation_insight":       packstation_insight_tpl.run,
