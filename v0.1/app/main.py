@@ -17,6 +17,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import CORS_ORIGINS, load_city
 from app.core.index import Index
+from app.core.rate_limit import limiter, RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
 from app.routes.amenities import router as amenities_router
 from app.routes.config import router as config_router
 from app.routes.card_insight import router as card_insight_router
@@ -94,6 +97,14 @@ def datenschutzerklaerung():
 # Static assets (app.css, app.js, future vendored bundles). Kept as a plain
 # StaticFiles mount — zero build step, browser caches these once per revision.
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
+
+# Rate limiting — see app/core/rate_limit.py. Per-IP + per-route. Requires
+# reading CF-Connecting-IP behind the tunnel. The middleware attaches the
+# request/limiter binding; the exception handler translates over-limit into
+# HTTP 429 with a plain JSON body.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(config_router)
 app.include_router(lookup_router)

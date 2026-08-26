@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.cities.base import CityConfig
 from app.config import INFERENCE_TIMEOUT_S, INFERENCE_URL
+from app.core.rate_limit import limiter
 from app.deps import get_city
 from fastapi import Depends
 
@@ -114,6 +115,7 @@ _CARD_CONTEXT_BUILDERS = {
 
 
 @router.post("/api/card_insight")
+@limiter.limit("30/minute")
 async def card_insight(request: Request, cfg: CityConfig = Depends(get_city)):
     try:
         payload = await request.json()

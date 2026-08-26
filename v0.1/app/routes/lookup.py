@@ -1,6 +1,8 @@
 """/api/lookup — geocode + catchment + assigned schools + intl school + kitas.
 Byte-for-byte parity with phase3/server.py:_lookup."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from app.core.rate_limit import limiter
 from shapely.geometry import mapping
 
 from app.cities.base import CityConfig
@@ -16,7 +18,9 @@ router = APIRouter()
 
 
 @router.get("/api/lookup")
+@limiter.limit("60/minute")
 def lookup(
+    request: Request,
     index: Index = Depends(get_index),
     cfg: CityConfig = Depends(get_city),
     address: str = Query("", description="Free-text address; ignored if street/hnr/plz all given."),

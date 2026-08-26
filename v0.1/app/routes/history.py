@@ -32,10 +32,11 @@ import os
 
 import httpx
 from cachetools import TTLCache
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.cities.base import CityConfig
 from app.config import INFERENCE_TIMEOUT_S, INFERENCE_URL
+from app.core.rate_limit import limiter
 from app.deps import get_city, get_index
 
 router = APIRouter()
@@ -78,7 +79,9 @@ def _shape_historic(f: dict) -> dict | None:
 
 
 @router.get("/api/history")
+@limiter.limit("10/minute")
 async def history(
+    request: Request,
     lat: float, lon: float,
     street:   str = "?", hnr:      str = "?", plz: str = "?",
     bezirk:   str = "?", ortsteil: str = "?",
