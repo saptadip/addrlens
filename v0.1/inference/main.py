@@ -77,6 +77,17 @@ if os.environ.get("SENTRY_DSN_INFERENCE"):
 BACKEND_NAME = os.environ.get("INFERENCE_BACKEND", "mlx")   # mlx | llama
 MODEL_ID     = os.environ.get("INFERENCE_MODEL_ID")         # optional override
 
+# Remote-inference routing.
+# `INFERENCE_REMOTE_TEMPLATES` is a comma-separated allow-list of template
+# names that will be served by the remote backend (Cloudflare Workers AI)
+# when CF_ACCOUNT_ID and CF_WORKERS_AI_TOKEN are set. Any other template
+# stays on the local backend. Any remote failure falls through to local.
+REMOTE_TEMPLATES = {
+    t.strip()
+    for t in os.environ.get("INFERENCE_REMOTE_TEMPLATES", "history").split(",")
+    if t.strip()
+}
+
 TEMPLATES = {
     "impression":     impression_tpl.run,
     "explain":        explain_tpl.run,
@@ -111,7 +122,7 @@ TEMPLATES = {
 
 # ---------------------------------------------------------------------- state
 
-_state: dict = {"backend": None, "error": None}
+_state: dict = {"backend": None, "remote": None, "error": None}
 _lock = threading.Lock()   # models are not thread-safe; serialize generation
 
 
@@ -130,6 +141,19 @@ def _load_backend() -> None:
     except Exception as e:
         _state["error"] = f"{type(e).__name__}: {e}"
         print(f"llm load failed: {_state['error']}", file=sys.stderr, flush=True)
+    # Remote backend is optional and stateless — instantiate synchronously
+    # in this same loader thread once the local backend attempt is done, so
+    # /ready still gates on the (slow) local model load.
+    try:
+        from inference.runtime.cloudflare_backend import backend_from_env
+        _state["remote"] = backend_from_env()
+        if _state["remote"] is not None and REMOTE_TEMPLATES:
+            print(f"remote backend enabled: model={_state['remote'].model_id} "
+                  f"templates={sorted(REMOTE_TEMPLATES)}", flush=True)
+    except Exception as e:
+        # Not fatal — local backend still handles everything.
+        print(f"remote backend init failed (fallback to local only): "
+              f"{type(e).__name__}: {e}", file=sys.stderr, flush=True)
 
 
 # ---------------------------------------------------------------------- app
@@ -180,6 +204,28 @@ async def summarize(request: Request):
     if run is None:
         raise HTTPException(400, f"unknown template {template!r}; "
                                  f"expected one of {sorted(TEMPLATES)}")
+
+    # Remote-first path for allow-listed templates. Any failure — network,
+    # HTTP, empty response, CF-reported error — falls through to local.
+    # No lock: the remote backend is stateless per-request and safe to
+    # call concurrently. Local generation stays serialised under _lock.
+    remote = _state["remote"]
+    if remote is not None and template in REMOTE_TEMPLATES:
+        try:
+            summary = run(remote, context)
+            return {
+                "summary":  summary,
+                "model":    remote.model_id,
+                "trace_id": str(uuid.uuid4()),
+            }
+        except ValueError as e:
+            # Template contract violation (bad context). Real bug — surface.
+            raise HTTPException(400, str(e))
+        except Exception as e:
+            # Remote flake — log and fall through to local. `flush=True` so
+            # the message hits Docker logs even if uvicorn's buffer is deep.
+            print(f"remote inference fell back to local ({template}): "
+                  f"{type(e).__name__}: {e}", file=sys.stderr, flush=True)
 
     if _state["backend"] is None:
         msg = _state["error"] or "AI model still warming up, try again in a moment."
