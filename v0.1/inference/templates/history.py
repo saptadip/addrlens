@@ -26,14 +26,13 @@ SAMPLER = {
 
 _SYSTEM = (
     "You are a Berlin neighbourhood historian writing for an English-speaking "
-    "expat who is considering a flat at a specific address. You receive a JSON "
-    "list of historic points of interest within ~500 metres of the flat: "
+    "expat who is considering moving to this area. You receive a JSON "
+    "list of historic points of interest within ~500 metres: "
     "memorials, monuments, plaques, ruins, old rail lines, listed buildings. "
     "Weave the most notable 2–4 items into ONE short paragraph, 60–90 words. "
     "Ground rules: "
     "(1) English only. Do not use German words unless they are proper names "
-    "(street names, borough names, and 'Stolperstein' — which is fine, other "
-    "German is not). "
+    "(borough names and 'Stolperstein' — which is fine, other German is not). "
     "(2) Stolpersteine are pavement brass plaques marking the last freely-chosen "
     "home of a person deported by the Nazis. Handle with respect: state the "
     "person's name and fate when the payload has them; never call them 'fun "
@@ -41,7 +40,11 @@ _SYSTEM = (
     "(3) Only mention facts present in the JSON — never invent dates, names, "
     "or context. If a field is missing, skip it. "
     "(4) Do not editorialise about property values or 'good/bad neighbourhoods'. "
-    "(5) End with one sentence anchoring the reader in the present — what the "
+    "(5) Refer to the location as 'this block', 'the neighbourhood', or the "
+    "borough / Ortsteil name from the header. NEVER mention a specific street "
+    "name or house number — the paragraph is reused for every address on the "
+    "block, so a street-specific opener would be wrong for the neighbours. "
+    "(6) End with one sentence anchoring the reader in the present — what the "
     "visitor will physically see when they walk past. "
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
@@ -54,18 +57,25 @@ def build_messages(context: dict) -> list[dict]:
     # Cap at 5 features to keep the prompt tight — the model does better
     # weaving 2-4 items than triaging 20. Assumes upstream sorted by distance.
     shown = feats[:5]
+    # Header carries only borough / Ortsteil — never a specific street or
+    # house number. The narrative is cached per ~100 m grid cell (see
+    # app/routes/history.py) and reused for every address in the cell, so
+    # an address-specific opener like "Buschallee 3" would be wrong for the
+    # next-door neighbour who hits the same cache entry.
     header = (
-        f"Address: {context.get('street','?')} {context.get('hnr','?')}, "
-        f"{context.get('plz','?')} Berlin  "
-        f"({context.get('bezirk','?')}, {context.get('ortsteil','?')})"
+        f"Neighbourhood: {context.get('bezirk','?')}, "
+        f"{context.get('ortsteil','?')} (Berlin)"
     )
     facts = json.dumps(shown, ensure_ascii=False, indent=2)[:2400]
     return [
         {"role": "system", "content": _SYSTEM},
         # One-shot pattern to lock in the tone. Stolperstein handling is the
         # key thing to demonstrate; the assistant reply teaches respect + form.
+        # Opener is intentionally address-agnostic ("On this block", not
+        # "Outside the front door of 40 Choriner Straße") so the model learns
+        # to produce cache-shareable prose.
         {"role": "user", "content":
-            "Address: Choriner Straße 40, 10435 Berlin  (Pankow, Prenzlauer Berg)\n\n"
+            "Neighbourhood: Pankow, Prenzlauer Berg (Berlin)\n\n"
             "Historic points within 500 m (3 total, top 3 by proximity):\n"
             "[{\"distance_m\":40,\"historic\":\"memorial\",\"name\":\"Anna Winter\","
             "\"inscription\":\"Hier wohnte Anna Winter, Jg. 1889, deportiert 1942, "
@@ -75,12 +85,12 @@ def build_messages(context: dict) -> list[dict]:
             "{\"distance_m\":320,\"historic\":\"building\",\"name\":\"Kulturbrauerei\","
             "\"wikipedia\":\"de:Kulturbrauerei\"}]"},
         {"role": "assistant", "content":
-            "Outside the front door you will find a Stolperstein for Anna Winter, born 1889 and "
+            "On this block a Stolperstein commemorates Anna Winter, born 1889 and "
             "deported in 1942 before being murdered in Riga — the small brass plaque set into the "
-            "pavement is the last freely-chosen address she left. A block away, a marker records "
+            "pavement is the last freely-chosen address she left. A short walk away, a marker records "
             "the line of the former Wall, and 300 metres to the south the red-brick "
-            "Kulturbrauerei — a 19th-century brewery turned arts complex — anchors the local "
-            "cultural life. Walk slowly along the block and watch the pavement."},
+            "Kulturbrauerei — a 19th-century brewery turned arts complex — anchors local "
+            "cultural life. Walk slowly through the neighbourhood and watch the pavement."},
         {"role": "user", "content": f"{header}\n\nHistoric points within 500 m ({len(feats)} total, top {len(shown)} by proximity):\n{facts}"},
     ]
 
@@ -98,9 +108,6 @@ def run(backend, context: dict) -> dict:
 if __name__ == "__main__":
     # Prompt shape asserts — matches explain.py style. Runs offline, no model.
     msgs = build_messages({
-        "street":   "Freienwalder Straße",
-        "hnr":      "2",
-        "plz":      "13055",
         "bezirk":   "Lichtenberg",
         "ortsteil": "Alt-Hohenschönhausen",
         "features": [
@@ -111,8 +118,22 @@ if __name__ == "__main__":
     assert msgs[0]["role"] == "system"
     assert "Stolperstein" in msgs[0]["content"]
     assert "Fritz Leyser" in msgs[-1]["content"]
-    # Assistant one-shot must model respectful Stolperstein handling.
-    assert any(m["role"] == "assistant" and "Stolperstein" in m["content"] for m in msgs)
+    # Header must NOT leak a street name or house number — the paragraph is
+    # cache-shared across a ~100 m cell, so anything address-specific breaks
+    # correctness for neighbouring addresses.
+    _final_user = msgs[-1]["content"]
+    assert "Address:" not in _final_user, "header must not include street/hnr"
+    assert "Neighbourhood:" in _final_user, "header must be borough / Ortsteil scoped"
+    # System prompt must forbid street-specific openers.
+    _sys = msgs[0]["content"].lower()
+    assert "never mention a specific street" in _sys, \
+        "system must forbid street-specific mentions for cache safety"
+    # Assistant one-shot must model respectful Stolperstein handling AND
+    # the address-agnostic opener.
+    _asst = next(m["content"] for m in msgs if m["role"] == "assistant")
+    assert "Stolperstein" in _asst
+    assert "Choriner" not in _asst, \
+        "one-shot exemplar must not mention a specific street name"
     # Anti-invention: system must forbid inventing facts.
     assert "never invent" in msgs[0]["content"].lower() or "no invention" in msgs[0]["content"].lower()
     # Empty features shortcut.
