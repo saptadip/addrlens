@@ -107,11 +107,16 @@ async def history(
         _history_cache[key] = empty
         return {**empty, "cached": False}
 
+    # NB — street / hnr / plz are intentionally NOT forwarded to the inference
+    # template. The response is cached per ~100 m grid cell (see _cache_key
+    # above) and reused for every address in that cell; an address-specific
+    # opener like "As you enter Buschallee 3" would be wrong the moment the
+    # next-door neighbour (Buschallee 5, same cell) hits the same entry.
+    # Only borough / Ortsteil are neighborhood-scale and safe to share.
     payload = {
         "template": "history",
         "city":     cfg.slug,
         "context":  {
-            "street": street, "hnr": hnr, "plz": plz,
             "bezirk": bezirk, "ortsteil": ortsteil,
             "features": features,
         },
