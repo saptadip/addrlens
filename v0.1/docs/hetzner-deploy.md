@@ -125,6 +125,68 @@ Zero-to-live playbook for deploying addrlens to a fresh Hetzner box behind a Clo
   - `send_default_pii=False` — Sentry does not attach client IP or user session data.
   - A `before_send` callback redacts the `address`, `street`, `hnr`, `plz` query-string params on the app side, and the entire POST body on the inference side (since `/summarize` payloads embed the searched context). A stack trace attached to a lookup never carries the user's search string to Sentry's servers.
 
+- **Wire up Umami analytics.** The `umami` and `umami-db` services in `docker-compose.prod.yml` self-host a cookieless, GDPR-clean tracker. The app's `/` handler only injects the tracker snippet once `UMAMI_WEBSITE_ID` and `UMAMI_SCRIPT_URL` are set — everything below is a one-time setup task.
+
+  1. **Generate secrets and add them to `/srv/addrlens/.env.production`:**
+     ```bash
+     UMAMI_DB_PASSWORD=$(openssl rand -hex 24)
+     UMAMI_APP_SECRET=$(openssl rand -hex 32)
+     sudo bash -c "cat >> /srv/addrlens/.env.production <<EOF
+     UMAMI_DB_PASSWORD=$UMAMI_DB_PASSWORD
+     UMAMI_APP_SECRET=$UMAMI_APP_SECRET
+     EOF"
+     # UMAMI_WEBSITE_ID and UMAMI_SCRIPT_URL are filled after step 4 below.
+     ```
+     Back both secrets up in your password manager. The database password is what protects site-visit data.
+
+  2. **Bring the Umami stack up:**
+     ```bash
+     cd /srv/addrlens/repo/v0.1
+     docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+         --env-file /srv/addrlens/.env.production up -d umami-db umami
+     docker compose ps umami-db umami   # both should reach "healthy" / "Up"
+     ```
+     The first boot takes ~30 s while Umami's Prisma runs the DB migrations.
+
+  3. **Add the tunnel hostname.** In the Cloudflare Zero Trust dashboard for the `addrlens.de` tunnel, add a second **Public Hostname**:
+     - Subdomain: `umami`
+     - Domain: `addrlens.de`
+     - Service: HTTP `umami:3000`
+
+     Cloudflare creates the CNAME automatically. Verify with `dig +short umami.addrlens.de` — expect CF anycast IPs, same as the apex.
+
+  4. **First login and website registration:**
+     - Open `https://umami.addrlens.de/` in a browser.
+     - Log in with default credentials: `admin` / `umami`.
+     - Go to **Settings → Profile → Change password** IMMEDIATELY. Set something strong; store it in your password manager.
+     - **Settings → Websites → Add website** — Name: `addrlens.de`, Domain: `addrlens.de`.
+     - After saving, open the new website row → **Tracking code** tab. Note:
+       - The `data-website-id` UUID (e.g. `a1b2c3d4-...`).
+       - The `src` URL — always `https://umami.addrlens.de/script.js` on your setup.
+
+  5. **Add the two remaining env vars and recreate the app to inject the tracker:**
+     ```bash
+     sudo bash -c 'cat >> /srv/addrlens/.env.production <<EOF
+     UMAMI_WEBSITE_ID=<paste the UUID from step 4>
+     UMAMI_SCRIPT_URL=https://umami.addrlens.de/script.js
+     EOF'
+     cd /srv/addrlens/repo/v0.1
+     docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+         --env-file /srv/addrlens/.env.production up -d --force-recreate app
+     ```
+
+  6. **Verify from the outside:**
+     ```bash
+     curl -sS https://addrlens.de/ | grep -c 'data-website-id="'
+     # Expect: 1 — the tracker snippet is now in the served HTML.
+     ```
+     Then load `https://addrlens.de/` in a real browser and refresh the Umami dashboard's *Realtime* view — you should appear as one active visitor within a couple of seconds.
+
+  Notes:
+  - The `umami-db` service bind-mounts to `/srv/addrlens/umami-db` so the analytics data survives container recreates. Include this path in any backup / snapshot strategy.
+  - Umami is a Next.js app; memory footprint under a small site's traffic is ~100–200 MB. The 350 MB `mem_limit` in the compose file leaves headroom without competing with the inference container.
+  - Nothing about Umami touches the app-side rate limits or Cloudflare WAF rules — the tracker script loads from `umami.addrlens.de`, not `addrlens.de/api/*`.
+
 ## Updates
 
 Run from the box after `git push origin main` has landed the new code:
