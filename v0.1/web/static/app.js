@@ -64,6 +64,20 @@ const AMEN_COLOR=Object.fromEntries(AMEN.map(([k,,,c])=>[k,c]));
 const AMEN_TAB={pharmacies:'med', gps:'med', hospitals:'med', fireRescue:'med'};
 const tabOf=k=>AMEN_TAB[k]||'amen';
 const $q=document.getElementById('q'),$f=document.getElementById('f'),$out=document.getElementById('out'),$amen=document.getElementById('amen'),$med=document.getElementById('med'),$env=document.getElementById('env'),$conn=document.getElementById('conn'),$others=document.getElementById('others'),$status=document.getElementById('status'),$tabs=document.getElementById('tabs-row');
+
+// --- Umami event tracker helper -------------------------------------------
+// Umami's script exposes window.umami.track(name, data). It is injected by
+// app/main.py only when UMAMI_WEBSITE_ID + UMAMI_SCRIPT_URL are set — so in
+// local dev the object is undefined. Guard every call so the app runs
+// unmodified when the tracker is absent. Failures inside umami.track (e.g.
+// network hiccup) are swallowed — analytics must never break the UX.
+function _track(name, data){
+  try {
+    if (window.umami && typeof window.umami.track === 'function') {
+      window.umami.track(name, data || undefined);
+    }
+  } catch (e) { /* analytics is best-effort */ }
+}
 let lastCoord=null; // {lat,lon} of last successful lookup — for lazy amenities fetch
 // Per-tab render state (map + selected category). Same shape for both panels
 // so every renderer/selector takes a tab id and reads its slice.
@@ -154,7 +168,7 @@ function clearResultState(){ eduData=null; amenData=null; envData=null; refreshS
 
 // compareRefreshPill()+showView() moved to end-of-script so const COMPARE_KEY,
 // COMPARE_MAX etc. are initialized before a hash-loaded #compare tries to render.
-document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q.value=c.dataset.q;$f.dispatchEvent(new Event('submit'))}));
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q.value=c.dataset.q;_track('chip_click',{address:c.dataset.q});$f.dispatchEvent(new Event('submit'))}));
 
 // ============================================================================
 // /api/suggest typeahead — combobox pattern (WAI-ARIA 1.2).
@@ -224,6 +238,14 @@ document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q
   }
   function commit(ix){
     if(ix < 0 || ix >= hits.length) return;
+    _track('suggest_selected', {
+      label: hits[ix].label,
+      // Position in the list is a UX signal — if selections cluster at
+      // index 0 the ranking is right, deeper indices mean the top hits
+      // are wrong for what people type.
+      position: ix,
+      query_len: (lastQuery || '').length
+    });
     $q.value = hits[ix].label;
     closeList();
     $f.dispatchEvent(new Event('submit'));
@@ -319,6 +341,7 @@ document.getElementById('reset-btn')?.addEventListener('click', () => {
   location.reload();          // simplest correct refresh — no in-memory state to reconcile
 });
 $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.trim();if(!q)return;
+  _track('lookup', { query_len: q.length });
   showStatus('loading', "Reading Berlin's open data…");
   try{
     const r=await fetch('/api/lookup?address='+encodeURIComponent(q));
@@ -376,6 +399,7 @@ function setActiveLens(slug) {
   const known = new Set(LIFE_MODE_LENSES.map(l => l.slug));
   if (!known.has(slug)) return;
   try { localStorage.setItem(LM_ACTIVE_KEY, slug); } catch (e) {}
+  _track('lens_switch', { lens: slug });
   // Update picker button states across any rendered picker in the DOM.
   // Uses `.active` on `.lens-tab` — same visual grammar as the raw-mode
   // `.tab.active` (recessed groove + extruded active pill).
@@ -568,6 +592,7 @@ document.addEventListener('click', e => {
   openExplain(title, cardType, fields);
 });
 function openExplain(title, cardType, fields){
+  _track('explain_open', { card: cardType });
   ensureExplainModal();
   const overlay = document.getElementById('explain-overlay');
   const titleEl = document.getElementById('explain-title');
@@ -1179,6 +1204,7 @@ function render(d){
   };
   $out.querySelectorAll('.addr-history-btn').forEach(btn => btn.addEventListener('click', async (e) => {
     e.stopPropagation();
+    _track('get_history');
     const cell = btn.closest('.edu-cell');
     const body = cell.querySelector('.addr-history-body');
     let ctx;
@@ -1938,6 +1964,7 @@ function toast(msg){
 // -- Compare view + hash routing ------------------------------------------
 function showView(){
   const isCompare = location.hash === '#compare';
+  if (isCompare) _track('compare_open', { count: compareLoad().length });
   document.getElementById('view-main').hidden = isCompare;
   document.getElementById('view-compare').hidden = !isCompare;
   if(isCompare) renderCompare();
@@ -3002,6 +3029,7 @@ function openLensModal(tileKey) {
   if (!lens || !lens.tiles) return;
   const tile = lens.tiles.find(t => t.key === tileKey);
   if (!tile) return;
+  _track('card_open', { lens: active, card: tileKey, tier: tile.tier });
 
   const modal = document.getElementById('lens-modal');
   if (!modal) return;
@@ -3036,6 +3064,7 @@ function openLensModal(tileKey) {
         body.innerHTML = `<div class="error" style="margin-top:8px">Missing card context.</div>`;
         body.hidden = false; return;
       }
+      _track('get_insight', { card: card });
       insightBtn.disabled = true;
       body.hidden = false;
       body.innerHTML = `<div class="loading" style="margin-top:10px"><span class="spinner"></span> Composing insight…</div>`;
