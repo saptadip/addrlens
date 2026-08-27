@@ -61,6 +61,48 @@ services:
     networks:
       - addrlens_net
 
+  # --- Umami analytics (cookieless, self-hosted, GDPR-clean) --------------
+  # Reachable via a second CF Tunnel Public Hostname (umami.addrlens.de →
+  # http://umami:3000). The umami-db volume is bind-mounted so Postgres
+  # data survives container recreates. On first boot the operator logs in
+  # with the default admin/umami credentials, immediately rotates the
+  # password, registers addrlens.de as a website, and copies the tracking
+  # ID into UMAMI_WEBSITE_ID / UMAMI_SCRIPT_URL in .env.production. Until
+  # those two env vars are set the app does not inject the tracker snippet.
+  umami-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD}
+    volumes:
+      - /srv/addrlens/umami-db:/var/lib/postgresql/data
+    mem_limit: 200m
+    memswap_limit: 400m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - addrlens_net
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET}
+    mem_limit: 350m
+    memswap_limit: 600m
+    restart: unless-stopped
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    networks:
+      - addrlens_net
+
 networks:
   addrlens_net:
     driver: bridge

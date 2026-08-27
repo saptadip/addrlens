@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.config import CORS_ORIGINS, load_city
@@ -108,11 +108,39 @@ if CORS_ORIGINS:
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 
+# --- Umami analytics injection ---------------------------------------------
+# Both env vars must be set for the tracker to render. Umami serves the
+# tracker script itself; the app just injects a one-line <script> tag into
+# the index.html <head>. Read at import time and cached — zero per-request
+# cost, no template engine required. Local dev leaves the vars unset and
+# ships a tracker-free page.
+_UMAMI_WEBSITE_ID = os.environ.get("UMAMI_WEBSITE_ID", "").strip()
+_UMAMI_SCRIPT_URL = os.environ.get("UMAMI_SCRIPT_URL", "").strip()
+
+
+def _load_index_html() -> str:
+    html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    if _UMAMI_WEBSITE_ID and _UMAMI_SCRIPT_URL:
+        # Very small surface — a defer'd single-line script tag with the
+        # website id data attribute. Umami's own docs recommend exactly
+        # this shape; no async, no inline JS, no CSP conflicts.
+        snippet = (
+            f'  <script defer data-website-id="{_UMAMI_WEBSITE_ID}" '
+            f'src="{_UMAMI_SCRIPT_URL}"></script>\n</head>'
+        )
+        html = html.replace("</head>", snippet, 1)
+    return html
+
+
+_INDEX_HTML = _load_index_html()
+
+
 @app.get("/", include_in_schema=False)
 def index():
-    """Serve web/index.html verbatim (copied from phase3). Frontend calls
+    """Serve web/index.html (with Umami tracker injected in prod when
+    UMAMI_WEBSITE_ID + UMAMI_SCRIPT_URL are set). Frontend calls
     /api/config on load for per-city strings."""
-    return FileResponse(WEB_DIR / "index.html", media_type="text/html; charset=utf-8")
+    return Response(_INDEX_HTML, media_type="text/html; charset=utf-8")
 
 
 @app.get("/impressum", include_in_schema=False)
