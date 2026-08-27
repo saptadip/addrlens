@@ -59,10 +59,25 @@ from inference.templates import wochenmarkt_insight as wochenmarkt_insight_tpl
 # ---------- Sentry (production error tracking) ----------
 # Env-guarded. Local dev (Apple Silicon, INFERENCE_BACKEND=mlx) leaves the DSN
 # unset, so this is a no-op and sentry_sdk is never imported.
+#
+# GDPR notes: same posture as the app service. send_default_pii=False by
+# choice, and the before_send scrubber redacts any prompt/context payload
+# that could carry a user's searched address into an exception event. The
+# inference service should be provisioned in Sentry's EU region so data
+# stays in Frankfurt.
 if os.environ.get("SENTRY_DSN_INFERENCE"):
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    def _sentry_scrub(event, _hint):
+        req = event.get("request") or {}
+        # /summarize is a POST — the entire request body could carry the
+        # user's address inside the `context` field. Redact wholesale rather
+        # than trying to walk arbitrary template payloads.
+        if "data" in req:
+            req["data"] = "[REDACTED]"
+        return event
 
     sentry_sdk.init(
         dsn=os.environ["SENTRY_DSN_INFERENCE"],
@@ -70,6 +85,8 @@ if os.environ.get("SENTRY_DSN_INFERENCE"):
         traces_sample_rate=0.1,
         environment=os.environ.get("SENTRY_ENV", "production"),
         release=os.environ.get("GIT_SHA") or None,
+        send_default_pii=False,
+        before_send=_sentry_scrub,
     )
 
 # ---------------------------------------------------------------------- config
