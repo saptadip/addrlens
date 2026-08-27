@@ -1,6 +1,6 @@
 # Datenschutzerklärung
 
-_Stand: 14.08.2026_
+_Stand: 27.08.2026_
 
 ## 1. Verantwortlicher
 
@@ -54,6 +54,12 @@ vorgenommen. Wir behalten uns vor, die Daten nachträglich zu prüfen,
 wenn uns konkrete Anhaltspunkte für eine rechtswidrige Nutzung bekannt
 werden.
 
+Zur Missbrauchsabwehr wird die von Cloudflare im HTTP-Header
+`CF-Connecting-IP` übermittelte Client-IP-Adresse zusätzlich für ein
+prozessinternes, endpunkt-spezifisches Rate-Limiting ausgelesen. Diese
+Verarbeitung erfolgt ausschließlich im Arbeitsspeicher und wird nicht
+persistiert.
+
 ### 3.2 Bei Nutzung der Adress-Abfrage (`/api/lookup`, `/api/amenities`)
 
 Wenn Sie eine Adresse abfragen, wird diese an unseren Server übermittelt
@@ -68,18 +74,46 @@ Einzelpersonen zurückführbarer Form in Server-Logs erscheinen.
 den Sie aktiv angefordert haben) sowie Art. 6 Abs. 1 lit. f DSGVO
 (berechtigtes Interesse an Betriebs- und Fehleranalyse).
 
-### 3.3 Bei Nutzung der KI-Erklärungen (`/api/card_insight`)
+### 3.3 Bei Nutzung der KI-Erklärungen (`/api/card_insight`, `/api/history`)
 
-Beim Aufruf einer KI-generierten Erklärung zu einer Datenkarte werden
-die zugehörigen Sachdaten (Zahlen, Kategorien, Distanzen) an unseren
-Inferenz-Dienst (self-hosted on the same server) übermittelt und dort verarbeitet.
-Es werden **keine personenbezogenen Daten** an den Inferenz-Dienst
+Beim Aufruf einer KI-generierten Erklärung zu einer Datenkarte
+(`/api/card_insight`) oder einer historischen Kurzbeschreibung zur
+Umgebung einer Adresse (`/api/history`) werden die zugehörigen
+Sachdaten (Zahlen, Kategorien, Distanzen, Bezirk und Ortsteil sowie
+eine kuratierte Liste öffentlicher OpenStreetMap-Objekte im Umkreis)
+an einen Sprachmodell-Dienst übermittelt und dort verarbeitet.
+
+- Für den Endpunkt `/api/card_insight` erfolgt die Modellinferenz
+  ausschließlich auf einem lokal betriebenen Sprachmodell (llama.cpp)
+  auf demselben Server bei Hetzner.
+- Für den Endpunkt `/api/history` wird der Dienst Cloudflare Workers AI
+  (siehe Abschnitt 5.5) genutzt. Bei Nichterreichbarkeit dieses Dienstes
+  greift automatisch das lokal betriebene Sprachmodell.
+
+Es werden **keine personenbezogenen Daten** an den Sprachmodell-Dienst
 gesendet — insbesondere keine IP-Adresse, kein Nutzer-Identifier und
-keine Adresse in Freitextform.
+keine Adresse in Freitextform (Straßenname und Hausnummer werden vor
+der Übermittlung entfernt). Die übermittelten Standortangaben
+beschränken sich auf Bezirks- und Ortsteil-Ebene.
 
 **Rechtsgrundlage:** Art. 6 Abs. 1 lit. b DSGVO (Erfüllung des Dienstes)
 sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an
 Bereitstellung eines nützlichen Zusatzangebots).
+
+### 3.4 Zwischenspeicherung generierter Kurzbeschreibungen
+
+Zur Reduktion externer Anfragen und Antwortzeiten werden die für
+`/api/history` generierten Kurztexte für maximal sieben Tage in einem
+serverseitigen Zwischenspeicher gehalten. Der Schlüssel dieses
+Zwischenspeichers ist ein auf ca. 100 Meter Rasterweite gerundetes
+Koordinatenpaar (Länge/Breite) — es besteht **keinerlei Verknüpfung**
+mit IP-Adressen, Sitzungen oder Nutzer-Identifikatoren. Beim Ablauf
+der Frist bzw. beim Neustart des Dienstes wird der Zwischenspeicher
+automatisch geleert.
+
+**Rechtsgrundlage:** Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
+an einem effizienten Betrieb und der Schonung externer Verarbeitungs-
+kontingente).
 
 ## 4. Lokale Speicherung im Browser (LocalStorage)
 
@@ -114,22 +148,115 @@ Der Hostinganbieter verarbeitet in unserem Auftrag Server-Logfiles
 (siehe Abschnitt 3.1) auf Grundlage eines Auftragsverarbeitungsvertrags
 gemäß Art. 28 DSGVO.
 
-### 5.2 Fehleranalyse
+### 5.2 Fehleranalyse (Sentry)
 
-None
+Functional Software, Inc. dba Sentry
+45 Fremont Street, Suite 800
+San Francisco, CA 94105, USA
 
-_Falls konfiguriert, verarbeitet unser Fehlerprotokollierungsdienst
-technische Fehlermeldungen (Stacktraces, Browsertypen, HTTP-Statuscodes)
-zum Zweck der Fehlerdiagnose. Personenbezogene Nutzdaten werden aus
-Fehlermeldungen soweit technisch möglich entfernt._
+Zur Diagnose technischer Fehler nutzen wir den Dienst Sentry in der
+EU-Region (Ingest-Endpunkt `de.sentry.io`, Rechenzentrum Frankfurt am
+Main). Fehlerereignisse enthalten Stack-Traces, HTTP-Statuscodes,
+Umgebungs- und Release-Informationen (Git-Commit). Personenbezogene
+Nutzdaten werden vor der Übermittlung entfernt:
 
-### 5.3 Reichweiten- und Nutzungsanalyse
+- Die Sentry-Option `send_default_pii=False` unterdrückt die
+  automatische Aufnahme von IP-Adressen und Sitzungsdaten.
+- Ein serverseitiger `before_send`-Filter entfernt alle
+  Query-Parameter mit Adressbezug (`address`, `street`, `hnr`, `plz`)
+  sowie die HTTP-Header `CF-Connecting-IP`, `X-Forwarded-For` und
+  `X-Real-IP`, und redigiert den vollständigen Request-Body des
+  internen Inferenz-Dienstes.
 
-None
+Die Datenübermittlung an einen Anbieter mit Sitz außerhalb des EWR
+erfolgt auf Grundlage von EU-Standardvertragsklauseln gemäß
+Art. 46 Abs. 2 lit. c DSGVO in Verbindung mit einem
+Auftragsverarbeitungsvertrag nach Art. 28 DSGVO.
 
-_Falls konfiguriert, verwenden wir einen datenschutzfreundlichen
-Analyse-Dienst, der ohne Cookies und ohne IP-Speicherung arbeitet und
-keine Nutzerprofile erstellt._
+**Rechtsgrundlage:** Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
+an Fehleranalyse und IT-Sicherheit).
+
+### 5.3 Reichweiten- und Nutzungsanalyse (Umami, self-hosted)
+
+Zur Analyse der Reichweite und Nutzung dieser Website betreiben wir
+eine Instanz der Open-Source-Software Umami
+(<https://umami.is/>) auf demselben Server bei Hetzner Online GmbH
+(siehe Abschnitt 5.1). Es findet **keine Übermittlung an Dritte**
+statt.
+
+Umami verarbeitet ausschließlich pseudonymisierte, aggregierte
+Nutzungsdaten:
+
+- URL der aufgerufenen Seite,
+- Referrer-URL,
+- Datum und Uhrzeit,
+- ungefähre Bildschirmgröße,
+- Browser- und Gerätetyp.
+
+Umami arbeitet **ohne Cookies**, **ohne Speicherung der vollständigen
+IP-Adresse in der Datenbank**, **ohne Erstellung individueller Nutzer-
+profile** und **ohne seitenübergreifendes Tracking**. Aus den erhobenen
+Daten kann kein Rückschluss auf einzelne Personen gezogen werden.
+
+**Rechtsgrundlage:** Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
+an statistischer Analyse der Nutzung des eigenen Dienstes).
+
+### 5.4 Content Delivery Network, TLS-Terminierung und DDoS-Schutz (Cloudflare)
+
+Cloudflare, Inc.
+101 Townsend Street
+San Francisco, CA 94107, USA
+
+Sämtlicher HTTP-Verkehr zu und von addrlens.de wird über die
+Infrastruktur von Cloudflare (in der Regel Rechenzentrum Frankfurt
+am Main für europäische Nutzer) geleitet. Cloudflare terminiert die
+TLS-Verbindung, filtert erkannte Bedrohungen (WAF, Rate Limiting) und
+leitet legitime Anfragen über einen verschlüsselten Cloudflare-Tunnel
+an den Ursprungs-Server bei Hetzner weiter. Der Ursprungs-Server ist
+nicht direkt aus dem öffentlichen Internet erreichbar.
+
+Cloudflare verarbeitet dabei folgende Daten:
+
+- IP-Adresse,
+- Datum und Uhrzeit,
+- HTTP-Methode, URL, Statuscode,
+- User-Agent,
+- ggf. TLS-Fingerprint zur Bot-Erkennung.
+
+Die Datenübermittlung an einen Anbieter mit Sitz außerhalb des EWR
+erfolgt auf Grundlage von EU-Standardvertragsklauseln gemäß
+Art. 46 Abs. 2 lit. c DSGVO in Verbindung mit einem
+Auftragsverarbeitungsvertrag nach Art. 28 DSGVO.
+
+**Rechtsgrundlage:** Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
+an IT-Sicherheit, Abwehr von Angriffen und effizienter Auslieferung).
+
+### 5.5 Sprachmodell-Dienst für generierte Kurzbeschreibungen (Cloudflare Workers AI)
+
+Cloudflare, Inc.
+101 Townsend Street
+San Francisco, CA 94107, USA
+
+Für den Endpunkt `/api/history` (siehe Abschnitt 3.3) wird der Dienst
+*Workers AI* von Cloudflare eingesetzt. Übermittelt werden ausschließ-
+lich der Berliner Bezirk und Ortsteil der abgefragten Adresse sowie
+eine strukturierte Liste öffentlicher OpenStreetMap-Objekte
+(Gedenkstätten, Denkmäler, historische Gebäude) im Umkreis von ca.
+500 Metern. Es werden **keine IP-Adressen, Nutzer-Identifikatoren,
+Straßennamen oder Hausnummern** übermittelt.
+
+Bei Nichterreichbarkeit des Dienstes wird die Anfrage automatisch
+durch das lokal auf dem Ursprungs-Server betriebene Sprachmodell
+beantwortet (siehe Abschnitt 3.3).
+
+Die Datenübermittlung an einen Anbieter mit Sitz außerhalb des EWR
+erfolgt auf Grundlage von EU-Standardvertragsklauseln gemäß
+Art. 46 Abs. 2 lit. c DSGVO in Verbindung mit einem
+Auftragsverarbeitungsvertrag nach Art. 28 DSGVO.
+
+**Rechtsgrundlage:** Art. 6 Abs. 1 lit. b DSGVO (Erfüllung des von
+Ihnen aktiv angeforderten KI-Dienstes) sowie Art. 6 Abs. 1 lit. f
+DSGVO (berechtigtes Interesse an einem nützlichen Zusatzangebot).
 
 ## 6. Datenquellen (offene Daten)
 
@@ -192,7 +319,7 @@ abgeleitet.
 ## 11. Aktualität und Änderung dieser Datenschutzerklärung
 
 Diese Datenschutzerklärung ist aktuell gültig und hat den Stand
-14.08.2026. Durch die Weiterentwicklung der Website oder aufgrund
+27.08.2026. Durch die Weiterentwicklung der Website oder aufgrund
 geänderter gesetzlicher bzw. behördlicher Vorgaben kann es notwendig
 werden, diese Datenschutzerklärung anzupassen. Die jeweils aktuelle
 Datenschutzerklärung kann jederzeit auf der Website unter
@@ -206,7 +333,7 @@ _This English text is provided for the convenience of international
 visitors. In case of any dispute, the German version above is legally
 authoritative._
 
-_Version: 14.08.2026_
+_Version: 27.08.2026_
 
 ## 1. Data Controller
 
@@ -258,6 +385,11 @@ This data is not merged with other data sources. We reserve the right
 to review the data retrospectively if we become aware of concrete
 indications of unlawful use.
 
+For abuse prevention, the client IP address forwarded by Cloudflare in
+the `CF-Connecting-IP` HTTP header is additionally read for
+per-endpoint rate limiting inside the app process. This processing is
+in-memory only and is not persisted.
+
 ### 3.2 When using the address lookup (`/api/lookup`, `/api/amenities`)
 
 When you query an address, it is transmitted to our server and matched
@@ -272,17 +404,44 @@ individuals.
 actively requested) and Art. 6 (1) (f) GDPR (legitimate interest in
 operational and error analysis).
 
-### 3.3 When using the AI explanations (`/api/card_insight`)
+### 3.3 When using the AI explanations (`/api/card_insight`, `/api/history`)
 
-When you request an AI-generated explanation for a data card, the
-related factual data (numbers, categories, distances) is transmitted
-to our inference service (self-hosted on the same server) and processed there.
-**No personal data** is sent to the inference service — in particular,
-no IP address, no user identifier, and no free-text address.
+When you request an AI-generated explanation for a data card
+(`/api/card_insight`) or a short historical description of an
+address's surroundings (`/api/history`), the related factual data
+(numbers, categories, distances, borough and Ortsteil, and a curated
+list of public OpenStreetMap features within a short radius) is
+transmitted to a language-model service and processed there.
+
+- For the `/api/card_insight` endpoint, inference runs exclusively on
+  a locally-operated language model (llama.cpp) on the same server at
+  Hetzner.
+- For the `/api/history` endpoint, Cloudflare Workers AI is used
+  (see section 5.5). If that service is unreachable, the locally-
+  operated model automatically takes over.
+
+**No personal data** is sent to the language-model service — in
+particular, no IP address, no user identifier, and no free-text
+address (street name and house number are stripped before
+transmission). Transmitted location information is limited to
+borough and Ortsteil level.
 
 **Legal basis:** Art. 6 (1) (b) GDPR (performance of the service) and
 Art. 6 (1) (f) GDPR (legitimate interest in providing a useful
 supplementary offering).
+
+### 3.4 Caching of generated summaries
+
+To reduce external requests and response times, the short texts
+generated for `/api/history` are held in a server-side cache for at
+most seven days. The cache key is a coordinate pair (latitude /
+longitude) rounded to approximately 100-metre grid cells — there is
+**no link** to IP addresses, sessions, or user identifiers. The cache
+is cleared automatically when the TTL expires or when the service
+restarts.
+
+**Legal basis:** Art. 6 (1) (f) GDPR (legitimate interest in efficient
+operation and preservation of external processing quotas).
 
 ## 4. Local browser storage (localStorage)
 
@@ -316,22 +475,108 @@ Industriestr. 25,
 The hosting provider processes server logfiles (see section 3.1) on our
 behalf under a data processing agreement pursuant to Art. 28 GDPR.
 
-### 5.2 Error tracking
+### 5.2 Error tracking (Sentry)
 
-None
+Functional Software, Inc. dba Sentry
+45 Fremont Street, Suite 800
+San Francisco, CA 94105, USA
 
-_If configured, our error tracking service processes technical error
-messages (stacktraces, browser types, HTTP status codes) for the purpose
-of error diagnosis. Personal payload data is removed from error
-messages to the extent technically possible._
+For technical error diagnosis we use the Sentry service in the EU
+region (ingest endpoint `de.sentry.io`, Frankfurt am Main). Error
+events contain stack traces, HTTP status codes, environment and
+release (git commit) information. Personal payload data is stripped
+before transmission:
 
-### 5.3 Reach and usage analysis
+- The Sentry option `send_default_pii=False` disables automatic
+  capture of IP addresses and session data.
+- A server-side `before_send` filter redacts all address-bearing
+  query-string parameters (`address`, `street`, `hnr`, `plz`), the
+  HTTP headers `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP`,
+  and the full request body of the internal inference service.
 
-None
+Transfer to a provider based outside the EEA takes place on the basis
+of EU Standard Contractual Clauses pursuant to Art. 46 (2) (c) GDPR in
+combination with a data processing agreement pursuant to Art. 28 GDPR.
 
-_If configured, we use a privacy-friendly analytics service that
-operates without cookies and without IP storage, and does not create
-user profiles._
+**Legal basis:** Art. 6 (1) (f) GDPR (legitimate interest in error
+analysis and IT security).
+
+### 5.3 Reach and usage analysis (Umami, self-hosted)
+
+For reach and usage analysis of this website we run an instance of
+the open-source software Umami (<https://umami.is/>) on the same
+server at Hetzner Online GmbH (see section 5.1). **No transfer to
+third parties** takes place.
+
+Umami processes only pseudonymised, aggregated usage data:
+
+- URL of the page visited,
+- referrer URL,
+- date and time,
+- approximate screen size,
+- browser and device type.
+
+Umami operates **without cookies**, **without storing the full IP
+address in the database**, **without creating individual user
+profiles**, and **without cross-site tracking**. The collected data
+does not allow inferences about individual persons.
+
+**Legal basis:** Art. 6 (1) (f) GDPR (legitimate interest in
+statistical analysis of usage of our own service).
+
+### 5.4 Content Delivery Network, TLS termination and DDoS protection (Cloudflare)
+
+Cloudflare, Inc.
+101 Townsend Street
+San Francisco, CA 94107, USA
+
+All HTTP traffic to and from addrlens.de is routed through
+Cloudflare's infrastructure (typically the Frankfurt am Main data
+centre for European visitors). Cloudflare terminates the TLS
+connection, filters recognised threats (WAF, rate limiting), and
+forwards legitimate requests through an encrypted Cloudflare Tunnel
+to the origin server at Hetzner. The origin server is not directly
+reachable from the public internet.
+
+Cloudflare processes the following data:
+
+- IP address,
+- date and time,
+- HTTP method, URL, status code,
+- User-Agent,
+- optionally a TLS fingerprint for bot detection.
+
+Transfer to a provider based outside the EEA takes place on the basis
+of EU Standard Contractual Clauses pursuant to Art. 46 (2) (c) GDPR in
+combination with a data processing agreement pursuant to Art. 28 GDPR.
+
+**Legal basis:** Art. 6 (1) (f) GDPR (legitimate interest in IT
+security, defence against attacks and efficient delivery).
+
+### 5.5 Language-model service for generated summaries (Cloudflare Workers AI)
+
+Cloudflare, Inc.
+101 Townsend Street
+San Francisco, CA 94107, USA
+
+For the `/api/history` endpoint (see section 3.3) we use Cloudflare's
+*Workers AI* service. Transmitted are only the Berlin borough and
+Ortsteil of the queried address plus a structured list of public
+OpenStreetMap features (memorials, monuments, historic buildings)
+within approximately 500 metres. **No IP addresses, user identifiers,
+street names, or house numbers** are transmitted.
+
+If the service is unreachable, the request is automatically served by
+the language model running locally on the origin server (see
+section 3.3).
+
+Transfer to a provider based outside the EEA takes place on the basis
+of EU Standard Contractual Clauses pursuant to Art. 46 (2) (c) GDPR in
+combination with a data processing agreement pursuant to Art. 28 GDPR.
+
+**Legal basis:** Art. 6 (1) (b) GDPR (performance of the AI service
+you actively requested) and Art. 6 (1) (f) GDPR (legitimate interest
+in providing a useful supplementary offering).
 
 ## 6. Data sources (open data)
 
@@ -388,7 +633,7 @@ binding effects for the user are derived from them.
 
 ## 11. Currency and modification of this privacy policy
 
-This privacy policy is currently valid and dated 14.08.2026. Due to the
+This privacy policy is currently valid and dated 27.08.2026. Due to the
 further development of the website or due to changed legal or
 regulatory requirements, it may become necessary to adapt this privacy
 policy. The current privacy policy can be accessed on the website at
