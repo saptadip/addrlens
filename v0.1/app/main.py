@@ -10,7 +10,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -153,6 +153,20 @@ app.include_router(card_insight_router)
 def health() -> dict:
     """Liveness — no dependencies. Process up = 200."""
     return {"status": "ok"}
+
+
+@app.get("/api/_sentry_boom", include_in_schema=False)
+def _sentry_boom():
+    """One-off Sentry wiring probe. Env-guarded so it is a 404 unless the
+    operator explicitly enables it. Raises a deliberate ValueError so the
+    FastAPI Sentry integration captures it as an unhandled exception,
+    proving the running uvicorn process talks to Sentry the same way real
+    errors would. Delete this route once verified — or leave it in place,
+    the env gate makes it inert in normal operation."""
+    if os.environ.get("SENTRY_BOOM_ENABLED") != "1":
+        raise HTTPException(404, "not found")
+    raise ValueError(
+        "addrlens sentry wiring probe — this exception is intentional")
 
 
 @app.get("/ready")
