@@ -106,9 +106,15 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .field-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#9CA3AF;width:18px;height:18px;
   transition:color .18s,transform .25s cubic-bezier(.34,1.56,.64,1)}
 
-/* --- /api/suggest typeahead dropdown ----------------------------------- */
+/* --- /api/suggest typeahead dropdown -----------------------------------
+   The dropdown uses position: fixed instead of absolute because the .hero
+   container has `overflow: hidden` (needed to clip the hero-art SVG) — an
+   absolutely-positioned child would be clipped by the hero card and only
+   the first row or two would be visible. Fixed positioning escapes the
+   overflow entirely; JS in wireSuggest() writes top/left/width from the
+   input's bounding rect on every render and re-runs on scroll + resize.  */
 .autocomplete-wrap{position:relative}
-.suggest-list{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:20;
+.suggest-list{position:fixed;z-index:100;
   margin:0;padding:6px;list-style:none;background:var(--card);border:1px solid var(--border);
   border-radius:12px;box-shadow:var(--sh-2);max-height:320px;overflow-y:auto}
 .suggest-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:14px;
