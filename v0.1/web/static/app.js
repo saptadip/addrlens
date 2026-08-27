@@ -182,6 +182,16 @@ document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q
     $q.setAttribute('aria-activedescendant','');
     hits = []; activeIx = -1;
   }
+  // The list is position:fixed (escapes .hero's overflow:hidden clip) so
+  // we compute top/left/width from the input's viewport rect. Runs on
+  // every render + on scroll and resize while the list is visible.
+  function positionList(){
+    if(list.hidden) return;
+    const r = $q.getBoundingClientRect();
+    list.style.top   = (r.bottom + 6) + 'px';
+    list.style.left  = r.left           + 'px';
+    list.style.width = r.width          + 'px';
+  }
   function highlight(text, needle){
     if(!needle) return escapeHtml(text);
     const i = text.toLowerCase().indexOf(needle.toLowerCase());
@@ -202,6 +212,7 @@ document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q
     list.hidden = false;
     wrap.setAttribute('aria-expanded','true');
     if(activeIx >= 0) $q.setAttribute('aria-activedescendant', `q-sug-${activeIx}`);
+    positionList();
   }
   function setActive(newIx){
     if(!hits.length) return;
@@ -293,6 +304,11 @@ document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q
     if(!wrap.contains(ev.target)) closeList();
   });
   $q.addEventListener('blur', () => setTimeout(closeList, 150));
+
+  // Keep the fixed-positioned dropdown glued to the input on scroll / resize.
+  // Passive listener because we only read layout, never prevent default.
+  window.addEventListener('scroll', positionList, {passive: true});
+  window.addEventListener('resize', positionList);
 })();
 
 // Reset button — clear ALL user-recorded state (localStorage + in-memory) and
