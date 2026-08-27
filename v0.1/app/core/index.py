@@ -94,6 +94,18 @@ class Index:
         from app.core.osm_local import load_osm_local
         self.osm_local = load_osm_local(getattr(cfg, "osm_local_path", None))
 
+        # Address prefix index for /api/suggest. Same weekly snapshot cycle
+        # as osm_local. None if the file is missing → suggest endpoint
+        # returns [] gracefully; the app still functions.
+        from app.core.address_index import load_address_index
+        sys.stdout.write("loading address suggest index… "); sys.stdout.flush()
+        self.address_index = load_address_index(
+            getattr(cfg, "address_local_path", None))
+        if self.address_index is None:
+            print("not loaded (file missing — /api/suggest returns empty)")
+        else:
+            print(f"{len(self.address_index)} addresses")
+
         sys.stdout.write("loading catchment polygons… "); sys.stdout.flush()
         esbs = wfs(cfg.catchment_wfs_url, typeNames=cfg.catchment_layer, count=1000,
                    outputFormat=cfg.wfs_output_format)
