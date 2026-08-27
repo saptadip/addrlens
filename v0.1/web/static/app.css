@@ -105,6 +105,18 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   box-shadow:inset 3px 3px 7px var(--hero-sh-dark),inset -3px -3px 7px var(--hero-sh-light),0 0 0 3px rgba(14,165,233,.28)}
 .field-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#9CA3AF;width:18px;height:18px;
   transition:color .18s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+
+/* --- /api/suggest typeahead dropdown ----------------------------------- */
+.autocomplete-wrap{position:relative}
+.suggest-list{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:20;
+  margin:0;padding:6px;list-style:none;background:var(--card);border:1px solid var(--border);
+  border-radius:12px;box-shadow:var(--sh-2);max-height:320px;overflow-y:auto}
+.suggest-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:14px;
+  color:var(--ink-1);line-height:1.3;user-select:none}
+.suggest-item:hover,.suggest-item.active{background:#EEF2FF;color:var(--brand)}
+.suggest-item mark{background:transparent;color:var(--brand);font-weight:700;padding:0}
+.suggest-item.active mark{color:inherit}
+.suggest-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hero input:focus + .field-ico{color:var(--hero-accent);transform:translateY(-50%) scale(1.15)}
 .btn{cursor:pointer;border:0;padding:14px 22px;border-radius:10px;font:inherit;font-weight:700;font-size:14px;
   color:#fff;background:linear-gradient(135deg,var(--hero-accent-2),var(--hero-accent));position:relative;overflow:hidden;

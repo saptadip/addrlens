@@ -173,6 +173,13 @@ class CityConfig:
     # Prod: point at a Docker-mounted volume.
     osm_local_path: Optional[str]
 
+    # Path to the JSON snapshot of Berlin addresses extracted from OSM by
+    # scripts/refresh_osm_amenities.py. Loaded at Index boot into an
+    # in-memory prefix index that powers the /api/suggest endpoint. Optional
+    # — when None or the file is missing, /api/suggest returns []. Prod:
+    # same Docker-mounted volume as osm_local_path.
+    address_local_path: Optional[str]
+
     # -- GESIx (health & social composite index per Planungsraum) ---------
     # Berlin Senate 2022 open-data WFS. Optional per city; None disables the
     # neighbourhood-profile tile. When set, Index preloads all polygons at

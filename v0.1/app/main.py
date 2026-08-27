@@ -28,6 +28,7 @@ from app.routes.history import router as history_router
 from app.routes.impression import router as impression_router
 from app.routes.lookup import router as lookup_router
 from app.routes.noise import router as noise_router
+from app.routes.suggest import router as suggest_router
 
 # ---------- Sentry (production error tracking) ----------
 # Env-guarded: local dev leaves SENTRY_DSN_APP unset, so this block is a no-op
@@ -169,6 +170,7 @@ app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(config_router)
 app.include_router(lookup_router)
+app.include_router(suggest_router)
 app.include_router(amenities_router)
 app.include_router(noise_router)
 app.include_router(impression_router)

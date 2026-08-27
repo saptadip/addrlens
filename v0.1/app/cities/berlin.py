@@ -583,6 +583,9 @@ BERLIN = CityConfig(
     # Geofabrik weekly snapshot lives at data/osm/berlin-amenities.json.
     # Env override for prod: OSM_LOCAL_PATH=/mnt/osm/berlin-amenities.json.
     osm_local_path=os.environ.get("OSM_LOCAL_PATH", "data/osm/berlin-amenities.json"),
+    # OSM addresses extracted by scripts/refresh_osm_amenities.py; feeds
+    # /api/suggest. Env override for prod: ADDRESS_LOCAL_PATH.
+    address_local_path=os.environ.get("ADDRESS_LOCAL_PATH", "data/osm/berlin-addresses.json"),
 
     # GESIx 2022 — Senate's neighbourhood health & social composite index
     # per Planungsraum. 447 polygons total. Published 2022, refresh cadence

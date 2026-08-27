@@ -220,12 +220,34 @@ class _AmenityCollector(osmium.SimpleHandler):
     """Single-pass filter. Nodes give exact lat/lon; ways average their node
     coords (accurate enough for a search-radius amenity, no need for real
     polygon centroids). Multipolygon relations are skipped — Berlin's
-    parks-as-relations count is small; we lose <2% and avoid a two-pass merge."""
+    parks-as-relations count is small; we lose <2% and avoid a two-pass merge.
+
+    Also collects `addr:street` + `addr:housenumber` (+ optional postcode)
+    from nodes and ways into `self.addresses` for the /api/suggest endpoint's
+    prefix index. Same pass, negligible cost. Dedup on
+    (normalised_label) is done at index-build time in address_index.py."""
 
     def __init__(self):
         super().__init__()
         self.buckets = {cat: [] for cat in _TAG_RULES}
         self.seen = set()   # dedup by (cat, round(lat,5), round(lon,5))
+        self.addresses: list[dict] = []
+        self._addr_seen: set[tuple[str, str, str]] = set()
+
+    def _add_address(self, lat: float, lon: float, tags) -> None:
+        street = (tags.get("addr:street") or "").strip()
+        hnr    = (tags.get("addr:housenumber") or "").strip()
+        if not street or not hnr:
+            return
+        plz = (tags.get("addr:postcode") or "").strip()
+        key = (street.lower(), hnr.lower(), plz)
+        if key in self._addr_seen:
+            return
+        self._addr_seen.add(key)
+        self.addresses.append({
+            "street": street, "hnr": hnr, "plz": plz,
+            "lat": lat, "lon": lon,
+        })
 
     def _add(self, cat, lat, lon, tags):
         key = (cat, round(lat, 5), round(lon, 5))
@@ -251,10 +273,18 @@ class _AmenityCollector(osmium.SimpleHandler):
         cats = _cats_for(n.tags)
         for cat in cats:
             self._add(cat, n.location.lat, n.location.lon, n.tags)
+        # Address extraction runs on every node with addr:street tags,
+        # regardless of whether the node also matched an amenity category.
+        self._add_address(n.location.lat, n.location.lon, n.tags)
 
     def way(self, w):
         cats = _cats_for(w.tags)
-        if not cats:
+        # Compute the centroid ONCE per way, whether it matches an amenity
+        # category or has an addr:street tag — that way we don't skip the
+        # ~350k address-carrying building footprints in Berlin that carry
+        # no amenity tag.
+        want_addr = bool(w.tags.get("addr:street") and w.tags.get("addr:housenumber"))
+        if not cats and not want_addr:
             return
         # locations=True on apply_file populates w.nodes[i].location.
         # Average the node coords for a rough centroid — accurate enough
@@ -271,8 +301,11 @@ class _AmenityCollector(osmium.SimpleHandler):
                 continue
         if n == 0:
             return
+        clat, clon = lats / n, lons / n
         for cat in cats:
-            self._add(cat, lats / n, lons / n, w.tags)
+            self._add(cat, clat, clon, w.tags)
+        if want_addr:
+            self._add_address(clat, clon, w.tags)
 
 
 def download_pbf(url: str, dest: Path) -> Path:
@@ -302,8 +335,20 @@ def parse_and_filter(pbf: Path) -> dict:
     h.apply_file(str(pbf), locations=True, idx="flex_mem")
     total = sum(len(v) for v in h.buckets.values())
     per_cat = " · ".join(f"{k}:{len(v)}" for k, v in h.buckets.items())
-    print(f"  {total} features in {time.time()-t0:.1f}s ({per_cat})", flush=True)
-    return h.buckets
+    print(f"  {total} features + {len(h.addresses)} addresses "
+          f"in {time.time()-t0:.1f}s ({per_cat})", flush=True)
+    return h.buckets, h.addresses
+
+
+def _write_addresses(rows: list[dict], out: Path) -> None:
+    """Atomic write of the address prefix-index source file."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(out.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(rows, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(tmp, out)
+    size_mb = out.stat().st_size / (1024 * 1024)
+    print(f"✓ wrote {out} ({size_mb:.1f} MB, {len(rows)} addresses)", flush=True)
 
 
 def write_snapshot(buckets: dict, out: Path, source: str) -> None:
@@ -339,6 +384,7 @@ def main():
     data_dir = Path(args.data_dir).resolve()
     pbf_path = data_dir / "berlin-latest.osm.pbf"
     json_path = data_dir / "berlin-amenities.json"
+    addr_path = data_dir / "berlin-addresses.json"
 
     if not args.skip_download:
         download_pbf(args.url, pbf_path)
@@ -346,10 +392,13 @@ def main():
         print(f"! --skip-download but {pbf_path} missing", file=sys.stderr)
         sys.exit(2)
 
-    buckets = parse_and_filter(pbf_path)
+    buckets, addresses = parse_and_filter(pbf_path)
     write_snapshot(buckets, json_path,
                    source=f"Geofabrik {args.url.rsplit('/', 1)[-1]} "
                           f"({datetime.fromtimestamp(pbf_path.stat().st_mtime, tz=timezone.utc).date()})")
+    # Addresses ship as a plain JSON list — no meta wrapper — so
+    # address_index.py can json.load() the file straight into the index.
+    _write_addresses(addresses, addr_path)
 
 
 if __name__ == "__main__":
