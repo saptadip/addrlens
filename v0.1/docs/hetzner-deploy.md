@@ -96,6 +96,35 @@ Zero-to-live playbook for deploying addrlens to a fresh Hetzner box behind a Clo
   systemctl list-timers refresh-osm-amenities.timer   # NEXT column should read Sunday 03:00
   ```
 
+- **Turn Sentry on (optional but strongly recommended).** The Sentry init blocks in `app/main.py` and `inference/main.py` are env-guarded, so the containers ship with error tracking dormant. Wiring it live is a five-minute operator task once the site is up:
+  1. **Sign up on the EU region** at `sentry.io`. During onboarding, pick the *EU data region* — this makes the account host `de.sentry.io` and keeps event storage in Frankfurt (matches the box, matches your GDPR posture).
+  2. **Create two projects** with the Python-FastAPI SDK: `addrlens-app` and `addrlens-inference`.
+  3. **Copy each DSN** into `/srv/addrlens/.env.production`:
+     ```bash
+     sudo vim /srv/addrlens/.env.production
+     # SENTRY_DSN_APP=https://<key>@<something>.ingest.de.sentry.io/<project>
+     # SENTRY_DSN_INFERENCE=https://<key>@<something>.ingest.de.sentry.io/<project>
+     # SENTRY_ENV=production      (already present)
+     ```
+  4. **Recreate both containers** so the env change takes effect (`docker compose restart` does not — env is fixed at container-create time):
+     ```bash
+     cd /srv/addrlens/repo/v0.1
+     docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+         --env-file /srv/addrlens/.env.production \
+         up -d --force-recreate app inference
+     ```
+  5. **Verify events flow** by triggering a controlled error from the box:
+     ```bash
+     docker exec v01-app-1 python -c \
+       "import sentry_sdk; sentry_sdk.capture_message('addrlens Sentry wiring check', level='info')"
+     ```
+     Refresh the `addrlens-app` project in the Sentry dashboard — the message should appear within ~5 seconds. Repeat with `v01-inference-1` for the inference project.
+  6. `ops/deploy/update.sh` already stamps `GIT_SHA` into the env file on each deploy, so Sentry's *Releases* view will show the version each error was introduced in without any extra work.
+
+  Notes on the GDPR scrubber baked into the init blocks:
+  - `send_default_pii=False` — Sentry does not attach client IP or user session data.
+  - A `before_send` callback redacts the `address`, `street`, `hnr`, `plz` query-string params on the app side, and the entire POST body on the inference side (since `/summarize` payloads embed the searched context). A stack trace attached to a lookup never carries the user's search string to Sentry's servers.
+
 ## Updates
 
 Run from the box after `git push origin main` has landed the new code:

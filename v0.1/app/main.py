@@ -33,10 +33,41 @@ from app.routes.noise import router as noise_router
 # Env-guarded: local dev leaves SENTRY_DSN_APP unset, so this block is a no-op
 # and sentry_sdk is never imported. Prod-only sentry-sdk dep is installed at
 # the Dockerfile layer (see ops/Dockerfile.app), not in pyproject.toml.
+#
+# GDPR notes for a Berlin-hosted public site:
+#   - send_default_pii is explicitly False — no client IP, no headers containing
+#     addresses, no request body captured by default.
+#   - The `before_send` scrubber redacts the `address` / `street` query string
+#     parameters and the CF-Connecting-IP header the rate-limiter reads, so an
+#     exception traceback attached to a lookup never carries the user's search
+#     to Sentry's servers.
+#   - Provision the Sentry project in the EU region (de.sentry.io) so data
+#     stays in Frankfurt — matches the Hetzner box's region.
 if os.environ.get("SENTRY_DSN_APP"):
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    def _sentry_scrub(event, _hint):
+        req = event.get("request") or {}
+        # Redact address-bearing query-string params. Sentry stores this as
+        # either a raw string or a list of (k, v) pairs depending on version.
+        qs = req.get("query_string")
+        if isinstance(qs, str) and qs:
+            req["query_string"] = "[REDACTED]" if any(
+                k in qs for k in ("address=", "street=", "hnr=", "plz=")
+            ) else qs
+        elif isinstance(qs, list):
+            req["query_string"] = [
+                (k, "[REDACTED]") if k in {"address", "street", "hnr", "plz"} else (k, v)
+                for k, v in qs
+            ]
+        # Sentry lowercases header names before storage.
+        hdrs = req.get("headers") or {}
+        for k in ("cf-connecting-ip", "x-forwarded-for", "x-real-ip"):
+            if k in hdrs:
+                hdrs[k] = "[REDACTED]"
+        return event
 
     sentry_sdk.init(
         dsn=os.environ["SENTRY_DSN_APP"],
@@ -44,6 +75,8 @@ if os.environ.get("SENTRY_DSN_APP"):
         traces_sample_rate=0.1,
         environment=os.environ.get("SENTRY_ENV", "production"),
         release=os.environ.get("GIT_SHA") or None,
+        send_default_pii=False,
+        before_send=_sentry_scrub,
     )
 
 
