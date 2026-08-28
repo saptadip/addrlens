@@ -1103,6 +1103,33 @@ function render(d){
   dropOrphanTooltips();   // any popover portaled from the previous lookup goes away
   eduData=d; eduSelected=null;
   const a=d.address,c=d.catchment||{},ss=d.schools||[],i=d.intl_grundschule,k=d.kitas||{};
+  // GESIx (Berlin Senate 2022 health & social index) for the Planungsraum
+  // the address sits in. Extracted from the Newcomer lens tile because
+  // that's where the backend attaches the metadata. Rendered as a five-dot
+  // strip on the raw-view Address card so the neighbourhood-quality signal
+  // is visible without switching to Life Mode.
+  const _gesixTile = (d?.lens?.newcomer?.tiles || []).find(t => t.key === 'gesix_newcomer');
+  const _gesix     = (_gesixTile && _gesixTile.metadata && _gesixTile.metadata.gesix) || null;
+  const _gq        = (_gesix && _gesix.quintile_5) || 0;
+  const _gTier     = _gq >= 1 && _gq <= 2 ? 'good' : _gq === 3 ? 'mid' : _gq >= 4 ? 'bad' : 'unknown';
+  const _gLabel    = (_gesix && (_gesix.class_en || _gesix.class_de)) || '';
+  const _gPlr      = (_gesix && _gesix.plr_name) || '';
+  const _gesixStrip = _gq
+    ? `<div class="gesix-strip gesix-tier-${_gTier}" role="button" tabindex="0"
+            aria-label="Neighbourhood profile: quintile ${_gq} of 5${_gLabel ? ', ' + _gLabel : ''}"
+            title="Click for the full neighbourhood profile">
+         <span class="gesix-strip-label">Neighbourhood profile</span>
+         <span class="gesix-track gesix-track-inline">${
+           [1,2,3,4,5].map(i => {
+             const grade = i <= 2 ? ' seg-good' : i === 3 ? ' seg-mid' : ' seg-bad';
+             const on    = i === _gq ? ' active' : '';
+             return `<span class="gesix-seg${grade}${on}" aria-hidden="true"></span>`;
+           }).join('')
+         }</span>
+         ${_gLabel ? `<span class="gesix-strip-verdict">${esc(_gLabel)}</span>` : ''}
+         ${_gPlr   ? `<span class="gesix-strip-plr" title="Planungsraum">${esc(_gPlr)}</span>` : ''}
+       </div>`
+    : '';
   const addrFields = {'Street':`${a.street} ${a.hnr||''}`.trim(), 'Postcode (PLZ)':a.plz, 'Bezirk (borough)':c.district, 'Ortsteil (neighbourhood)':(a.raw||{}).ort, 'Einschulbereich (primary-school catchment code)':c.esb};
   // Address card also carries a "Get History" affordance (v0.1) — click the
   // button to POST /api/history and receive an AI paragraph about historic
@@ -1113,9 +1140,10 @@ function render(d){
     bezirk: c.district || '',
     ortsteil: ((a.raw || {}).ort_name) || '',
   };
-  const addr=`<div class="cell edu-cell" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span>${explainBtn('edu-address','Address',addrFields)}</div>
+  const addr=`<div class="cell edu-cell addr-cell gesix-tier-${_gTier}" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span>${explainBtn('edu-address','Address',addrFields)}</div>
     <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin</p>
     <div class="badges">${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}<button type="button" class="pill-btn addr-history-btn" data-hist='${esc(JSON.stringify(_histCtx))}' title="Get history in plain English">Get History</button></div>
+    ${_gesixStrip}
     <div class="addr-history-body" hidden></div>
   </div>`;
   // Compute walking distance to each Grundschule so we can sort by proximity.
@@ -1194,8 +1222,30 @@ function render(d){
     if(e.target.closest('.vote-btn')) return;                       // vote handled separately
     if(e.target.closest('.addr-history-btn')) return;               // v0.1: Get History flow
     if(e.target.closest('.addr-history-body')) return;               // v0.1: inside history panel
+    if(e.target.closest('.gesix-strip')) return;                    // handled below — opens lens modal
     selectEduCategory(cell.dataset.eduCat);
   }));
+  // GESIx strip on the Address card — click / Enter / Space opens the
+  // full Neighbourhood profile inside the Newcomer lens modal (reuses
+  // the existing renderer, no duplicated markup). Umami event fires so
+  // we can measure whether adding the strip actually increased
+  // engagement with GESIx.
+  $out.querySelectorAll('.addr-cell .gesix-strip').forEach(strip => {
+    const activate = (ev) => {
+      ev.stopPropagation();
+      const q = _gq || 0;
+      const tier = _gTier;
+      _track('gesix_click', { quintile: q, tier: tier });
+      // Life-Mode picker must be on Newcomer for openLensModal to find
+      // the tile — swap silently before opening.
+      if (typeof setActiveLens === 'function') setActiveLens('newcomer');
+      if (typeof openLensModal === 'function') openLensModal('gesix_newcomer');
+    };
+    strip.addEventListener('click', activate);
+    strip.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(ev); }
+    });
+  });
   // Get History button — v0.1 only. POST /api/history, render paragraph.
   const closeHistory = (body, btn) => {
     body.hidden = true;
