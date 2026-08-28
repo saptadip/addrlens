@@ -913,51 +913,58 @@ body.life-mode #panel-others{ display:none !important; }
    badge on the face; tier is conveyed via the indicator (visual) + the
    .sr-only text (accessibility). Traffic-light order: RED top, AMBER middle,
    GREEN bottom. --tier-color still drives icon tint + thumb color. */
-.lens-tile.lens-tile-yf{ display:flex; flex-direction:row; align-items:stretch;
-                          gap:14px; padding:14px 14px 14px 16px; min-height:118px; }
+/* Two-row lens tile — used by every Life Mode lens (Young Family +
+   Newcomer). Row 1: icon + label. Row 2: rule + colour indicator.
+   The parent flex column carries a fixed `gap` so the inter-row
+   distance is identical on every card in the grid; min-height keeps
+   short cards from shrinking below the tall ones.                     */
+.lens-tile.lens-tile-yf{ display:flex; flex-direction:column;
+                          gap:14px; padding:14px 16px;
+                          min-height:130px;
+                          justify-content:space-between; }
 .lens-tile.lens-tile-yf::before{ display:none; }              /* kill left color-bar */
-.lens-tile.lens-tile-yf .yf-tile-main{ flex:1 1 auto; min-width:0;
-                                        display:flex; flex-direction:column;
-                                        gap:.35em; justify-content:flex-start; }
 .lens-tile.lens-tile-yf .tile-tier-badge{ display:none; }     /* verbal badge off */
 
-.yf-tier-slider{ position:relative; flex:0 0 auto; width:26px; align-self:stretch;
-                  display:flex; align-items:center; justify-content:center;
-                  padding:6px 0; }
-.yf-tier-track{ position:relative; width:10px; height:100%; border-radius:99px;
-                background:#E9ECF3;
-                box-shadow: inset 3px 3px 6px rgba(163,177,198,.55),
-                            inset -3px -3px 6px rgba(255,255,255,.9); }
-.yf-tier-mark{ position:absolute; left:50%; width:6px; height:6px;
-                border-radius:50%; transform:translate(-50%,-50%);
-                background:#B8BFCC; opacity:.55; }
-.yf-tier-mark-red  { top:18%; }
-.yf-tier-mark-amber{ top:50%; }
-.yf-tier-mark-green{ top:82%; }
-.yf-tier-thumb{ position:absolute; left:50%; width:18px; height:18px;
-                 border-radius:50%; transform:translate(-50%,-50%);
-                 background:var(--tier-color, #B0B6C0);
-                 border:2px solid #FFFFFF;
-                 box-shadow: 2px 2px 5px rgba(163,177,198,.55),
-                             -2px -2px 5px rgba(255,255,255,.9),
-                             inset 0 -1px 2px rgba(0,0,0,.08);
-                 transition: top .28s cubic-bezier(.2,.7,.2,1);
-                 top:50%; }
-/* Thumb position per tier — matches traffic-light vertical order */
-.tier-red   .yf-tier-thumb{ top:18%; }
-.tier-amber .yf-tier-thumb{ top:50%; }
-.tier-green .yf-tier-thumb{ top:82%; }
-.tier-unknown .yf-tier-thumb{ top:50%; opacity:.5;
-                               background:#B0B6C0;
-                               border-color:#F0F2F7; }
-/* Highlight the active mark under the thumb for extra clarity */
-.tier-red   .yf-tier-mark-red,
-.tier-amber .yf-tier-mark-amber,
-.tier-green .yf-tier-mark-green{ background:var(--tier-color); opacity:.35; }
+.lens-tile .tile-row{ display:flex; align-items:center;
+                       gap:12px; min-width:0; }
+.lens-tile .tile-head .tile-label{
+  font:600 15px/1.25 'Inter', system-ui, sans-serif;
+  color:var(--ink, #2a2f3a);
+  overflow-wrap:anywhere; }
+.lens-tile .tile-foot{
+  align-items:center;
+  padding:10px 12px;
+  background:rgba(148,163,192,.10);
+  border-radius:10px; }
+.lens-tile .tile-foot .tile-rule{
+  flex:1 1 auto; min-width:0;
+  font:500 13px/1.35 'Inter', system-ui, sans-serif;
+  color:var(--muted, #667);
+  overflow-wrap:anywhere; }
+
+/* Colour indicator — small neumorphic well with a coloured dot centered.
+   Kept modest (40 px) so it doesn't dominate the row; tier colour comes
+   from --tier-color set by the .tier-* class on the parent .lens-tile. */
+/* Claymorphism status button — chunky puffy round in tier colour.
+   Signature stack: soft coloured outer drop for lift, bright inner
+   top-left highlight for the matte-clay sheen, darker inner
+   bottom-right shadow for the pressed-in belly. No border. */
+.tile-indicator{ flex:0 0 auto; width:26px; height:26px;
+                  border-radius:50%;
+                  background:var(--tier-color, #B0B6C0);
+                  display:inline-flex;
+                  box-shadow:
+                    0 14px 22px -4px rgba(20,30,50,.42),
+                    0 8px 12px -2px rgba(20,30,50,.28),
+                    0 3px 5px -1px rgba(20,30,50,.20),
+                    inset 2px 2px 3px rgba(255,255,255,.55),
+                    inset -2px -2px 4px rgba(0,0,0,.22); }
+.tile-dot{ display:none; }
+.tier-unknown .tile-indicator{ background:#C7CBD4; }
 
 @media (max-width:520px){
-  .lens-tile.lens-tile-yf{ gap:10px; padding:12px 10px 12px 14px; }
-  .yf-tier-slider{ width:22px; }
+  .lens-tile.lens-tile-yf{ gap:12px; padding:12px 14px; min-height:120px; }
+  .tile-indicator{ width:22px; height:22px; }
 }
 
 .lens-provenance{
