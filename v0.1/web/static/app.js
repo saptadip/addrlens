@@ -2741,32 +2741,26 @@ function renderLensTile(tile, lensSlug) {
   // quintile bar still shows inside the modal (see renderLensModalBody).
   const gesixClass = '';
 
-  // Card face intentionally minimal: icon + label + rule (the check
-  // condition). Numeric / details / GESIx progress bar all move to the
-  // modal to reduce at-a-glance clutter. Status is conveyed by the
-  // vertical tier gem on the right — same across every YF tile including
-  // Neighbourhood profile.
+  // Two-row layout, consistent inter-row gap for every tile across every
+  // lens. Row 1: icon + label (the card header). Row 2: rule text + a
+  // small colour indicator (tier dot in a neumorphic well). The two rows
+  // are stacked with a fixed gap so cards align consistently in the grid.
   return `
     <button class="cell lens-tile lens-tile-yf${gesixClass} tier-${escapeHtml(tier)}"
             data-tile-key="${escapeHtml(tile.key)}"
             aria-label="${escapeHtml(aria)}"
             type="button">
-      <div class="yf-tile-main">
-        <div class="tile-head">
-          <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
-          <span class="tile-label">${escapeHtml(tile.label)}</span>
+      <div class="tile-row tile-head">
+        <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
+        <span class="tile-label">${escapeHtml(tile.label)}</span>
+      </div>
+      <div class="tile-row tile-foot">
+        <div class="tile-indicator" role="img"
+             aria-label="Tier: ${escapeHtml(tier)}">
+          <span class="tile-dot" aria-hidden="true"></span>
+          <span class="sr-only">Tier: ${escapeHtml(badge)}</span>
         </div>
         <div class="tile-rule">${escapeHtml(tile.rule)}</div>
-      </div>
-      <div class="yf-tier-slider" role="img"
-           aria-label="Tier: ${escapeHtml(tier)}">
-        <div class="yf-tier-track">
-          <span class="yf-tier-mark yf-tier-mark-red" aria-hidden="true"></span>
-          <span class="yf-tier-mark yf-tier-mark-amber" aria-hidden="true"></span>
-          <span class="yf-tier-mark yf-tier-mark-green" aria-hidden="true"></span>
-          <span class="yf-tier-thumb" aria-hidden="true"></span>
-        </div>
-        <span class="sr-only">Tier: ${escapeHtml(badge)}</span>
       </div>
     </button>
   `;
@@ -2785,9 +2779,9 @@ function renderLensSingle(addr) {
   }
   const tilesHtml = lens.tiles.map(t => renderLensTile(t, active)).join('');
   const audience  = escapeHtml(lens.audience || '');
-  const prov = lens.provenance
-    ? `<footer class="lens-provenance">${escapeHtml(lens.provenance)}</footer>`
-    : '';
+  // Lens-level provenance intentionally not rendered here — dataset-level
+  // attribution already appears once in the site footer's "Attribution &
+  // licences" modal, so surfacing the same string twice is noise.
   return `
     <div class="lens-picker-row">
       ${renderLensPicker(active)}
@@ -2804,7 +2798,6 @@ function renderLensSingle(addr) {
         <div id="lens-map"></div>
       </div>
     </div>
-    ${prov}
   `;
 }
 
