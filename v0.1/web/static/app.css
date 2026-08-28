@@ -928,7 +928,11 @@ body.life-mode #panel-others{ display:none !important; }
 .lens-tile .tile-row{ display:flex; align-items:center;
                        gap:12px; min-width:0; }
 .lens-tile .tile-head .tile-label{
-  font:600 15px/1.25 'Inter', system-ui, sans-serif;
+  /* Space Grotesk gives the card header a distinct geometric silhouette
+     from the humanist Inter used on the lens tabs, so eye reads header
+     first, tab second. Slightly larger + tighter tracking for calm. */
+  font:600 13px/1.3 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  letter-spacing:-.01em;
   color:var(--ink, #2a2f3a);
   overflow-wrap:anywhere; }
 .lens-tile .tile-foot{
