@@ -3,28 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title id="page-title">Should you rent it? · AddrLens</title>
+<title id="page-title">Should I Rent It? · AddrLens</title>
 <meta name="description" content="Know your Berlin neighbourhood in thirty seconds — schools, transit, noise, air, history — before signing your next lease.">
 <!-- Open Graph / Twitter card for social embeds (Reddit, WhatsApp, Slack, Twitter). -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://addrlens.de/">
-<meta property="og:title" content="Should you rent it? · AddrLens">
+<meta property="og:title" content="Should I Rent It? · AddrLens">
 <meta property="og:description" content="Know your Berlin neighbourhood in thirty seconds — schools, transit, noise, air, history — before signing your next lease.">
 <meta property="og:site_name" content="AddrLens">
 <meta property="og:locale" content="en_GB">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Should you rent it? · AddrLens">
+<meta name="twitter:title" content="Should I Rent It? · AddrLens">
 <meta name="twitter:description" content="Know your Berlin neighbourhood in thirty seconds — schools, transit, noise, air, history — before signing your next lease.">
-<!-- TODO: add og:image + twitter:image (1200×630 PNG at /static/og-image.png)
-     before the first Reddit post. Without it social embeds show plain text
-     only; with it they show a rich card that visibly out-clicks unthumbed
-     links by 2–3×. -->
+<!-- og:image + twitter:image intentionally deferred. See
+     docs/social-embed-og-image.md for the exact snippet + how to
+     generate the 1200×630 PNG when ready. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Merriweather:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="/static/app.css?v=20260828b">
+<link rel="stylesheet" href="/static/app.css?v=20260828c">
 </head>
 <body>
 <div class="page">
@@ -43,8 +42,8 @@
 </header>
 
 <div id="view-main"><section class="hero">
-  <h1>Should you <span class="grad">rent it?</span></h1>
-  <p>Know your neighbourhood in thirty seconds — schools, transit, noise, air, history — before signing your next lease.</p>
+  <h1>Should I <span class="grad">Rent It?</span></h1>
+  <p>Know your Berlin neighbourhood in thirty seconds — schools, transit, noise, air, history — before signing your next lease.</p>
   <form id="f" autocomplete="off">
     <div class="field autocomplete-wrap" role="combobox"
          aria-expanded="false" aria-haspopup="listbox"
@@ -168,6 +167,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/app.js?v=20260828b" defer></script>
+<script src="/static/app.js?v=20260828c" defer></script>
 </body>
 </html>
