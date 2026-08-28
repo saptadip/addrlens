@@ -14,8 +14,29 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}   /* HTML spec intent — beats class-based display rules */
 html,body{margin:0;background:var(--bg);color:var(--ink);
-  font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
-h1,h2,h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:-.02em}
+  font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh;
+  /* Inter looks best with contextual alternates + case-sensitive forms.
+     `cv11` unlocks the single-storey a which reads warmer at UI sizes. */
+  font-feature-settings:"cv11","ss01","ss03";
+  font-variation-settings:"opsz" 32; }
+h1,h2,h3{font-family:'Inter',sans-serif;font-weight:700;letter-spacing:-.02em}
+/* Hero display headline uses Space Grotesk — a geometric sans with
+   distinctive terminals (angled `a`, spurred `t`, quirky `g`) that
+   contrast with Inter's neutral, humanist-adjacent forms. Same
+   super-category (sans-serif) so the pairing feels intentional; the
+   personality difference reads as brand voice on top of Inter's
+   utility. Weight 700 at a slightly negative tracking gives the
+   question the confidence it needs without going heavier.
+   Only the hero heading takes Space Grotesk; every other H1/H2/H3
+   stays on Inter. */
+.hero h1{font-family:'Space Grotesk','Inter',sans-serif;
+  font-weight:700;letter-spacing:-.02em;line-height:1.05;
+  font-size:clamp(40px,6vw,68px);}
+.hero h1 .grad{font-family:inherit;font-weight:700;}
+/* Numbers in tile metrics benefit from tabular figures so digits align
+   vertically across cards. Inter has proper `tnum`. */
+.metric-big .n,.badge,.chip,.sub{
+  font-feature-settings:"tnum" 1,"cv11","ss01","ss03";}
 a{color:var(--brand);font-weight:600;text-decoration:none;position:relative}
 a::after{content:"";position:absolute;left:0;bottom:-2px;width:100%;height:1.5px;background:currentColor;transform:scaleX(0);transform-origin:right;transition:transform .25s ease}
 a:hover::after{transform:scaleX(1);transform-origin:left}
@@ -27,7 +48,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   display:grid;place-items:center;box-shadow:var(--sh-1);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
 .logo:hover{transform:rotate(-6deg) scale(1.05)}
 .logo svg{width:20px;height:20px;stroke:#fff}
-.brand-name{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:19px}
+.brand-name{font-family:'Inter',sans-serif;font-weight:800;font-size:19px}
 .brand-name small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
 .style-pill{padding:8px 14px;border-radius:99px;background:#EEF2FF;color:var(--brand);
   font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
@@ -54,7 +75,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 /* Comparison view — table with addresses as columns, metrics as rows */
 .compare-view{margin-top:14px}
 .compare-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
-.compare-header h2{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:24px;margin:0}
+.compare-header h2{font-family:'Inter',sans-serif;font-weight:700;font-size:24px;margin:0}
 .compare-header .compare-actions{margin-left:auto;display:flex;gap:10px}
 .compare-empty{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:60px 30px;text-align:center;
   box-shadow:var(--sh-1);color:var(--muted)}
@@ -233,7 +254,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .amen-modal .modal-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-shrink:0}
 .amen-modal .modal-head .icon-badge{width:44px;height:44px;border-radius:12px;flex-shrink:0}
 .amen-modal .modal-head .icon-badge svg{width:22px;height:22px}
-.amen-modal .modal-head h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:20px}
+.amen-modal .modal-head h3{margin:0;font-family:'Inter',sans-serif;font-weight:700;font-size:20px}
 .amen-modal .metric-big{margin:2px 0 14px;flex-shrink:0}
 .amen-modal .amen-body{display:flex !important;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
 .amen-modal .amen-list{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0;padding-right:6px}
@@ -277,7 +298,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;box-shadow:0 4px 10px rgba(79,70,229,.28)}
 .icon-badge svg{width:20px;height:20px}
 .cell-label{font-weight:700;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
-.cell h3{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:20px;line-height:1.2;margin:4px 0 4px}
+.cell h3{font-family:'Inter',sans-serif;font-weight:700;font-size:20px;line-height:1.2;margin:4px 0 4px}
 .cell .sub{color:var(--ink-2);font-size:14px;margin:0 0 10px}
 .cell .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
 
@@ -351,7 +372,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .amen-cell[data-vote="sad"],
 .amen-cell[data-vote="sad"]:hover,
 .amen-cell.active[data-vote="sad"]{background:#FEE2E2}
-.metric-big .n{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:52px;line-height:.95;
+.metric-big .n{font-family:'Inter',sans-serif;font-weight:800;font-size:52px;line-height:.95;
   background:linear-gradient(135deg,#4F46E5,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .metric-big .cap{color:var(--ink-2);font-size:14px;font-weight:500;line-height:1.35}
 .cell.tier-green   .metric-big .n{background:linear-gradient(135deg,#16A34A,#22C55E);-webkit-background-clip:text;background-clip:text}
@@ -501,7 +522,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;padding:4px 10px;
   border-radius:99px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
   box-shadow:0 4px 12px rgba(99,102,241,.35)}
-.explain-panel h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:16px;color:var(--ink)}
+.explain-panel h3{margin:0;font-family:'Inter',sans-serif;font-weight:700;font-size:16px;color:var(--ink)}
 .explain-panel .explain-body{font-size:15px;line-height:1.65;color:var(--ink);font-weight:500;min-height:60px}
 .explain-panel .explain-body::first-letter{font-size:22px;font-weight:700;color:#4F46E5;padding-right:2px}
 .explain-panel .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
@@ -546,7 +567,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .impression-panel .section .votes .up,
 .impression-panel .section .votes .dn{white-space:nowrap}
 .impression-panel .addr-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:99px;
-  background:var(--neumo-bg);color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif;
+  background:var(--neumo-bg);color:var(--ink);font-family:'Inter',sans-serif;
   font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
   box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),inset -2px -2px 4px var(--neumo-sh-light)}
 .impression-panel .addr-chip svg{width:11px;height:11px;color:var(--brand);flex-shrink:0}
@@ -558,7 +579,7 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   box-shadow:-3px -3px 8px var(--neumo-sh-light),3px 3px 10px var(--neumo-sh-dark)}
 .impression-panel .section:first-child{margin-top:6px}
 .impression-panel .section h4{margin:0 0 10px;display:flex;align-items:center;gap:10px;
-  font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:11px;letter-spacing:.1em;
+  font-family:'Inter',sans-serif;font-weight:800;font-size:11px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--muted)}
 .impression-panel .section h4::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;
   background:currentColor;opacity:.7}
@@ -614,18 +635,18 @@ footer a{color:var(--brand)}
     -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;
   }
   .print-only { display:block !important }
-  .print-header h1 { font-family:'Plus Jakarta Sans',sans-serif; font-size:18px; margin:0 0 4px; letter-spacing:-.01em }
-  .print-header p  { font-family:'Plus Jakarta Sans',sans-serif; font-size:10px; color:#6B7280; margin:0 0 10px }
-  .compare-header h2 { font-family:'Plus Jakarta Sans',sans-serif; font-size:0; margin:0 }   /* hide the on-screen H2, printHeader replaces it */
+  .print-header h1 { font-family:'Inter',sans-serif; font-size:18px; margin:0 0 4px; letter-spacing:-.01em }
+  .print-header p  { font-family:'Inter',sans-serif; font-size:10px; color:#6B7280; margin:0 0 10px }
+  .compare-header h2 { font-family:'Inter',sans-serif; font-size:0; margin:0 }   /* hide the on-screen H2, printHeader replaces it */
   /* Life Mode compare: reveal both lens slides in the PDF (tabs suppressed) */
   .no-print                          { display:none !important; }
   .lens-compare-slide[hidden]        { display:block !important; }
   .lens-compare-section              { page-break-inside:avoid; margin-top:14px; }
   .lens-compare-section + .lens-compare-section { page-break-before:always; }
-  .lens-compare-section-title        { font-family:'Plus Jakarta Sans',sans-serif;
+  .lens-compare-section-title        { font-family:'Inter',sans-serif;
                                         font-size:14px; margin:0 0 8px; color:#111827; }
 }
-.lens-compare-section-title          { font-family:'Plus Jakarta Sans',sans-serif;
+.lens-compare-section-title          { font-family:'Inter',sans-serif;
                                         font-size:14px; font-weight:700; margin:0 0 8px;
                                         color:var(--ink); }
 .lens-compare-slide[hidden]          { display:none; }
@@ -661,9 +682,9 @@ footer a{color:var(--brand)}
                                         box-shadow:-8px -8px 20px var(--neumo-sh-light),
                                                    8px 8px 22px var(--neumo-sh-dark);
                                         max-height:70vh; overflow-y:auto; }
-.attribution-modal h3                { font-family:'Plus Jakarta Sans',sans-serif;
+.attribution-modal h3                { font-family:'Inter',sans-serif;
                                         margin:0; font-size:18px; }
-.attribution-modal h4                { font-family:'Plus Jakarta Sans',sans-serif;
+.attribution-modal h4                { font-family:'Inter',sans-serif;
                                         margin:14px 0 4px; font-size:13px;
                                         letter-spacing:.03em; color:var(--ink-2);
                                         text-transform:uppercase; }
@@ -791,7 +812,7 @@ body.life-mode #panel-others{ display:none !important; }
 .lens-audience{
   margin:0;
   color:var(--muted, #667);
-  font:500 .88em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  font:500 .88em/1.35 'Inter', system-ui, sans-serif;
   text-align:right;
 }
 
@@ -820,25 +841,25 @@ body.life-mode #panel-others{ display:none !important; }
                        color:var(--tier-color, var(--muted, #b0b6c0)); }
 .lens-tile .tile-icon svg{ width:100%; height:100%; }
 .lens-tile .tile-label{ flex:1;
-                        font:600 .95em/1.2 'Plus Jakarta Sans', system-ui, sans-serif;
+                        font:600 .95em/1.2 'Inter', system-ui, sans-serif;
                         color:var(--ink, #2a2f3a); }
 .lens-tile .tile-tier-badge{
-  font:700 .68em/1 'Plus Jakarta Sans', system-ui, sans-serif;
+  font:700 .68em/1 'Inter', system-ui, sans-serif;
   letter-spacing:.06em;
   padding:.32em .55em; border-radius:999px;
   background:var(--tier-color, #b0b6c0); color:#fff;
 }
 .lens-tile .tile-rule{
-  font:500 .82em/1.3 'Plus Jakarta Sans', system-ui, sans-serif;
+  font:500 .82em/1.3 'Inter', system-ui, sans-serif;
   color:var(--muted, #667);
 }
 .lens-tile .tile-numeric{
-  font:500 .78em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  font:500 .78em/1.35 'Inter', system-ui, sans-serif;
   color:var(--ink-2, #4a4f5a);
 }
 .lens-tile .tile-caveat{
   margin-top:.15em;
-  font:italic 400 .72em/1.35 'Plus Jakarta Sans', system-ui, sans-serif;
+  font:italic 400 .72em/1.35 'Inter', system-ui, sans-serif;
   color:#8a8f9a;
 }
 
@@ -864,7 +885,7 @@ body.life-mode #panel-others{ display:none !important; }
 .lens-tile.lens-tile-info .metric-big{ margin:0; display:flex; align-items:baseline; gap:4px; }
 .lens-tile.lens-tile-info .metric-big .n{ font-size:32px; font-weight:800;
                                           line-height:1; white-space:nowrap;
-                                          font-family:'Plus Jakarta Sans',sans-serif;
+                                          font-family:'Inter',sans-serif;
                                           background:linear-gradient(135deg,#4F46E5,#EC4899);
                                           -webkit-background-clip:text; background-clip:text;
                                           color:transparent; }
@@ -940,7 +961,7 @@ body.life-mode #panel-others{ display:none !important; }
 }
 
 .lens-provenance{
-  font:italic 400 .72em/1.4 'Plus Jakarta Sans', system-ui, sans-serif;
+  font:italic 400 .72em/1.4 'Inter', system-ui, sans-serif;
   color:#8a8f9a; padding:0 .5em;
 }
 .lens-empty{ padding:1em; color:var(--muted, #667); font-style:italic; }
@@ -949,7 +970,7 @@ body.life-mode #panel-others{ display:none !important; }
 .lens-compare{
   display:flex; flex-direction:column; gap:.35em;
   padding:1em 0;
-  font:500 .82em/1.3 'Plus Jakarta Sans', system-ui, sans-serif;
+  font:500 .82em/1.3 'Inter', system-ui, sans-serif;
 }
 .lens-compare-row{
   display:grid;
@@ -989,7 +1010,7 @@ body.life-mode #panel-others{ display:none !important; }
   width:auto; min-width:52px; height:24px; border-radius:999px;
   padding:0 10px; gap:5px;
   background:linear-gradient(135deg,#6366F1,#4F46E5); color:#fff;
-  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  font-family:'Inter',system-ui,sans-serif;
   display:inline-flex; align-items:center; justify-content:center;
   box-shadow:-1px -1px 3px var(--neumo-sh-light),
              2px 2px 6px rgba(79,70,229,.38);
@@ -1082,7 +1103,7 @@ body.life-mode #panel-others{ display:none !important; }
 .lens-modal-close:hover { color:var(--ink); }
 
 .lens-modal .modal-head        { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
-.lens-modal .modal-head h3     { margin:0; font:700 20px 'Plus Jakarta Sans', sans-serif; flex:1; }
+.lens-modal .modal-head h3     { margin:0; font:700 20px 'Inter', sans-serif; flex:1; }
 .lens-modal .modal-head .icon-badge {
   width:44px; height:44px; border-radius:12px;
   display:flex; align-items:center; justify-content:center;
@@ -1137,7 +1158,7 @@ body.life-mode #panel-others{ display:none !important; }
 .lens-pin                      { width:30px; height:30px; border-radius:50%;
                                  background:var(--pin-color, #9CA3AF); color:#fff;
                                  display:flex; align-items:center; justify-content:center;
-                                 font:700 12px 'Plus Jakarta Sans', system-ui, sans-serif;
+                                 font:700 12px 'Inter', system-ui, sans-serif;
                                  box-shadow: 0 2px 6px rgba(17,24,39,.35); }
 
 /* Empty state when features list is empty on a geo tile */
@@ -1436,7 +1457,7 @@ select:focus-visible,
                                     border-radius:14px; background:var(--neumo-bg);
                                     box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
                                                inset -3px -3px 8px var(--neumo-sh-light); }
-.gesix-plr                       { font-family:'Plus Jakarta Sans',sans-serif;
+.gesix-plr                       { font-family:'Inter',sans-serif;
                                     font-weight:700; font-size:15px; color:var(--ink);
                                     margin-bottom:4px; }
 .gesix-rank                      { font-size:12px; color:var(--muted); margin-bottom:12px; }
@@ -1529,7 +1550,7 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
                                     border:none; border-radius:999px; cursor:pointer;
                                     background:var(--neumo-bg);
                                     color:var(--ink-2);
-                                    font:600 13px/1 'Plus Jakarta Sans',system-ui,sans-serif;
+                                    font:600 13px/1 'Inter',system-ui,sans-serif;
                                     letter-spacing:.01em;
                                     box-shadow:-5px -5px 10px var(--neumo-sh-light),
                                                 5px  5px 12px var(--neumo-sh-dark); }
