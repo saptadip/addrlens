@@ -1134,17 +1134,18 @@ function render(d){
     if (_gLabel) parts.push(`Band: ${_gLabel}`);
     return parts.join('\n');
   })();
-  // Rank line + optional Planungsraum + band, one per <p> so the popover
-  // stays readable on narrow cards. Empty when the address is outside
-  // GESIx polygon coverage (no _gq).
-  const _gRankLine = (_gRank != null && _gTotal)
-    ? `Rank ${_gRank} of ${_gTotal} Planungsräume citywide as per Berlin's 2022 GESIx socioeconomic band.`
-    : `Berlin 2022 GESIx socioeconomic band — quintile ${_gq} of 5.`;
+  // Reuse the existing <details class="info-tip"> pattern (see the Kita
+  // popover) so we inherit its portal-to-body, auto-flip, and scroll-
+  // anchor behaviour for free. The summary IS the Locality pill; the
+  // .info-body renders as a labelled key/value card matching the
+  // Kita-details visual language.
+  const _gRankVal = (_gRank != null && _gTotal)
+    ? `${_gRank} of ${_gTotal} Planungsräume`
+    : `Quintile ${_gq} of 5`;
   const _localityPill = _gq
-    ? `<span class="locality-wrap">
-         <button type="button" class="pill-btn locality-pill locality-tier-${_gTier}"
-                 aria-expanded="false" aria-controls="locality-tip"
-                 aria-label="Locality: quintile ${_gq} of 5${_gLabel ? ', ' + _gLabel : ''}. Click for details.">
+    ? `<details class="info-tip locality-info-tip locality-tier-${_gTier}">
+         <summary class="locality-pill"
+                  aria-label="Locality: quintile ${_gq} of 5${_gLabel ? ', ' + _gLabel : ''}. Click for details.">
            <span class="locality-label">Locality</span>
            <span class="gesix-track gesix-track-inline" aria-hidden="true">${
              [1,2,3,4,5].map(i => {
@@ -1153,14 +1154,19 @@ function render(d){
                return `<span class="gesix-seg${grade}${on}"></span>`;
              }).join('')
            }</span>
-         </button>
-         <div class="locality-tooltip" id="locality-tip" role="tooltip" hidden>
-           <p class="locality-tip-rank">${esc(_gRankLine)}</p>
-           ${_gPlr   ? `<p class="locality-tip-line"><span class="locality-tip-key">Planungsraum:</span> ${esc(_gPlr)}</p>`   : ''}
-           ${_gLabel ? `<p class="locality-tip-line"><span class="locality-tip-key">Band:</span> ${esc(_gLabel)}</p>` : ''}
+         </summary>
+         <div class="info-body details-block locality-info-body">
+           <div class="det-row"><div class="det-label">Rank</div>
+             <div class="det-val">${esc(_gRankVal)}</div></div>
+           ${_gPlr ? `<div class="det-row"><div class="det-label">Planungsraum</div>
+             <div class="det-val">${esc(_gPlr)}</div></div>` : ''}
+           ${_gLabel ? `<div class="det-row"><div class="det-label">Band</div>
+             <div class="det-val">${esc(_gLabel)}</div></div>` : ''}
+           <div class="det-row"><div class="det-label">Source</div>
+             <div class="det-val dim">Berlin 2022 GESIx socioeconomic band</div></div>
            <button type="button" class="locality-tip-more">View full profile →</button>
          </div>
-       </span>`
+       </details>`
     : '';
   const addrFields = {'Street':`${a.street} ${a.hnr||''}`.trim(), 'Postcode (PLZ)':a.plz, 'Bezirk (borough)':c.district, 'Ortsteil (neighbourhood)':(a.raw||{}).ort, 'Einschulbereich (primary-school catchment code)':c.esb};
   // Address card also carries a "Get History" affordance (v0.1) — click the
@@ -1253,89 +1259,30 @@ function render(d){
     if(e.target.closest('.vote-btn')) return;                       // vote handled separately
     if(e.target.closest('.addr-history-btn')) return;               // v0.1: Get History flow
     if(e.target.closest('.addr-history-body')) return;               // v0.1: inside history panel
-    if(e.target.closest('.locality-wrap'))    return;               // pill + popover handled below
     selectEduCategory(cell.dataset.eduCat);
   }));
-  // Locality pill on the Address card — click toggles a small popover
-  // that carries the rank sentence, Planungsraum name, band label, and
-  // a "View full profile" affordance. Popover works on touch (unlike
-  // the native title tooltip) and stays open until dismissed by
-  // clicking the pill again, clicking outside, or pressing Escape.
-  //
-  // Umami event fires on pill click AND on the popover's "View full
-  // profile" button — separate names so we can tell "curious peek" from
-  // "actual drill-down" apart in the dashboard.
-  $out.querySelectorAll('.addr-cell .locality-wrap').forEach(wrap => {
-    const pill  = wrap.querySelector('.locality-pill');
-    const tip   = wrap.querySelector('.locality-tooltip');
-    const more  = wrap.querySelector('.locality-tip-more');
-    if (!pill || !tip) return;
-    // The popover is position:fixed to escape parent cell clipping.
-    // Anchor its top edge 10 px below the pill and align its right
-    // edge with the pill's right edge (so the arrow at right:22px on
-    // the popover sits under the middle of the pill). Clamp to the
-    // viewport horizontally so a narrow window never pushes the
-    // popover off-screen.
-    const reposition = () => {
-      if (tip.hidden) return;
-      const pr = pill.getBoundingClientRect();
-      const tw = tip.offsetWidth || 260;
-      let left = pr.right - tw;
-      const min = 12, max = window.innerWidth - tw - 12;
-      if (left < min) left = min;
-      if (left > max) left = max;
-      tip.style.top  = (pr.bottom + 10) + 'px';
-      tip.style.left = left + 'px';
-    };
-    const close = () => {
-      if (tip.hidden) return;
-      tip.hidden = true;
-      pill.setAttribute('aria-expanded', 'false');
-      window.removeEventListener('scroll', reposition, true);
-      window.removeEventListener('resize', reposition);
-    };
-    const open = () => {
-      if (!tip.hidden) return;
-      tip.hidden = false;
-      pill.setAttribute('aria-expanded', 'true');
-      // Compute position AFTER the popover is visible so offsetWidth
-      // returns a real number.
-      reposition();
-      // Capture-phase scroll listener catches scroll events on any
-      // ancestor as well as window — cheap and reliable.
-      window.addEventListener('scroll', reposition, true);
-      window.addEventListener('resize', reposition);
-    };
-    pill.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const willOpen = tip.hidden;
-      if (willOpen) {
-        _track('gesix_click', { quintile: _gq || 0, tier: _gTier });
-        open();
-      } else {
-        close();
-      }
+  // Locality info-tip on the Address card. The pill IS a <summary> so
+  // the <details> element handles open/close, keyboard, and the info-
+  // tip portal handles positioning + outside-click dismiss. Only two
+  // extra listeners needed here:
+  //   (a) Umami _track('gesix_click') on the open transition, so we
+  //       can measure discovery of the neighbourhood signal.
+  //   (b) "View full profile" button inside the info-body fires the
+  //       gesix_open_modal event and opens the full Newcomer modal.
+  $out.querySelectorAll('.addr-cell details.locality-info-tip').forEach(det => {
+    det.addEventListener('toggle', () => {
+      if (det.open) _track('gesix_click', { quintile: _gq || 0, tier: _gTier });
     });
+    const more = det.querySelector('.locality-tip-more');
     if (more) {
       more.addEventListener('click', (ev) => {
         ev.stopPropagation();
         _track('gesix_open_modal', { quintile: _gq || 0, tier: _gTier });
-        close();
-        // Life-Mode picker must be on Newcomer for openLensModal to find
-        // the tile — swap silently before opening.
+        det.open = false;
         if (typeof setActiveLens === 'function') setActiveLens('newcomer');
         if (typeof openLensModal === 'function') openLensModal('gesix_newcomer');
       });
     }
-    // Dismiss on outside click / Escape. One handler per wrap is fine —
-    // multiple wraps would each attach their own but there is only
-    // ever one Address card visible at a time.
-    document.addEventListener('click', (ev) => {
-      if (!tip.hidden && !wrap.contains(ev.target)) close();
-    });
-    document.addEventListener('keydown', (ev) => {
-      if (!tip.hidden && ev.key === 'Escape') { close(); pill.focus(); }
-    });
   });
   // Get History button — v0.1 only. POST /api/history, render paragraph.
   const closeHistory = (body, btn) => {

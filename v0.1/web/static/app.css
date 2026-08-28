@@ -1451,10 +1451,15 @@ select:focus-visible,
    live in the native tooltip (title attribute) instead of on the
    pill itself. Clicking opens the full Neighbourhood profile modal
    inside the Newcomer lens.                                            */
-.locality-wrap                   { position:relative;
-                                    display:inline-flex; align-items:center;
-                                    margin-left:auto; }
-.locality-pill                   { display:inline-flex; align-items:center; gap:8px;
+/* Locality is a <details class="info-tip locality-info-tip"> so it
+   inherits the same portal-to-body / auto-flip / scroll-anchor
+   behaviour as the Kita info tooltip. Overrides below turn the
+   <summary> into a wide pill (default .info-tip>summary is a 20-px
+   circle for a ⓘ icon) and push it to the right end of the badges row. */
+details.locality-info-tip        { flex-shrink:0; margin-left:auto; }
+details.locality-info-tip > summary.locality-pill {
+                                    display:inline-flex; align-items:center; gap:8px;
+                                    width:auto; height:auto;
                                     padding:6px 12px;
                                     font-size:12.5px; font-weight:600;
                                     letter-spacing:.02em;
@@ -1463,44 +1468,33 @@ select:focus-visible,
                                     border:1px solid var(--border);
                                     border-radius:99px; cursor:pointer;
                                     transition:background .18s, border-color .18s,
-                                               transform .18s; }
-.locality-pill:hover             { background:#EEF2FF; border-color:var(--brand-2);
-                                    transform:translateY(-1px); }
-.locality-pill:focus-visible     { outline:2px solid var(--brand-2);
+                                               transform .18s;
+                                    /* Override the default .info-tip>summary
+                                       grid/place-items rules — flex here. */
+                                    place-items:normal; }
+details.locality-info-tip > summary.locality-pill::-webkit-details-marker {
+                                    display:none; }
+details.locality-info-tip > summary.locality-pill:hover,
+details.locality-info-tip[open]  > summary.locality-pill {
+                                    background:#EEF2FF; border-color:var(--brand-2);
+                                    color:var(--brand); }
+details.locality-info-tip > summary.locality-pill:focus-visible {
+                                    outline:2px solid var(--brand-2);
                                     outline-offset:2px; }
-.locality-pill[aria-expanded="true"] {
-                                    background:#EEF2FF; border-color:var(--brand-2); }
 .locality-label                  { color:var(--ink-2); }
-/* Popover shown on pill click. position:fixed so it escapes the
-   .cell's clip / overflow — parent cards clip absolute descendants
-   and the bottom half of the popover would disappear. JS in the
-   click handler writes `top` and `left` from the pill's viewport
-   rect and re-runs on scroll + resize. */
-.locality-tooltip                { position:fixed; z-index:100;
-                                    min-width:260px; max-width:340px;
-                                    padding:12px 14px 10px;
-                                    background:var(--card);
-                                    border:1px solid var(--border);
-                                    border-radius:12px;
-                                    box-shadow:var(--sh-2);
-                                    font-size:12.5px; line-height:1.45;
-                                    color:var(--ink-1); text-align:left; }
-.locality-tooltip::before        { content:""; position:absolute;
-                                    top:-6px; right:22px;
-                                    width:10px; height:10px;
-                                    background:var(--card);
-                                    border-top:1px solid var(--border);
-                                    border-left:1px solid var(--border);
-                                    transform:rotate(45deg); }
-.locality-tip-rank               { margin:0 0 8px; font-weight:600;
-                                    color:var(--ink); }
-.locality-tip-line               { margin:2px 0; color:var(--ink-2); }
-.locality-tip-key                { color:var(--muted); }
-.locality-tip-more               { margin-top:10px; padding:6px 12px;
+details.locality-info-tip[open] > summary.locality-pill .locality-label {
+                                    color:var(--brand); }
+/* Info-body variant: reserve room for a wider "Rank X of Y" value and
+   give the "View full profile" button a bit of top separation. */
+.info-body.locality-info-body    { width:340px; }
+.info-body.locality-info-body .det-row { grid-template-columns:96px 1fr; }
+.locality-tip-more               { display:block; width:100%;
+                                    margin-top:12px; padding:8px 12px;
                                     font-size:12.5px; font-weight:700;
                                     color:var(--brand);
                                     background:#EEF2FF; border:none;
                                     border-radius:8px; cursor:pointer;
+                                    text-align:center;
                                     transition:background .15s; }
 .locality-tip-more:hover         { background:#DCE1FF; }
 .gesix-track-inline              { display:inline-grid;
