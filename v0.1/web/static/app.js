@@ -1164,7 +1164,6 @@ function render(d){
              <div class="det-val">${esc(_gLabel)}</div></div>` : ''}
            <div class="det-row"><div class="det-label">Source</div>
              <div class="det-val dim">Berlin 2022 GESIx socioeconomic band</div></div>
-           <button type="button" class="locality-tip-more">View full profile →</button>
          </div>
        </details>`
     : '';
@@ -1262,27 +1261,18 @@ function render(d){
     selectEduCategory(cell.dataset.eduCat);
   }));
   // Locality info-tip on the Address card. The pill IS a <summary> so
-  // the <details> element handles open/close, keyboard, and the info-
-  // tip portal handles positioning + outside-click dismiss. Only two
-  // extra listeners needed here:
-  //   (a) Umami _track('gesix_click') on the open transition, so we
-  //       can measure discovery of the neighbourhood signal.
-  //   (b) "View full profile" button inside the info-body fires the
-  //       gesix_open_modal event and opens the full Newcomer modal.
+  // the <details> element handles open/close and keyboard interaction
+  // natively; the info-tip portal handles positioning. We only need
+  // Umami tracking on the open transition.
+  //
+  // Outside-click closing is NOT a default <details> behaviour — we
+  // wire it below with a document-level handler that closes the
+  // popover when a click lands outside both the pill AND the portaled
+  // .info-body (which lives in <body> after the toggle listener runs).
   $out.querySelectorAll('.addr-cell details.locality-info-tip').forEach(det => {
     det.addEventListener('toggle', () => {
       if (det.open) _track('gesix_click', { quintile: _gq || 0, tier: _gTier });
     });
-    const more = det.querySelector('.locality-tip-more');
-    if (more) {
-      more.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        _track('gesix_open_modal', { quintile: _gq || 0, tier: _gTier });
-        det.open = false;
-        if (typeof setActiveLens === 'function') setActiveLens('newcomer');
-        if (typeof openLensModal === 'function') openLensModal('gesix_newcomer');
-      });
-    }
   });
   // Get History button — v0.1 only. POST /api/history, render paragraph.
   const closeHistory = (body, btn) => {
@@ -2229,6 +2219,32 @@ function dropOrphanTooltips(){
 ['scroll','resize'].forEach(ev => window.addEventListener(ev, () => {
   document.querySelectorAll('details.info-tip[open]').forEach(_reposTooltip);
 }, {passive:true}));
+
+// Outside-click auto-close for the Locality info-tip. The native
+// <details> element only closes when its <summary> is clicked again,
+// which is fine for the Kita per-item ⓘ button (small, expected to be
+// clicked twice) but wrong for the Locality pill on the Address card —
+// visitors expect popovers to dismiss on any outside interaction.
+//
+// The .info-body is portaled to <body> on open (see the toggle handler
+// above), so we must check BOTH the <details> element AND its stored
+// _portaledBody to know whether the click was inside the popover.
+// Escape key also closes.
+document.addEventListener('click', (ev) => {
+  document.querySelectorAll('details.locality-info-tip[open]').forEach(det => {
+    if (det.contains(ev.target)) return;                                // inside the pill itself
+    if (det._portaledBody && det._portaledBody.contains(ev.target)) return;   // inside the popover
+    det.open = false;
+  });
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Escape') return;
+  document.querySelectorAll('details.locality-info-tip[open]').forEach(det => {
+    det.open = false;
+    const summary = det.querySelector('summary');
+    if (summary) summary.focus();
+  });
+});
 
 function bindStrollerForm(){
   const f=document.getElementById('stroller-floor'), l=document.getElementById('stroller-lift'), k=document.getElementById('stroller-kwr');
