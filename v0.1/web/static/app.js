@@ -2721,6 +2721,35 @@ function labelWithGlossHtml(label){
     : escapeHtml(main);
 }
 
+// Title-case for tile headers. English small-word exceptions are lowercased
+// unless they're the first token. Words that already contain an uppercase
+// letter pass through untouched — preserves German admin terms ("Bürgeramt"),
+// initialisms ("NO₂", "LEA", "GESIx"), and hyphenated brand-cases ("Wi-Fi").
+const _TITLE_SMALL = new Set([
+  'a','an','the','and','but','or','nor','for','so','yet',
+  'at','by','in','of','on','to','up','as','per','via','with','from','into','over','than'
+]);
+function toTitleCase(s) {
+  if (!s) return s;
+  const capOne = w => w.replace(/^([^\p{L}]*)(\p{L})/u,
+                                (_, p, c) => p + c.toUpperCase());
+  // Per hyphen-piece: keep pre-cased pieces verbatim (Wi-Fi, NO₂, Bürgeramt),
+  // otherwise capitalise the first letter (english-speaking → English-Speaking).
+  const capHyphenated = tok => tok.split('-')
+    .map(part => /[A-ZÄÖÜ]/.test(part) ? part : capOne(part))
+    .join('-');
+  const parts = s.split(/(\s+)/);   // keeps whitespace tokens
+  let seenWord = false;
+  return parts.map(tok => {
+    if (/^\s+$/.test(tok)) return tok;
+    const isFirst = !seenWord;
+    seenWord = true;
+    const low = tok.toLowerCase();
+    if (!isFirst && _TITLE_SMALL.has(low.replace(/[^a-z]/g,''))) return low;
+    return capHyphenated(tok);
+  }).join('');
+}
+
 function renderLensTile(tile, lensSlug) {
   const iconSVG = (typeof ico !== 'undefined' && ico[tile.icon]) || '';
 
@@ -2752,7 +2781,7 @@ function renderLensTile(tile, lensSlug) {
             type="button">
       <div class="tile-row tile-head">
         <span class="tile-icon" aria-hidden="true">${iconSVG}</span>
-        <span class="tile-label">${escapeHtml(tile.label)}</span>
+        <span class="tile-label">${escapeHtml(toTitleCase(tile.label))}</span>
       </div>
       <div class="tile-row tile-foot">
         <div class="tile-indicator" role="img"
