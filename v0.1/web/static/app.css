@@ -1471,11 +1471,12 @@ select:focus-visible,
 .locality-pill[aria-expanded="true"] {
                                     background:#EEF2FF; border-color:var(--brand-2); }
 .locality-label                  { color:var(--ink-2); }
-/* Popover shown on pill click. Positioned below the pill, right-aligned
-   so it never falls off the right edge of the card. Multi-line, with a
-   subtle arrow pointing to the pill. Escape / outside-click closes. */
-.locality-tooltip                { position:absolute; top:calc(100% + 10px);
-                                    right:0; z-index:60;
+/* Popover shown on pill click. position:fixed so it escapes the
+   .cell's clip / overflow — parent cards clip absolute descendants
+   and the bottom half of the popover would disappear. JS in the
+   click handler writes `top` and `left` from the pill's viewport
+   rect and re-runs on scroll + resize. */
+.locality-tooltip                { position:fixed; z-index:100;
                                     min-width:260px; max-width:340px;
                                     padding:12px 14px 10px;
                                     background:var(--card);

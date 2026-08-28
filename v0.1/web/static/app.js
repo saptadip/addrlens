@@ -1270,15 +1270,41 @@ function render(d){
     const tip   = wrap.querySelector('.locality-tooltip');
     const more  = wrap.querySelector('.locality-tip-more');
     if (!pill || !tip) return;
+    // The popover is position:fixed to escape parent cell clipping.
+    // Anchor its top edge 10 px below the pill and align its right
+    // edge with the pill's right edge (so the arrow at right:22px on
+    // the popover sits under the middle of the pill). Clamp to the
+    // viewport horizontally so a narrow window never pushes the
+    // popover off-screen.
+    const reposition = () => {
+      if (tip.hidden) return;
+      const pr = pill.getBoundingClientRect();
+      const tw = tip.offsetWidth || 260;
+      let left = pr.right - tw;
+      const min = 12, max = window.innerWidth - tw - 12;
+      if (left < min) left = min;
+      if (left > max) left = max;
+      tip.style.top  = (pr.bottom + 10) + 'px';
+      tip.style.left = left + 'px';
+    };
     const close = () => {
       if (tip.hidden) return;
       tip.hidden = true;
       pill.setAttribute('aria-expanded', 'false');
+      window.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
     };
     const open = () => {
       if (!tip.hidden) return;
       tip.hidden = false;
       pill.setAttribute('aria-expanded', 'true');
+      // Compute position AFTER the popover is visible so offsetWidth
+      // returns a real number.
+      reposition();
+      // Capture-phase scroll listener catches scroll events on any
+      // ancestor as well as window — cheap and reliable.
+      window.addEventListener('scroll', reposition, true);
+      window.addEventListener('resize', reposition);
     };
     pill.addEventListener('click', (ev) => {
       ev.stopPropagation();
