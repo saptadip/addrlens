@@ -1114,21 +1114,39 @@ function render(d){
   const _gTier     = _gq >= 1 && _gq <= 2 ? 'good' : _gq === 3 ? 'mid' : _gq >= 4 ? 'bad' : 'unknown';
   const _gLabel    = (_gesix && (_gesix.class_en || _gesix.class_de)) || '';
   const _gPlr      = (_gesix && _gesix.plr_name) || '';
-  const _gesixStrip = _gq
-    ? `<div class="gesix-strip gesix-tier-${_gTier}" role="button" tabindex="0"
-            aria-label="Neighbourhood profile: quintile ${_gq} of 5${_gLabel ? ', ' + _gLabel : ''}"
-            title="Click for the full neighbourhood profile">
-         <span class="gesix-strip-label">Neighbourhood profile</span>
-         <span class="gesix-track gesix-track-inline">${
+  const _gRank     = (_gesix && _gesix.rang != null) ? _gesix.rang : null;
+  const _gTotal    = (_gesix && _gesix.total)         ? _gesix.total : null;
+  // Tooltip carries the Planungsraum + citywide rank + one-liner
+  // provenance. Kept off the visible strip per user spec — the pill
+  // stays minimal (label + dots) so it fits on the badges row next to
+  // Get History without wrapping.
+  const _gTooltip = (() => {
+    if (!_gq) return '';
+    const parts = [];
+    if (_gRank != null && _gTotal) {
+      parts.push(
+        `Rank ${_gRank} of ${_gTotal} Planungsräume citywide as per Berlin's 2022 GESIx socioeconomic band.`
+      );
+    } else {
+      parts.push(`Berlin 2022 GESIx socioeconomic band — quintile ${_gq} of 5.`);
+    }
+    if (_gPlr)   parts.push(`Planungsraum: ${_gPlr}`);
+    if (_gLabel) parts.push(`Band: ${_gLabel}`);
+    return parts.join('\n');
+  })();
+  const _localityPill = _gq
+    ? `<button type="button" class="pill-btn locality-pill locality-tier-${_gTier}"
+              title="${esc(_gTooltip)}"
+              aria-label="Locality: quintile ${_gq} of 5${_gLabel ? ', ' + _gLabel : ''}. ${esc(_gTooltip)}">
+         <span class="locality-label">Locality</span>
+         <span class="gesix-track gesix-track-inline" aria-hidden="true">${
            [1,2,3,4,5].map(i => {
              const grade = i <= 2 ? ' seg-good' : i === 3 ? ' seg-mid' : ' seg-bad';
              const on    = i === _gq ? ' active' : '';
-             return `<span class="gesix-seg${grade}${on}" aria-hidden="true"></span>`;
+             return `<span class="gesix-seg${grade}${on}"></span>`;
            }).join('')
          }</span>
-         ${_gLabel ? `<span class="gesix-strip-verdict">${esc(_gLabel)}</span>` : ''}
-         ${_gPlr   ? `<span class="gesix-strip-plr" title="Planungsraum">${esc(_gPlr)}</span>` : ''}
-       </div>`
+       </button>`
     : '';
   const addrFields = {'Street':`${a.street} ${a.hnr||''}`.trim(), 'Postcode (PLZ)':a.plz, 'Bezirk (borough)':c.district, 'Ortsteil (neighbourhood)':(a.raw||{}).ort, 'Einschulbereich (primary-school catchment code)':c.esb};
   // Address card also carries a "Get History" affordance (v0.1) — click the
@@ -1142,8 +1160,7 @@ function render(d){
   };
   const addr=`<div class="cell edu-cell addr-cell gesix-tier-${_gTier}" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span>${explainBtn('edu-address','Address',addrFields)}</div>
     <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin</p>
-    <div class="badges">${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}<button type="button" class="pill-btn addr-history-btn" data-hist='${esc(JSON.stringify(_histCtx))}' title="Get history in plain English">Get History</button></div>
-    ${_gesixStrip}
+    <div class="badges">${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}<button type="button" class="pill-btn addr-history-btn" data-hist='${esc(JSON.stringify(_histCtx))}' title="Get history in plain English">Get History</button>${_localityPill}</div>
     <div class="addr-history-body" hidden></div>
   </div>`;
   // Compute walking distance to each Grundschule so we can sort by proximity.
@@ -1222,16 +1239,17 @@ function render(d){
     if(e.target.closest('.vote-btn')) return;                       // vote handled separately
     if(e.target.closest('.addr-history-btn')) return;               // v0.1: Get History flow
     if(e.target.closest('.addr-history-body')) return;               // v0.1: inside history panel
-    if(e.target.closest('.gesix-strip')) return;                    // handled below — opens lens modal
+    if(e.target.closest('.locality-pill'))    return;               // handled below — opens lens modal
     selectEduCategory(cell.dataset.eduCat);
   }));
-  // GESIx strip on the Address card — click / Enter / Space opens the
-  // full Neighbourhood profile inside the Newcomer lens modal (reuses
-  // the existing renderer, no duplicated markup). Umami event fires so
-  // we can measure whether adding the strip actually increased
-  // engagement with GESIx.
-  $out.querySelectorAll('.addr-cell .gesix-strip').forEach(strip => {
-    const activate = (ev) => {
+  // Locality pill on the Address card — click opens the full
+  // Neighbourhood profile inside the Newcomer lens modal (reuses the
+  // existing renderer, no duplicated markup). Umami event fires so we
+  // can measure whether the pill actually moved engagement with GESIx.
+  // The pill is a <button>, so Enter / Space activate it natively via
+  // the browser — no extra keydown wiring required.
+  $out.querySelectorAll('.addr-cell .locality-pill').forEach(pill => {
+    pill.addEventListener('click', (ev) => {
       ev.stopPropagation();
       const q = _gq || 0;
       const tier = _gTier;
@@ -1240,10 +1258,6 @@ function render(d){
       // the tile — swap silently before opening.
       if (typeof setActiveLens === 'function') setActiveLens('newcomer');
       if (typeof openLensModal === 'function') openLensModal('gesix_newcomer');
-    };
-    strip.addEventListener('click', activate);
-    strip.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); activate(ev); }
     });
   });
   // Get History button — v0.1 only. POST /api/history, render paragraph.
