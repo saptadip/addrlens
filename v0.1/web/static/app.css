@@ -1451,8 +1451,10 @@ select:focus-visible,
    live in the native tooltip (title attribute) instead of on the
    pill itself. Clicking opens the full Neighbourhood profile modal
    inside the Newcomer lens.                                            */
+.locality-wrap                   { position:relative;
+                                    display:inline-flex; align-items:center;
+                                    margin-left:auto; }
 .locality-pill                   { display:inline-flex; align-items:center; gap:8px;
-                                    margin-left:auto;
                                     padding:6px 12px;
                                     font-size:12.5px; font-weight:600;
                                     letter-spacing:.02em;
@@ -1466,7 +1468,40 @@ select:focus-visible,
                                     transform:translateY(-1px); }
 .locality-pill:focus-visible     { outline:2px solid var(--brand-2);
                                     outline-offset:2px; }
+.locality-pill[aria-expanded="true"] {
+                                    background:#EEF2FF; border-color:var(--brand-2); }
 .locality-label                  { color:var(--ink-2); }
+/* Popover shown on pill click. Positioned below the pill, right-aligned
+   so it never falls off the right edge of the card. Multi-line, with a
+   subtle arrow pointing to the pill. Escape / outside-click closes. */
+.locality-tooltip                { position:absolute; top:calc(100% + 10px);
+                                    right:0; z-index:60;
+                                    min-width:260px; max-width:340px;
+                                    padding:12px 14px 10px;
+                                    background:var(--card);
+                                    border:1px solid var(--border);
+                                    border-radius:12px;
+                                    box-shadow:var(--sh-2);
+                                    font-size:12.5px; line-height:1.45;
+                                    color:var(--ink-1); text-align:left; }
+.locality-tooltip::before        { content:""; position:absolute;
+                                    top:-6px; right:22px;
+                                    width:10px; height:10px;
+                                    background:var(--card);
+                                    border-top:1px solid var(--border);
+                                    border-left:1px solid var(--border);
+                                    transform:rotate(45deg); }
+.locality-tip-rank               { margin:0 0 8px; font-weight:600;
+                                    color:var(--ink); }
+.locality-tip-line               { margin:2px 0; color:var(--ink-2); }
+.locality-tip-key                { color:var(--muted); }
+.locality-tip-more               { margin-top:10px; padding:6px 12px;
+                                    font-size:12.5px; font-weight:700;
+                                    color:var(--brand);
+                                    background:#EEF2FF; border:none;
+                                    border-radius:8px; cursor:pointer;
+                                    transition:background .15s; }
+.locality-tip-more:hover         { background:#DCE1FF; }
 .gesix-track-inline              { display:inline-grid;
                                     grid-template-columns:repeat(5,10px);
                                     gap:4px; height:10px; margin:0;
@@ -1479,6 +1514,11 @@ select:focus-visible,
 .addr-cell.gesix-tier-good       { box-shadow:inset 3px 0 0 var(--success); }
 .addr-cell.gesix-tier-mid        { box-shadow:inset 3px 0 0 var(--amber);   }
 .addr-cell.gesix-tier-bad        { box-shadow:inset 3px 0 0 var(--danger);  }
+/* Kill the .cell::before blue side stripe on the Address card
+   permanently — it competes with the GESIx tier border and returns
+   whenever the card gets the .active or a .tier-* class from the
+   raw-view selection handlers. */
+.addr-cell::before               { display:none !important; }
 .card-insight-wrap              { margin-top:18px; padding-top:12px;
                                     border-top:1px solid rgba(148,163,192,.25);
                                     text-align:center; }
