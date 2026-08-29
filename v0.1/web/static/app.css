@@ -932,10 +932,17 @@ body.life-mode #panel-others{ display:none !important; }
      from the humanist Inter used on the lens tabs, so eye reads header
      first, tab second. Slightly larger + tighter tracking for calm.
      Ink shifted a touch warmer (plum-slate) so header reads easier
-     next to the muted rule text — cool slate felt clinical. */
+     next to the muted rule text — cool slate felt clinical.
+     Three-layer text-shadow gives the header a raised-off-canvas feel:
+     a hair-thin white top highlight, a short close shadow for crispness,
+     and a deeper diffused drop for the 3D lift. */
   font:600 13px/1.3 'Space Grotesk', 'Inter', system-ui, sans-serif;
   letter-spacing:-.01em;
   color:#2A2634;
+  text-shadow:
+    0 1px 0   rgba(255,255,255,.75),
+    0 1px 2px rgba(30,25,50,.10),
+    0 2px 5px rgba(30,25,50,.16);
   overflow-wrap:anywhere; }
 
 /* Icon chip — 28 px rounded-square with the tier hue at ~12 % opacity
@@ -955,6 +962,40 @@ body.life-mode #panel-others{ display:none !important; }
   padding:10px 12px;
   background:rgba(148,163,192,.10);
   border-radius:10px; }
+
+/* Modal-only criteria legend. Lives inside the click-to-open lens
+   modal — never on the tile face — so the card grid stays calm and
+   users get the full traffic-light reference one click away. Three
+   thin rows (green / amber / red) with a small heading. Current-tier
+   row is opaque + bold; others dim so the user's result stays the
+   focal point while the reference sits alongside. */
+.modal-legend{
+  display:flex; flex-direction:column;
+  gap:4px;
+  margin:14px 0 8px;
+  padding:12px 14px;
+  background:rgba(148,163,192,.08);
+  border-radius:12px; }
+.modal-legend-title{
+  font:600 11px/1 'Inter', system-ui, sans-serif;
+  letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted, #6B7280);
+  margin-bottom:4px; }
+.modal-legend-row{
+  display:flex; align-items:center;
+  gap:10px;
+  font:500 13px/1.4 'Inter', system-ui, sans-serif;
+  color:var(--muted, #6B7280);
+  opacity:.6; }
+.modal-legend-row.is-current{
+  opacity:1; font-weight:600; color:#2A2634; }
+.modal-legend-dot{
+  flex:0 0 auto;
+  width:10px; height:10px; border-radius:50%; }
+.modal-legend-dot.dot-green{ background:#22C55E; }
+.modal-legend-dot.dot-amber{ background:#F59E0B; }
+.modal-legend-dot.dot-red  { background:#EF4444; }
+.modal-legend-text{ min-width:0; overflow-wrap:anywhere; }
 .lens-tile .tile-foot .tile-rule{
   flex:1 1 auto; min-width:0;
   font:500 13px/1.35 'Inter', system-ui, sans-serif;

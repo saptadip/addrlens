@@ -15,6 +15,125 @@ TIER_RED     = "red"
 TIER_UNKNOWN = "unknown"
 
 
+def _fmt_dist(m: int) -> str:
+    """Format a metre threshold for tile rule text.
+
+    ≥1000m becomes km ("1500" → "1.5km", "1000" → "1km"), else stays in
+    metres with no space ("400" → "400m"). Kept spaceless to match the
+    Young-Family rule style ("≥3 kitas within 400m").
+    """
+    if m >= 1000:
+        return f"{m/1000:g}km"
+    return f"{int(m)}m"
+
+
+def _legend_for(key: str, th: dict) -> list:
+    """Per-tile traffic-light legend for the in-card criteria strip.
+
+    Returns [{"tier": "green|amber|red", "text": "..."}] in tier order so
+    the frontend can render a three-line reference under every tile. Empty
+    list = tile has no 3-band verdict (GESIx uses 5 quintiles, nightlife
+    is numeric-only). Text kept short — legend rows sit in a compact strip
+    with limited column width.
+    """
+    fd = _fmt_dist   # local alias for readability
+
+    # Distance-to-nearest legends share the same three-string shape; several
+    # Newcomer tiles collapse to it.
+    def _dist_legend(green_m: int, amber_m: int) -> list:
+        return [
+            {"tier": TIER_GREEN, "text": f"≤{fd(green_m)} walk"},
+            {"tier": TIER_AMBER, "text": f"≤{fd(amber_m)}"},
+            {"tier": TIER_RED,   "text": f">{fd(amber_m)}"},
+        ]
+
+    # Count-in-radius legends (Intl food, Coworking) — same shape.
+    def _count_legend(radius_m: int, green_c: int, amber_c: int) -> list:
+        r = fd(radius_m)
+        return [
+            {"tier": TIER_GREEN, "text": f"≥{green_c} within {r}"},
+            {"tier": TIER_AMBER, "text": f"{amber_c}–{green_c-1} within {r}"},
+            {"tier": TIER_RED,   "text": f"<{amber_c} within {r}"},
+        ]
+
+    # -- Young Family ---------------------------------------------------
+    if key == "kita":
+        return [
+            {"tier": TIER_GREEN, "text": f"≥{th['green_count']} kitas within {fd(th['green_m'])}"},
+            {"tier": TIER_AMBER, "text": f"≥1 kita within {fd(th['amber_m'])}"},
+            {"tier": TIER_RED,   "text": f"none within {fd(th['amber_m'])}"},
+        ]
+    if key == "playground":
+        return [
+            {"tier": TIER_GREEN, "text": f"≥1 within {fd(th['green_m'])}"},
+            {"tier": TIER_AMBER, "text": f"{fd(th['green_m'])}–{fd(th['amber_m'])}"},
+            {"tier": TIER_RED,   "text": f">{fd(th['amber_m'])}"},
+        ]
+    if key == "pediatrician":
+        return [
+            {"tier": TIER_GREEN, "text": f"≥1 within {fd(th['green_m'])}"},
+            {"tier": TIER_AMBER, "text": f"{fd(th['green_m'])}–{fd(th['amber_m'])}"},
+            {"tier": TIER_RED,   "text": f">{fd(th['amber_m'])}"},
+        ]
+    if key == "transit":
+        return [
+            {"tier": TIER_GREEN, "text": f"stop ≤{th['green_min']} min walk"},
+            {"tier": TIER_AMBER, "text": f"stop ≤{th['amber_min']} min"},
+            {"tier": TIER_RED,   "text": f">{th['amber_min']} min"},
+        ]
+    if key == "supermarket":
+        return [
+            {"tier": TIER_GREEN, "text": f"≥1 within {th['green_min']} min walk"},
+            {"tier": TIER_AMBER, "text": f"within {th['amber_min']} min"},
+            {"tier": TIER_RED,   "text": f">{th['amber_min']} min"},
+        ]
+    if key == "noise":
+        return [
+            {"tier": TIER_GREEN, "text": f"L_DEN ≤{th['green_db']} dB"},
+            {"tier": TIER_AMBER, "text": f"{th['green_db']}–{th['amber_db']} dB"},
+            {"tier": TIER_RED,   "text": f">{th['amber_db']} dB"},
+        ]
+    if key == "heat":
+        return [
+            {"tier": TIER_GREEN, "text": "keine / geringe"},
+            {"tier": TIER_AMBER, "text": "mäßige / starke"},
+            {"tier": TIER_RED,   "text": "sehr starke / extreme"},
+        ]
+    if key == "air":
+        return [
+            {"tier": TIER_GREEN, "text": f"NO₂ ≤{th['green_ugm3']} μg/m³"},
+            {"tier": TIER_AMBER, "text": f"{th['green_ugm3']}–{th['amber_ugm3']} μg/m³"},
+            {"tier": TIER_RED,   "text": f">{th['amber_ugm3']} μg/m³"},
+        ]
+    if key == "refuge":
+        return [
+            {"tier": TIER_GREEN, "text": f"quiet ≤{fd(th['green_quiet_m'])} OR crown ≥{th['green_crown_pct']}%"},
+            {"tier": TIER_AMBER, "text": f"quiet ≤{fd(th['amber_quiet_m'])} OR crown ≥{th['amber_crown_pct']}%"},
+            {"tier": TIER_RED,   "text": "neither"},
+        ]
+
+    # -- Newcomer -------------------------------------------------------
+    if key == "buergeramt":
+        return _dist_legend(th['green_m'], th['amber_m'])
+    if key == "rail_transit":
+        return [
+            {"tier": TIER_GREEN, "text": f"S ≤{fd(th['sbahn_m'])} or U ≤{fd(th['ubahn_m'])}"},
+            {"tier": TIER_AMBER, "text": f"rail ≤{fd(th['any_rail_m'])}"},
+            {"tier": TIER_RED,   "text": f">{fd(th['any_rail_m'])}"},
+        ]
+    if key in ("tram_transit", "bus_transit", "english_clinic",
+               "language_school", "library", "packstation", "wochenmarkt"):
+        return _dist_legend(th['green_m'], th['amber_m'])
+    if key == "intl_food":
+        return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
+    if key == "coworking":
+        return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
+
+    # nightlife_density (numeric-only) + gesix / gesix_newcomer (5-quintile)
+    # don't fit a 3-band legend — skip.
+    return []
+
+
 def noise_tier(l_den_total):
     """WHO + EU-CNOSSOS action-plan thresholds → traffic-light tier for L_DEN (dB)."""
     if l_den_total is None: return "unknown"
@@ -973,6 +1092,7 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
             "numeric": res["numeric"],
             "caveat":  caveat,
             "sources": _sources_for(cfg, key, res["tier"]),
+            "legend":  _legend_for(key, thresholds.get(key, {}) or {}),
         }
         # -- Spec D: features per tile ---------------------------------------
         if key == "kita":
@@ -1102,19 +1222,19 @@ def _tier_buergeramt_newcomer(features: list, th: dict) -> dict:
     """
     if not features:
         return {"tier": TIER_RED,
-                "rule": "no Bürgeramt data loaded",
+                "rule": f"no Bürgeramt within {_fmt_dist(th['amber_m'])}",
                 "numeric": ""}
     nearest = features[0]
     d = nearest["distance_m"]
     if d <= th["green_m"]:
         tier = TIER_GREEN
-        rule = "Bürgeramt within a 15-minute walk"
+        rule = f"Bürgeramt ≤{_fmt_dist(th['green_m'])} walk"
     elif d <= th["amber_m"]:
         tier = TIER_AMBER
-        rule = "reachable but you'll need transit"
+        rule = f"Bürgeramt ≤{_fmt_dist(th['amber_m'])}"
     else:
         tier = TIER_RED
-        rule = "cross-district trip required"
+        rule = f"no Bürgeramt within {_fmt_dist(th['amber_m'])}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
@@ -1136,34 +1256,31 @@ def _tier_rail_transit(features: list, th: dict) -> dict:
     Red:
       • nothing within any_rail_m.
     """
+    green_rule = (f"S-Bahn ≤{_fmt_dist(th['sbahn_m'])} OR "
+                  f"U-Bahn ≤{_fmt_dist(th['ubahn_m'])}")
+    amber_rule = f"rail ≤{_fmt_dist(th['any_rail_m'])}"
+    red_rule   = f"no rail within {_fmt_dist(th['any_rail_m'])}"
     if not features:
-        return {"tier": TIER_RED,
-                "rule": "no rail stop within 1.2 km",
-                "numeric": ""}
+        return {"tier": TIER_RED, "rule": red_rule, "numeric": ""}
     # Green — S or U within their respective limits.
     for f in features:
         d = f["distance_m"]
         mode = f.get("mode", "")
         if "S" in mode and d <= th["sbahn_m"]:
-            return {"tier": TIER_GREEN,
-                    "rule": "rail door-to-door for arrivals and departures",
+            return {"tier": TIER_GREEN, "rule": green_rule,
                     "numeric": f"{int(d)} m to S-Bahn {f['name']}"}
         if "U" in mode and d <= th["ubahn_m"]:
-            return {"tier": TIER_GREEN,
-                    "rule": "rail door-to-door for arrivals and departures",
+            return {"tier": TIER_GREEN, "rule": green_rule,
                     "numeric": f"{int(d)} m to U-Bahn {f['name']}"}
     # Amber — any S/U rail within any_rail_m.
     for f in features:
         if f["distance_m"] <= th["any_rail_m"]:
             mode_label = {"S": "S-Bahn", "U": "U-Bahn"}.get(
                 f.get("mode", "")[:1], "Rail")
-            return {"tier": TIER_AMBER,
-                    "rule": "one interchange for intercity",
+            return {"tier": TIER_AMBER, "rule": amber_rule,
                     "numeric": f"{int(f['distance_m'])} m to {mode_label} {f['name']}"}
     # Red.
-    return {"tier": TIER_RED,
-            "rule": "cabs or long transfers to leave the city",
-            "numeric": ""}
+    return {"tier": TIER_RED, "rule": red_rule, "numeric": ""}
 
 
 def _tier_tram_transit(features: list, th: dict) -> dict:
@@ -1174,19 +1291,19 @@ def _tier_tram_transit(features: list, th: dict) -> dict:
     sorted ascending by distance_m. Thresholds in metres."""
     if not features:
         return {"tier": TIER_RED,
-                "rule": "no tram stop nearby",
+                "rule": f"no tram within {_fmt_dist(th['amber_m'])}",
                 "numeric": ""}
     nearest = features[0]
     d = nearest["distance_m"]
     if d <= th["green_m"]:
         tier = TIER_GREEN
-        rule = "tram door-to-door for daily hops"
+        rule = f"tram stop ≤{_fmt_dist(th['green_m'])} walk"
     elif d <= th["amber_m"]:
         tier = TIER_AMBER
-        rule = "tram within a short walk"
+        rule = f"tram stop ≤{_fmt_dist(th['amber_m'])}"
     else:
         tier = TIER_RED
-        rule = "no tram within walking distance"
+        rule = f"no tram within {_fmt_dist(th['amber_m'])}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{int(d)} m to Tram {nearest['name']}"}
 
@@ -1198,19 +1315,19 @@ def _tier_bus_transit(features: list, th: dict) -> dict:
     bucket filtered to bus-tagged items. Thresholds in metres."""
     if not features:
         return {"tier": TIER_RED,
-                "rule": "no bus stop nearby",
+                "rule": f"no bus within {_fmt_dist(th['amber_m'])}",
                 "numeric": ""}
     nearest = features[0]
     d = nearest["distance_m"]
     if d <= th["green_m"]:
         tier = TIER_GREEN
-        rule = "bus at the doorstep"
+        rule = f"bus stop ≤{_fmt_dist(th['green_m'])} walk"
     elif d <= th["amber_m"]:
         tier = TIER_AMBER
-        rule = "bus within a short walk"
+        rule = f"bus stop ≤{_fmt_dist(th['amber_m'])}"
     else:
         tier = TIER_RED
-        rule = "no bus within walking distance"
+        rule = f"no bus within {_fmt_dist(th['amber_m'])}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{int(d)} m to Bus {nearest['name']}"}
 
@@ -1219,15 +1336,16 @@ def _tier_intl_food(features: list, th: dict) -> dict:
     """Count-based tier for international food & grocers within radius_m.
     green_count / amber_count are inclusive lower bounds."""
     n = len(features)
+    r = _fmt_dist(th['radius_m'])
     if n >= th["green_count"]:
         tier = TIER_GREEN
-        rule = "cluster of international food and grocery"
+        rule = f"≥{th['green_count']} intl food spots within {r}"
     elif n >= th["amber_count"]:
         tier = TIER_AMBER
-        rule = "a few options, mostly one direction"
+        rule = f"{th['amber_count']}–{th['green_count']-1} intl food spots within {r}"
     else:
         tier = TIER_RED
-        rule = "mainstream Rewe/Edeka territory"
+        rule = f"<{th['amber_count']} intl food spots within {r}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{n} international spots within {th['radius_m']} m walk"}
 
@@ -1235,15 +1353,16 @@ def _tier_intl_food(features: list, th: dict) -> dict:
 def _tier_coworking(features: list, th: dict) -> dict:
     """Count-based tier for coworking spaces + Wi-Fi cafés within radius_m."""
     n = len(features)
+    r = _fmt_dist(th['radius_m'])
     if n >= th["green_count"]:
         tier = TIER_GREEN
-        rule = "walkable coworking scene"
+        rule = f"≥{th['green_count']} coworking / laptop cafés within {r}"
     elif n >= th["amber_count"]:
         tier = TIER_AMBER
-        rule = "one or two anchors"
+        rule = f"{th['amber_count']}–{th['green_count']-1} coworking / laptop cafés within {r}"
     else:
         tier = TIER_RED
-        rule = "no laptop-friendly options nearby"
+        rule = f"<{th['amber_count']} coworking / laptop cafés within {r}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{n} remote-work spots within {th['radius_m']} m"}
 
@@ -1262,19 +1381,19 @@ def _tier_english_clinic(features: list, th: dict) -> dict:
     """
     if not features:
         return {"tier": TIER_RED,
-                "rule": "no English-tagged practice nearby — expect German or telemedicine",
+                "rule": f"no English clinic within {_fmt_dist(th['amber_m'])}",
                 "numeric": ""}
     nearest = features[0]
     d = nearest["distance_m"]
     if d <= th["green_m"]:
         tier = TIER_GREEN
-        rule = "English-speaking medical care in walking distance"
+        rule = f"English clinic ≤{_fmt_dist(th['green_m'])} walk"
     elif d <= th["amber_m"]:
         tier = TIER_AMBER
-        rule = "reachable, will need a short transit ride"
+        rule = f"English clinic ≤{_fmt_dist(th['amber_m'])}"
     else:
         tier = TIER_RED
-        rule = "no English-tagged practice nearby — expect German or telemedicine"
+        rule = f"no English clinic within {_fmt_dist(th['amber_m'])}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
@@ -1289,19 +1408,19 @@ def _tier_language_school(features: list, th: dict) -> dict:
     """
     if not features:
         return {"tier": TIER_RED,
-                "rule": "no Sprachschule or VHS branch nearby",
+                "rule": f"no German school within {_fmt_dist(th['amber_m'])}",
                 "numeric": ""}
     nearest = features[0]
     d = nearest["distance_m"]
     if d <= th["green_m"]:
         tier = TIER_GREEN
-        rule = "German classes in walking distance"
+        rule = f"German school ≤{_fmt_dist(th['green_m'])} walk"
     elif d <= th["amber_m"]:
         tier = TIER_AMBER
-        rule = "reachable, one transit hop to class"
+        rule = f"German school ≤{_fmt_dist(th['amber_m'])}"
     else:
         tier = TIER_RED
-        rule = "learning German becomes a logistics problem"
+        rule = f"no German school within {_fmt_dist(th['amber_m'])}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
@@ -1316,19 +1435,19 @@ def _tier_library(features: list, th: dict) -> dict:
     """
     if not features:
         return {"tier": TIER_RED,
-                "rule": "no public library nearby",
+                "rule": f"no library within {_fmt_dist(th['amber_m'])}",
                 "numeric": ""}
     nearest = features[0]
     d = nearest["distance_m"]
     if d <= th["green_m"]:
         tier = TIER_GREEN
-        rule = "free Wi-Fi, English fiction, warm study space at walking distance"
+        rule = f"library ≤{_fmt_dist(th['green_m'])} walk"
     elif d <= th["amber_m"]:
         tier = TIER_AMBER
-        rule = "a short walk or one transit stop"
+        rule = f"library ≤{_fmt_dist(th['amber_m'])}"
     else:
         tier = TIER_RED
-        rule = "not a spontaneous stop from here"
+        rule = f"no library within {_fmt_dist(th['amber_m'])}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
@@ -1343,19 +1462,19 @@ def _tier_packstation(features: list, th: dict) -> dict:
     """
     if not features:
         return {"tier": TIER_RED,
-                "rule": "no parcel pickup point nearby — expect long detours",
+                "rule": f"no Packstation within {_fmt_dist(th['amber_m'])}",
                 "numeric": ""}
     nearest = features[0]
     d = nearest["distance_m"]
     if d <= th["green_m"]:
         tier = TIER_GREEN
-        rule = "parcels within a daily-carry radius"
+        rule = f"Packstation ≤{_fmt_dist(th['green_m'])} walk"
     elif d <= th["amber_m"]:
         tier = TIER_AMBER
-        rule = "reachable evening detour"
+        rule = f"Packstation ≤{_fmt_dist(th['amber_m'])}"
     else:
         tier = TIER_RED
-        rule = "pickup becomes a chore"
+        rule = f"no Packstation within {_fmt_dist(th['amber_m'])}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
@@ -1374,10 +1493,10 @@ def _tier_nightlife_density(features: list, th: dict) -> dict:
     n = len(features)
     if n == 0:
         return {"tier": TIER_UNKNOWN,
-                "rule": "no tagged bars, pubs, or clubs within 1 km",
+                "rule": "no bars / clubs within 1km",
                 "numeric": ""}
     return {"tier": TIER_UNKNOWN,
-            "rule": "count within a 1 km walk — no verdict, just the number",
+            "rule": f"{n} bars / clubs within 1km · numeric only",
             "numeric": f"{n} bars / clubs / pubs within 1 km"}
 
 
@@ -1395,19 +1514,19 @@ def _tier_wochenmarkt(features: list, th: dict) -> dict:
     """
     if not features:
         return {"tier": TIER_RED,
-                "rule": "no registered Wochenmarkt nearby",
+                "rule": f"no Wochenmarkt within {_fmt_dist(th['amber_m'])}",
                 "numeric": ""}
     nearest = features[0]
     d = nearest["distance_m"]
     if d <= th["green_m"]:
         tier = TIER_GREEN
-        rule = "weekly market in walking distance"
+        rule = f"Wochenmarkt ≤{_fmt_dist(th['green_m'])} walk"
     elif d <= th["amber_m"]:
         tier = TIER_AMBER
-        rule = "a short bike or tram to the stalls"
+        rule = f"Wochenmarkt ≤{_fmt_dist(th['amber_m'])}"
     else:
         tier = TIER_RED
-        rule = "not a weekly ritual from here"
+        rule = f"no Wochenmarkt within {_fmt_dist(th['amber_m'])}"
     return {"tier": tier, "rule": rule,
             "numeric": f"{int(d)} m to {nearest['name']}"}
 
@@ -1606,6 +1725,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
             "caveat":   caveat,
             "features": feat_map.get(key, []),
             "sources":  sources,
+            "legend":   _legend_for(key, th.get(key, {}) or {}),
         }
         tiles.append(tile)
 
@@ -2217,8 +2337,8 @@ if __name__ == "__main__":
     _TIF = _TN["intl_food"]
     _ff  = lambda n: [{"name": f"Shop{i}", "lat": 52.5, "lon": 13.4,
                         "distance_m": 100}      for i in range(n)]
-    assert _tier_intl_food(_ff(5),  _TIF)["tier"] == TIER_GREEN   # green_count=5, inclusive
-    assert _tier_intl_food(_ff(4),  _TIF)["tier"] == TIER_AMBER   # ≥ amber_count=2
+    assert _tier_intl_food(_ff(6),  _TIF)["tier"] == TIER_GREEN   # green_count=6, inclusive
+    assert _tier_intl_food(_ff(5),  _TIF)["tier"] == TIER_AMBER   # < green but ≥ amber_count=2
     assert _tier_intl_food(_ff(2),  _TIF)["tier"] == TIER_AMBER   # amber_count=2, inclusive
     assert _tier_intl_food(_ff(1),  _TIF)["tier"] == TIER_RED
     assert _tier_intl_food([],      _TIF)["tier"] == TIER_RED
@@ -2239,9 +2359,9 @@ if __name__ == "__main__":
     _TEC = _TN["english_clinic"]
     _ef  = lambda d: [{"name": "Clinic", "lat": 52.5, "lon": 13.4,
                         "distance_m": d}]
-    # green_m=1200, inclusive.
-    assert _tier_english_clinic(_ef(1200),    _TEC)["tier"] == TIER_GREEN
-    assert _tier_english_clinic(_ef(1201),    _TEC)["tier"] == TIER_AMBER
+    # green_m=1000, inclusive.
+    assert _tier_english_clinic(_ef(1000),    _TEC)["tier"] == TIER_GREEN
+    assert _tier_english_clinic(_ef(1001),    _TEC)["tier"] == TIER_AMBER
     assert _tier_english_clinic(_ef(3000),    _TEC)["tier"] == TIER_AMBER
     assert _tier_english_clinic(_ef(3001),    _TEC)["tier"] == TIER_RED
     assert _tier_english_clinic([],           _TEC)["tier"] == TIER_RED
@@ -2281,7 +2401,7 @@ if __name__ == "__main__":
     _r0 = _tier_nightlife_density([], _TNL)
     assert _r0["tier"] == TIER_UNKNOWN, _r0
     assert _r0["numeric"] == "", _r0
-    assert "no tagged" in _r0["rule"], _r0
+    assert "no bars" in _r0["rule"], _r0
 
     # -- newcomer_lens composer smoke test ------------------------------------
     from app.cities.berlin import BERLIN as _CFG_NL
