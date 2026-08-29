@@ -23,7 +23,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="/static/app.css?v=20260830e-header-shadow">
+<link rel="stylesheet" href="/static/app.css?v=20260830f-attribution">
 </head>
 <body>
 <div class="page">
@@ -132,7 +132,7 @@
 
 <footer id="site-footer">
   <span class="footer-lede">Built on open data —</span>
-  <button type="button" id="attribution-open" class="pill-btn attribution-btn" aria-haspopup="dialog" aria-controls="attribution-modal">ⓘ Attribution &amp; licences</button>
+  <a href="#attribution" id="attribution-open" class="attribution-link" aria-haspopup="dialog" aria-controls="attribution-modal">Attribution &amp; licences</a>
   <nav class="footer-legal-links" aria-label="Legal">
     <a href="/impressum">Impressum</a>
     <span aria-hidden="true">·</span>
@@ -155,18 +155,34 @@
   </div>
   <div class="attribution-body">
     <p class="attribution-lead">Every data point in this app comes from open sources. Attribution is preserved per each dataset's licence.</p>
-    <h4>Berlin Open Data</h4>
-    <p id="footer-city-attr">Berlin Open Data first: Geoportal Berlin / Schulen (dl-de/zero-2.0), Adressen Berlin, Kindertagesstätten, Grünanlagen &amp; Spielplätze, Krankenhäuser, Trinkwasserbrunnen (dl-de/by-2.0).</p>
+
+    <h4>Berlin Open Data — Geoportal Berlin</h4>
+    <p id="footer-city-attr">Schulen · Adressen Berlin · Kindertagesstätten · Krankenhäuser · Trinkwasserbrunnen (Betrieb: Berliner Wasserbetriebe) · Grünanlagen (Spielplätze + Parks) · Strategische Lärmkarten 2022 (Fassadenpegel) · Umweltatlas Klimabewertungskarten 2022 (Bioklima Tag) · Umweltatlas Luftreinhalteplan 2018–2025 · Baumbestand Straßenbäume · Feuerwehr Standorte &amp; Einsatzbereiche · Ruhige Gebiete 2018 · Erhaltungsverordnungsgebiete § 172 BauGB · Schwimmbäder der Berliner Bäder-Betriebe · Badegewässerqualität (LAGeSo) · Bezirksgrenzen. Licences: dl-de/by-2.0 · dl-de/zero-2.0.</p>
+
+    <h4>Public transport</h4>
+    <p>VBB Verkehrsverbund Berlin-Brandenburg / Koordinaten der Zugangsmöglichkeiten zu Stationen — S-Bahn, U-Bahn, regional rail (<a href="https://creativecommons.org/licenses/by/4.0/">CC-BY-4.0</a>). Geoportal Berlin / BVG Ungestörtes ÖPNV-Netz — Straßenbahnhaltestellen (dl-de/by-2.0). Bus stops via <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> (ODbL).</p>
+
+    <h4>Neighbourhood profile</h4>
+    <p>Senatsverwaltung für Wissenschaft, Gesundheit, Pflege und Gleichstellung / Gesundheits- und Sozialstrukturatlas — GESIx 2022 (dl-de/zero-2.0). 447 Planungsräume, refreshed every 3–5 years by the Senate.</p>
+
+    <h4>Administrative offices</h4>
+    <p>Curated from berlin.de public directories: Bürgerämter (service.berlin.de), Finanzamt-Verzeichnis, Standesamt-Verzeichnis, Landesamt für Einwanderung (LEA), Bundesagentur für Arbeit Berlin-Brandenburg. Public reference — not a licensed dataset.</p>
+
     <h4>OpenStreetMap supplements</h4>
-    <p>Contains information from <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>, which is made available under the <a href="https://opendatacommons.org/licenses/odbl/">Open Database License (ODbL)</a>. Used for pharmacies, supermarkets, GPs, transit, plus playground / park gaps not in the city dataset. Delivered via a weekly Berlin extract from <a href="https://download.geofabrik.de/europe/germany/berlin.html">Geofabrik</a> (see their <a href="https://download.geofabrik.de/technical.html">technical policy</a>) — same ODbL terms, refreshed Sundays 03:00 CET.</p>
-    <h4>Map tiles</h4>
-    <p>Basemap tiles © <a href="https://carto.com/attribution">CARTO</a> and © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors.</p>
+    <p>Contains information from <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors, licensed under the <a href="https://opendatacommons.org/licenses/odbl/">Open Database License (ODbL)</a>. Used for pharmacies, supermarkets, GPs, bus stops, address autocomplete (~414 k Berlin addresses), address history, and the Newcomer-lens buckets (international food, coworking / Wi-Fi cafés, English-speaking clinics, German-language schools, public libraries, Packstationen, Wochenmärkte, bars &amp; clubs). Delivered via a weekly Berlin extract from <a href="https://download.geofabrik.de/europe/germany/berlin.html">Geofabrik</a> (see their <a href="https://download.geofabrik.de/technical.html">technical policy</a>) — same ODbL terms, refreshed Sundays 03:00 CET.</p>
+
+    <h4>Map tiles &amp; library</h4>
+    <p>Basemap tiles © <a href="https://carto.com/attribution">CARTO</a> and © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors. Interactive maps rendered with <a href="https://leafletjs.com/">Leaflet</a> (BSD 2-clause).</p>
+
+    <h4>AI narratives</h4>
+    <p>Card insights, address-history summaries, and plain-English explanations are generated by open-weight language models: <a href="https://developers.cloudflare.com/workers-ai/models/">Cloudflare Workers AI</a> (@cf/meta/llama-3.1-8b-instruct-fast) for the history endpoint, and a self-hosted <a href="https://github.com/ggerganov/llama.cpp">llama.cpp</a> server running <a href="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF">Qwen 2.5 1.5B Instruct</a> (Q4_K_M) for card insights &amp; explanations. Street name and house number are stripped from prompts before sending — the model receives anonymised structured facts only.</p>
+
     <p class="attribution-note">Data-licence identifiers (dl-de/by-2.0, dl-de/zero-2.0, CC-BY-4.0, ODbL) preserved verbatim per dataset — click a link above for full licence text.</p>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/app.js?v=20260830e-header-shadow" defer></script>
+<script src="/static/app.js?v=20260830f-attribution" defer></script>
 </body>
 </html>
