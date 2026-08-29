@@ -3449,25 +3449,29 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
   if ($bn) $bn.textContent = 'AddrLens';
   const $pill = document.getElementById('open-data-pill');
   if ($pill) $pill.textContent = `Open Data · ${dn}`;
-  const $attr = document.getElementById('footer-city-attr');
+  // Modal body is now curated + grouped in index.html and covers more
+  // than the flat attribution dict (LLM stack, map library, licence
+  // notes). We only overwrite the PDF-print mirror with the raw
+  // dict-join — the visible modal keeps its static curated content.
   const $attrPrint = document.getElementById('footer-city-attr-print');
-  if (cfg.attribution) {
+  if (cfg.attribution && $attrPrint) {
     const seen = new Set(), lines = [];
     for (const s of Object.values(cfg.attribution)) {
       if (!s || seen.has(s)) continue;
       seen.add(s); lines.push(s);
     }
-    const text = `${dn} Open Data: ${lines.join(' · ')}.`;
-    if ($attr) $attr.textContent = text;
-    if ($attrPrint) $attrPrint.textContent = text;
+    $attrPrint.textContent = `${dn} Open Data: ${lines.join(' · ')}.`;
   }
-  // Attribution modal: click ⓘ opens, ✕ + backdrop + Esc close.
+  // Attribution modal: click the footer link opens, ✕ + backdrop + Esc close.
   const $attrOpen = document.getElementById('attribution-open');
   const $attrModal = document.getElementById('attribution-modal');
   const $attrClose = document.getElementById('attribution-close');
   if ($attrOpen && $attrModal && !$attrOpen.__wired) {
     $attrOpen.__wired = true;
-    $attrOpen.addEventListener('click', () => { $attrModal.hidden = false; });
+    $attrOpen.addEventListener('click', (e) => {
+      e.preventDefault();        // the <a href="#attribution"> would otherwise scroll
+      $attrModal.hidden = false;
+    });
     $attrClose && $attrClose.addEventListener('click', () => { $attrModal.hidden = true; });
     $attrModal.addEventListener('click', (e) => {
       if (e.target === $attrModal) $attrModal.hidden = true;   // backdrop click
