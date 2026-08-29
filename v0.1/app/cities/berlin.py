@@ -327,7 +327,7 @@ NEWCOMER_LENS: LensConfig = LensConfig(
         ),
         LensTileConfig(
             key="intl_food", label="International food", icon="intl_food",
-            thresholds={"radius_m": 800, "green_count": 5, "amber_count": 2},
+            thresholds={"radius_m": 1000, "green_count": 6, "amber_count": 2},
         ),
         LensTileConfig(
             key="coworking", label="Coworking + Wi-Fi cafés", icon="coworking",
@@ -335,7 +335,7 @@ NEWCOMER_LENS: LensConfig = LensConfig(
         ),
         LensTileConfig(
             key="english_clinic", label="English-speaking clinic", icon="english_clinic",
-            thresholds={"green_m": 1200, "amber_m": 3000},
+            thresholds={"green_m": 1000, "amber_m": 3000},
             caveat="OSM community-tagged — inner-district coverage good, outer may under-report",
         ),
         LensTileConfig(
