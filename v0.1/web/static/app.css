@@ -930,11 +930,26 @@ body.life-mode #panel-others{ display:none !important; }
 .lens-tile .tile-head .tile-label{
   /* Space Grotesk gives the card header a distinct geometric silhouette
      from the humanist Inter used on the lens tabs, so eye reads header
-     first, tab second. Slightly larger + tighter tracking for calm. */
+     first, tab second. Slightly larger + tighter tracking for calm.
+     Ink shifted a touch warmer (plum-slate) so header reads easier
+     next to the muted rule text — cool slate felt clinical. */
   font:600 13px/1.3 'Space Grotesk', 'Inter', system-ui, sans-serif;
   letter-spacing:-.01em;
-  color:var(--ink, #2a2f3a);
+  color:#2A2634;
   overflow-wrap:anywhere; }
+
+/* Icon chip — 28 px rounded-square with the tier hue at ~12 % opacity
+   behind the SVG. Adds one small warm spot per card without a full
+   ribbon, so the neumorphic canvas stays calm. Chip bg carries tier
+   colour; SVG stroke keeps the solid tier colour on top. */
+.lens-tile .tile-head .tile-icon{
+  width:28px; height:28px;
+  border-radius:8px;
+  background: color-mix(in srgb, var(--tier-color, #B0B6C0) 12%, transparent);
+  display:inline-flex; align-items:center; justify-content:center;
+  color:var(--tier-color, var(--muted, #b0b6c0));
+}
+.lens-tile .tile-head .tile-icon svg{ width:16px; height:16px; }
 .lens-tile .tile-foot{
   align-items:center;
   padding:10px 12px;
