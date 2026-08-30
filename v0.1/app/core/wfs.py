@@ -7,7 +7,9 @@ Ship D step 1: `wfs()` moved off stdlib `urllib.request` onto a shared
 `httpx.Client` with granular timeouts (connect/read/write/pool), a bounded
 keep-alive pool, and single-shot retry on transient failures (network errors
 + 502/503/504). All timeouts and the retry count are env-tunable; defaults
-match "fail fast, don't wedge a worker for a minute" — see product-doc §14.6.
+match "fail fast, don't wedge a worker for a minute" — one wedged read
+plus one retry now caps a `wfs()` call at roughly 30 s wall-clock instead
+of the old single-shot 60 s socket timeout.
 
 ponytail: module-level caches keyed by (rounded lon/lat) + threading.Lock,
 same as phase3. Cache abstraction (Redis adapter) lands in Ship D step 7.
@@ -45,10 +47,14 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
-_CONNECT_TIMEOUT_S = _env_float("WFS_CONNECT_TIMEOUT_S", 5.0)
-_READ_TIMEOUT_S    = _env_float("WFS_READ_TIMEOUT_S",   30.0)
-_WRITE_TIMEOUT_S   = _env_float("WFS_WRITE_TIMEOUT_S",   5.0)
-_POOL_TIMEOUT_S    = _env_float("WFS_POOL_TIMEOUT_S",    5.0)
+# Timeouts and retry knobs. Negative values are clamped to a small positive
+# floor so a misconfigured env var fails at import (or is quietly corrected)
+# rather than blowing up inside `httpx.Timeout` on the first request.
+_TIMEOUT_FLOOR_S   = 0.001
+_CONNECT_TIMEOUT_S = max(_TIMEOUT_FLOOR_S, _env_float("WFS_CONNECT_TIMEOUT_S", 5.0))
+_READ_TIMEOUT_S    = max(_TIMEOUT_FLOOR_S, _env_float("WFS_READ_TIMEOUT_S",   15.0))
+_WRITE_TIMEOUT_S   = max(_TIMEOUT_FLOOR_S, _env_float("WFS_WRITE_TIMEOUT_S",   5.0))
+_POOL_TIMEOUT_S    = max(_TIMEOUT_FLOOR_S, _env_float("WFS_POOL_TIMEOUT_S",    5.0))
 _RETRIES           = max(0, _env_int("WFS_RETRIES", 1))
 _RETRY_BACKOFF_S   = max(0.0, _env_float("WFS_RETRY_BACKOFF_S", 0.5))
 _MAX_KEEPALIVE     = max(1, _env_int("WFS_MAX_KEEPALIVE", 8))
@@ -403,10 +409,13 @@ if __name__ == "__main__":
     assert cql_esc("O'Neil") == "O''Neil"
 
     # -- Env-tunable timeout / retry knobs read at import time.
-    assert _CONNECT_TIMEOUT_S == 5.0, _CONNECT_TIMEOUT_S
-    assert _READ_TIMEOUT_S   == 30.0, _READ_TIMEOUT_S
+    assert _CONNECT_TIMEOUT_S == 5.0,  _CONNECT_TIMEOUT_S
+    assert _READ_TIMEOUT_S   == 15.0, _READ_TIMEOUT_S
     assert _RETRIES          == 1,    _RETRIES
     assert 502 in _RETRY_STATUS and 503 in _RETRY_STATUS and 504 in _RETRY_STATUS
+
+    # -- Negative env values are clamped to the floor, not passed through.
+    assert max(_TIMEOUT_FLOOR_S, _env_float("WFS_DOES_NOT_EXIST", -7.0)) == _TIMEOUT_FLOOR_S
 
     # -- Client is a shared, lazily-built httpx.Client with our timeouts.
     import app.core.wfs as m
@@ -416,7 +425,7 @@ if __name__ == "__main__":
     assert m._get_client() is c, "client not memoised"
     # httpx.Timeout compares by tuple of components — pick a couple of fields.
     assert c.timeout.connect == 5.0
-    assert c.timeout.read   == 30.0
+    assert c.timeout.read   == 15.0
 
     # -- Retry loop: fail once with a timeout, then succeed. Stub the client.
     class _StubClient:
