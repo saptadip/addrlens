@@ -16,9 +16,15 @@ import sys
 
 TEMPLATE_MODULES = ["inference.templates.impression", "inference.templates.explain"]
 
+# Pure `__main__` blocks that exercise the inference service's async /
+# timeout / lifespan guarantees without loading a model. Run alongside
+# the template selfchecks so a future refactor of `main.py` can't
+# silently regress the /summarize stability contract.
+STABILITY_MODULES = ["inference.stability_selfcheck"]
+
 
 def run_pure() -> None:
-    for mod in TEMPLATE_MODULES:
+    for mod in TEMPLATE_MODULES + STABILITY_MODULES:
         print(f"→ {mod} …", end=" ", flush=True)
         r = subprocess.run([sys.executable, "-m", mod], capture_output=True, text=True)
         if r.returncode != 0:
