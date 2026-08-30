@@ -142,6 +142,13 @@ if __name__ == "__main__":
     assert facts["rule"]    == "R"
     assert facts["numeric"] == "N"
     assert facts["top"] == [{"n": 1}, {"n": 2}, {"n": 3}]
+    # Byte-exact prompt preservation depends on Python 3.7+ dict insertion
+    # order: `json.dumps` emits keys in the exact order they were inserted,
+    # and the 16 migrated tiles all rely on `tier -> rule -> numeric -> top`.
+    # A future refactor that alphabetises or reshuffles this dict would
+    # silently drift every model input by ~200 bytes without changing any
+    # of the semantic asserts above. Pin the order explicitly.
+    assert list(facts.keys()) == ["tier", "rule", "numeric", "top"], list(facts.keys())
 
     # -- top_k slices features; missing features → empty list ---------
     msgs = build_tier_messages(
