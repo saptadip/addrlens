@@ -21,6 +21,7 @@ from app.core.wfs import air_quality_at, bod_polygon_features, noise_at, summer_
 
 CORE_MODULES = [
     "app.core.geo",
+    "app.core.cache",
     "app.core.scorer",
     # Split-out scoring primitives — each carries its own __main__ selfcheck.
     # The scorer.py regression harness still exercises them transitively, but
