@@ -195,7 +195,10 @@ class CityConfig:
     # -- Spec E: Newcomer lens -----------------------------------------
     newcomer_lens: LensConfig             # required — Spec E lens
 
-    # -- Spec B: Bureaucracy lens ---------------------------------------
+    # -- Public-admin office data (raw view "Others" tab) --------------
+    # Was the Bureaucracy lens (Spec B); the traffic-light composer was
+    # removed once the underlying cards moved to the raw-view Others tab.
+    # These sources still feed that tab via `app.core.others_admin.build`.
     # Bezirksgrenzen — 12 polygons for point-in-polygon Bezirk assignment
     bezirksgrenzen_wfs_url:      Optional[str]
     bezirksgrenzen_layer:        Optional[str]
@@ -209,8 +212,10 @@ class CityConfig:
     standesamts_by_bezirk:       dict            # bezirk_name -> {"name","address","lat","lon"}
     arbeitsagenturs:             tuple           # ({"name","address","lat","lon"}, ...)
     lea_office:                  dict            # {"name","address","lat","lon"}
-    # Bureaucracy lens
-    bureaucracy_lens:            LensConfig
+    # Ordered card metadata for the Others tab — each entry produces one
+    # tile in the /api/lookup `others.bureaucracy.tiles` array (response
+    # key retained for frontend compatibility; the concept is admin-cards).
+    others_admin_cards:          tuple           # tuple[OthersAdminCardConfig, ...]
 
 
 @dataclass(frozen=True)
@@ -242,6 +247,20 @@ class LensConfig:
     tiles:         tuple    # tuple[LensTileConfig, ...]
 
 
+@dataclass(frozen=True)
+class OthersAdminCardConfig:
+    """One admin-office card on the raw-view Others tab.
+
+    Minimal metadata — the tab is informational (no traffic-light tier,
+    no thresholds). `key` matches a branch in
+    `app.core.others_admin._features_for`; `icon` keys into the
+    frontend `ico` map.
+    """
+    key:   str
+    label: str
+    icon:  str
+
+
 if __name__ == "__main__":
     # Frozen — attempting to mutate must raise FrozenInstanceError.
     t = LensTileConfig(key="k", label="l", icon="i", thresholds={"green_m": 400})
@@ -255,4 +274,13 @@ if __name__ == "__main__":
     assert t.caveat == ""
     lc = LensConfig(slug="s", label="l", audience_hint="h", tiles=(t,))
     assert lc.tiles[0].key == "k"
-    print("base.py selfcheck OK (LensTileConfig / LensConfig)")
+
+    # OthersAdminCardConfig — frozen, minimal metadata.
+    oa = OthersAdminCardConfig(key="buergeramt", label="Bürgeramt", icon="buergeramt")
+    try:
+        oa.key = "changed"
+    except FrozenInstanceError:
+        pass
+    else:
+        raise AssertionError("OthersAdminCardConfig must be frozen")
+    print("base.py selfcheck OK (LensTileConfig / LensConfig / OthersAdminCardConfig)")
