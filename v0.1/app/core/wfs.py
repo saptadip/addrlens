@@ -11,8 +11,19 @@ match "fail fast, don't wedge a worker for a minute" — one wedged read
 plus one retry now caps a `wfs()` call at roughly 30 s wall-clock instead
 of the old single-shot 60 s socket timeout.
 
-ponytail: module-level caches keyed by (rounded lon/lat) + threading.Lock,
-same as phase3. Cache abstraction (Redis adapter) lands in Ship D step 7.
+Ship D step 2: the four per-function unbounded `dict` caches
+(`_bod_cache`, `_noise_cache`, `_air_cache`, `_heat_cache`) that lived in
+this file were replaced by the shared `app.core.cache.HOT_PATH`
+`TTLCache` (default 4096 entries × 1-hour TTL, env-tunable via
+`APP_CACHE_SIZE` / `APP_CACHE_TTL_S`). Namespaced keys keep the
+per-dataset behaviour unchanged. Prior to this the caches grew for the
+process lifetime — a slow leak on any long-running deployment.
+
+ponytail: single-process TTLCache is the right shape for the current
+one-instance-per-city deployment. A Redis-backed shared cache would let
+multiple replicas share hits; upgrade path lives in
+`app.core.cache.NamedCache` — swap the underlying dict for a Redis
+adapter without touching callers.
 """
 import json
 import os
@@ -24,6 +35,7 @@ import httpx
 from shapely.geometry import Point, shape
 
 from app.cities.base import CityConfig
+from app.core.cache import HOT_PATH as _cache
 from app.core.geo import bbox_around, haversine_m
 
 
@@ -125,8 +137,6 @@ def cql_esc(s):
 
 # -- BOD polygon features (per-request bbox WFS, cached) ---------------------
 
-_bod_cache, _bod_lock = {}, threading.Lock()
-
 
 def bod_polygon_features(base, type_name, lon, lat, radius_m=800,
                          *, output_format="application/json"):
@@ -136,9 +146,10 @@ def bod_polygon_features(base, type_name, lon, lat, radius_m=800,
     ponytail: centroid + haversine, not nearest-boundary-point. Ceiling: for
     very large polygons (e.g., Tiergarten) the centroid can be 500m+ from the
     nearest edge; upgrade path is a projected CRS + shapely.distance."""
-    key = (base, type_name, round(lon, 4), round(lat, 4), radius_m)
-    with _bod_lock:
-        if key in _bod_cache: return _bod_cache[key]
+    key = ("bod", base, type_name, round(lon, 4), round(lat, 4), radius_m)
+    hit = _cache.get(key)
+    if hit is not None:
+        return hit
     minx, miny, maxx, maxy = bbox_around(lon, lat, radius_m)
     try:
         d = wfs(base, typeNames=type_name, count=200,
@@ -165,14 +176,11 @@ def bod_polygon_features(base, type_name, lon, lat, radius_m=800,
                     "area_m2": props.get("katasterfl") or props.get("nettospfl"),
                     "props": props, "source": "bod"})
     out.sort(key=lambda x: x["distance_m"])
-    with _bod_lock:
-        _bod_cache[key] = out
+    _cache.set(key, out)
     return out
 
 
 # -- Façade-level noise ------------------------------------------------------
-
-_noise_cache, _noise_lock = {}, threading.Lock()
 
 
 def noise_at(cfg: CityConfig, lon, lat, search_radius_m=100):
@@ -188,9 +196,10 @@ def noise_at(cfg: CityConfig, lon, lat, search_radius_m=100):
     if not (cfg.noise_wfs_url and cfg.noise_layer):
         return {"unavailable": True, "reason": f"noise map not configured for {cfg.display_name}"}
 
-    key = (cfg.slug, round(lon, 5), round(lat, 5))
-    with _noise_lock:
-        if key in _noise_cache: return _noise_cache[key]
+    key = ("noise", cfg.slug, round(lon, 5), round(lat, 5))
+    hit = _cache.get(key)
+    if hit is not None:
+        return hit
 
     def _query(radius):
         minx, miny, maxx, maxy = bbox_around(lon, lat, radius)
@@ -240,15 +249,11 @@ def noise_at(cfg: CityConfig, lon, lat, search_radius_m=100):
         },
         "provenance": cfg.attribution["noise"],
     }
-    with _noise_lock:
-        _noise_cache[key] = out
+    _cache.set(key, out)
     return out
 
 
 # -- Phase 2: Umweltatlas Air Quality + Summer Heat --------------------------
-
-_air_cache, _air_lock   = {}, threading.Lock()
-_heat_cache, _heat_lock = {}, threading.Lock()
 
 
 def air_quality_at(cfg: CityConfig, lon, lat, search_radius_m=150):
@@ -264,9 +269,10 @@ def air_quality_at(cfg: CityConfig, lon, lat, search_radius_m=150):
     """
     if not (cfg.air_wfs_url and cfg.air_layer):
         return {"unavailable": True, "reason": f"air-quality map not configured for {cfg.display_name}"}
-    key = (cfg.slug, round(lon, 5), round(lat, 5))
-    with _air_lock:
-        if key in _air_cache: return _air_cache[key]
+    key = ("air", cfg.slug, round(lon, 5), round(lat, 5))
+    hit = _cache.get(key)
+    if hit is not None:
+        return hit
 
     def _query(radius):
         minx, miny, maxx, maxy = bbox_around(lon, lat, radius)
@@ -332,8 +338,7 @@ def air_quality_at(cfg: CityConfig, lon, lat, search_radius_m=150):
         "year":        2020,
         "provenance":  cfg.attribution.get("air", ""),
     }
-    with _air_lock:
-        _air_cache[key] = out
+    _cache.set(key, out)
     return out
 
 
@@ -343,9 +348,10 @@ def summer_heat_at(cfg: CityConfig, lon, lat, search_radius_m=60):
     Bbox query + point-in-polygon on the returned features."""
     if not (cfg.heat_wfs_url and cfg.heat_layer):
         return {"unavailable": True, "reason": f"summer-heat map not configured for {cfg.display_name}"}
-    key = (cfg.slug, round(lon, 5), round(lat, 5))
-    with _heat_lock:
-        if key in _heat_cache: return _heat_cache[key]
+    key = ("heat", cfg.slug, round(lon, 5), round(lat, 5))
+    hit = _cache.get(key)
+    if hit is not None:
+        return hit
 
     def _query(radius):
         minx, miny, maxx, maxy = bbox_around(lon, lat, radius)
@@ -399,8 +405,7 @@ def summer_heat_at(cfg: CityConfig, lon, lat, search_radius_m=60):
         "year":        2022,
         "provenance":  cfg.attribution.get("heat", ""),
     }
-    with _heat_lock:
-        _heat_cache[key] = out
+    _cache.set(key, out)
     return out
 
 
@@ -504,11 +509,11 @@ if __name__ == "__main__":
     real_wfs = m.wfs
     m.wfs = _fake_wfs
     try:
-        # Clear cache so a fresh key hits our fake. Call through m. because
-        # `python -m app.core.wfs` runs the file as __main__ and the import
-        # above loads it a SECOND time under its real name — the monkey-patch
-        # only takes on that second copy.
-        m._bod_cache.clear()
+        # Clear shared cache so a fresh key hits our fake. Call through
+        # `m.` because `python -m app.core.wfs` runs the file as __main__
+        # and the import above loads it a SECOND time under its real name
+        # — the monkey-patch only takes on that second copy.
+        m._cache.clear()
         got = m.bod_polygon_features("http://x", "layer:a", 13.401, 52.501, radius_m=800)
         assert len(got) == 1 and got[0]["name"] == "Test Park", got
         assert got[0]["source"] == "bod"
@@ -519,5 +524,5 @@ if __name__ == "__main__":
         assert len(calls) == n, "cache miss on repeat call"
     finally:
         m.wfs = real_wfs
-        m._bod_cache.clear()
+        m._cache.clear()
     print("wfs.py selfcheck OK")

@@ -15,27 +15,28 @@ Feature-shape rules:
   - sort by distance, cap at 5 (matches history template's shown limit)
 
 Caching:
-  llama-cpp generation dominates wall time (~35 s on CX22). Historic features
-  are OSM-snapshot data, refreshed weekly by the systemd timer, so the same
-  address returns identical output for at least seven days. Wrap the whole
-  response dict in a TTLCache keyed on rounded (lat, lon) so repeat visits
-  and neighbouring addresses hit the cache instead of the LLM.
+  llama-cpp generation dominates wall time (~35 s on CX22). Historic
+  features are OSM-snapshot data, refreshed weekly by the systemd timer,
+  so the same address returns identical output for at least seven days.
+  Wrap the whole response dict in the shared `app.core.cache.HISTORY`
+  TTLCache keyed on rounded (lat, lon).
 
-  Env overrides (all optional):
-    HISTORY_CACHE_TTL_S   default 604800  (7 days — matches OSM refresh cadence)
-    HISTORY_CACHE_SIZE    default 1000    (~500 KB memory; LRU eviction beyond)
-    HISTORY_CACHE_GRID    default 3       (decimal places on lat/lon; 3 = ~100 m cell)
+  Env overrides:
+    HISTORY_CACHE_GRID    default 3   (decimal places on lat/lon;
+                                       3 = ~100 m cell). Read here.
+    HISTORY_CACHE_SIZE    default 1000, read by `app.core.cache`.
+    HISTORY_CACHE_TTL_S   default 604800 (7 days), read by `app.core.cache`.
 """
 from __future__ import annotations
 
 import os
 
 import httpx
-from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.cities.base import CityConfig
 from app.config import INFERENCE_TIMEOUT_S, INFERENCE_URL
+from app.core.cache import HISTORY as _cache
 from app.core.rate_limit import limiter
 from app.deps import get_city, get_index
 
@@ -44,20 +45,19 @@ router = APIRouter()
 _HISTORIC_RADIUS_M = 500
 _MAX_FEATURES     = 5
 
-_CACHE_TTL_S  = int(os.environ.get("HISTORY_CACHE_TTL_S", 7 * 24 * 3600))
-_CACHE_SIZE   = int(os.environ.get("HISTORY_CACHE_SIZE",  1000))
-_CACHE_GRID   = int(os.environ.get("HISTORY_CACHE_GRID",  3))
-
-# Module-level cache — one per app process. TTLCache is thread-safe under
-# the GIL for get/set. Concurrent requests for the same missing key may
-# both generate; acceptable pending a real thundering-herd guard.
-_history_cache: TTLCache = TTLCache(maxsize=_CACHE_SIZE, ttl=_CACHE_TTL_S)
+# Cache size / TTL now live in `app/core/cache.HISTORY` (env-tunable via
+# `HISTORY_CACHE_SIZE` and `HISTORY_CACHE_TTL_S`). Grid stays local — it's
+# a key-shape concern, not a store-capacity concern.
+_CACHE_GRID = int(os.environ.get("HISTORY_CACHE_GRID", 3))
 
 
-def _cache_key(city_slug: str, lat: float, lon: float) -> tuple[str, float, float]:
+def _cache_key(city_slug: str, lat: float, lon: float) -> tuple:
     """Rounded lat/lon key so neighbouring addresses share an entry. City
-    slug is included so a multi-city deployment does not cross-contaminate."""
-    return (city_slug, round(lat, _CACHE_GRID), round(lon, _CACHE_GRID))
+    slug is included so a multi-city deployment does not cross-contaminate.
+    Namespace `"history"` keeps this key disjoint from every other
+    dataset stored in the shared HISTORY cache."""
+    return ("history", city_slug,
+            round(lat, _CACHE_GRID), round(lon, _CACHE_GRID))
 
 
 def _shape_historic(f: dict) -> dict | None:
@@ -95,7 +95,7 @@ async def history(
             "Run scripts/refresh_osm_amenities.py to seed it.")
 
     key = _cache_key(cfg.slug, lat, lon)
-    hit = _history_cache.get(key)
+    hit = _cache.get(key)
     if hit is not None:
         return {**hit, "cached": True}
 
@@ -107,7 +107,7 @@ async def history(
         # Short-circuit — no need to hit the LLM if there's nothing to write about.
         empty = {"history": "No historic points on record within 500 m of this address.",
                  "features_count": 0, "model": "none"}
-        _history_cache[key] = empty
+        _cache.set(key, empty)
         return {**empty, "cached": False}
 
     # NB — street / hnr / plz are intentionally NOT forwarded to the inference
@@ -148,23 +148,33 @@ async def history(
     # Only cache non-empty narratives — an empty string is likely a transient
     # inference-side failure and should be retried on the next request.
     if result["history"]:
-        _history_cache[key] = result
+        _cache.set(key, result)
     return {**result, "cached": False}
 
 
 if __name__ == "__main__":
-    # Pure selfcheck — no I/O. Exercises the cache key + TTLCache behaviour.
-    assert _cache_key("berlin", 52.48864, 13.39631) == ("berlin", 52.489, 13.396)
-    assert _cache_key("berlin", 52.48862, 13.39664) == ("berlin", 52.489, 13.397), \
+    # Pure selfcheck — no I/O. Exercises the cache-key shape and its
+    # interaction with the shared `HISTORY` cache. TTL / size behaviour
+    # is exhaustively covered in `app.core.cache::__main__`.
+    from app.core.cache import HISTORY as _test_cache
+
+    assert _cache_key("berlin", 52.48864, 13.39631) == ("history", "berlin", 52.489, 13.396)
+    assert _cache_key("berlin", 52.48862, 13.39664) == ("history", "berlin", 52.489, 13.397), \
         "adjacent addresses across a 3rd-decimal boundary must map to distinct cells"
     assert _cache_key("hamburg", 52.48864, 13.39631) != _cache_key("berlin", 52.48864, 13.39631), \
         "cache key must be city-scoped so multi-city deployments do not collide"
-    # Cache round-trip
-    _tmp = TTLCache(maxsize=2, ttl=60)
-    _tmp[("berlin", 52.489, 13.396)] = {"history": "x", "features_count": 1, "model": "m"}
-    assert _tmp.get(("berlin", 52.489, 13.396))["history"] == "x"
-    # LRU eviction at maxsize
-    _tmp[("berlin", 52.500, 13.400)] = {"v": 2}
-    _tmp[("berlin", 52.510, 13.410)] = {"v": 3}
-    assert ("berlin", 52.489, 13.396) not in _tmp, "oldest entry must evict at maxsize"
+    # Namespace prefix keeps history keys disjoint from any other dataset
+    # stored in the shared HISTORY cache.
+    assert _cache_key("berlin", 52.48864, 13.39631)[0] == "history"
+
+    # Round-trip: set + get returns the same dict; distinct key roundtrips too.
+    _test_cache.clear()
+    _k1 = _cache_key("berlin", 52.489, 13.396)
+    _k2 = _cache_key("berlin", 52.500, 13.400)
+    _test_cache.set(_k1, {"history": "x", "features_count": 1, "model": "m"})
+    assert _test_cache.get(_k1)["history"] == "x"
+    _test_cache.set(_k2, {"v": 2})
+    assert _test_cache.get(_k2) == {"v": 2}
+    assert _test_cache.get(_k1)["features_count"] == 1
+    _test_cache.clear()
     print("history.py cache selfcheck OK")
