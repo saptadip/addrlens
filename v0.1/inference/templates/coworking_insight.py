@@ -12,9 +12,10 @@ Design notes
 - English only.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret the coworking and laptop-friendly café proximity signal "
@@ -37,45 +38,47 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\", \"rule\": \"no laptop-friendly options nearby\",\n"
+    "  \"numeric\": \"0 remote-work spots within 1000 m\",\n"
+    "  \"top\": []\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "No coworking spaces or Wi-Fi cafés appear within a kilometre of this "
+    "address. In the first weeks before your home office is set up, that "
+    "means a transit ride to find a desk — adding friction at the busiest "
+    "point of a relocation. Factor a coworking day-pass budget and commute "
+    "time into your first-month plan if remote work is part of your routine."
+)
+
+_EMPTY_MSG = (
+    "No coworking spaces or Wi-Fi cafés found nearby. During your first "
+    "weeks before a permanent desk is arranged, plan for a transit journey "
+    "to reach a laptop-friendly workspace."
+)
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        # One-shot: red tier — no nearby options
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\", \"rule\": \"no laptop-friendly options nearby\",\n"
-            "  \"numeric\": \"0 remote-work spots within 1000 m\",\n"
-            "  \"top\": []\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "No coworking spaces or Wi-Fi cafés appear within a kilometre of this "
-            "address. In the first weeks before your home office is set up, that "
-            "means a transit ride to find a desk — adding friction at the busiest "
-            "point of a relocation. Factor a coworking day-pass budget and commute "
-            "time into your first-month plan if remote work is part of your routine."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": (
-            "No coworking spaces or Wi-Fi cafés found nearby. During your first "
-            "weeks before a permanent desk is arranged, plan for a transit journey "
-            "to reach a laptop-friendly workspace."
-        )}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":

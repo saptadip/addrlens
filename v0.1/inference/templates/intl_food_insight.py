@@ -13,9 +13,10 @@ Design notes
 - English only.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret the international food and grocery proximity signal for a "
@@ -39,48 +40,50 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\", \"rule\": \"mainstream Rewe/Edeka territory\",\n"
+    "  \"numeric\": \"1 international spot within 800 m walk\",\n"
+    "  \"top\": [{\"name\": \"Netto\", \"distance_m\": 650}]\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "Only mainstream German supermarkets appear within walking distance — "
+    "your weekly shop for international ingredients will require a dedicated "
+    "trip to a different part of the city. In the first weeks of a "
+    "relocation this adds friction: cooking familiar recipes from home "
+    "becomes a planned outing rather than a casual top-up. Factor a "
+    "regular transit trip into your routine if variety in your weekly "
+    "shop matters to you."
+)
+
+_EMPTY_MSG = (
+    "No international food or grocery options found nearby. Your weekly "
+    "shop for international ingredients will need a dedicated transit trip. "
+    "Mainstream supermarkets (Rewe, Edeka, Lidl) are typically well-covered "
+    "but stock limited international ranges."
+)
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        # One-shot: red tier — mainstream Rewe/Edeka territory
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\", \"rule\": \"mainstream Rewe/Edeka territory\",\n"
-            "  \"numeric\": \"1 international spot within 800 m walk\",\n"
-            "  \"top\": [{\"name\": \"Netto\", \"distance_m\": 650}]\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "Only mainstream German supermarkets appear within walking distance — "
-            "your weekly shop for international ingredients will require a dedicated "
-            "trip to a different part of the city. In the first weeks of a "
-            "relocation this adds friction: cooking familiar recipes from home "
-            "becomes a planned outing rather than a casual top-up. Factor a "
-            "regular transit trip into your routine if variety in your weekly "
-            "shop matters to you."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": (
-            "No international food or grocery options found nearby. Your weekly "
-            "shop for international ingredients will need a dedicated transit trip. "
-            "Mainstream supermarkets (Rewe, Edeka, Lidl) are typically well-covered "
-            "but stock limited international ranges."
-        )}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":

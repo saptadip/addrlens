@@ -14,9 +14,10 @@ Design notes
 - English only.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret the public-library proximity signal for a newcomer expat "
@@ -40,48 +41,51 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\", \"rule\": \"no public library nearby\",\n"
+    "  \"numeric\": \"\",\n"
+    "  \"top\": []\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "No public library shows within a comfortable walk of this address. "
+    "That matters more than it looks: in the early months, before a job "
+    "or a Verein anchors your week, the library is one of the few warm, "
+    "quiet, purchase-free places open to a newcomer with no German. A "
+    "longer walk turns it from a spontaneous stop into a planned trip, "
+    "so it drops out of your routine. Check whether any branch is a "
+    "short transit ride and treat the visit as a weekly habit rather "
+    "than an errand."
+)
+
+_EMPTY_MSG = (
+    "No public library found nearby. In the early months before a job "
+    "or a Verein anchors your week, the library is a low-friction third "
+    "place — free Wi-Fi, warm study space, no purchase pressure. Check "
+    "whether any branch is a short transit ride and plan a weekly visit."
+)
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\", \"rule\": \"no public library nearby\",\n"
-            "  \"numeric\": \"\",\n"
-            "  \"top\": []\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "No public library shows within a comfortable walk of this address. "
-            "That matters more than it looks: in the early months, before a job "
-            "or a Verein anchors your week, the library is one of the few warm, "
-            "quiet, purchase-free places open to a newcomer with no German. A "
-            "longer walk turns it from a spontaneous stop into a planned trip, "
-            "so it drops out of your routine. Check whether any branch is a "
-            "short transit ride and treat the visit as a weekly habit rather "
-            "than an errand."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": (
-            "No public library found nearby. In the early months before a job "
-            "or a Verein anchors your week, the library is a low-friction third "
-            "place — free Wi-Fi, warm study space, no purchase pressure. Check "
-            "whether any branch is a short transit ride and plan a weekly visit."
-        )}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":

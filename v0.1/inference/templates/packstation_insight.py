@@ -13,9 +13,10 @@ Design notes
 - English only.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret the parcel-pickup proximity signal for a newcomer expat "
@@ -41,48 +42,51 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\", \"rule\": \"no parcel pickup point nearby — expect long detours\",\n"
+    "  \"numeric\": \"\",\n"
+    "  \"top\": []\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "No DHL Packstation locker or Deutsche Post branch appears within a "
+    "comfortable walk of this address. That matters more than it sounds: "
+    "in the first months a newcomer typically orders more parcels than "
+    "usual — furnishing a flat, replacing electronics that do not fit "
+    "German plugs — and a distant pickup turns each delivery into a "
+    "chore. Missed pickup deadlines mean returned parcels, which cost "
+    "another shipment cycle. Plan a route that fits into an existing "
+    "commute rather than a dedicated errand."
+)
+
+_EMPTY_MSG = (
+    "No parcel pickup point found nearby. Germany's parcel logistics "
+    "assume you can retrieve mis-timed deliveries within a few days, and "
+    "newcomers order more parcels early on. A distant pickup turns each "
+    "delivery into a chore; plan a route that fits into an existing commute."
+)
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\", \"rule\": \"no parcel pickup point nearby — expect long detours\",\n"
-            "  \"numeric\": \"\",\n"
-            "  \"top\": []\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "No DHL Packstation locker or Deutsche Post branch appears within a "
-            "comfortable walk of this address. That matters more than it sounds: "
-            "in the first months a newcomer typically orders more parcels than "
-            "usual — furnishing a flat, replacing electronics that do not fit "
-            "German plugs — and a distant pickup turns each delivery into a "
-            "chore. Missed pickup deadlines mean returned parcels, which cost "
-            "another shipment cycle. Plan a route that fits into an existing "
-            "commute rather than a dedicated errand."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": (
-            "No parcel pickup point found nearby. Germany's parcel logistics "
-            "assume you can retrieve mis-timed deliveries within a few days, and "
-            "newcomers order more parcels early on. A distant pickup turns each "
-            "delivery into a chore; plan a route that fits into an existing commute."
-        )}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":
