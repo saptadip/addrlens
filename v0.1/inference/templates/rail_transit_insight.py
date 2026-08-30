@@ -16,9 +16,10 @@ Design notes
 - English only.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret Berlin's public-transit reachability signal for a newcomer "
@@ -43,43 +44,47 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\", \"rule\": \"cabs or long transfers to leave the city\",\n"
+    "  \"numeric\": \"\",\n"
+    "  \"top\": [{\"modality\": \"Bus\", \"name\": \"Pfarrstraße\","
+    " \"distance_m\": 350}]\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "Only a Bus stop sits nearby — reaching Hauptbahnhof or BER airport "
+    "will require at least one interchange onto S-Bahn or U-Bahn, adding "
+    "15–25 minutes to any intercity journey. In the first 90 days, when "
+    "airport runs and train journeys are frequent, that interchange adds "
+    "up. Factor the extra transit time and a fallback cab budget into your "
+    "arrival and departure planning."
+)
+
+_EMPTY_MSG = "No transit reachability data for this address."
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:6],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        # One-shot: red tier — no rail nearby
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\", \"rule\": \"cabs or long transfers to leave the city\",\n"
-            "  \"numeric\": \"\",\n"
-            "  \"top\": [{\"modality\": \"Bus\", \"name\": \"Pfarrstraße\","
-            " \"distance_m\": 350}]\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "Only a Bus stop sits nearby — reaching Hauptbahnhof or BER airport "
-            "will require at least one interchange onto S-Bahn or U-Bahn, adding "
-            "15–25 minutes to any intercity journey. In the first 90 days, when "
-            "airport runs and train journeys are frequent, that interchange adds "
-            "up. Factor the extra transit time and a fallback cab budget into your "
-            "arrival and departure planning."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+        top_k=6,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": "No transit reachability data for this address."}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+        top_k=6,
+    )
 
 
 if __name__ == "__main__":

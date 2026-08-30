@@ -13,9 +13,10 @@ Design notes
 - English only except 'Hausarzt' / 'Kassenarzt' proper terms.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret the English-speaking clinic proximity signal for a newcomer "
@@ -39,50 +40,52 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\",\n"
+    "  \"rule\": \"no English-tagged practice nearby — expect German or telemedicine\",\n"
+    "  \"numeric\": \"\",\n"
+    "  \"top\": []\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "No English-tagged medical practices appear nearby in the OSM dataset — "
+    "keep in mind this data relies on community tagging and outer districts "
+    "often under-report, so there may be more options than the map shows. "
+    "In the meantime, TK and AOK both run English-language helplines for "
+    "health queries, and Doctolib (the appointment platform) lets you filter "
+    "doctors by language preference. For urgent care, the Kassenärztliche "
+    "Vereinigung Berlin hotline (030 31003) connects you to an on-duty "
+    "doctor around the clock."
+)
+
+_EMPTY_MSG = (
+    "No English-tagged practices found nearby (OSM community data — outer "
+    "districts may under-report). TK and AOK both offer English-language "
+    "helplines; Doctolib lets you filter by language. For urgent care, "
+    "the KV Berlin hotline (030 31003) connects you to an on-duty doctor."
+)
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        # One-shot: red tier — no English-tagged practice nearby
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\",\n"
-            "  \"rule\": \"no English-tagged practice nearby — expect German or telemedicine\",\n"
-            "  \"numeric\": \"\",\n"
-            "  \"top\": []\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "No English-tagged medical practices appear nearby in the OSM dataset — "
-            "keep in mind this data relies on community tagging and outer districts "
-            "often under-report, so there may be more options than the map shows. "
-            "In the meantime, TK and AOK both run English-language helplines for "
-            "health queries, and Doctolib (the appointment platform) lets you filter "
-            "doctors by language preference. For urgent care, the Kassenärztliche "
-            "Vereinigung Berlin hotline (030 31003) connects you to an on-duty "
-            "doctor around the clock."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": (
-            "No English-tagged practices found nearby (OSM community data — outer "
-            "districts may under-report). TK and AOK both offer English-language "
-            "helplines; Doctolib lets you filter by language. For urgent care, "
-            "the KV Berlin hotline (030 31003) connects you to an on-duty doctor."
-        )}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":

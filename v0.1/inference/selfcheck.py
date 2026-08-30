@@ -14,7 +14,14 @@ import os
 import subprocess
 import sys
 
-TEMPLATE_MODULES = ["inference.templates.impression", "inference.templates.explain"]
+TEMPLATE_MODULES = [
+    "inference.templates.impression",
+    "inference.templates.explain",
+    # Shared scaffolding for 16 tier+features insight templates. Pinned
+    # here so a future edit to build_tier_messages / run_tier is caught
+    # before the tile-specific selfchecks run and mask the drift.
+    "inference.templates._insight_base",
+]
 
 # Pure `__main__` blocks that exercise the inference service's async /
 # timeout / lifespan guarantees without loading a model. Run alongside

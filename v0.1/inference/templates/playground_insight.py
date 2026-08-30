@@ -1,8 +1,9 @@
 """`playground_insight` — 'Playground within stroller walk' tile gloss."""
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret Berlin's stroller-walk playground reachability signal. "
@@ -22,45 +23,52 @@ _SYSTEM = (
     "No invented names or years. English only. Return the paragraph only."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\":\"green\",\"rule\":\"≥1 playground within 400m\","
+    "\"numeric\":\"3 within 400m · nearest 165m\",\n"
+    "  \"top\":[{\"name\":\"Oderberger Str. 19\",\"distance_m\":165,"
+    "\"area_m2\":3599,\"renovated_year\":2012},"
+    "{\"name\":\"Choriner Str. 47\",\"distance_m\":230,"
+    "\"area_m2\":1120,\"renovated_year\":2020},"
+    "{\"name\":\"Kolmarer Str.\",\"distance_m\":380,"
+    "\"area_m2\":720}]\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "Three registered playgrounds sit within a 400 metre stroller walk, "
+    "the nearest at 165 metres. Their sizes vary from a modest 720 m² "
+    "pocket to a substantial 3,599 m² neighbourhood site, so daily "
+    "options span both quick-visit and stay-a-while formats. One of the "
+    "three was renovated in 2020, another in 2012 — the mix is "
+    "reasonable but not uniformly recent. What's actually installed "
+    "(age-suitability, shade, fencing, condition) only reveals itself "
+    "on a walk-through — the city dataset locates the sites but does "
+    "not describe the equipment inside them."
+)
+
+_EMPTY_MSG = "No playground reachability data for this address."
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier": ctx.get("tier"), "rule": ctx.get("rule"), "numeric": ctx.get("numeric"),
-        "top": (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content":
-            "{\n"
-            "  \"tier\":\"green\",\"rule\":\"≥1 playground within 400m\","
-            "\"numeric\":\"3 within 400m · nearest 165m\",\n"
-            "  \"top\":[{\"name\":\"Oderberger Str. 19\",\"distance_m\":165,"
-            "\"area_m2\":3599,\"renovated_year\":2012},"
-            "{\"name\":\"Choriner Str. 47\",\"distance_m\":230,"
-            "\"area_m2\":1120,\"renovated_year\":2020},"
-            "{\"name\":\"Kolmarer Str.\",\"distance_m\":380,"
-            "\"area_m2\":720}]\n"
-            "}"},
-        {"role": "assistant", "content":
-            "Three registered playgrounds sit within a 400 metre stroller walk, "
-            "the nearest at 165 metres. Their sizes vary from a modest 720 m² "
-            "pocket to a substantial 3,599 m² neighbourhood site, so daily "
-            "options span both quick-visit and stay-a-while formats. One of the "
-            "three was renovated in 2020, another in 2012 — the mix is "
-            "reasonable but not uniformly recent. What's actually installed "
-            "(age-suitability, shade, fencing, condition) only reveals itself "
-            "on a walk-through — the city dataset locates the sites but does "
-            "not describe the equipment inside them."},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": "No playground reachability data for this address."}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":

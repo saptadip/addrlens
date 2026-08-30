@@ -13,9 +13,10 @@ Design notes
 - English only.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret the language-school proximity signal for a newcomer expat "
@@ -40,49 +41,51 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\", \"rule\": \"no Sprachschule or VHS branch nearby\",\n"
+    "  \"numeric\": \"\",\n"
+    "  \"top\": []\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "No Sprachschule or Volkshochschule branch appears within a comfortable "
+    "walk of this address. Because German B1 is the structural gate for the "
+    "Aufenthaltstitel renewal and later Einbürgerung, missed evenings add up: "
+    "a long commute to class in the middle of a busy relocation shows up as "
+    "attendance drops, and attendance drives course finish rates more than "
+    "motivation does. Plan a transit route to a branch you can reach in "
+    "under thirty minutes, and budget the extra time on your calendar."
+)
+
+_EMPTY_MSG = (
+    "No Sprachschule or Volkshochschule branch found nearby. German B1 is "
+    "the structural gate for the Aufenthaltstitel renewal and later "
+    "Einbürgerung, and a long commute to class turns into missed evenings "
+    "during a busy relocation. Plan a transit route to a branch you can "
+    "reach in under thirty minutes."
+)
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        # One-shot: red tier — no nearby options
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\", \"rule\": \"no Sprachschule or VHS branch nearby\",\n"
-            "  \"numeric\": \"\",\n"
-            "  \"top\": []\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "No Sprachschule or Volkshochschule branch appears within a comfortable "
-            "walk of this address. Because German B1 is the structural gate for the "
-            "Aufenthaltstitel renewal and later Einbürgerung, missed evenings add up: "
-            "a long commute to class in the middle of a busy relocation shows up as "
-            "attendance drops, and attendance drives course finish rates more than "
-            "motivation does. Plan a transit route to a branch you can reach in "
-            "under thirty minutes, and budget the extra time on your calendar."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": (
-            "No Sprachschule or Volkshochschule branch found nearby. German B1 is "
-            "the structural gate for the Aufenthaltstitel renewal and later "
-            "Einbürgerung, and a long commute to class turns into missed evenings "
-            "during a busy relocation. Plan a transit route to a branch you can "
-            "reach in under thirty minutes."
-        )}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":
