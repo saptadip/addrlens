@@ -3,18 +3,94 @@
 Ship B: `noise_at()` takes a `CityConfig` (was Berlin-hardcoded). `wfs()` and
 `bod_polygon_features()` were already city-agnostic; unchanged.
 
+Ship D step 1: `wfs()` moved off stdlib `urllib.request` onto a shared
+`httpx.Client` with granular timeouts (connect/read/write/pool), a bounded
+keep-alive pool, and single-shot retry on transient failures (network errors
++ 502/503/504). All timeouts and the retry count are env-tunable; defaults
+match "fail fast, don't wedge a worker for a minute" — one wedged read
+plus one retry now caps a `wfs()` call at roughly 30 s wall-clock instead
+of the old single-shot 60 s socket timeout.
+
 ponytail: module-level caches keyed by (rounded lon/lat) + threading.Lock,
 same as phase3. Cache abstraction (Redis adapter) lands in Ship D step 7.
 """
 import json
+import os
 import threading
+import time
 import urllib.parse
-import urllib.request
 
+import httpx
 from shapely.geometry import Point, shape
 
 from app.cities.base import CityConfig
 from app.core.geo import bbox_around, haversine_m
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+# Timeouts and retry knobs. Negative values are clamped to a small positive
+# floor so a misconfigured env var fails at import (or is quietly corrected)
+# rather than blowing up inside `httpx.Timeout` on the first request.
+_TIMEOUT_FLOOR_S   = 0.001
+_CONNECT_TIMEOUT_S = max(_TIMEOUT_FLOOR_S, _env_float("WFS_CONNECT_TIMEOUT_S", 5.0))
+_READ_TIMEOUT_S    = max(_TIMEOUT_FLOOR_S, _env_float("WFS_READ_TIMEOUT_S",   15.0))
+_WRITE_TIMEOUT_S   = max(_TIMEOUT_FLOOR_S, _env_float("WFS_WRITE_TIMEOUT_S",   5.0))
+_POOL_TIMEOUT_S    = max(_TIMEOUT_FLOOR_S, _env_float("WFS_POOL_TIMEOUT_S",    5.0))
+_RETRIES           = max(0, _env_int("WFS_RETRIES", 1))
+_RETRY_BACKOFF_S   = max(0.0, _env_float("WFS_RETRY_BACKOFF_S", 0.5))
+_MAX_KEEPALIVE     = max(1, _env_int("WFS_MAX_KEEPALIVE", 8))
+_MAX_CONNECTIONS   = max(1, _env_int("WFS_MAX_CONNECTIONS", 16))
+_RETRY_STATUS      = frozenset({502, 503, 504})
+_USER_AGENT        = "berlin-address-intelligence/v0.1 (+wfs client)"
+
+
+_client: httpx.Client | None = None
+_client_lock = threading.Lock()
+
+
+def _build_client() -> httpx.Client:
+    return httpx.Client(
+        timeout=httpx.Timeout(
+            connect=_CONNECT_TIMEOUT_S,
+            read=_READ_TIMEOUT_S,
+            write=_WRITE_TIMEOUT_S,
+            pool=_POOL_TIMEOUT_S,
+        ),
+        limits=httpx.Limits(
+            max_keepalive_connections=_MAX_KEEPALIVE,
+            max_connections=_MAX_CONNECTIONS,
+        ),
+        headers={"User-Agent": _USER_AGENT},
+        follow_redirects=True,
+    )
+
+
+def _get_client() -> httpx.Client:
+    global _client
+    if _client is None:
+        with _client_lock:
+            if _client is None:
+                _client = _build_client()
+    return _client
 
 
 def wfs(base, **kw):
@@ -24,7 +100,23 @@ def wfs(base, **kw):
     kw.setdefault("outputFormat", "application/json")
     kw.setdefault("srsName", "EPSG:4326")   # always WGS84 lon,lat
     url = base + "?" + urllib.parse.urlencode(kw)
-    return json.loads(urllib.request.urlopen(url, timeout=60).read())
+    client = _get_client()
+    attempts = _RETRIES + 1
+    for attempt in range(attempts):
+        try:
+            r = client.get(url)
+        except (httpx.TimeoutException, httpx.NetworkError):
+            if attempt + 1 >= attempts:
+                raise
+            time.sleep(_RETRY_BACKOFF_S * (attempt + 1))
+            continue
+        if r.status_code in _RETRY_STATUS and attempt + 1 < attempts:
+            time.sleep(_RETRY_BACKOFF_S * (attempt + 1))
+            continue
+        r.raise_for_status()
+        return r.json()
+    # Unreachable: loop either returns or re-raises the last exception.
+    raise RuntimeError("wfs retry loop exited without a response")
 
 
 def cql_esc(s):
@@ -315,8 +407,92 @@ def summer_heat_at(cfg: CityConfig, lon, lat, search_radius_m=60):
 if __name__ == "__main__":
     # Pure asserts only — no network in the module selfcheck.
     assert cql_esc("O'Neil") == "O''Neil"
-    # bod_polygon_features stubbed via monkey-patch: verify cache path + centroid math.
+
+    # -- Env-tunable timeout / retry knobs read at import time.
+    assert _CONNECT_TIMEOUT_S == 5.0,  _CONNECT_TIMEOUT_S
+    assert _READ_TIMEOUT_S   == 15.0, _READ_TIMEOUT_S
+    assert _RETRIES          == 1,    _RETRIES
+    assert 502 in _RETRY_STATUS and 503 in _RETRY_STATUS and 504 in _RETRY_STATUS
+
+    # -- Negative env values are clamped to the floor, not passed through.
+    assert max(_TIMEOUT_FLOOR_S, _env_float("WFS_DOES_NOT_EXIST", -7.0)) == _TIMEOUT_FLOOR_S
+
+    # -- Client is a shared, lazily-built httpx.Client with our timeouts.
     import app.core.wfs as m
+    m._client = None
+    c = m._get_client()
+    assert isinstance(c, httpx.Client)
+    assert m._get_client() is c, "client not memoised"
+    # httpx.Timeout compares by tuple of components — pick a couple of fields.
+    assert c.timeout.connect == 5.0
+    assert c.timeout.read   == 15.0
+
+    # -- Retry loop: fail once with a timeout, then succeed. Stub the client.
+    class _StubClient:
+        def __init__(self, script):
+            self.script = list(script)
+            self.calls = []
+        def get(self, url):
+            self.calls.append(url)
+            step = self.script.pop(0)
+            if isinstance(step, Exception): raise step
+            return step
+
+    class _StubResp:
+        def __init__(self, status, body=None):
+            self.status_code = status
+            self._body = body or {"features": []}
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise httpx.HTTPStatusError("bad", request=None, response=None)
+        def json(self):
+            return self._body
+
+    # Patch backoff to zero so the selfcheck stays instant.
+    real_backoff = m._RETRY_BACKOFF_S
+    m._RETRY_BACKOFF_S = 0.0
+    real_get_client = m._get_client
+    try:
+        # (a) Retriable exception then success.
+        stub = _StubClient([httpx.ConnectTimeout("boom"), _StubResp(200, {"ok": 1})])
+        m._get_client = lambda: stub
+        got = m.wfs("http://x", typeNames="l")
+        assert got == {"ok": 1}, got
+        assert len(stub.calls) == 2
+
+        # (b) 503 then success.
+        stub = _StubClient([_StubResp(503), _StubResp(200, {"ok": 2})])
+        m._get_client = lambda: stub
+        got = m.wfs("http://x", typeNames="l")
+        assert got == {"ok": 2}, got
+        assert len(stub.calls) == 2
+
+        # (c) All attempts exhaust on network error → re-raise.
+        stub = _StubClient([httpx.ConnectError("no"), httpx.ConnectError("no")])
+        m._get_client = lambda: stub
+        try:
+            m.wfs("http://x", typeNames="l")
+        except httpx.NetworkError:
+            pass
+        else:
+            raise AssertionError("expected NetworkError after retries exhausted")
+        assert len(stub.calls) == 2
+
+        # (d) Non-retriable 4xx bubbles immediately.
+        stub = _StubClient([_StubResp(400)])
+        m._get_client = lambda: stub
+        try:
+            m.wfs("http://x", typeNames="l")
+        except httpx.HTTPStatusError:
+            pass
+        else:
+            raise AssertionError("expected HTTPStatusError on 400")
+        assert len(stub.calls) == 1
+    finally:
+        m._RETRY_BACKOFF_S = real_backoff
+        m._get_client = real_get_client
+
+    # -- bod_polygon_features: cache path + centroid math (unchanged behaviour).
     calls = []
     def _fake_wfs(base, **kw):
         calls.append((base, kw))
