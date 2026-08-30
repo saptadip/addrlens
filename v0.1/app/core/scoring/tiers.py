@@ -527,7 +527,14 @@ def _tier_packstation(features: list, th: dict) -> dict:
 
 
 def _tier_nightlife_density(features: list, th: dict) -> dict:
-    """Numeric-only nightlife density tile — always tier=unknown."""
+    """Numeric-only nightlife density tile — always tier=unknown.
+
+    ponytail: `th` is accepted for signature parity with the other
+    `_tier_*` functions but ignored — the 1 km radius is hardcoded in
+    the composer's `_osm_near("nightlife", 1000)` call. Upgrade path:
+    move the radius into `cfg.newcomer_lens.tiles["nightlife_density"].
+    thresholds["radius_m"]` and read it here.
+    """
     n = len(features)
     if n == 0:
         return {"tier": TIER_UNKNOWN,
