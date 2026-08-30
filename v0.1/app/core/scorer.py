@@ -1347,7 +1347,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
     tile shape and resolves provenance strings from cfg.attribution.
 
     Args follow the project-wide (lon, lat) convention — same as
-    bureaucracy_lens and young_family_lens.
+    young_family_lens.
 
     Tile order (fixed): buergeramt, rail_transit, tram_transit,
     bus_transit, intl_food, coworking, english_clinic, gesix_newcomer.

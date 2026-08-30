@@ -55,10 +55,21 @@ _SYSTEM = (
 )
 
 
+_SUPPORTED_LENSES = ("young_family",)
+
+
 def build_messages(ctx: dict) -> list[dict]:
     slug = (ctx.get("lens") or "young_family").strip()
-    if slug != "young_family":
-        slug = "young_family"
+    if slug not in _SUPPORTED_LENSES:
+        # Refuse rather than silently coerce — an older client sending
+        # `lens: "bureaucracy"` (removed) or any typo would otherwise get a
+        # young-family paragraph rendered under a different tile label. The
+        # whole point of the system prompt is to keep the model honest; the
+        # dispatcher should be at least as honest.
+        raise ValueError(
+            f"unsupported lens for gesix_insight: {slug!r} "
+            f"(supported: {', '.join(_SUPPORTED_LENSES)})"
+        )
     facts = json.dumps({
         "planungsraum":  ctx.get("plr_name") or "unknown",
         "quintile":      ctx.get("quintile_5"),
@@ -117,4 +128,18 @@ if __name__ == "__main__":
     # Empty-input shortcut.
     empty = run(None, {"quintile_5": None})
     assert "outside" in empty["insight"].lower() or "not available" in empty["insight"].lower()
+
+    # Unsupported lens (bureaucracy was removed) must refuse, not silently
+    # render a young_family paragraph under the wrong tile label.
+    try:
+        build_messages({"plr_name": "X", "quintile_5": 2, "rang": 10,
+                        "total": 447, "lens": "bureaucracy"})
+    except ValueError as e:
+        assert "unsupported" in str(e).lower(), str(e)
+    else:
+        raise AssertionError("expected ValueError on unsupported lens 'bureaucracy'")
+    # Empty / default lens still resolves to young_family.
+    ok = build_messages({"plr_name": "X", "quintile_5": 2, "rang": 10,
+                         "total": 447})
+    assert "young_family" in ok[-1]["content"], ok[-1]["content"]
     print("insight.py selfcheck OK")
