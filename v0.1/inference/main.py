@@ -19,9 +19,22 @@ Concurrency: both backends are single-threaded (mlx/llama are not
 thread-safe), so a process-wide lock serialises calls. If throughput
 becomes an issue, run multiple replicas — batching would be a much bigger
 rewrite (plan §7.5).
+
+Event loop safety (Ship D stability pass):
+- Both branches of /summarize dispatch the blocking `run(...)` call into
+  `asyncio.to_thread` so uvicorn's event loop never blocks on a slow
+  generation. Previously a wedged local decode would pin /health,
+  /ready, and every other endpoint until the model finished.
+- Every dispatch is wrapped in `asyncio.wait_for(..., INFERENCE_TIMEOUT_S)`.
+  On local we return 504; on remote we log + fall through to local so a
+  wedged Cloudflare edge doesn't take down /summarize.
+- Remote backend init moved out of the loader thread into `lifespan` so
+  remote-eligible templates are servable at t=0 without waiting for the
+  (5–15 s) local model load.
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import threading
@@ -94,6 +107,22 @@ if os.environ.get("SENTRY_DSN_INFERENCE"):
 BACKEND_NAME = os.environ.get("INFERENCE_BACKEND", "mlx")   # mlx | llama
 MODEL_ID     = os.environ.get("INFERENCE_MODEL_ID")         # optional override
 
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+# Wall-clock cap on a single /summarize call. Wraps the (blocking) local
+# generation AND the (blocking, but shorter) remote call. If exceeded on
+# local we return 504; on remote we log + fall through to local.
+INFERENCE_TIMEOUT_S = max(1.0, _env_float("INFERENCE_TIMEOUT_S", 120.0))
+
 # Remote-inference routing.
 # `INFERENCE_REMOTE_TEMPLATES` is a comma-separated allow-list of template
 # names that will be served by the remote backend (Cloudflare Workers AI)
@@ -143,8 +172,32 @@ _state: dict = {"backend": None, "remote": None, "error": None}
 _lock = threading.Lock()   # models are not thread-safe; serialize generation
 
 
-def _load_backend() -> None:
-    """Background-thread model loader. Populates _state on success/failure."""
+def _init_remote_backend() -> None:
+    """Instantiate the optional Cloudflare Workers AI backend synchronously.
+
+    Remote is stateless — just an env-var read + `httpx.Client` alloc —
+    so there's no reason to wait for the (slow, 5–15 s) local model load
+    before it's callable. Called from `lifespan` before the local loader
+    thread is spawned so remote-eligible templates are servable at t=0.
+    """
+    try:
+        from inference.runtime.cloudflare_backend import backend_from_env
+        _state["remote"] = backend_from_env()
+        if _state["remote"] is not None and REMOTE_TEMPLATES:
+            print(f"remote backend enabled: model={_state['remote'].model_id} "
+                  f"templates={sorted(REMOTE_TEMPLATES)}", flush=True)
+    except Exception as e:
+        # Not fatal — local backend still handles everything.
+        print(f"remote backend init failed (fallback to local only): "
+              f"{type(e).__name__}: {e}", file=sys.stderr, flush=True)
+
+
+def _load_local_backend() -> None:
+    """Background-thread local-model loader. Populates `_state["backend"]`
+    on success, `_state["error"]` on failure. Never touches `_state["remote"]`
+    — that's initialised synchronously in `lifespan` before this thread
+    starts, so /summarize can serve remote-eligible templates without
+    waiting on the local model."""
     try:
         if BACKEND_NAME == "mlx":
             from inference.runtime.mlx_backend import DEFAULT_MODEL_ID, MlxBackend
@@ -158,28 +211,40 @@ def _load_backend() -> None:
     except Exception as e:
         _state["error"] = f"{type(e).__name__}: {e}"
         print(f"llm load failed: {_state['error']}", file=sys.stderr, flush=True)
-    # Remote backend is optional and stateless — instantiate synchronously
-    # in this same loader thread once the local backend attempt is done, so
-    # /ready still gates on the (slow) local model load.
-    try:
-        from inference.runtime.cloudflare_backend import backend_from_env
-        _state["remote"] = backend_from_env()
-        if _state["remote"] is not None and REMOTE_TEMPLATES:
-            print(f"remote backend enabled: model={_state['remote'].model_id} "
-                  f"templates={sorted(REMOTE_TEMPLATES)}", flush=True)
-    except Exception as e:
-        # Not fatal — local backend still handles everything.
-        print(f"remote backend init failed (fallback to local only): "
-              f"{type(e).__name__}: {e}", file=sys.stderr, flush=True)
+
+
+def _generate_locked(run, backend, context):
+    """Run a template's synchronous generator under `_lock`.
+
+    Called via `asyncio.to_thread` from the async handler so a slow
+    generation cannot wedge the uvicorn event loop (which would freeze
+    `/health`, `/ready`, and every other endpoint until the model
+    finished).
+    """
+    with _lock:
+        return run(backend, context)
+
+
+def _generate_remote(run, backend, context):
+    """Run a template's synchronous generator against the stateless
+    remote backend. Not lock-guarded — remote is safe to call
+    concurrently. Wrapped for symmetry with `_generate_locked` so both
+    branches enter the same `asyncio.to_thread` shape."""
+    return run(backend, context)
 
 
 # ---------------------------------------------------------------------- app
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load in a daemon thread so uvicorn binds fast — first /summarize pays
-    # the wait if the model isn't ready yet.
-    threading.Thread(target=_load_backend, daemon=True, name="llm-loader").start()
+    # Remote backend is cheap to construct and independent of the local
+    # model — initialise it synchronously so remote-eligible templates
+    # can serve traffic at t=0 without waiting for the local loader.
+    _init_remote_backend()
+    # Load the local model in a daemon thread so uvicorn binds fast —
+    # first /summarize on a local-only template pays the wait if the
+    # model isn't ready yet.
+    threading.Thread(target=_load_local_backend, daemon=True, name="llm-loader").start()
     yield
 
 
@@ -223,13 +288,18 @@ async def summarize(request: Request):
                                  f"expected one of {sorted(TEMPLATES)}")
 
     # Remote-first path for allow-listed templates. Any failure — network,
-    # HTTP, empty response, CF-reported error — falls through to local.
-    # No lock: the remote backend is stateless per-request and safe to
-    # call concurrently. Local generation stays serialised under _lock.
+    # HTTP, empty response, CF-reported error, or wall-clock timeout —
+    # falls through to local. No lock: the remote backend is stateless
+    # per-request and safe to call concurrently. Generation runs inside
+    # `asyncio.to_thread` so uvicorn's event loop stays free during the
+    # blocking `httpx.post`.
     remote = _state["remote"]
     if remote is not None and template in REMOTE_TEMPLATES:
         try:
-            summary = run(remote, context)
+            summary = await asyncio.wait_for(
+                asyncio.to_thread(_generate_remote, run, remote, context),
+                timeout=INFERENCE_TIMEOUT_S,
+            )
             return {
                 "summary":  summary,
                 "model":    remote.model_id,
@@ -238,6 +308,10 @@ async def summarize(request: Request):
         except ValueError as e:
             # Template contract violation (bad context). Real bug — surface.
             raise HTTPException(400, str(e))
+        except asyncio.TimeoutError:
+            print(f"remote inference timed out after {INFERENCE_TIMEOUT_S}s "
+                  f"({template}) — falling back to local",
+                  file=sys.stderr, flush=True)
         except Exception as e:
             # Remote flake — log and fall through to local. `flush=True` so
             # the message hits Docker logs even if uvicorn's buffer is deep.
@@ -248,11 +322,23 @@ async def summarize(request: Request):
         msg = _state["error"] or "AI model still warming up, try again in a moment."
         raise HTTPException(503, msg)
 
+    # Local generation: run under `_lock` inside a worker thread so the
+    # event loop stays free (a wedged generation would otherwise pin
+    # /health, /ready, and every other endpoint). Wall-clock capped at
+    # INFERENCE_TIMEOUT_S; on timeout we return 504 rather than let the
+    # request hang indefinitely.
     try:
-        with _lock:
-            summary = run(_state["backend"], context)
+        summary = await asyncio.wait_for(
+            asyncio.to_thread(_generate_locked, run, _state["backend"], context),
+            timeout=INFERENCE_TIMEOUT_S,
+        )
     except ValueError as e:
         raise HTTPException(400, str(e))
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            504,
+            f"generation timed out after {INFERENCE_TIMEOUT_S}s "
+            f"(template={template})")
     except Exception as e:
         raise HTTPException(500, f"generation failed: {type(e).__name__}: {e}")
 
