@@ -1,8 +1,9 @@
 """`supermarket_insight` — 'Supermarket within walk' tile gloss."""
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret Berlin's supermarket reachability signal for an "
@@ -25,42 +26,51 @@ _SYSTEM = (
     "names verbatim. Return the paragraph only."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\":\"green\",\"rule\":\"≥1 supermarket within 5 min walk\",\n"
+    "  \"top\":[{\"name\":\"REWE\",\"walk_min\":3,\"brand\":\"REWE\"},"
+    "{\"name\":\"EDEKA\",\"walk_min\":6,\"brand\":\"EDEKA\"},"
+    "{\"name\":\"LIDL\",\"walk_min\":7,\"brand\":\"LIDL\"},"
+    "{\"name\":\"Bio Company\",\"walk_min\":8,\"brand\":\"Bio Company\",\"organic\":true}]\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "The nearest supermarket is a REWE at a three-minute walk, with "
+    "four options in total inside an eight-minute stroller bubble. "
+    "The local mix is well-rounded: two full-range stores (REWE, "
+    "EDEKA), one discount (LIDL), and one organic (Bio Company) — "
+    "you won't be forced into a single brand's price band. The "
+    "organic option is a genuine plus if that matters to your weekly "
+    "shop. Remember German supermarkets shut on Sundays under the "
+    "Ladenschlussgesetz, so verify each store's Saturday closing time "
+    "before relying on one for the big weekly shop."
+)
+
+_EMPTY_MSG = "No supermarket reachability data for this address."
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier": ctx.get("tier"), "rule": ctx.get("rule"), "numeric": ctx.get("numeric"),
-        "top": (ctx.get("features") or [])[:6],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content":
-            "{\n"
-            "  \"tier\":\"green\",\"rule\":\"≥1 supermarket within 5 min walk\",\n"
-            "  \"top\":[{\"name\":\"REWE\",\"walk_min\":3,\"brand\":\"REWE\"},"
-            "{\"name\":\"EDEKA\",\"walk_min\":6,\"brand\":\"EDEKA\"},"
-            "{\"name\":\"LIDL\",\"walk_min\":7,\"brand\":\"LIDL\"},"
-            "{\"name\":\"Bio Company\",\"walk_min\":8,\"brand\":\"Bio Company\",\"organic\":true}]\n"
-            "}"},
-        {"role": "assistant", "content":
-            "The nearest supermarket is a REWE at a three-minute walk, with "
-            "four options in total inside an eight-minute stroller bubble. "
-            "The local mix is well-rounded: two full-range stores (REWE, "
-            "EDEKA), one discount (LIDL), and one organic (Bio Company) — "
-            "you won't be forced into a single brand's price band. The "
-            "organic option is a genuine plus if that matters to your weekly "
-            "shop. Remember German supermarkets shut on Sundays under the "
-            "Ladenschlussgesetz, so verify each store's Saturday closing time "
-            "before relying on one for the big weekly shop."},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+        top_k=6,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": "No supermarket reachability data for this address."}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+        top_k=6,
+    )
 
 
 if __name__ == "__main__":

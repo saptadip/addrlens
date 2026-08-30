@@ -14,9 +14,10 @@ Design notes
 - English only.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret the weekly-market proximity signal for a newcomer expat "
@@ -42,48 +43,51 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\", \"rule\": \"no registered Wochenmarkt nearby\",\n"
+    "  \"numeric\": \"\",\n"
+    "  \"top\": []\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "No registered Wochenmarkt appears within a comfortable walk of this "
+    "address. That is a real loss in the first months: a weekly market "
+    "is one of the low-barrier settling-in rituals a newcomer can pick "
+    "up without German — cash, point, pay — and the weekly rhythm turns "
+    "a neighbourhood into home faster than any supermarket run. Without "
+    "one nearby, the habit takes an extra transit trip and rarely sticks. "
+    "Check whether any market is on a route you already take, or accept "
+    "that Rewe and Edeka will carry the week for now."
+)
+
+_EMPTY_MSG = (
+    "No registered Wochenmarkt found nearby. A weekly market is a "
+    "low-barrier settling-in ritual — cash, point, pay, no German needed. "
+    "Without one nearby, the habit takes an extra transit trip and rarely "
+    "sticks. Check whether any market is on a route you already take."
+)
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\", \"rule\": \"no registered Wochenmarkt nearby\",\n"
-            "  \"numeric\": \"\",\n"
-            "  \"top\": []\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "No registered Wochenmarkt appears within a comfortable walk of this "
-            "address. That is a real loss in the first months: a weekly market "
-            "is one of the low-barrier settling-in rituals a newcomer can pick "
-            "up without German — cash, point, pay — and the weekly rhythm turns "
-            "a neighbourhood into home faster than any supermarket run. Without "
-            "one nearby, the habit takes an extra transit trip and rarely sticks. "
-            "Check whether any market is on a route you already take, or accept "
-            "that Rewe and Edeka will carry the week for now."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": (
-            "No registered Wochenmarkt found nearby. A weekly market is a "
-            "low-barrier settling-in ritual — cash, point, pay, no German needed. "
-            "Without one nearby, the habit takes an extra transit trip and rarely "
-            "sticks. Check whether any market is on a route you already take."
-        )}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":

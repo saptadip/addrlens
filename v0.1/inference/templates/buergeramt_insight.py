@@ -15,9 +15,10 @@ Design notes
   terms the newcomer must learn.
 """
 from __future__ import annotations
-import json
 
-SAMPLER = {"temp": 0.4, "top_p": 0.9, "repetition_penalty": 1.15, "max_tokens": 320}
+from inference.templates._insight_base import DEFAULT_SAMPLER, run_tier
+
+SAMPLER = DEFAULT_SAMPLER
 
 _SYSTEM = (
     "You interpret Berlin's Bürgeramt (district registration office) proximity "
@@ -44,48 +45,50 @@ _SYSTEM = (
     "Return only the paragraph. No headings, no bullet lists, no preamble."
 )
 
+_EXEMPLAR_USER = (
+    "{\n"
+    "  \"tier\": \"red\", \"rule\": \"cross-district trip required\",\n"
+    "  \"numeric\": \"3800m to Bürgeramt Spandau\",\n"
+    "  \"top\": [{\"name\": \"Bürgeramt Spandau\", \"distance_m\": 3800}]\n"
+    "}"
+)
+
+_EXEMPLAR_ASSISTANT = (
+    "The nearest Bürgeramt is 3.8 kilometres away — a cross-district trip, "
+    "not a local walk. Slots are bookable city-wide online, so you can "
+    "choose any Berlin Bürgeramt regardless of district, but last-minute "
+    "cancellation slots that appear 1–2 days out require you to get there "
+    "quickly — plan around transit time. Anmeldung (address registration) "
+    "must be done within 14 days of moving in; book your slot before you "
+    "arrive if you can."
+)
+
+_EMPTY_MSG = (
+    "No Bürgeramt found in reachable range. Slots are bookable city-wide "
+    "online, but factor in a significant transit journey. Book your Anmeldung "
+    "(address registration) slot before you arrive — you must register "
+    "within 14 days of moving in."
+)
+
 
 def build_messages(ctx: dict) -> list[dict]:
-    facts = json.dumps({
-        "tier":    ctx.get("tier"),
-        "rule":    ctx.get("rule"),
-        "numeric": ctx.get("numeric"),
-        "top":     (ctx.get("features") or [])[:5],
-    }, ensure_ascii=False, indent=2)
-    return [
-        {"role": "system", "content": _SYSTEM},
-        # One-shot: red tier — must not invert to positive framing
-        {"role": "user", "content": (
-            "{\n"
-            "  \"tier\": \"red\", \"rule\": \"cross-district trip required\",\n"
-            "  \"numeric\": \"3800m to Bürgeramt Spandau\",\n"
-            "  \"top\": [{\"name\": \"Bürgeramt Spandau\", \"distance_m\": 3800}]\n"
-            "}"
-        )},
-        {"role": "assistant", "content": (
-            "The nearest Bürgeramt is 3.8 kilometres away — a cross-district trip, "
-            "not a local walk. Slots are bookable city-wide online, so you can "
-            "choose any Berlin Bürgeramt regardless of district, but last-minute "
-            "cancellation slots that appear 1–2 days out require you to get there "
-            "quickly — plan around transit time. Anmeldung (address registration) "
-            "must be done within 14 days of moving in; book your slot before you "
-            "arrive if you can."
-        )},
-        {"role": "user", "content": facts},
-    ]
+    from inference.templates._insight_base import build_tier_messages
+    return build_tier_messages(
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        ctx=ctx,
+    )
 
 
 def run(backend, ctx: dict) -> dict:
-    if not isinstance(ctx, dict):
-        raise ValueError("context must be an object")
-    if not (ctx.get("features") or []):
-        return {"insight": (
-            "No Bürgeramt found in reachable range. Slots are bookable city-wide "
-            "online, but factor in a significant transit journey. Book your Anmeldung "
-            "(address registration) slot before you arrive — you must register "
-            "within 14 days of moving in."
-        )}
-    return {"insight": backend.generate_from_messages(build_messages(ctx), **SAMPLER)}
+    return run_tier(
+        backend, ctx,
+        system=_SYSTEM,
+        exemplar_user=_EXEMPLAR_USER,
+        exemplar_assistant=_EXEMPLAR_ASSISTANT,
+        empty_msg=_EMPTY_MSG,
+    )
 
 
 if __name__ == "__main__":
