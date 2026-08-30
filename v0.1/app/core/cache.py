@@ -28,8 +28,9 @@ Kept separate so a memory spike on the fast cache doesn't evict
 expensive summaries and vice versa.
 
 Both wrap `cachetools.TTLCache` with an explicit `threading.Lock`
-because `TTLCache` mutates its expiry queue on every `get()` — the GIL
-alone is insufficient.
+because `TTLCache` mutates internal LRU order and expiry links on
+every `get()` — the GIL alone is insufficient for concurrent
+readers.
 
 Callers namespace their keys by prefixing the tuple with a short string
 (`"bod"`, `"noise"`, `"air"`, `"heat"`, `"amenities"`), so a shared
@@ -46,13 +47,23 @@ from cachetools import TTLCache
 
 
 def _env_int(name: str, default: int) -> int:
+    """Parse an env-var to `int`, falling back to `default` on missing /
+    empty / garbage / non-positive input.
+
+    A non-positive value (e.g. `APP_CACHE_SIZE=0` intending "disable")
+    would produce a size-1 store that thrashes worse than an unbounded
+    dict — so we treat `< 1` as "misconfigured, use the sane default"
+    rather than silently clamp. To actually disable a cache, use
+    `APP_CACHE_TTL_S=1` (evict after 1 s).
+    """
     raw = os.environ.get(name)
     if raw in (None, ""):
         return default
     try:
-        return max(1, int(raw))
+        v = int(raw)
     except ValueError:
         return default
+    return v if v >= 1 else default
 
 
 class NamedCache:
@@ -171,13 +182,27 @@ if __name__ == "__main__":
     assert HOT_PATH.stats()["maxsize"] >= 1
     assert HISTORY.stats()["ttl_s"]    >  HOT_PATH.stats()["ttl_s"]
 
-    # -- env parsing: garbage / empty / negative fall through -----------
-    os.environ["APP_CACHE_SIZE"] = "abc"
-    assert _env_int("APP_CACHE_SIZE", 99) == 99
-    os.environ["APP_CACHE_SIZE"] = ""
-    assert _env_int("APP_CACHE_SIZE", 99) == 99
-    os.environ["APP_CACHE_SIZE"] = "-5"
-    assert _env_int("APP_CACHE_SIZE", 99) == 1    # clamped to positive floor
-    del os.environ["APP_CACHE_SIZE"]
+    # -- env parsing: garbage / empty / non-positive all fall to default.
+    #    We restore in a try/finally so a mid-block assert failure never
+    #    leaves a poisoned env for other tests.
+    _pre = os.environ.get("APP_CACHE_SIZE")
+    try:
+        os.environ["APP_CACHE_SIZE"] = "abc"
+        assert _env_int("APP_CACHE_SIZE", 99) == 99
+        os.environ["APP_CACHE_SIZE"] = ""
+        assert _env_int("APP_CACHE_SIZE", 99) == 99
+        # Non-positive → default (not a size-1 thrashing store).
+        os.environ["APP_CACHE_SIZE"] = "-5"
+        assert _env_int("APP_CACHE_SIZE", 99) == 99
+        os.environ["APP_CACHE_SIZE"] = "0"
+        assert _env_int("APP_CACHE_SIZE", 99) == 99
+        # Positive parses cleanly.
+        os.environ["APP_CACHE_SIZE"] = "42"
+        assert _env_int("APP_CACHE_SIZE", 99) == 42
+    finally:
+        if _pre is None:
+            os.environ.pop("APP_CACHE_SIZE", None)
+        else:
+            os.environ["APP_CACHE_SIZE"] = _pre
 
     print("cache.py selfcheck OK")

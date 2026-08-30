@@ -15,16 +15,17 @@ Feature-shape rules:
   - sort by distance, cap at 5 (matches history template's shown limit)
 
 Caching:
-  llama-cpp generation dominates wall time (~35 s on CX22). Historic features
-  are OSM-snapshot data, refreshed weekly by the systemd timer, so the same
-  address returns identical output for at least seven days. Wrap the whole
-  response dict in a TTLCache keyed on rounded (lat, lon) so repeat visits
-  and neighbouring addresses hit the cache instead of the LLM.
+  llama-cpp generation dominates wall time (~35 s on CX22). Historic
+  features are OSM-snapshot data, refreshed weekly by the systemd timer,
+  so the same address returns identical output for at least seven days.
+  Wrap the whole response dict in the shared `app.core.cache.HISTORY`
+  TTLCache keyed on rounded (lat, lon).
 
-  Env overrides (all optional):
-    HISTORY_CACHE_TTL_S   default 604800  (7 days — matches OSM refresh cadence)
-    HISTORY_CACHE_SIZE    default 1000    (~500 KB memory; LRU eviction beyond)
-    HISTORY_CACHE_GRID    default 3       (decimal places on lat/lon; 3 = ~100 m cell)
+  Env overrides:
+    HISTORY_CACHE_GRID    default 3   (decimal places on lat/lon;
+                                       3 = ~100 m cell). Read here.
+    HISTORY_CACHE_SIZE    default 1000, read by `app.core.cache`.
+    HISTORY_CACHE_TTL_S   default 604800 (7 days), read by `app.core.cache`.
 """
 from __future__ import annotations
 
