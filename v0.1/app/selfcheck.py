@@ -316,32 +316,39 @@ def run_live_selfcheck() -> None:
     print("  young_family lens asserts OK")
 
     # -- Admin-offices bundle (Others tab) ---------------------------------
-    # Same tile-shaped output the Bureaucracy lens used to produce; now
-    # surfaced only via /api/lookup `others.bureaucracy` and the raw-view
-    # "Others" tab in the SPA. Two known-good addresses cover Bezirk-based
-    # assignment (Pankow + Friedrichshain-Kreuzberg) and distance-based
-    # tier variation. Kastanienallee 12 is reused from geocode `geo` above.
-    lens_bur = scorer.bureaucracy_lens(cfg, idx, geo["lon"], geo["lat"])
-    assert len(lens_bur["tiles"]) == 5, f"expected 5 tiles, got {len(lens_bur['tiles'])}"
-    _bk = [t["key"] for t in lens_bur["tiles"]]
-    assert _bk == ["buergeramt","finanzamt","standesamt","lea","arbeitsagentur"], _bk
-    for t in lens_bur["tiles"]:
-        assert t["label"] and t["rule"], t
-        assert t["tier"] in {"green","amber","red","unknown"}, t
-    _by_bur = {t["key"]: t for t in lens_bur["tiles"]}
-    # Kastanienallee 12 is in Pankow — Standesamt tile numeric must reference Pankow
+    # Bureaucracy lens has been removed; the underlying cards live under
+    # /api/lookup `others.bureaucracy` (legacy response-key name retained
+    # for the SPA's raw-view Others tab) and are built by the pure,
+    # tier-less `app.core.others_admin.build` composer.
+    from app.core import others_admin as _others_admin
+    bundle = _others_admin.build(cfg, idx, geo["lon"], geo["lat"])
+    _admin_keys = ["buergeramt", "finanzamt", "standesamt", "lea", "arbeitsagentur"]
+    assert len(bundle["tiles"]) == len(_admin_keys), \
+        f"expected {len(_admin_keys)} tiles, got {len(bundle['tiles'])}"
+    _bk = [t["key"] for t in bundle["tiles"]]
+    assert _bk == _admin_keys, _bk
+    for t in bundle["tiles"]:
+        assert t["label"] and t["icon"], t
+        assert set(t.keys()) == {"key", "label", "icon", "features"}, t
+    _by_bur = {t["key"]: t for t in bundle["tiles"]}
+
+    # Kastanienallee 12 is in Pankow — Standesamt feature name must contain "Pankow".
     assert idx.bezirk_for(geo["lon"], geo["lat"]) == "Pankow", \
         f"expected Pankow, got {idx.bezirk_for(geo['lon'], geo['lat'])!r}"
-    assert "Pankow" in _by_bur["standesamt"]["numeric"], _by_bur["standesamt"]
-    # Caveats verbatim
-    assert "PLZ" in _by_bur["buergeramt"]["caveat"], _by_bur["buergeramt"]["caveat"]
-    assert "Steuernummer" in _by_bur["finanzamt"]["caveat"], _by_bur["finanzamt"]["caveat"]
-    assert "Specialty branches" in _by_bur["lea"]["caveat"], _by_bur["lea"]["caveat"]
-    # Provenance non-empty; cites at minimum Bürgerämter
-    assert "Bürgerämter" in lens_bur["provenance"], lens_bur["provenance"]
-    # Determinism guard — two calls must produce equal results
-    lens_bur_2 = scorer.bureaucracy_lens(cfg, idx, geo["lon"], geo["lat"])
-    assert lens_bur == lens_bur_2, "bureaucracy_lens must be deterministic"
+    assert len(_by_bur["standesamt"]["features"]) == 1
+    assert "Pankow" in _by_bur["standesamt"]["features"][0]["name"], \
+        _by_bur["standesamt"]["features"][0]
+    # LEA: exactly 1 feature (from cfg.lea_office), name contains "LEA".
+    assert len(_by_bur["lea"]["features"]) == 1
+    assert "LEA" in _by_bur["lea"]["features"][0]["name"]
+    # Every buergeramt feature has walk_min as int.
+    for f in _by_bur["buergeramt"]["features"]:
+        assert isinstance(f.get("walk_min"), int), f
+    # Provenance non-empty; cites at minimum Bürgerämter.
+    assert "Bürgerämter" in bundle["provenance"], bundle["provenance"]
+    # Determinism guard — two calls must produce equal dicts.
+    bundle_2 = _others_admin.build(cfg, idx, geo["lon"], geo["lat"])
+    assert bundle == bundle_2, "others_admin.build must be deterministic"
 
     # -- Bergmannstraße 27 (Friedrichshain-Kreuzberg Bezirk) ---------------
     berg = idx.geocode("Bergmannstraße", "27", "10961")
@@ -350,32 +357,17 @@ def run_live_selfcheck() -> None:
     else:
         assert idx.bezirk_for(berg["lon"], berg["lat"]) == "Friedrichshain-Kreuzberg", \
             f"expected Friedrichshain-Kreuzberg, got {idx.bezirk_for(berg['lon'], berg['lat'])!r}"
-        lens_bur_b = scorer.bureaucracy_lens(cfg, idx, berg["lon"], berg["lat"])
-        _by_b = {t["key"]: t for t in lens_bur_b["tiles"]}
-        assert "Friedrichshain-Kreuzberg" in _by_b["standesamt"]["numeric"], _by_b["standesamt"]
-        # Kreuzberg is farther from Wedding (LEA) than Pankow is — LEA walk-min > Pankow's.
-        # Extract minutes from numeric strings like "35 min (LEA Berlin …)".
-        import re as _re
-        def _min(s):
-            m = _re.search(r"(\d+)\s*min", s)
-            return int(m.group(1)) if m else None
-        lea_pnk_min  = _min(_by_bur["lea"]["numeric"])
-        lea_kbg_min  = _min(_by_b["lea"]["numeric"])
-        if lea_pnk_min is not None and lea_kbg_min is not None:
-            assert lea_kbg_min >= lea_pnk_min, \
-                f"LEA from Kreuzberg ({lea_kbg_min}) should be ≥ from Pankow ({lea_pnk_min})"
+        bundle_b = _others_admin.build(cfg, idx, berg["lon"], berg["lat"])
+        _by_b = {t["key"]: t for t in bundle_b["tiles"]}
+        assert len(_by_b["standesamt"]["features"]) == 1
+        assert "Friedrichshain-Kreuzberg" in _by_b["standesamt"]["features"][0]["name"], \
+            _by_b["standesamt"]["features"][0]
+        # Kreuzberg is farther from Wedding (LEA) than Pankow is — LEA walk_min >= Pankow's.
+        lea_pnk = _by_bur["lea"]["features"][0]["walk_min"]
+        lea_kbg = _by_b["lea"]["features"][0]["walk_min"]
+        assert lea_kbg >= lea_pnk, \
+            f"LEA from Kreuzberg ({lea_kbg}) should be ≥ from Pankow ({lea_pnk})"
 
-    # -- Spec D: admin-offices feature arrays --------------------------
-    _by_bur = {t["key"]: t for t in lens_bur["tiles"]}
-    # Standesamt: exactly 1 feature, name contains "Pankow"
-    assert len(_by_bur["standesamt"]["features"]) == 1
-    assert "Pankow" in _by_bur["standesamt"]["features"][0]["name"]
-    # LEA: exactly 1 feature, name contains "LEA"
-    assert len(_by_bur["lea"]["features"]) == 1
-    assert "LEA" in _by_bur["lea"]["features"][0]["name"]
-    # Every buergeramt feature has walk_min as int
-    for f in _by_bur["buergeramt"]["features"]:
-        assert isinstance(f.get("walk_min"), int), f
     print("  admin-offices (Others tab) asserts OK")
 
     # -- Newcomer lens (Spec E) -----------------------------------------------

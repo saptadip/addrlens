@@ -33,14 +33,13 @@ _SYSTEM = (
     "a specific flat. You receive: the Planungsraum name, the citywide "
     "quintile the polygon sits in (1 = top fifth = healthiest / most stable, "
     "5 = bottom fifth), the raw rank out of ~447 Planungsräume, and the "
-    "lens the user is browsing ('young_family' or 'bureaucracy'). "
+    "lens the user is browsing (currently only 'young_family'). "
     "Write ONE paragraph, 70–110 words, doing three things in order: "
     "(a) plain-English readout of where the neighbourhood sits in the "
     "citywide distribution — no jargon, do not use the term 'GESIx'; "
     "(b) two concrete daily-life anchors tailored to the lens: for "
     "young_family use childcare cohort mix and local GP wait times as "
-    "your concrete anchors; for bureaucracy use Bürgeramt slot scarcity "
-    "and general public-admin foot traffic; "
+    "your concrete anchors; "
     "(c) one honest closing sentence reminding the reader the score is "
     "the polygon around the flat, not the flat itself, and that they "
     "should walk the block before signing. "
@@ -58,7 +57,7 @@ _SYSTEM = (
 
 def build_messages(ctx: dict) -> list[dict]:
     slug = (ctx.get("lens") or "young_family").strip()
-    if slug not in ("young_family", "bureaucracy"):
+    if slug != "young_family":
         slug = "young_family"
     facts = json.dumps({
         "planungsraum":  ctx.get("plr_name") or "unknown",

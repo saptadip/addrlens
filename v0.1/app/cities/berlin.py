@@ -9,7 +9,12 @@ import os
 import re
 from pathlib import Path
 
-from app.cities.base import CityConfig, LensConfig, LensTileConfig
+from app.cities.base import (
+    CityConfig,
+    LensConfig,
+    LensTileConfig,
+    OthersAdminCardConfig,
+)
 
 # Order matters: longer/multi-word forms first so "freier Träger" is matched
 # before bare "Träger" (see phase3/server.py:GERMAN_GLOSS).
@@ -262,42 +267,16 @@ YOUNG_FAMILY_LENS: LensConfig = LensConfig(
     ),
 )
 
-# --- Bureaucracy lens (Spec B) --------------------------------------------
-# Five traffic-light tiles for Berlin public-admin infrastructure.
-# Boundary convention: inclusive on greener side (≤ 15 min = green;
-# > 15 min = amber). See
-# docs/superpowers/specs/2026-08-09-bureaucracy-lens-design.md.
-BUREAUCRACY_LENS: LensConfig = LensConfig(
-    slug="bureaucracy",
-    label="Bureaucracy",
-    audience_hint="Public admin offices you'll visit as a new arrival",
-    tiles=(
-        LensTileConfig(
-            key="buergeramt", label="Bürgeramt (Anmeldung)", icon="buergeramt",
-            thresholds={"green_min": 15, "amber_min": 30},
-            caveat="Berlin lets you book any Bürgeramt for Anmeldung — not restricted by PLZ.",
-        ),
-        LensTileConfig(
-            key="finanzamt", label="Finanzamt (Tax Office)", icon="finanzamt",
-            thresholds={"green_min": 15, "amber_min": 30},
-            caveat=("Your assigned Finanzamt is set by Steuernummer, not address alone. "
-                    "Nearest office shown as a starting point."),
-        ),
-        LensTileConfig(
-            key="standesamt", label="Standesamt (Marriage / Birth)", icon="standesamt",
-            thresholds={"green_min": 15, "amber_min": 30},
-        ),
-        LensTileConfig(
-            key="lea", label="LEA (Residence Permit)", icon="lea",
-            thresholds={"green_min": 15, "amber_min": 30},
-            caveat=("Specialty branches exist for skilled workers, students, and refugees — "
-                    "check LEA Berlin's website for the right one."),
-        ),
-        LensTileConfig(
-            key="arbeitsagentur", label="Arbeitsagentur (Employment Agency)", icon="arbeitsagentur",
-            thresholds={"green_min": 15, "amber_min": 30},
-        ),
-    ),
+# --- Others tab: public-admin cards ---------------------------------------
+# Was the Bureaucracy lens (Spec B). The traffic-light composer was removed
+# once the underlying cards moved to the raw-view Others tab. Order matches
+# the response tile order; icons key into the frontend `ico` map.
+OTHERS_ADMIN_CARDS: tuple = (
+    OthersAdminCardConfig(key="buergeramt",     label="Bürgeramt (Anmeldung)",           icon="buergeramt"),
+    OthersAdminCardConfig(key="finanzamt",      label="Finanzamt (Tax Office)",          icon="finanzamt"),
+    OthersAdminCardConfig(key="standesamt",     label="Standesamt (Marriage / Birth)",   icon="standesamt"),
+    OthersAdminCardConfig(key="lea",            label="LEA (Residence Permit)",          icon="lea"),
+    OthersAdminCardConfig(key="arbeitsagentur", label="Arbeitsagentur (Employment Agency)", icon="arbeitsagentur"),
 )
 
 # --- Newcomer lens (Spec E) ------------------------------------------------
@@ -596,7 +575,7 @@ BERLIN = CityConfig(
     young_family_lens=YOUNG_FAMILY_LENS,
     newcomer_lens=NEWCOMER_LENS,
 
-    # --- Spec B: Bureaucracy lens ---------------------------------
+    # --- Others tab: public-admin office data ---------------------
     bezirksgrenzen_wfs_url=_WFS_BEZIRKE,
     bezirksgrenzen_layer="alkis_bezirke:bezirksgrenzen",   # verified via GetCapabilities; namgem = Bezirk name
     bezirksgrenzen_field_map={"name": "namgem"},           # props: name, gem, namgem, namlan, lan
@@ -607,18 +586,23 @@ BERLIN = CityConfig(
     standesamts_by_bezirk=_STANDESAMTS_BY_BEZIRK,
     arbeitsagenturs=_ARBEITSAGENTURS,
     lea_office=_LEA_OFFICE,
-    bureaucracy_lens=BUREAUCRACY_LENS,
+    others_admin_cards=OTHERS_ADMIN_CARDS,
 )
 
 if __name__ == "__main__":
-    from app.cities.berlin import BERLIN, NEWCOMER_LENS
+    from app.cities.berlin import BERLIN, NEWCOMER_LENS, OTHERS_ADMIN_CARDS
     assert BERLIN.newcomer_lens is NEWCOMER_LENS
-    assert BERLIN.buergeramt_wfs_url is not None    # Spec B: WFS already wired; not None in Berlin
+    assert BERLIN.others_admin_cards is OTHERS_ADMIN_CARDS
+    assert BERLIN.buergeramt_wfs_url is not None    # WFS already wired
     keys = [t.key for t in BERLIN.newcomer_lens.tiles]
-    assert keys == ["buergeramt", "transit_newcomer", "intl_food",
-                    "coworking", "english_clinic",
+    assert keys == ["buergeramt",
+                    "rail_transit", "tram_transit", "bus_transit",
+                    "intl_food", "coworking", "english_clinic",
                     "language_school", "library", "packstation", "wochenmarkt",
                     "nightlife_density",
                     "gesix_newcomer"], keys
+    admin_keys = [c.key for c in BERLIN.others_admin_cards]
+    assert admin_keys == ["buergeramt", "finanzamt", "standesamt",
+                          "lea", "arbeitsagentur"], admin_keys
     assert "buergeramt" in BERLIN.attribution
-    print("selfcheck ok: NEWCOMER_LENS wired")
+    print("selfcheck ok: NEWCOMER_LENS + OTHERS_ADMIN_CARDS wired")

@@ -11,6 +11,7 @@ from app.core.amenities import amenities_near, kitas_near
 from app.core.geo import haversine_m
 from app.core.index import Index
 from app.core.wfs import air_quality_at, noise_at, summer_heat_at
+from app.core import others_admin as others_admin_mod
 from app.core import scorer
 from app.deps import get_city, get_index
 
@@ -141,17 +142,17 @@ def lookup(
                    "error": f"{type(e).__name__}: {e}"}
 
     # --- Admin-offices bundle (raw view "Others" tab) --------------------
-    # Same tile-shaped data the Bureaucracy lens produced, but no longer
-    # surfaced in Life Mode — the raw view already renders these under the
-    # "Others" tab. Deterministic — no external fetches on the hot path.
-    # Data is either preloaded on Index (Bezirksgrenzen, Bürgerämter) or
-    # read from CityConfig curated directories (Finanzamt, Standesamt,
-    # Arbeitsagentur, LEA). Wrapped in try/except so a bug here never
-    # breaks /api/lookup for other consumers (§14.7).
+    # Ordered card metadata comes from `cfg.others_admin_cards`; features
+    # per card come from Index preloads (Bürgerämter, Standesamt-by-Bezirk,
+    # Arbeitsagenturs) or curated CityConfig directories (Finanzamts, LEA).
+    # Deterministic — no external fetches on the hot path. Wrapped in
+    # try/except so a bug here never breaks /api/lookup for other
+    # consumers (§14.7). Response key stays `others.bureaucracy` for
+    # frontend compatibility.
     try:
-        others_admin = scorer.bureaucracy_lens(cfg, index, lon, lat)
+        others_admin = others_admin_mod.build(cfg, index, lon, lat)
     except Exception as e:
-        others_admin = {"slug": "bureaucracy",
+        others_admin = {"tiles": [], "provenance": "",
                         "error": f"{type(e).__name__}: {e}"}
 
     # --- Newcomer lens (Spec E) -------------------------------------------
