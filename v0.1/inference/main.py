@@ -25,12 +25,31 @@ Event loop safety (Ship D stability pass):
   `asyncio.to_thread` so uvicorn's event loop never blocks on a slow
   generation. Previously a wedged local decode would pin /health,
   /ready, and every other endpoint until the model finished.
-- Every dispatch is wrapped in `asyncio.wait_for(..., INFERENCE_TIMEOUT_S)`.
-  On local we return 504; on remote we log + fall through to local so a
-  wedged Cloudflare edge doesn't take down /summarize.
+- Every dispatch is wrapped in
+  `asyncio.wait_for(..., INFERENCE_GENERATION_TIMEOUT_S)`. On local we
+  return 504; on remote we log + fall through to local so a wedged
+  Cloudflare edge doesn't take down /summarize.
 - Remote backend init moved out of the loader thread into `lifespan` so
   remote-eligible templates are servable at t=0 without waiting for the
   (5–15 s) local model load.
+
+Env vars this file reads:
+- `INFERENCE_BACKEND`               local backend selector (mlx | llama)
+- `INFERENCE_MODEL_ID`              optional model-id override
+- `INFERENCE_REMOTE_TEMPLATES`      comma-separated allow-list for the
+                                    Cloudflare Workers AI backend
+- `INFERENCE_GENERATION_TIMEOUT_S`  server-side wall-clock cap on one
+                                    /summarize dispatch (default 120.0,
+                                    floor 1.0). Distinct from the app
+                                    service's `INFERENCE_TIMEOUT_S`
+                                    which is the client-side HTTP
+                                    timeout — these two knobs are
+                                    deliberately separate names.
+- `CF_ACCOUNT_ID`, `CF_WORKERS_AI_TOKEN`, `CF_MODEL_ID`
+                                    Cloudflare Workers AI wiring (read
+                                    by `cloudflare_backend.backend_from_env`)
+- `SENTRY_DSN_INFERENCE`, `SENTRY_ENV`, `GIT_SHA`
+                                    optional error tracking
 """
 from __future__ import annotations
 
@@ -121,7 +140,13 @@ def _env_float(name: str, default: float) -> float:
 # Wall-clock cap on a single /summarize call. Wraps the (blocking) local
 # generation AND the (blocking, but shorter) remote call. If exceeded on
 # local we return 504; on remote we log + fall through to local.
-INFERENCE_TIMEOUT_S = max(1.0, _env_float("INFERENCE_TIMEOUT_S", 120.0))
+#
+# Named distinctly from the app service's `INFERENCE_TIMEOUT_S` (which is
+# the client-side httpx timeout, default 45 s). Sharing one env-var name
+# across two processes led to silent cross-talk in shared compose files —
+# setting one meaning would change the other unexpectedly.
+INFERENCE_GENERATION_TIMEOUT_S = max(1.0, _env_float(
+    "INFERENCE_GENERATION_TIMEOUT_S", 120.0))
 
 # Remote-inference routing.
 # `INFERENCE_REMOTE_TEMPLATES` is a comma-separated allow-list of template
@@ -259,10 +284,19 @@ def health() -> dict:
 
 @app.get("/ready")
 def ready():
-    """Readiness — 200 once backend is loaded, 503 while warming."""
+    """Readiness — 200 once the local backend is loaded, 503 while warming.
+
+    The `remote` field reports whether the Cloudflare Workers AI backend
+    initialised successfully in `lifespan`. It is informational: `/ready`
+    still gates only on the local backend (which every non-allow-listed
+    template needs). Ops uses `remote` to distinguish "remote
+    unconfigured" from "remote failed to init" without grepping stderr.
+    """
     if _state["backend"] is not None:
-        return {"ready": True, "backend": BACKEND_NAME,
-                "model": _state["backend"].model_id}
+        return {"ready":   True,
+                "backend": BACKEND_NAME,
+                "model":   _state["backend"].model_id,
+                "remote":  _state["remote"] is not None}
     if _state["error"]:
         raise HTTPException(503, f"backend load failed: {_state['error']}")
     raise HTTPException(503, "backend still loading")
@@ -298,7 +332,7 @@ async def summarize(request: Request):
         try:
             summary = await asyncio.wait_for(
                 asyncio.to_thread(_generate_remote, run, remote, context),
-                timeout=INFERENCE_TIMEOUT_S,
+                timeout=INFERENCE_GENERATION_TIMEOUT_S,
             )
             return {
                 "summary":  summary,
@@ -309,8 +343,9 @@ async def summarize(request: Request):
             # Template contract violation (bad context). Real bug — surface.
             raise HTTPException(400, str(e))
         except asyncio.TimeoutError:
-            print(f"remote inference timed out after {INFERENCE_TIMEOUT_S}s "
-                  f"({template}) — falling back to local",
+            print(f"remote inference timed out template={template} "
+                  f"after {INFERENCE_GENERATION_TIMEOUT_S}s "
+                  f"— falling back to local",
                   file=sys.stderr, flush=True)
         except Exception as e:
             # Remote flake — log and fall through to local. `flush=True` so
@@ -325,20 +360,20 @@ async def summarize(request: Request):
     # Local generation: run under `_lock` inside a worker thread so the
     # event loop stays free (a wedged generation would otherwise pin
     # /health, /ready, and every other endpoint). Wall-clock capped at
-    # INFERENCE_TIMEOUT_S; on timeout we return 504 rather than let the
-    # request hang indefinitely.
+    # INFERENCE_GENERATION_TIMEOUT_S; on timeout we return 504 rather
+    # than let the request hang indefinitely.
     try:
         summary = await asyncio.wait_for(
             asyncio.to_thread(_generate_locked, run, _state["backend"], context),
-            timeout=INFERENCE_TIMEOUT_S,
+            timeout=INFERENCE_GENERATION_TIMEOUT_S,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
     except asyncio.TimeoutError:
         raise HTTPException(
             504,
-            f"generation timed out after {INFERENCE_TIMEOUT_S}s "
-            f"(template={template})")
+            f"generation timed out template={template} "
+            f"after {INFERENCE_GENERATION_TIMEOUT_S}s")
     except Exception as e:
         raise HTTPException(500, f"generation failed: {type(e).__name__}: {e}")
 
