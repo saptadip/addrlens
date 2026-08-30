@@ -16,7 +16,6 @@ polygon `(props, geom)` and point `(props, coords)` shapes; the
 service.berlin.de Bürgeramt REST/HTML block moved out to its own
 module (`loaders.buergeramt_service_portal`).
 """
-import sys
 import unicodedata
 
 from shapely.geometry import Point
@@ -866,7 +865,11 @@ if __name__ == "__main__":
     assert norm("Straße") == "strasse"
     assert norm("Schöneberg") == "schoneberg"
 
-    # Every _load_* method is on the class and reachable from __init__.
+    # Every _load_* method exists on the class AND is invoked from
+    # __init__ in the pinned order. Parsing the source keeps the
+    # boot-time stdout timeline byte-exact — a future reshuffle of
+    # loader calls trips this assertion instead of silently drifting
+    # what ops see in the logs (CLAUDE.md §14 boot-log convention).
     _expected_loaders = [
         "_load_osm_snapshot", "_load_address_index",
         "_load_catchments_and_schools", "_load_kitas",
@@ -878,5 +881,15 @@ if __name__ == "__main__":
     ]
     for name in _expected_loaders:
         assert callable(getattr(Index, name, None)), f"Index.{name} missing"
+
+    import inspect as _inspect
+    import re as _re
+    _init_src = _inspect.getsource(Index.__init__)
+    _actual_order = _re.findall(r"self\.(_load_\w+)\(\)", _init_src)
+    assert _actual_order == _expected_loaders, (
+        "Index.__init__ loader call order drifted from _expected_loaders.\n"
+        f"expected: {_expected_loaders}\n"
+        f"actual:   {_actual_order}"
+    )
 
     print("index.py selfcheck OK (pure asserts only; live Index load in app.selfcheck)")
