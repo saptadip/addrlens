@@ -719,198 +719,6 @@ def _shape_refuge_trees(t: dict) -> dict:
     })
 
 
-def _tier_buergeramt(offices: list, t: dict) -> dict:
-    """Bürgeramt — nearest of many (Berlin is free choice)."""
-    if not offices:
-        return {"tier": TIER_UNKNOWN,
-                "rule": "Bürgeramt data unavailable",
-                "numeric": "no Bürgeramt loaded"}
-    nearest = offices[0]
-    m = _walk_minutes(nearest["distance_m"])
-    within_green = sum(1 for o in offices
-                       if _walk_minutes(o["distance_m"]) <= t["green_min"])
-    if m <= t["green_min"]:
-        return {"tier": TIER_GREEN,
-                "rule": f"≥1 Bürgeramt within {t['green_min']} min walk",
-                "numeric": (f"{within_green} within {t['green_min']} min · "
-                            f"nearest {round(m)} min ({nearest['name']})")}
-    if m <= t["amber_min"]:
-        return {"tier": TIER_AMBER,
-                "rule": f"Bürgeramt {t['green_min']}–{t['amber_min']} min walk",
-                "numeric": f"nearest {round(m)} min ({nearest['name']})"}
-    return {"tier": TIER_RED,
-            "rule": f"no Bürgeramt within {t['amber_min']} min walk",
-            "numeric": f"nearest {round(m)} min ({nearest['name']})"}
-
-
-def _tier_finanzamt(office: dict, t: dict) -> dict:
-    """Finanzamt — nearest single office. `office` is the pre-selected
-    nearest from Index.finanzamt_nearest()."""
-    if not office:
-        return {"tier": TIER_UNKNOWN,
-                "rule": "Finanzamt data unavailable",
-                "numeric": "no Finanzamt loaded"}
-    m = _walk_minutes(office["distance_m"])
-    label = office["name"]
-    if m <= t["green_min"]:
-        return {"tier": TIER_GREEN,
-                "rule": f"Finanzamt within {t['green_min']} min walk",
-                "numeric": f"{round(m)} min ({label})"}
-    if m <= t["amber_min"]:
-        return {"tier": TIER_AMBER,
-                "rule": f"Finanzamt {t['green_min']}–{t['amber_min']} min walk",
-                "numeric": f"{round(m)} min ({label})"}
-    return {"tier": TIER_RED,
-            "rule": f"Finanzamt > {t['amber_min']} min walk",
-            "numeric": f"{round(m)} min ({label})"}
-
-
-def _tier_standesamt(office: dict, t: dict) -> dict:
-    """Standesamt — the pre-assigned office for the address's Bezirk.
-    `office` is None only if bezirk_for() returned None (address outside
-    Berlin's Bezirksgrenzen)."""
-    if not office:
-        return {"tier": TIER_UNKNOWN,
-                "rule": "Standesamt not determined",
-                "numeric": "Address is outside Berlin's Bezirksgrenzen"}
-    m = _walk_minutes(office["distance_m"])
-    label = office["name"]
-    if m <= t["green_min"]:
-        return {"tier": TIER_GREEN,
-                "rule": f"assigned Standesamt within {t['green_min']} min walk",
-                "numeric": f"{round(m)} min ({label})"}
-    if m <= t["amber_min"]:
-        return {"tier": TIER_AMBER,
-                "rule": f"Standesamt {t['green_min']}–{t['amber_min']} min walk",
-                "numeric": f"{round(m)} min ({label})"}
-    return {"tier": TIER_RED,
-            "rule": f"assigned Standesamt > {t['amber_min']} min walk",
-            "numeric": f"{round(m)} min ({label})"}
-
-
-def _tier_lea(office: dict, t: dict) -> dict:
-    """LEA — single central office. `office` includes `distance_m`
-    (added by the composer from cfg.lea_office)."""
-    if not office or "distance_m" not in office:
-        return {"tier": TIER_UNKNOWN,
-                "rule": "LEA data unavailable",
-                "numeric": "cfg.lea_office malformed"}
-    m = _walk_minutes(office["distance_m"])
-    label = office["name"]
-    if m <= t["green_min"]:
-        return {"tier": TIER_GREEN,
-                "rule": f"LEA within {t['green_min']} min walk",
-                "numeric": f"{round(m)} min ({label})"}
-    if m <= t["amber_min"]:
-        return {"tier": TIER_AMBER,
-                "rule": f"LEA {t['green_min']}–{t['amber_min']} min walk",
-                "numeric": f"{round(m)} min ({label})"}
-    return {"tier": TIER_RED,
-            "rule": f"LEA > {t['amber_min']} min walk",
-            "numeric": f"{round(m)} min ({label})"}
-
-
-def _tier_arbeitsagentur(offices: list, t: dict) -> dict:
-    """Arbeitsagentur — nearest of many (free choice)."""
-    if not offices:
-        return {"tier": TIER_UNKNOWN,
-                "rule": "Arbeitsagentur data unavailable",
-                "numeric": "no Arbeitsagentur loaded"}
-    nearest = offices[0]
-    m = _walk_minutes(nearest["distance_m"])
-    within_green = sum(1 for o in offices
-                       if _walk_minutes(o["distance_m"]) <= t["green_min"])
-    if m <= t["green_min"]:
-        return {"tier": TIER_GREEN,
-                "rule": f"≥1 Arbeitsagentur within {t['green_min']} min walk",
-                "numeric": (f"{within_green} within {t['green_min']} min · "
-                            f"nearest {round(m)} min ({nearest['name']})")}
-    if m <= t["amber_min"]:
-        return {"tier": TIER_AMBER,
-                "rule": f"Arbeitsagentur {t['green_min']}–{t['amber_min']} min walk",
-                "numeric": f"nearest {round(m)} min ({nearest['name']})"}
-    return {"tier": TIER_RED,
-            "rule": f"no Arbeitsagentur within {t['amber_min']} min walk",
-            "numeric": f"nearest {round(m)} min ({nearest['name']})"}
-
-
-def bureaucracy_lens(cfg, index, lon: float, lat: float) -> dict:
-    """Assemble 5 tile results for one address. Pure — no I/O on the hot path.
-
-    Reads preloaded data from Index (Bezirksgrenzen, Bürgerämter) and
-    curated data from CityConfig (Finanzamt / Standesamt / Arbeitsagentur
-    / LEA directories). No external fetches — bureaucracy is deterministic
-    (same inputs → byte-for-byte identical output).
-    """
-    lens = cfg.bureaucracy_lens
-    thresholds = {t.key: t.thresholds for t in lens.tiles}
-    tile_meta  = {t.key: (t.label, t.icon, t.caveat) for t in lens.tiles}
-
-    buergeramts    = index.buergeramt_near(lon, lat)
-    finanzamt      = index.finanzamt_nearest(lon, lat)
-    standesamt     = index.standesamt_for(lon, lat)             # None if outside Berlin
-    lea            = _with_distance(cfg.lea_office, lon, lat)   # LEA is a single point
-    arbeitsagentur = index.arbeitsagentur_near(lon, lat)
-
-    results = [
-        ("buergeramt",     _tier_buergeramt(buergeramts, thresholds["buergeramt"])),
-        ("finanzamt",      _tier_finanzamt(finanzamt, thresholds["finanzamt"])),
-        ("standesamt",     _tier_standesamt(standesamt, thresholds["standesamt"])),
-        ("lea",            _tier_lea(lea, thresholds["lea"])),
-        ("arbeitsagentur", _tier_arbeitsagentur(arbeitsagentur, thresholds["arbeitsagentur"])),
-    ]
-
-    tiles = []
-    for key, res in results:
-        label, icon, caveat = tile_meta[key]
-        tile = {
-            "key":     key,
-            "label":   label,
-            "icon":    icon,
-            "tier":    res["tier"],
-            "rule":    res["rule"],
-            "numeric": res["numeric"],
-            "caveat":  caveat,
-            "sources": _sources_for(cfg, key, res["tier"]),
-        }
-        # -- Spec D: features per bureaucracy tile ---------------------------
-        if key == "buergeramt":
-            tile["features"] = [f for f in
-                (_shape_office(o) for o in buergeramts) if f]
-        elif key == "arbeitsagentur":
-            tile["features"] = [f for f in
-                (_shape_office(o) for o in arbeitsagentur) if f]
-        elif key == "finanzamt":
-            single = _shape_office(finanzamt) if finanzamt else None
-            tile["features"] = [single] if single else []
-        elif key == "standesamt":
-            single = _shape_office(standesamt) if standesamt else None
-            tile["features"] = [single] if single else []
-        elif key == "lea":
-            single = _shape_office(lea) if lea else None
-            tile["features"] = [single] if single else []
-        else:
-            tile["features"] = []
-        tiles.append(tile)
-
-    return {
-        "slug":       lens.slug,
-        "label":      lens.label,
-        "audience":   lens.audience_hint,
-        "tiles":      tiles,
-        "provenance": _lens_provenance(cfg, tiles),
-    }
-
-
-def _with_distance(office: dict, lon: float, lat: float) -> dict:
-    """Return office dict with `distance_m` added. Used for the single-point
-    LEA (cfg.lea_office doesn't come pre-decorated with distance)."""
-    if not office or "lon" not in office or "lat" not in office:
-        return None
-    d = haversine_m(lon, lat, office["lon"], office["lat"])
-    return {**office, "distance_m": round(d)}
-
-
 def _lens_provenance(cfg, tiles: list) -> str:
     """Union of `sources` from tiles that contributed a real tier — de-duped,
     insertion-order preserved (Python 3.7+ dict semantics). Unknown tiles
@@ -946,14 +754,12 @@ def _sources_for(cfg, key: str, tier: str) -> list:
                          "© OpenStreetMap contributors (ODbL) — bus stops"],
         "supermarket":  ["© OpenStreetMap contributors (ODbL)"],
         "gesix":        [attr.get("gesix")],
-        # Spec B — Bureaucracy lens
-        "buergeramt":     [attr.get("buergeramt")],
-        "finanzamt":      [attr.get("finanzamt")],
-        "standesamt":     [attr.get("standesamt"), attr.get("bezirksgrenzen")],
-        "lea":            [attr.get("lea")],
-        "arbeitsagentur": [attr.get("arbeitsagentur")],
         # Spec E — Newcomer lens
-        # buergeramt reuses the same BOD attribution key as Spec B.
+        # The Bürgeramt tile cites the BOD attribution string. The other
+        # public-admin office data (Finanzamt / Standesamt / LEA /
+        # Arbeitsagentur) is surfaced via the raw-view Others tab through
+        # `app.core.others_admin.build`; its provenance is composed there.
+        "buergeramt":     [attr.get("buergeramt")],
         # Transit uses the same VBB attribution as the YF transit tile.
         # OSM buckets cite Geofabrik; no separate attribution key in berlin.py
         # so we inline the standard ODbL line (ponytail: add per-key entries
@@ -1541,7 +1347,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
     tile shape and resolves provenance strings from cfg.attribution.
 
     Args follow the project-wide (lon, lat) convention — same as
-    bureaucracy_lens and young_family_lens.
+    young_family_lens.
 
     Tile order (fixed): buergeramt, rail_transit, tram_transit,
     bus_transit, intl_food, coworking, english_clinic, gesix_newcomer.
@@ -1954,145 +1760,10 @@ if __name__ == "__main__":
 
     print("scorer.py: young_family composer + provenance OK")
 
-    # -- Bureaucracy lens: boundary sweeps (Spec B pure selfcheck) ----------
-    from app.cities.berlin import BERLIN as _CFG_BUR
-    _TB = {t.key: t.thresholds for t in _CFG_BUR.bureaucracy_lens.tiles}
-
-    # _walk_minutes sanity
+    # -- _walk_minutes sanity (still exercised by newcomer + shape.walk_min).
     assert _walk_minutes(0)   == 0.0
     assert _walk_minutes(62)  == 1.0
     assert abs(_walk_minutes(930) - 15.0) < 1e-9
-
-    # _tier_buergeramt — nearest of many
-    _B930 = [{"name":"BA-A","distance_m":930}]
-    _B931 = [{"name":"BA-B","distance_m":931}]
-    assert _tier_buergeramt(_B930, _TB["buergeramt"])["tier"] == TIER_GREEN
-    assert _tier_buergeramt(_B931, _TB["buergeramt"])["tier"] == TIER_AMBER
-    assert _tier_buergeramt([{"name":"X","distance_m":1860}], _TB["buergeramt"])["tier"] == TIER_AMBER
-    assert _tier_buergeramt([{"name":"X","distance_m":1861}], _TB["buergeramt"])["tier"] == TIER_RED
-    assert _tier_buergeramt([], _TB["buergeramt"])["tier"] == TIER_UNKNOWN
-
-    # _tier_finanzamt — nearest single office (dict, not list)
-    assert _tier_finanzamt({"name":"FA","distance_m":930}, _TB["finanzamt"])["tier"] == TIER_GREEN
-    assert _tier_finanzamt({"name":"FA","distance_m":931}, _TB["finanzamt"])["tier"] == TIER_AMBER
-    assert _tier_finanzamt({"name":"FA","distance_m":1860}, _TB["finanzamt"])["tier"] == TIER_AMBER
-    assert _tier_finanzamt({"name":"FA","distance_m":1861}, _TB["finanzamt"])["tier"] == TIER_RED
-    assert _tier_finanzamt(None, _TB["finanzamt"])["tier"] == TIER_UNKNOWN
-
-    # _tier_standesamt — pre-assigned dict
-    assert _tier_standesamt({"name":"SA","distance_m":930}, _TB["standesamt"])["tier"] == TIER_GREEN
-    assert _tier_standesamt({"name":"SA","distance_m":931}, _TB["standesamt"])["tier"] == TIER_AMBER
-    assert _tier_standesamt({"name":"SA","distance_m":1860}, _TB["standesamt"])["tier"] == TIER_AMBER
-    assert _tier_standesamt({"name":"SA","distance_m":1861}, _TB["standesamt"])["tier"] == TIER_RED
-    assert _tier_standesamt(None, _TB["standesamt"])["tier"] == TIER_UNKNOWN
-
-    # _tier_lea — single dict with distance_m
-    assert _tier_lea({"name":"LEA","distance_m":930}, _TB["lea"])["tier"] == TIER_GREEN
-    assert _tier_lea({"name":"LEA","distance_m":931}, _TB["lea"])["tier"] == TIER_AMBER
-    assert _tier_lea({"name":"LEA","distance_m":1860}, _TB["lea"])["tier"] == TIER_AMBER
-    assert _tier_lea({"name":"LEA","distance_m":1861}, _TB["lea"])["tier"] == TIER_RED
-    assert _tier_lea(None, _TB["lea"])["tier"] == TIER_UNKNOWN
-    assert _tier_lea({"name":"LEA"}, _TB["lea"])["tier"] == TIER_UNKNOWN  # missing distance_m
-
-    # _tier_arbeitsagentur — same shape as buergeramt
-    _A930 = [{"name":"AA-A","distance_m":930}]
-    _A931 = [{"name":"AA-B","distance_m":931}]
-    assert _tier_arbeitsagentur(_A930, _TB["arbeitsagentur"])["tier"] == TIER_GREEN
-    assert _tier_arbeitsagentur(_A931, _TB["arbeitsagentur"])["tier"] == TIER_AMBER
-    assert _tier_arbeitsagentur([{"name":"X","distance_m":1861}], _TB["arbeitsagentur"])["tier"] == TIER_RED
-    assert _tier_arbeitsagentur([], _TB["arbeitsagentur"])["tier"] == TIER_UNKNOWN
-
-    print("scorer.py: bureaucracy tier boundary sweeps OK")
-
-    # -- Bureaucracy composer — determinism, outside-Berlin, all-empty ------
-    class _StubIndex:
-        def __init__(self, bezirk="Pankow"):
-            self._bezirk = bezirk
-        def bezirk_for(self, lon, lat): return self._bezirk
-        def buergeramt_near(self, lon, lat, radius_m=3000):
-            return [{"name":"BA-Test","lat":52.5,"lon":13.4,"distance_m":500}]
-        def arbeitsagentur_near(self, lon, lat, radius_m=5000):
-            return [{"name":"AA-Test","lat":52.5,"lon":13.4,"distance_m":800}]
-        def finanzamt_nearest(self, lon, lat):
-            return {"name":"FA-Test","lat":52.5,"lon":13.4,"distance_m":600}
-        def standesamt_for(self, lon, lat):
-            if not self._bezirk: return None
-            return {"name": f"Standesamt {self._bezirk}","lat":52.5,"lon":13.4,"distance_m":700}
-
-    # Determinism — two identical calls must produce byte-equal dicts.
-    r_a = bureaucracy_lens(_CFG_BUR, _StubIndex(), 13.4, 52.5)
-    r_b = bureaucracy_lens(_CFG_BUR, _StubIndex(), 13.4, 52.5)
-    assert r_a == r_b, "bureaucracy_lens must be deterministic"
-
-    # All 5 tiles present, keys in expected order.
-    _keys = [t["key"] for t in r_a["tiles"]]
-    assert _keys == ["buergeramt","finanzamt","standesamt","lea","arbeitsagentur"], _keys
-
-    # Response shape stability (every tile has all 9 keys).
-    for t in r_a["tiles"]:
-        assert set(t.keys()) == {"key","label","icon","tier","rule","numeric","caveat","sources","features"}, t
-    assert r_a["slug"] == "bureaucracy"
-    assert r_a["label"] == "Bureaucracy"
-
-    # Caveat pass-through
-    _caveats = {t.key: t.caveat for t in _CFG_BUR.bureaucracy_lens.tiles}
-    assert _caveats["buergeramt"], "Bürgeramt tile must carry a caveat"
-    assert "Steuernummer" in _caveats["finanzamt"]
-    assert "Specialty branches" in _caveats["lea"]
-    assert _caveats["standesamt"] == "" and _caveats["arbeitsagentur"] == ""
-
-    # Outside-Berlin — bezirk_for returns None → Standesamt goes unknown
-    r_out = bureaucracy_lens(_CFG_BUR, _StubIndex(bezirk=None), 13.4, 52.5)
-    _by_out = {t["key"]: t["tier"] for t in r_out["tiles"]}
-    assert _by_out["standesamt"] == "unknown", _by_out
-
-    # Empty inputs → red, not unknown (for the "list of many" tiles)
-    class _StubEmpty(_StubIndex):
-        def buergeramt_near(self, lon, lat, radius_m=3000): return []
-        def arbeitsagentur_near(self, lon, lat, radius_m=5000): return []
-    r_empty = bureaucracy_lens(_CFG_BUR, _StubEmpty(), 13.4, 52.5)
-    _by_empty = {t["key"]: t["tier"] for t in r_empty["tiles"]}
-    # Empty preloaded list → UNKNOWN (list "unavailable" from preload failure)
-    # For "list of many" tiles, empty-list is genuinely ambiguous — the tier
-    # function goes unknown when it can't find any office. This matches Spec A
-    # semantics for playground-when-both-sources-fail.
-    assert _by_empty["buergeramt"] == "unknown"
-    assert _by_empty["arbeitsagentur"] == "unknown"
-
-    # Provenance: for the determinism case (all non-unknown), provenance must
-    # cite the sources of all 5 tiles' contributed attribution keys.
-    assert "Bürgerämter" in r_a["provenance"], r_a["provenance"]
-    assert "Finanzamt" in r_a["provenance"] or "Finanzämter" in r_a["provenance"]
-
-    # -- Spec D: features on bureaucracy output ----------------------------
-    _r_bur_full = bureaucracy_lens(_CFG_BUR, _StubIndex(), 13.4, 52.5)
-    _by_bur = {t["key"]: t for t in _r_bur_full["tiles"]}
-    # Every bureaucracy tile has features
-    for k in ["buergeramt","finanzamt","standesamt","lea","arbeitsagentur"]:
-        assert "features" in _by_bur[k], f"{k} missing features"
-    # Nearest-single tiles have exactly 1 feature (when stub returns them)
-    assert len(_by_bur["finanzamt"]["features"])  == 1
-    assert len(_by_bur["standesamt"]["features"]) == 1
-    assert len(_by_bur["lea"]["features"])        == 1
-    # Every feature has walk_min (int, from _shape_office)
-    for k in ["buergeramt","finanzamt","standesamt","lea","arbeitsagentur"]:
-        for f in _by_bur[k]["features"]:
-            assert isinstance(f.get("walk_min"), int), f
-    # Malformed input → filtered out
-    class _StubEmpty(_StubIndex):
-        def buergeramt_near(self, lon, lat, r=3000): return []
-        def arbeitsagentur_near(self, lon, lat, r=5000): return []
-        def finanzamt_nearest(self, lon, lat): return None
-        def standesamt_for(self, lon, lat): return None
-    # LEA feature will still be present (comes from cfg.lea_office, not the index)
-    _r_empty = bureaucracy_lens(_CFG_BUR, _StubEmpty(), 13.4, 52.5)
-    _bym = {t["key"]: t for t in _r_empty["tiles"]}
-    assert _bym["buergeramt"]["features"]     == []
-    assert _bym["arbeitsagentur"]["features"] == []
-    assert _bym["finanzamt"]["features"]      == []
-    assert _bym["standesamt"]["features"]     == []
-
-    print("scorer.py: bureaucracy composer OK")
 
     # -- Spec D shape helpers -----------------------------------------------
     # _prune drops None + "" but keeps 0, False, [], {}
