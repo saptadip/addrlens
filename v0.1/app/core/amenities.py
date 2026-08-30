@@ -3,10 +3,14 @@ and parks. Ship B: takes a `CityConfig` so nothing Berlin-specific remains.
 
 The Overpass tag filters (AMENITIES) stay hard-coded here: they're OSM
 schema, not city-specific.
+
+Ship D step 2: the module-level `_amen_cache` dict was replaced with the
+shared `app.core.cache.HOT_PATH` `TTLCache` (bounded size + TTL). Same
+key shape, plus an `"amenities"` namespace prefix.
 """
-import threading
 
 from app.cities.base import CityConfig
+from app.core.cache import HOT_PATH as _cache
 from app.core.geo import haversine_m
 from app.core.index import Index
 from app.core.merge import merge_bod_and_osm
@@ -33,8 +37,6 @@ _DROP_UNNAMED = {"parks", "playgrounds"}
 # Berlin BOD publishes ~200 such fragments for a typical Prenzlauer Berg
 # address; dropping them cuts modal noise 60–70% without losing real parks.
 PARK_MIN_AREA_M2 = 1500
-
-_amen_cache, _amen_lock = {}, threading.Lock()
 
 
 def is_paediatric(tags) -> bool:
@@ -152,10 +154,10 @@ def amenities_near(index: Index, cfg: CityConfig, lon, lat, radius_m=800):
     ponytail: kept the combined Overpass query (per-category parallel was slower
     thanks to Overpass per-IP slot limits). BOD calls run sequentially after —
     each is a small bbox WFS and typically <300 ms."""
-    key = (cfg.slug, round(lon, 4), round(lat, 4), radius_m)
-    with _amen_lock:
-        if key in _amen_cache:
-            return _amen_cache[key]
+    key = ("amenities", cfg.slug, round(lon, 4), round(lat, 4), radius_m)
+    hit = _cache.get(key)
+    if hit is not None:
+        return hit
 
     hospital_radius = cfg.hospital_radius_m
     hospital_match_m = cfg.hospital_match_m
@@ -309,8 +311,7 @@ def amenities_near(index: Index, cfg: CityConfig, lon, lat, radius_m=800):
         "provenance": cfg.attribution.get("fountains", ""),
     }
 
-    with _amen_lock:
-        _amen_cache[key] = result
+    _cache.set(key, result)
     return result
 
 
