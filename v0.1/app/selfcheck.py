@@ -31,6 +31,8 @@ CORE_MODULES = [
     "app.core.scoring.provenance",
     "app.core.scoring.tiers",
     "app.core.others_admin",
+    "app.core.loaders.wfs_layer",
+    "app.core.loaders.buergeramt_service_portal",
     "app.core.merge",
     "app.core.wfs",
     "app.core.overpass",

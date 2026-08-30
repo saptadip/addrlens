@@ -1,21 +1,31 @@
 """Preloaded per-city data index — catchments, schools, kitas, hospitals,
-fountains. Verbatim behaviour port of phase3/server.py:Index, refactored in
-Ship B to take a `CityConfig` so nothing Berlin-specific lives in `core/`.
+fountains, connectivity, and Phase-1 killer datasets. Verbatim behaviour
+port of phase3/server.py:Index, refactored in Ship B to take a
+`CityConfig`.
 
-Loaded once at boot (see app.main lifespan). Read-only after that — all methods
-are pure lookups against in-memory shapely trees / lists. Only the address
-geocode (`geocode()`) stays live-WFS.
+Loaded once at boot (see app.main lifespan). Read-only after that — all
+methods are pure lookups against in-memory shapely trees / lists. Only
+the address geocode (`geocode()`) stays live-WFS.
+
+Ship D step: `Index.__init__` (was 324 lines of blocking IO with 8+
+near-identical polygon/point loops) is split into per-dataset private
+`_load_*` methods. Boot order is preserved verbatim so `python -m
+app.selfcheck`'s live phase produces the same stdout timeline. Two
+shared helpers pulled out to `app.core.loaders.wfs_layer` cover the
+polygon `(props, geom)` and point `(props, coords)` shapes; the
+service.berlin.de Bürgeramt REST/HTML block moved out to its own
+module (`loaders.buergeramt_service_portal`).
 """
-import json
-import re
 import sys
 import unicodedata
-import urllib.request
 
-from shapely.geometry import Point, shape
+from shapely.geometry import Point
 
 from app.cities.base import CityConfig
 from app.core.geo import haversine_m
+from app.core.loaders.wfs_layer import (
+    load_point_layer_raw, load_polygon_layer, log_load,
+)
 from app.core.wfs import cql_esc, wfs
 
 
@@ -86,38 +96,66 @@ def _kita_info(p, cfg: CityConfig):
 # ------------------------------------------------------------------ Index
 
 class Index:
+    """Boot-loaded per-city data index. `__init__` runs a fixed sequence
+    of private `_load_*` methods; every attribute assigned below is
+    read-only after construction."""
+
     def __init__(self, cfg: CityConfig):
         self.cfg = cfg
+        # Load order mirrors the pre-split monolith so the boot-time
+        # stdout timeline is unchanged. Each `_load_*` writes its own
+        # "loading X… N items" line via `log_load`.
+        self._load_osm_snapshot()
+        self._load_address_index()
+        self._load_catchments_and_schools()
+        self._load_kitas()
+        self._load_fountains()
+        self._load_hospitals()
+        self._load_su_bahn()
+        self._load_tram()
+        self._load_regional_rail()
+        self._load_fire()
+        self._load_quiet_zones()
+        self._load_protection()
+        self._load_swim()
+        self._load_bezirksgrenzen()
+        self._load_gesix()
+        self._load_buergeramts()
 
-        # Geofabrik weekly OSM snapshot — v0.1 addition. None if the file
-        # is missing / unreadable; callers then fall back to Overpass.
+    # ---- Loaders (called once, in order, from __init__) -----------------
+
+    def _load_osm_snapshot(self) -> None:
+        """Geofabrik weekly OSM snapshot — v0.1 addition. None if the
+        file is missing / unreadable; callers fall back to Overpass."""
         from app.core.osm_local import load_osm_local
-        self.osm_local = load_osm_local(getattr(cfg, "osm_local_path", None))
+        self.osm_local = load_osm_local(getattr(self.cfg, "osm_local_path", None))
 
-        # Address prefix index for /api/suggest. Same weekly snapshot cycle
-        # as osm_local. None if the file is missing → suggest endpoint
-        # returns [] gracefully; the app still functions.
+    def _load_address_index(self) -> None:
+        """Address prefix index for /api/suggest. Same weekly snapshot
+        cycle as osm_local. None if the file is missing → suggest
+        returns [] gracefully; the app still functions."""
         from app.core.address_index import load_address_index
-        sys.stdout.write("loading address suggest index… "); sys.stdout.flush()
+        log_load("address suggest index")
         self.address_index = load_address_index(
-            getattr(cfg, "address_local_path", None))
+            getattr(self.cfg, "address_local_path", None))
         if self.address_index is None:
             print("not loaded (file missing — /api/suggest returns empty)")
         else:
             print(f"{len(self.address_index)} addresses")
 
-        sys.stdout.write("loading catchment polygons… "); sys.stdout.flush()
-        esbs = wfs(cfg.catchment_wfs_url, typeNames=cfg.catchment_layer, count=1000,
-                   outputFormat=cfg.wfs_output_format)
-        self.esbs = [(f["properties"], shape(f["geometry"])) for f in esbs["features"]]
+    def _load_catchments_and_schools(self) -> None:
+        """Catchment polygons + all schools + derived public / intl lists
+        + esb→schools point-in-polygon index."""
+        cfg = self.cfg
+        log_load("catchment polygons")
+        self.esbs = load_polygon_layer(
+            cfg, cfg.catchment_wfs_url, cfg.catchment_layer, 1000)
         print(f"{len(self.esbs)} polygons")
 
-        sys.stdout.write("loading all schools… "); sys.stdout.flush()
+        log_load("all schools")
         s_fm = cfg.schools_field_map
-        s = wfs(cfg.schools_wfs_url, typeNames=cfg.schools_layer, count=2000,
-                outputFormat=cfg.wfs_output_format)
-        self.schools = [(f["properties"], f["geometry"]["coordinates"])
-                        for f in s["features"] if f.get("geometry")]
+        self.schools = load_point_layer_raw(
+            cfg, cfg.schools_wfs_url, cfg.schools_layer, 2000)
 
         self.gs_public = [(p, c) for p, c in self.schools
                           if p.get(s_fm["type"]) == "Grundschule"
@@ -132,284 +170,245 @@ class Index:
             self.esb_to_gs[props[c_fm["id"]]] = [
                 (p, c) for p, c in self.gs_public if geom.contains(Point(c))
             ]
-        print(f"{len(self.gs_public)} public Grundschulen · {len(self.gs_intl)} intl/bilingual")
+        print(f"{len(self.gs_public)} public Grundschulen · "
+              f"{len(self.gs_intl)} intl/bilingual")
 
-        sys.stdout.write(f"loading kitas ({cfg.display_name} geoportal)… "); sys.stdout.flush()
-        k = wfs(cfg.kita_wfs_url, typeNames=cfg.kita_layer, count=5000,
-                outputFormat=cfg.wfs_output_format)
-        self.kitas = [(f["properties"], f["geometry"]["coordinates"])
-                      for f in k["features"] if f.get("geometry")]
+    def _load_kitas(self) -> None:
+        cfg = self.cfg
+        log_load(f"kitas ({cfg.display_name} geoportal)")
+        self.kitas = load_point_layer_raw(
+            cfg, cfg.kita_wfs_url, cfg.kita_layer, 5000)
         print(f"{len(self.kitas)} registered Kitas")
 
+    def _load_fountains(self) -> None:
+        """~240 fountains city-wide in Berlin; preload once,
+        distance-filter per request."""
+        cfg = self.cfg
         self.fountains = []
-        if cfg.fountains_wfs_url and cfg.fountains_layer:
-            sys.stdout.write("loading drinking fountains… "); sys.stdout.flush()
-            # ~240 fountains city-wide in Berlin; preload once, distance-filter per request.
-            r = wfs(cfg.fountains_wfs_url, typeNames=cfg.fountains_layer, count=1000,
-                    outputFormat=cfg.wfs_output_format)
-            self.fountains = [(f["properties"], f["geometry"]["coordinates"])
-                              for f in r.get("features", []) if f.get("geometry")]
-            print(f"{len(self.fountains)} fountains")
+        if not (cfg.fountains_wfs_url and cfg.fountains_layer):
+            return
+        log_load("drinking fountains")
+        self.fountains = load_point_layer_raw(
+            cfg, cfg.fountains_wfs_url, cfg.fountains_layer, 1000)
+        print(f"{len(self.fountains)} fountains")
 
+    def _load_hospitals(self) -> None:
+        """Berlin publishes two layers: statutory "Plankrankenhäuser" and
+        specialist "weitere Krankenhäuser". Both are points, both tiny
+        (~110 total city-wide) — preload once. The `_layer` kind tag on
+        each props dict is used later by `_hospital_info` to pick the
+        right rendering (beds vs. speciality)."""
+        cfg = self.cfg
         self.hospitals = []
-        if cfg.hospital_wfs_url and cfg.hospital_layers:
-            sys.stdout.write(f"loading hospitals ({cfg.display_name} geoportal)… "); sys.stdout.flush()
-            # Berlin publishes two layers: statutory "Plankrankenhäuser" and
-            # specialist "weitere Krankenhäuser". Both are points, both tiny
-            # (~110 total city-wide) — preload once.
-            for layer, kind in cfg.hospital_layers:
-                r = wfs(cfg.hospital_wfs_url, typeNames=layer, count=500,
-                        outputFormat=cfg.wfs_output_format)
-                for f in r.get("features", []):
-                    if not f.get("geometry"): continue
-                    p = dict(f["properties"]); p["_layer"] = kind
-                    self.hospitals.append((p, f["geometry"]["coordinates"]))
-            print(f"{len(self.hospitals)} hospitals")
+        if not (cfg.hospital_wfs_url and cfg.hospital_layers):
+            return
+        log_load(f"hospitals ({cfg.display_name} geoportal)")
+        for layer, kind in cfg.hospital_layers:
+            for props, coords in load_point_layer_raw(
+                    cfg, cfg.hospital_wfs_url, layer, 500):
+                p = dict(props)
+                p["_layer"] = kind
+                self.hospitals.append((p, coords))
+        print(f"{len(self.hospitals)} hospitals")
 
-        # -- Connectivity ---------------------------------------------------
-        # S/U-Bahn from the vendored VBB CSV. "S+U" combined stations count
-        # for BOTH lists so nearest-S and nearest-U give the closest station
-        # of that mode, whether or not the interchange also has the other.
+    def _load_su_bahn(self) -> None:
+        """S/U-Bahn from the vendored VBB CSV. "S+U" combined stations
+        count for BOTH lists so nearest-S and nearest-U give the closest
+        station of that mode, whether or not the interchange also has
+        the other."""
+        cfg = self.cfg
         self.sbahn, self.ubahn = [], []
-        if cfg.stations_data_path:
-            sys.stdout.write("loading S/U-Bahn stations (VBB vendored)… "); sys.stdout.flush()
-            import csv as _csv
-            with open(cfg.stations_data_path, encoding="utf-8", newline="") as f:
-                for row in _csv.DictReader(f):
-                    st = {"name": row["name"],
-                          "lat": float(row["lat"]), "lon": float(row["lon"])}
-                    m = row["mode"]
-                    if m in ("S", "S+U"): self.sbahn.append(st)
-                    if m in ("U", "S+U"): self.ubahn.append(st)
-            print(f"{len(self.sbahn)} S-Bahn · {len(self.ubahn)} U-Bahn")
+        if not cfg.stations_data_path:
+            return
+        log_load("S/U-Bahn stations (VBB vendored)")
+        import csv as _csv
+        with open(cfg.stations_data_path, encoding="utf-8", newline="") as f:
+            for row in _csv.DictReader(f):
+                st = {"name": row["name"],
+                      "lat": float(row["lat"]), "lon": float(row["lon"])}
+                m = row["mode"]
+                if m in ("S", "S+U"): self.sbahn.append(st)
+                if m in ("U", "S+U"): self.ubahn.append(st)
+        print(f"{len(self.sbahn)} S-Bahn · {len(self.ubahn)} U-Bahn")
 
-        # Tram from live BOD WFS.
+    def _load_tram(self) -> None:
+        """Tram from live BOD WFS. Berlin's feed uses MultiPoint one-per-
+        stop; the shared point loader takes the first coord."""
+        cfg = self.cfg
         self.tram = []
-        if cfg.tram_wfs_url and cfg.tram_layer:
-            sys.stdout.write("loading tram stops… "); sys.stdout.flush()
-            r = wfs(cfg.tram_wfs_url, typeNames=cfg.tram_layer, count=2000,
-                    outputFormat=cfg.wfs_output_format)
-            name_f = cfg.tram_field_map["name"]
-            for f in r.get("features", []):
-                g = f.get("geometry")
-                if not g: continue
-                # MultiPoint in Berlin's feed; take the first coord.
-                c = g["coordinates"][0] if g["type"] == "MultiPoint" else g["coordinates"]
-                self.tram.append({"name": (f["properties"].get(name_f) or "").strip(),
-                                  "lat": c[1], "lon": c[0]})
-            print(f"{len(self.tram)} tram stops")
+        if not (cfg.tram_wfs_url and cfg.tram_layer):
+            return
+        log_load("tram stops")
+        name_f = cfg.tram_field_map["name"]
+        for props, coords in load_point_layer_raw(
+                cfg, cfg.tram_wfs_url, cfg.tram_layer, 2000):
+            self.tram.append({
+                "name": (props.get(name_f) or "").strip(),
+                "lat": coords[1], "lon": coords[0],
+            })
+        print(f"{len(self.tram)} tram stops")
 
-        # Regional rail from config (curated list).
-        self.regional_rail = [{"name": n, "lat": la, "lon": lo}
-                              for n, la, lo in cfg.regional_rail_stations]
+    def _load_regional_rail(self) -> None:
+        """Regional rail from config (curated list — no WFS call)."""
+        self.regional_rail = [
+            {"name": n, "lat": la, "lon": lo}
+            for n, la, lo in self.cfg.regional_rail_stations
+        ]
 
-        # -- Phase 1: five killer datasets --------------------------------
-        # All are small enough (39–102 features) to preload once; per-request
-        # lookups are then in-memory. Baumbestand (~435k) stays per-request
-        # bbox via trees_bbox() — not preloaded.
-
-        # Fire stations + response zones. Two-layer load: zones (polygons)
-        # + stations (points). Point-in-polygon at lookup returns the
-        # regulatory-authoritative zone; nearest station is a straight
-        # distance search over all stations (crossing a zone boundary is
-        # fine — dispatch coordinates, not us).
+    def _load_fire(self) -> None:
+        """Fire stations + response zones. Two-layer load: zones
+        (polygons) + stations (points). Point-in-polygon at lookup
+        returns the regulatory-authoritative zone; nearest station is a
+        straight distance search over all stations (crossing a zone
+        boundary is fine — dispatch coordinates, not us)."""
+        cfg = self.cfg
         self.fire_stations, self.fire_zones = [], []
-        if cfg.fire_wfs_url and cfg.fire_stations_layer:
-            sys.stdout.write("loading fire stations + response zones… "); sys.stdout.flush()
-            sfm = cfg.fire_stations_field_map
-            r = wfs(cfg.fire_wfs_url, typeNames=cfg.fire_stations_layer, count=500,
-                    outputFormat=cfg.wfs_output_format)
-            for f in r.get("features", []):
-                g = f.get("geometry")
-                if not g: continue
-                lo, la = g["coordinates"]
-                p = f["properties"] or {}
-                self.fire_stations.append({
-                    "name":      p.get(sfm["name"]),
-                    "type":      p.get(sfm["type"]),        # "BF" (professional) or "FF" (volunteer)
-                    "address":   p.get(sfm["address"]),
-                    "phone_bf":  p.get(sfm["phone_bf"]),
-                    "phone_ff":  p.get(sfm["phone_ff"]),
-                    "zone_code": p.get(sfm["zone_id"]),
-                    "lat": la, "lon": lo,
-                })
-            zfm = cfg.fire_zones_field_map
-            r = wfs(cfg.fire_wfs_url, typeNames=cfg.fire_zones_layer, count=50,
-                    outputFormat=cfg.wfs_output_format)
-            for f in r.get("features", []):
-                if not f.get("geometry"): continue
-                self.fire_zones.append((f["properties"], shape(f["geometry"])))
-            print(f"{len(self.fire_stations)} stations · {len(self.fire_zones)} response zones")
+        if not (cfg.fire_wfs_url and cfg.fire_stations_layer):
+            return
+        log_load("fire stations + response zones")
+        sfm = cfg.fire_stations_field_map
+        for props, coords in load_point_layer_raw(
+                cfg, cfg.fire_wfs_url, cfg.fire_stations_layer, 500):
+            lo, la = coords
+            self.fire_stations.append({
+                "name":      props.get(sfm["name"]),
+                "type":      props.get(sfm["type"]),        # "BF" or "FF"
+                "address":   props.get(sfm["address"]),
+                "phone_bf":  props.get(sfm["phone_bf"]),
+                "phone_ff":  props.get(sfm["phone_ff"]),
+                "zone_code": props.get(sfm["zone_id"]),
+                "lat": la, "lon": lo,
+            })
+        self.fire_zones = load_polygon_layer(
+            cfg, cfg.fire_wfs_url, cfg.fire_zones_layer, 50)
+        print(f"{len(self.fire_stations)} stations · "
+              f"{len(self.fire_zones)} response zones")
 
-        # Ruhige Gebiete (quiet zones + inner-city recreation).
+    def _load_quiet_zones(self) -> None:
+        cfg = self.cfg
         self.quiet_zones = []
-        if cfg.quiet_wfs_url and cfg.quiet_layer:
-            sys.stdout.write("loading quiet + recreation zones… "); sys.stdout.flush()
-            r = wfs(cfg.quiet_wfs_url, typeNames=cfg.quiet_layer, count=200,
-                    outputFormat=cfg.wfs_output_format)
-            for f in r.get("features", []):
-                if not f.get("geometry"): continue
-                self.quiet_zones.append((f["properties"], shape(f["geometry"])))
-            print(f"{len(self.quiet_zones)} zones")
+        if not (cfg.quiet_wfs_url and cfg.quiet_layer):
+            return
+        log_load("quiet + recreation zones")
+        self.quiet_zones = load_polygon_layer(
+            cfg, cfg.quiet_wfs_url, cfg.quiet_layer, 200)
+        print(f"{len(self.quiet_zones)} zones")
 
-        # Neighborhood protection (§ 172 BauGB): EM (Milieuschutz) + ES (character).
+    def _load_protection(self) -> None:
+        """Neighborhood protection (§ 172 BauGB): EM (Milieuschutz) + ES
+        (character preservation)."""
+        cfg = self.cfg
         self.protection_em, self.protection_es = [], []
-        if cfg.protection_wfs_url and cfg.protection_em_layer:
-            sys.stdout.write("loading neighborhood protection zones… "); sys.stdout.flush()
-            for lyr, bucket in ((cfg.protection_em_layer, self.protection_em),
-                                (cfg.protection_es_layer, self.protection_es)):
-                r = wfs(cfg.protection_wfs_url, typeNames=lyr, count=500,
-                        outputFormat=cfg.wfs_output_format)
-                for f in r.get("features", []):
-                    if not f.get("geometry"): continue
-                    bucket.append((f["properties"], shape(f["geometry"])))
-            print(f"{len(self.protection_em)} Milieuschutz (EM) · {len(self.protection_es)} character (ES)")
+        if not (cfg.protection_wfs_url and cfg.protection_em_layer):
+            return
+        log_load("neighborhood protection zones")
+        self.protection_em = load_polygon_layer(
+            cfg, cfg.protection_wfs_url, cfg.protection_em_layer, 500)
+        self.protection_es = load_polygon_layer(
+            cfg, cfg.protection_wfs_url, cfg.protection_es_layer, 500)
+        print(f"{len(self.protection_em)} Milieuschutz (EM) · "
+              f"{len(self.protection_es)} character (ES)")
 
-        # Swim spots — BBB pools + EU designated natural swim spots.
+    def _load_swim(self) -> None:
+        """BBB pools + EU designated natural swim spots. Two-layer load;
+        the natural-swim layer is optional per city."""
+        cfg = self.cfg
         self.pools, self.natural_swim = [], []
-        if cfg.pools_wfs_url and cfg.pools_layer:
-            sys.stdout.write("loading pools + natural swim spots… "); sys.stdout.flush()
-            pfm = cfg.pools_field_map
-            r = wfs(cfg.pools_wfs_url, typeNames=cfg.pools_layer, count=500,
-                    outputFormat=cfg.wfs_output_format)
-            for f in r.get("features", []):
-                g = f.get("geometry")
-                if not g: continue
-                lo, la = g["coordinates"]
-                p = f["properties"] or {}
-                self.pools.append({
-                    "name":       p.get(pfm["name"]),
-                    "address":    p.get(pfm["address"]),
-                    "postcode":   p.get(pfm["postcode"]),
-                    "district":   p.get(pfm["district"]),
-                    "category":   p.get(pfm["category"]),
-                    "website":    p.get(pfm["website"]),
-                    "hours_hint": p.get(pfm["hours_hint"]),
+        if not (cfg.pools_wfs_url and cfg.pools_layer):
+            return
+        log_load("pools + natural swim spots")
+        pfm = cfg.pools_field_map
+        for props, coords in load_point_layer_raw(
+                cfg, cfg.pools_wfs_url, cfg.pools_layer, 500):
+            lo, la = coords
+            self.pools.append({
+                "name":       props.get(pfm["name"]),
+                "address":    props.get(pfm["address"]),
+                "postcode":   props.get(pfm["postcode"]),
+                "district":   props.get(pfm["district"]),
+                "category":   props.get(pfm["category"]),
+                "website":    props.get(pfm["website"]),
+                "hours_hint": props.get(pfm["hours_hint"]),
+                "lat": la, "lon": lo,
+            })
+        if cfg.swim_natural_wfs_url and cfg.swim_natural_layer:
+            nfm = cfg.swim_natural_field_map
+            for props, coords in load_point_layer_raw(
+                    cfg, cfg.swim_natural_wfs_url, cfg.swim_natural_layer, 500):
+                lo, la = coords
+                self.natural_swim.append({
+                    "name":       props.get(nfm["name"]),
+                    "eu_rating":  props.get(nfm["eu_rating"]),
+                    "website":    props.get(nfm["website"]),
+                    "cyano":      props.get(nfm["cyano"]),
                     "lat": la, "lon": lo,
                 })
-            if cfg.swim_natural_wfs_url and cfg.swim_natural_layer:
-                nfm = cfg.swim_natural_field_map
-                r = wfs(cfg.swim_natural_wfs_url, typeNames=cfg.swim_natural_layer, count=500,
-                        outputFormat=cfg.wfs_output_format)
-                for f in r.get("features", []):
-                    g = f.get("geometry")
-                    if not g: continue
-                    lo, la = g["coordinates"]
-                    p = f["properties"] or {}
-                    self.natural_swim.append({
-                        "name":       p.get(nfm["name"]),
-                        "eu_rating":  p.get(nfm["eu_rating"]),
-                        "website":    p.get(nfm["website"]),
-                        "cyano":      p.get(nfm["cyano"]),
-                        "lat": la, "lon": lo,
-                    })
-            print(f"{len(self.pools)} pools · {len(self.natural_swim)} natural swim spots")
+        print(f"{len(self.pools)} pools · "
+              f"{len(self.natural_swim)} natural swim spots")
 
-        # -- Spec B: Bureaucracy lens preloads -----------------------------
-        # Bezirksgrenzen — 12 polygons, small (§14.6 preload rule).
+    def _load_bezirksgrenzen(self) -> None:
+        """12 polygons for point-in-polygon Bezirk assignment.
+        Small (§14.6 preload rule)."""
+        cfg = self.cfg
         self.bezirksgrenzen = []
-        if cfg.bezirksgrenzen_wfs_url and cfg.bezirksgrenzen_layer:
-            sys.stdout.write("loading Bezirksgrenzen… "); sys.stdout.flush()
-            r = wfs(cfg.bezirksgrenzen_wfs_url, typeNames=cfg.bezirksgrenzen_layer,
-                    count=50, outputFormat=cfg.wfs_output_format)
-            for f in r.get("features", []):
-                if not f.get("geometry"): continue
-                self.bezirksgrenzen.append((f["properties"], shape(f["geometry"])))
-            print(f"{len(self.bezirksgrenzen)} Bezirke")
+        if not (cfg.bezirksgrenzen_wfs_url and cfg.bezirksgrenzen_layer):
+            return
+        log_load("Bezirksgrenzen")
+        self.bezirksgrenzen = load_polygon_layer(
+            cfg, cfg.bezirksgrenzen_wfs_url, cfg.bezirksgrenzen_layer, 50)
+        print(f"{len(self.bezirksgrenzen)} Bezirke")
 
-        # -- GESIx (Gesundheits- und Sozialindex) 2022 preload -----------
-        # 447 Planungsraum polygons + composite index. Small enough to keep
-        # in memory (§14.6). Point-in-polygon per lookup — no per-request
-        # WFS call. Fails soft: absent config or WFS timeout → gesix stays
-        # empty and lookups return None (Young Family lens tile becomes
-        # tier=unknown, doesn't break /api/lookup).
+    def _load_gesix(self) -> None:
+        """447 Planungsraum polygons + composite index (Berlin Senate
+        GESIx 2022). Point-in-polygon per lookup — no per-request WFS
+        call. Fails soft: absent config or WFS timeout → gesix stays
+        empty and lookups return None (Young Family lens tile becomes
+        tier=unknown, doesn't break /api/lookup)."""
+        cfg = self.cfg
         self.gesix = []
-        self._gesix_wert_sorted = []            # for percentile / quintile calc
-        if getattr(cfg, "gesix_wfs_url", None) and getattr(cfg, "gesix_layer", None):
-            sys.stdout.write("loading GESIx (health + social index)… "); sys.stdout.flush()
-            try:
-                gx = wfs(cfg.gesix_wfs_url, typeNames=cfg.gesix_layer,
-                         count=1000, outputFormat=cfg.wfs_output_format)
-                for f in gx.get("features", []):
-                    if not f.get("geometry"): continue
-                    p = f["properties"] or {}
-                    if p.get("gesix_wert") is None:
-                        continue                # planungsräume with no valid data
-                    self.gesix.append((p, shape(f["geometry"])))
-                self._gesix_wert_sorted = sorted(p.get("gesix_wert")
-                                                 for p, _ in self.gesix
-                                                 if p.get("gesix_wert") is not None)
-                print(f"{len(self.gesix)} Planungsräume")
-            except Exception as e:
-                print(f"failed ({type(e).__name__}: {e})")
+        self._gesix_wert_sorted = []
+        if not (getattr(cfg, "gesix_wfs_url", None)
+                and getattr(cfg, "gesix_layer", None)):
+            return
+        log_load("GESIx (health + social index)")
+        try:
+            for props, geom in load_polygon_layer(
+                    cfg, cfg.gesix_wfs_url, cfg.gesix_layer, 1000):
+                if props.get("gesix_wert") is None:
+                    continue                # planungsräume with no valid data
+                self.gesix.append((props, geom))
+            self._gesix_wert_sorted = sorted(
+                p.get("gesix_wert") for p, _ in self.gesix
+                if p.get("gesix_wert") is not None)
+            print(f"{len(self.gesix)} Planungsräume")
+        except Exception as e:
+            print(f"failed ({type(e).__name__}: {e})")
 
-        # Bürgerämter — service.berlin.de GeoJSON (~50 unique locations city-wide);
-        # sentinel layer "_geojson" triggers custom REST loader instead of WFS.
+    def _load_buergeramts(self) -> None:
+        """Bürgerämter. Sentinel layer "_geojson" triggers the
+        service.berlin.de REST/HTML loader (module
+        `loaders.buergeramt_service_portal`); anything else falls through
+        to the standard WFS point path."""
+        cfg = self.cfg
         self.buergeramts = []
-        if cfg.buergeramt_wfs_url and cfg.buergeramt_layer:
-            sys.stdout.write("loading Bürgerämter… "); sys.stdout.flush()
+        if not (cfg.buergeramt_wfs_url and cfg.buergeramt_layer):
+            return
+        log_load("Bürgerämter")
+        if cfg.buergeramt_layer == "_geojson":
+            from app.core.loaders.buergeramt_service_portal import load as _load_bp
+            self.buergeramts = _load_bp(cfg)
+        else:
             bfm = cfg.buergeramt_field_map
-            if cfg.buergeramt_layer == "_geojson":
-                # service.berlin.de REST GeoJSON (no WFS available for this dataset)
-                _req = urllib.request.Request(
-                    cfg.buergeramt_wfs_url,
-                    headers={"User-Agent": "berlin-family-address-intel/0.1"})
-                raw = json.loads(urllib.request.urlopen(_req, timeout=60).read())
-                # response shape: {"buergeramt": {"data": {"features": [...]}}}
-                features = (raw.get("buergeramt", {})
-                               .get("data", {})
-                               .get("features", []))
-                seen_coords = set()
-                for f in features:
-                    g = f.get("geometry")
-                    if not g: continue
-                    coords = g.get("coordinates") or []
-                    if len(coords) < 2: continue
-                    try:
-                        lo, la = float(coords[0]), float(coords[1])
-                    except (ValueError, TypeError):
-                        continue
-                    # Deduplicate by coordinate: multiple service variants share one location
-                    coord_key = (round(lo, 4), round(la, 4))
-                    if coord_key in seen_coords:
-                        continue
-                    p = f.get("properties") or {}
-                    name = (p.get("name") or "Bürgeramt").strip()
-                    # Skip training / document-pickup / appointment-only sub-entries
-                    skip_kw = ("ausbildung", "abholung", "vorzugstermin", "terminfreis",
-                               "ausbildungsplatz", "mobiles")
-                    if any(kw in name.lower() for kw in skip_kw):
-                        continue
-                    seen_coords.add(coord_key)
-                    # Extract address from HTML description field
-                    desc = p.get("description") or ""
-                    addr_match = re.search(r"<p>(.*?)<br", desc, re.DOTALL)
-                    address = re.sub("<[^>]+>", "", addr_match.group(1)).strip() if addr_match else ""
-                    # Extract website URL from description
-                    url_match = re.search(r'href="(https://service\.berlin\.de/standort/[^"]+)"', desc)
-                    website = url_match.group(1) if url_match else ""
-                    self.buergeramts.append({
-                        "name": name,
-                        "address": address,
-                        "website": website,
-                        "lat": la, "lon": lo,
-                    })
-            else:
-                # Standard WFS path (for future cities that publish a WFS)
-                r = wfs(cfg.buergeramt_wfs_url, typeNames=cfg.buergeramt_layer,
-                        count=200, outputFormat=cfg.wfs_output_format)
-                for f in r.get("features", []):
-                    g = f.get("geometry")
-                    if not g: continue
-                    lo, la = g["coordinates"]
-                    p = f["properties"] or {}
-                    self.buergeramts.append({
-                        "name":    (p.get(bfm["name"]) or "Bürgeramt").strip(),
-                        "address": (p.get(bfm["address"]) or "").strip(),
-                        "website": (p.get(bfm["website"]) or "").strip(),
-                        "lat": la, "lon": lo,
-                    })
-            print(f"{len(self.buergeramts)} Bürgerämter")
+            for props, coords in load_point_layer_raw(
+                    cfg, cfg.buergeramt_wfs_url, cfg.buergeramt_layer, 200):
+                lo, la = coords
+                self.buergeramts.append({
+                    "name":    (props.get(bfm["name"]) or "Bürgeramt").strip(),
+                    "address": (props.get(bfm["address"]) or "").strip(),
+                    "website": (props.get(bfm["website"]) or "").strip(),
+                    "lat": la, "lon": lo,
+                })
+        print(f"{len(self.buergeramts)} Bürgerämter")
 
     # -------------------------------------------------------------- lookups
 
@@ -782,7 +781,7 @@ class Index:
         hits.sort(key=lambda x: x["distance_m"])
         return hits
 
-    # -- Spec B lookups ---------------------------------------------------
+    # -- Public-admin lookups (feed the raw-view Others tab) --------------
 
     def bezirk_for(self, lon, lat):
         """Point-in-polygon over 12 Bezirksgrenzen. Returns Bezirk name or None
@@ -866,4 +865,18 @@ if __name__ == "__main__":
     # norm() drops diacritics + folds ß → ss.
     assert norm("Straße") == "strasse"
     assert norm("Schöneberg") == "schoneberg"
+
+    # Every _load_* method is on the class and reachable from __init__.
+    _expected_loaders = [
+        "_load_osm_snapshot", "_load_address_index",
+        "_load_catchments_and_schools", "_load_kitas",
+        "_load_fountains", "_load_hospitals",
+        "_load_su_bahn", "_load_tram", "_load_regional_rail",
+        "_load_fire", "_load_quiet_zones", "_load_protection",
+        "_load_swim", "_load_bezirksgrenzen", "_load_gesix",
+        "_load_buergeramts",
+    ]
+    for name in _expected_loaders:
+        assert callable(getattr(Index, name, None)), f"Index.{name} missing"
+
     print("index.py selfcheck OK (pure asserts only; live Index load in app.selfcheck)")
