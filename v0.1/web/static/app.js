@@ -3382,12 +3382,12 @@ function setLifeMode(on) {
   const btn = document.getElementById('life-mode-toggle');
   document.body.classList.toggle('life-mode', on);
   // Visual ON state lives on the switch (.lm-toggle.on), not on the whole
-  // button. Label stays "Life Mode" — no dynamic text swap.
+  // button. Label stays "Life Lens" — no dynamic text swap.
   btn.classList.toggle('on', on);
   btn.setAttribute('aria-pressed', on ? 'true' : 'false');
   btn.setAttribute('aria-label', on
-    ? 'Life Mode on (toggle to switch off)'
-    : 'Life Mode off (toggle to switch on)');
+    ? 'Life Lens on (toggle to switch off)'
+    : 'Life Lens off (toggle to switch on)');
   try { localStorage.setItem(LM_STATE_KEY, on ? 'on' : 'off'); } catch (e) {}
   // Spec D: sweep any lingering modal/tooltip state on mode switch
   const modal = document.getElementById('lens-modal');
