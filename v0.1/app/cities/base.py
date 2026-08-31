@@ -108,6 +108,21 @@ class CityConfig:
     protection_es_layer: Optional[str]
     protection_field_map: dict          # {"name","code","in_force","district","size_ha"}
 
+    # -- Quiet Living lens data ----------------------------------------
+    # Tempolimits: MultiLineString road segments carrying an EXCEPTION to
+    # the general 50 km/h. Absence of a feature ≈ default 50. Autobahns
+    # are included with their limit. Preloaded (~30k features, small
+    # enough) so tempo-30 lookup is an in-memory nearest-line query.
+    tempolimits_wfs_url:     Optional[str]
+    tempolimits_layer:       Optional[str]
+    tempolimits_field_map:   dict       # {"speed": "wert_ves", "time_restriction": "zeit_t", "reason": "durch_t"}
+    # Übergeordnetes Straßennetz: LineString centrelines of the arterial
+    # + supra-local road network. Distance-to-nearest = address exposure
+    # to primary traffic. Preloaded.
+    arterial_wfs_url:        Optional[str]
+    arterial_layer:          Optional[str]
+    arterial_field_map:      dict       # {"name":"strassenname","class":"strassenklasse1"}
+
     # Swim spots: pools (BBB) + EU-designated natural swimming waters.
     pools_wfs_url: Optional[str]
     pools_layer: Optional[str]
@@ -194,6 +209,9 @@ class CityConfig:
 
     # -- Spec E: Newcomer lens -----------------------------------------
     newcomer_lens: LensConfig             # required — Spec E lens
+
+    # -- Quiet Living lens (Ship D+) -----------------------------------
+    quiet_living_lens: LensConfig
 
     # -- Public-admin office data (raw view "Others" tab) --------------
     # Was the Bureaucracy lens (Spec B); the traffic-light composer was

@@ -87,6 +87,13 @@ from inference.templates import rail_transit_insight as rail_transit_insight_tpl
 from inference.templates import tram_transit_insight as tram_transit_insight_tpl
 from inference.templates import bus_transit_insight  as bus_transit_insight_tpl
 from inference.templates import wochenmarkt_insight as wochenmarkt_insight_tpl
+# Quiet Living lens templates
+from inference.templates import quiet_zone_insight as quiet_zone_insight_tpl
+from inference.templates import street_trees_insight as street_trees_insight_tpl
+from inference.templates import tempo30_insight as tempo30_insight_tpl
+from inference.templates import arterial_road_insight as arterial_road_insight_tpl
+from inference.templates import rail_noise_insight as rail_noise_insight_tpl
+from inference.templates import nightlife_inverted_insight as nightlife_inverted_insight_tpl
 
 # ---------- Sentry (production error tracking) ----------
 # Env-guarded. Local dev (Apple Silicon, INFERENCE_BACKEND=mlx) leaves the DSN
@@ -189,6 +196,13 @@ TEMPLATES = {
     "library_insight":           library_insight_tpl.run,
     "packstation_insight":       packstation_insight_tpl.run,
     "wochenmarkt_insight":       wochenmarkt_insight_tpl.run,
+    # Quiet Living lens templates:
+    "quiet_zone_insight":         quiet_zone_insight_tpl.run,
+    "street_trees_insight":       street_trees_insight_tpl.run,
+    "tempo30_insight":            tempo30_insight_tpl.run,
+    "arterial_road_insight":      arterial_road_insight_tpl.run,
+    "rail_noise_insight":         rail_noise_insight_tpl.run,
+    "nightlife_inverted_insight": nightlife_inverted_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state

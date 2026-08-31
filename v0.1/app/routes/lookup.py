@@ -166,6 +166,21 @@ def lookup(
         lens_newcomer = {"slug": "newcomer",
                          "error": f"{type(e).__name__}: {e}"}
 
+    # --- Quiet Living lens ------------------------------------------------
+    # Reuses the same air / noise / quiet_zone / trees values computed
+    # once above so the raw view and the lens can never disagree.
+    # Additive — wrapped in try/except like every other lens.
+    try:
+        from app.core.lenses.quiet_living import quiet_living_lens
+        lens_quiet = quiet_living_lens(
+            cfg, index, lon, lat,
+            air=air, noise=_noise,
+            quiet_zone=quiet_zone, trees=trees_summary,
+        )
+    except Exception as e:
+        lens_quiet = {"slug": "quiet_living",
+                      "error": f"{type(e).__name__}: {e}"}
+
     return {
         "address": {"street": street, "hnr": hnr, "plz": plz,
                     "lon": lon, "lat": lat, "raw": geo["props"]},
@@ -186,8 +201,9 @@ def lookup(
         "trees":        trees_summary,
         "air":          air,
         "heat":         heat,
-        "lens":         {"young_family": lens_yf,
-                         "newcomer": lens_newcomer},
+        "lens":         {"young_family":  lens_yf,
+                         "newcomer":      lens_newcomer,
+                         "quiet_living":  lens_quiet},
         "others":       {"bureaucracy": others_admin},
         "provenance": {
             "catchment":     cfg.attribution["catchment"],
@@ -207,5 +223,7 @@ def lookup(
             "natural_swim":  cfg.attribution.get("natural_swim", ""),
             "air":           cfg.attribution.get("air", ""),
             "heat":          cfg.attribution.get("heat", ""),
+            "tempolimits":   cfg.attribution.get("tempolimits", ""),
+            "arterial_road": cfg.attribution.get("arterial_road", ""),
         },
     }

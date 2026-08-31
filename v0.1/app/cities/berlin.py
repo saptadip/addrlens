@@ -57,6 +57,9 @@ _WFS_SWIM_NATURAL  = "https://gdi.berlin.de/services/wfs/badegewaesser"
 # Phase 2 (Umweltatlas)
 _WFS_AIR           = "https://gdi.berlin.de/services/wfs/ua_luftreinhalteplan_2018_2025"
 _WFS_HEAT          = "https://gdi.berlin.de/services/wfs/ua_klimabewertung_2022"
+# Quiet Living lens
+_WFS_TEMPOLIMITS   = "https://gdi.berlin.de/services/wfs/tempolimits"          # layer: tempolimits:hoechstgeschwindigkeit — MultiLineString road segments with speed exception (dl-de/zero-2.0)
+_WFS_STRNETZ       = "https://gdi.berlin.de/services/wfs/strnetz"              # layer: strnetz:uebergeordnetes_strnetz — LineString centrelines of arterial network (dl-de/zero-2.0)
 # Spec B — Bureaucracy lens
 _WFS_BEZIRKE       = "https://gdi.berlin.de/services/wfs/alkis_bezirke"        # layer: alkis_bezirke:bezirksgrenzen (verified via GetCapabilities)
 _BUERGERAEMTER_URL = "https://service.berlin.de/standorte/geojson/buergeramt"  # service.berlin.de REST GeoJSON (no WFS published); sentinel layer "_geojson" triggers custom loader
@@ -348,6 +351,77 @@ NEWCOMER_LENS: LensConfig = LensConfig(
     ),
 )
 
+# --- Quiet Living lens ------------------------------------------------------
+# Nine tiles for someone who wants a calm, low-noise home. Noise + air are
+# reused from the Young Family lens; refuge is split back into its two
+# component signals (quiet zone + street trees) because a "quiet living"
+# audience cares about each independently rather than an OR-forgiving
+# composite. Three new tiles come from newly-wired Berlin WFS layers
+# (Tempolimits, Übergeordnetes Straßennetz) and one from a reinterpreted
+# use of the Newcomer nightlife bucket (inverted: fewer = better here).
+QUIET_LIVING_LENS: LensConfig = LensConfig(
+    slug="quiet_living",
+    label="Quiet Living",
+    audience_hint="For someone who wants a calm, low-noise home",
+    tiles=(
+        LensTileConfig(
+            key="noise", label="Façade noise", icon="noise",
+            # Same boundaries as Young Family — WHO 55/60 dB L_DEN.
+            thresholds={"green_db": 55, "amber_db": 60},
+        ),
+        LensTileConfig(
+            key="air", label="Air quality (NO₂)", icon="air",
+            thresholds={"green_ugm3": 20, "amber_ugm3": 40},
+        ),
+        LensTileConfig(
+            key="quiet_zone", label="Nearest quiet zone", icon="refuge",
+            thresholds={"green_m": 400, "amber_m": 1000},
+            caveat=("Berlin 'Ruhige Gebiete' §47d BImSchG designation — "
+                    "these zones combine acoustic quiet with recreation "
+                    "value. Distance is to the polygon edge."),
+        ),
+        LensTileConfig(
+            key="street_trees", label="Street tree canopy", icon="refuge",
+            # Same cutoffs as YF's refuge composite half.
+            thresholds={"green_pct": 25, "amber_pct": 15},
+        ),
+        LensTileConfig(
+            key="tempo30", label="Speed limit at your street", icon="tempo30",
+            thresholds={"green_kmh": 30, "amber_kmh": 50, "default_kmh": 50},
+            caveat=("Berlin's Tempolimits WFS lists EXCEPTIONS to the "
+                    "general 50 km/h. Absence of a nearby exception is "
+                    "reported as 'default 50 km/h', not unknown."),
+        ),
+        LensTileConfig(
+            key="arterial_road", label="Distance to arterial road", icon="arterial_road",
+            thresholds={"green_m": 150, "amber_m": 50},
+            caveat=("Übergeordnetes Straßennetz Bestand — Berlin's "
+                    "arterial + supra-local road network. Distance to "
+                    "the nearest one is a rough proxy for exposure to "
+                    "traffic noise and dust."),
+        ),
+        LensTileConfig(
+            key="rail_noise", label="Rail-track proximity", icon="rail_noise",
+            thresholds={"green_m": 400, "amber_m": 200},
+            caveat=("Uses S-Bahn / U-Bahn station coordinates as a proxy "
+                    "for track proximity. U-Bahn is treated as always "
+                    "green because Berlin's U-Bahn is underground on "
+                    "most sections; S-Bahn scales by distance."),
+        ),
+        LensTileConfig(
+            key="nightlife_inverted", label="Nightlife within 300 m", icon="nightlife",
+            thresholds={"radius_m": 300, "green_max": 3, "amber_max": 8},
+            caveat=("Inverse of the Newcomer nightlife tile — fewer bars/"
+                    "clubs/pubs within 300 m is greener here. Same OSM "
+                    "data, opposite framing."),
+        ),
+        LensTileConfig(
+            key="gesix_quiet", label="Neighbourhood profile", icon="gesix",
+            thresholds={},   # shape-only, same pattern as gesix / gesix_newcomer
+        ),
+    ),
+)
+
 BERLIN = CityConfig(
     slug="berlin",
     display_name="Berlin",
@@ -455,6 +529,25 @@ BERLIN = CityConfig(
         "district": "bezirk", "size_ha": "fl_ha",   # note: `es` layer uses fl_in_ha; loader tries both.
     },
 
+    # -- Quiet Living lens data ----------------------------------------
+    # Tempolimits: MultiLineString road segments carrying a speed
+    # exception to the general 50 km/h. `wert_ves` is the km/h value.
+    tempolimits_wfs_url=_WFS_TEMPOLIMITS,
+    tempolimits_layer="tempolimits:hoechstgeschwindigkeit",
+    tempolimits_field_map={
+        "speed":            "wert_ves",
+        "time_restriction": "zeit_t",
+        "reason":           "durch_t",
+    },
+    # Übergeordnetes Straßennetz: arterial + supra-local road centrelines.
+    # Any address's distance-to-nearest = exposure to primary traffic.
+    arterial_wfs_url=_WFS_STRNETZ,
+    arterial_layer="strnetz:uebergeordnetes_strnetz",
+    arterial_field_map={
+        "name":  "strassenname",
+        "class": "strassenklasse1",   # "I" = federal-tier, "II" = arterial-tier
+    },
+
     pools_wfs_url=_WFS_POOLS,
     pools_layer="schwimmbaeder_berlin:schwimmbaeder",
     pools_field_map={
@@ -558,6 +651,8 @@ BERLIN = CityConfig(
         "standesamt":     "Curated from berlin.de Standesamt-Verzeichnis (public reference)",
         "lea":            "Curated from Landesamt für Einwanderung Berlin (public reference)",
         "arbeitsagentur": "Curated from Bundesagentur für Arbeit Berlin-Brandenburg (public reference)",
+        "tempolimits":    "Geoportal Berlin / Tempolimits — angeordnete Höchstgeschwindigkeiten (dl-de/zero-2.0)",
+        "arterial_road":  "Geoportal Berlin / Übergeordnetes Straßennetz — Bestand (dl-de/zero-2.0)",
     },
     # Geofabrik weekly snapshot lives at data/osm/berlin-amenities.json.
     # Env override for prod: OSM_LOCAL_PATH=/mnt/osm/berlin-amenities.json.
@@ -574,6 +669,7 @@ BERLIN = CityConfig(
 
     young_family_lens=YOUNG_FAMILY_LENS,
     newcomer_lens=NEWCOMER_LENS,
+    quiet_living_lens=QUIET_LIVING_LENS,
 
     # --- Others tab: public-admin office data ---------------------
     bezirksgrenzen_wfs_url=_WFS_BEZIRKE,
