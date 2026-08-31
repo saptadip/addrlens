@@ -46,6 +46,20 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "packstation":     ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "wochenmarkt":     ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "gesix_newcomer":  [attr.get("gesix")],
+        # Ship D+ — Quiet Living lens
+        # `noise`, `air`, and `gesix_quiet` reuse the Young Family tile
+        # keys' attribution strings above via the same map lookup on
+        # `attribution["noise"] / ["air"] / ["gesix"]`.
+        "quiet_zone":         [attr.get("quiet_zone")],
+        "street_trees":       [attr.get("trees")],
+        "tempo30":            [attr.get("tempolimits")],
+        "arterial_road":      [attr.get("arterial_road")],
+        # Rail-noise cites S+U attribution because it's derived from
+        # those station coords as a track proxy.
+        "rail_noise":         [attr.get("sbahn"), attr.get("ubahn")],
+        # Nightlife inverted reuses the newcomer OSM Geofabrik line.
+        "nightlife_inverted": ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "gesix_quiet":        [attr.get("gesix")],
     }
     return [s for s in (mapping.get(key) or []) if s]
 

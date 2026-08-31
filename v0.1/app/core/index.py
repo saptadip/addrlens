@@ -19,6 +19,7 @@ module (`loaders.buergeramt_service_portal`).
 import unicodedata
 
 from shapely.geometry import Point
+from shapely.strtree import STRtree
 
 from app.cities.base import CityConfig
 from app.core.geo import haversine_m
@@ -120,6 +121,8 @@ class Index:
         self._load_bezirksgrenzen()
         self._load_gesix()
         self._load_buergeramts()
+        self._load_tempolimits()
+        self._load_arterial_roads()
 
     # ---- Loaders (called once, in order, from __init__) -----------------
 
@@ -408,6 +411,47 @@ class Index:
                     "lat": la, "lon": lo,
                 })
         print(f"{len(self.buergeramts)} Bürgerämter")
+
+    def _load_tempolimits(self) -> None:
+        """Berlin Tempolimits — road segments with speed exceptions to the
+        general 50 km/h (Tempo-30 zones, 40, 60, Autobahn limits).
+
+        ~30k features, small enough to preload. Stored as
+        `[(props, shapely.MultiLineString), …]` plus an STRtree over the
+        geometries for O(log n) nearest-segment lookup.
+        """
+        cfg = self.cfg
+        self.tempolimits = []
+        self._tempolimits_tree: STRtree | None = None
+        if not (cfg.tempolimits_wfs_url and cfg.tempolimits_layer):
+            return
+        log_load("Tempolimits (speed exceptions)")
+        # `count=100000` — headroom over the ~30k current segment count
+        # so a future feed-side growth spurt doesn't silently drop
+        # segments from the STRtree.
+        self.tempolimits = load_polygon_layer(
+            cfg, cfg.tempolimits_wfs_url, cfg.tempolimits_layer, 100000)
+        if self.tempolimits:
+            self._tempolimits_tree = STRtree([g for _, g in self.tempolimits])
+        print(f"{len(self.tempolimits)} speed-exception segments")
+
+    def _load_arterial_roads(self) -> None:
+        """Übergeordnetes Straßennetz — LineString centrelines of the
+        arterial + supra-local road network. Any address's distance to
+        the nearest feature = exposure to primary traffic noise.
+        Preloaded (~15-25k features) with an STRtree over the geometries."""
+        cfg = self.cfg
+        self.arterial_roads = []
+        self._arterial_tree: STRtree | None = None
+        if not (cfg.arterial_wfs_url and cfg.arterial_layer):
+            return
+        log_load("arterial road network")
+        # `count=100000` — headroom over the current segment count.
+        self.arterial_roads = load_polygon_layer(
+            cfg, cfg.arterial_wfs_url, cfg.arterial_layer, 100000)
+        if self.arterial_roads:
+            self._arterial_tree = STRtree([g for _, g in self.arterial_roads])
+        print(f"{len(self.arterial_roads)} arterial segments")
 
     # -------------------------------------------------------------- lookups
 
@@ -836,6 +880,107 @@ class Index:
         d = haversine_m(lon, lat, office["lon"], office["lat"])
         return {**office, "distance_m": round(d)}
 
+    # -- Quiet Living lens lookups ---------------------------------------
+
+    def tempolimit_at(self, lon, lat, radius_m=100):
+        """Nearest Tempolimits segment within `radius_m`. Returns
+        `{"speed_kmh": float, "distance_m": int, "reason": str, "time_restriction": str|None}`
+        or `None` if no exception feature is within radius (interpret as
+        "default 50 km/h in effect").
+
+        Uses the STRtree to prune candidates before running the exact
+        `Point.project` on each geometry. Distance is haversine metres
+        between the address and the nearest point on the LineString.
+        """
+        if not self.tempolimits or self._tempolimits_tree is None:
+            return None
+        pt = Point(lon, lat)
+        # ~2×radius as a degree envelope (1° ≈ 111 km); at Berlin lat.
+        deg_padding = max(0.002, (radius_m * 2) / 111_000.0)
+        buf = pt.buffer(deg_padding)
+        idx_candidates = self._tempolimits_tree.query(buf)
+        best_idx, best_d = None, float("inf")
+        for i in idx_candidates:
+            _, geom = self.tempolimits[int(i)]
+            try:
+                near_pt = geom.interpolate(geom.project(pt))
+            except Exception:
+                continue
+            d = haversine_m(lon, lat, near_pt.x, near_pt.y)
+            if d < best_d:
+                best_d, best_idx = d, int(i)
+        if best_idx is None or best_d > radius_m:
+            return None
+        props, _ = self.tempolimits[best_idx]
+        fm = self.cfg.tempolimits_field_map
+        return {
+            "speed_kmh":        props.get(fm["speed"]),
+            "distance_m":       round(best_d),
+            "reason":           (props.get(fm["reason"]) or "").strip() or None,
+            "time_restriction": (props.get(fm["time_restriction"]) or "").strip() or None,
+        }
+
+    def nearest_arterial(self, lon, lat, radius_m=500):
+        """Nearest arterial road within `radius_m`. Returns
+        `{"name": str, "class": str, "distance_m": int}` or `None`
+        if no arterial is within radius (interpret as "quiet residential
+        block")."""
+        if not self.arterial_roads or self._arterial_tree is None:
+            return None
+        pt = Point(lon, lat)
+        deg_padding = max(0.005, (radius_m * 2) / 111_000.0)
+        buf = pt.buffer(deg_padding)
+        idx_candidates = self._arterial_tree.query(buf)
+        best_idx, best_d = None, float("inf")
+        for i in idx_candidates:
+            _, geom = self.arterial_roads[int(i)]
+            try:
+                near_pt = geom.interpolate(geom.project(pt))
+            except Exception:
+                continue
+            d = haversine_m(lon, lat, near_pt.x, near_pt.y)
+            if d < best_d:
+                best_d, best_idx = d, int(i)
+        if best_idx is None or best_d > radius_m:
+            return None
+        props, _ = self.arterial_roads[best_idx]
+        fm = self.cfg.arterial_field_map
+        return {
+            "name":       (props.get(fm["name"]) or "").strip() or "arterial road",
+            "class":      (props.get(fm["class"]) or "").strip() or None,
+            "distance_m": round(best_d),
+        }
+
+    def rail_track_proximity(self, lon, lat):
+        """Nearest S-Bahn or U-Bahn station as a proxy for exposure to
+        rail-track noise. Returns
+        `{"mode": "S-Bahn"|"U-Bahn", "name": str, "distance_m": int}`
+        for the closest of the two.
+
+        ponytail: station coords are a proxy — real S-Bahn tracks extend
+        kilometres beyond each station and generate the actual noise.
+        A better signal would be the OSM `railway=rail` LineString,
+        which we don't currently preload. Upgrade path: wire the OSM
+        rail-line layer via osm_local and switch this to a real
+        distance-to-track query.
+        """
+        best_mode, best_st, best_d = None, None, float("inf")
+        for mode, stations in (("S-Bahn", self.sbahn), ("U-Bahn", self.ubahn)):
+            if not stations:
+                continue
+            st = min(stations,
+                     key=lambda s: haversine_m(lon, lat, s["lon"], s["lat"]))
+            d = haversine_m(lon, lat, st["lon"], st["lat"])
+            if d < best_d:
+                best_mode, best_st, best_d = mode, st, d
+        if best_st is None:
+            return None
+        return {
+            "mode":       best_mode,
+            "name":       best_st["name"],
+            "distance_m": round(best_d),
+        }
+
 
 if __name__ == "__main__":
     # Pure-only asserts (network Index construction is exercised in the live
@@ -878,6 +1023,7 @@ if __name__ == "__main__":
         "_load_fire", "_load_quiet_zones", "_load_protection",
         "_load_swim", "_load_bezirksgrenzen", "_load_gesix",
         "_load_buergeramts",
+        "_load_tempolimits", "_load_arterial_roads",
     ]
     for name in _expected_loaders:
         assert callable(getattr(Index, name, None)), f"Index.{name} missing"

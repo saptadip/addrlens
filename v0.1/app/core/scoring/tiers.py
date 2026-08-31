@@ -545,6 +545,179 @@ def _tier_nightlife_density(features: list, th: dict) -> dict:
             "numeric": f"{n} bars / clubs / pubs within 1 km"}
 
 
+# ==================================================================== #
+# Quiet Living tiers.                                                  #
+# ==================================================================== #
+
+
+def _tier_tempo30(tempo: dict, th: dict) -> dict:
+    """Speed limit at the address. `tempo` is either None (no exception
+    feature within radius — default 50 km/h applies) or a dict from
+    `Index.tempolimit_at` with `speed_kmh`, `distance_m`, `reason`,
+    `time_restriction`.
+
+    Green if ≤ green_kmh (Tempo-30 territory), red if ≥ red_kmh
+    (arterial / Stadtautobahn), amber for the default 40–50."""
+    if not tempo or tempo.get("speed_kmh") is None:
+        # No exception feature nearby: general 50 km/h applies. Not
+        # unknown — Berlin's default IS documented public information.
+        return {"tier": TIER_AMBER,
+                "rule": f"default {th.get('default_kmh', 50)} km/h (no exception nearby)",
+                "numeric": f"assumed {th.get('default_kmh', 50)} km/h"}
+    speed = float(tempo["speed_kmh"])
+    d = tempo["distance_m"]
+    reason = tempo.get("reason")
+    time_r = tempo.get("time_restriction")
+    numeric_bits = [f"{int(speed)} km/h at {int(d)} m"]
+    if time_r:
+        numeric_bits.append(f"({time_r})")
+    if reason:
+        numeric_bits.append(f"— {reason}")
+    numeric = " ".join(numeric_bits)
+    if speed <= th["green_kmh"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"speed limit ≤ {th['green_kmh']} km/h",
+                "numeric": numeric}
+    if speed <= th["amber_kmh"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"speed limit {th['green_kmh']+1}–{th['amber_kmh']} km/h",
+                "numeric": numeric}
+    return {"tier": TIER_RED,
+            "rule": f"speed limit > {th['amber_kmh']} km/h",
+            "numeric": numeric}
+
+
+def _tier_arterial_road(arterial: dict, th: dict) -> dict:
+    """Distance to the nearest arterial road. `arterial` is None (nothing
+    within the search radius = quiet residential) or a dict from
+    `Index.nearest_arterial` with `name`, `class`, `distance_m`.
+
+    Green ≥ green_m (side-street territory), red < amber_m (directly on
+    or next to an arterial)."""
+    if not arterial:
+        return {"tier": TIER_GREEN,
+                "rule": f"≥ {th['green_m']} m to nearest arterial",
+                "numeric": "no arterial within search radius"}
+    d = arterial["distance_m"]
+    label = arterial.get("name") or "arterial road"
+    if d >= th["green_m"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"≥ {th['green_m']} m to nearest arterial",
+                "numeric": f"{int(d)} m to {label}"}
+    if d >= th["amber_m"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"{th['amber_m']}–{th['green_m']-1} m to nearest arterial",
+                "numeric": f"{int(d)} m to {label}"}
+    return {"tier": TIER_RED,
+            "rule": f"< {th['amber_m']} m to nearest arterial",
+            "numeric": f"{int(d)} m to {label}"}
+
+
+def _tier_rail_noise(rail: dict, th: dict) -> dict:
+    """Rail-track proximity as a noise proxy. `rail` is None (no S/U
+    station preloaded) or a dict from `Index.rail_track_proximity` with
+    `mode`, `name`, `distance_m`.
+
+    ponytail: uses station coordinates as a proxy for the tracks that
+    generate the actual noise. Upgrade path documented on the Index
+    method. U-Bahn is treated as always green because Berlin's U-Bahn
+    is underground on most sections (elevated Hochbahn portions are
+    the exception, not the rule).
+    """
+    if not rail:
+        return {"tier": TIER_GREEN,
+                "rule": f"no rail station within {th['amber_m']} m",
+                "numeric": "no S-Bahn or U-Bahn station preloaded"}
+    if rail.get("mode") == "U-Bahn":
+        return {"tier": TIER_GREEN,
+                "rule": "nearest rail is U-Bahn (underground on most sections)",
+                "numeric": f"{int(rail['distance_m'])} m to U-Bahn {rail['name']}"}
+    d = rail["distance_m"]
+    name = rail.get("name", "rail")
+    if d >= th["green_m"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"S-Bahn ≥ {th['green_m']} m away",
+                "numeric": f"{int(d)} m to S-Bahn {name}"}
+    if d >= th["amber_m"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"S-Bahn {th['amber_m']}–{th['green_m']-1} m away",
+                "numeric": f"{int(d)} m to S-Bahn {name}"}
+    return {"tier": TIER_RED,
+            "rule": f"S-Bahn < {th['amber_m']} m away",
+            "numeric": f"{int(d)} m to S-Bahn {name}"}
+
+
+def _tier_quiet_zone_solo(quiet_zone: dict, th: dict) -> dict:
+    """Standalone version of the quiet-zone distance signal — no
+    compositing with trees. Threshold shape: {"green_m", "amber_m"}.
+    None → unknown (WFS didn't return anything within its own radius)."""
+    if not quiet_zone or quiet_zone.get("distance_m") is None:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Quiet-zone data unavailable",
+                "numeric": "no quiet-zone polygon within search"}
+    d = quiet_zone["distance_m"]
+    name = (quiet_zone.get("name") or "").strip() or "quiet zone"
+    if d <= th["green_m"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"quiet zone within {th['green_m']} m",
+                "numeric": f"{int(d)} m to {name}"}
+    if d <= th["amber_m"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"quiet zone within {th['amber_m']} m",
+                "numeric": f"{int(d)} m to {name}"}
+    return {"tier": TIER_RED,
+            "rule": f"no quiet zone within {th['amber_m']} m",
+            "numeric": f"{int(d)} m to {name}"}
+
+
+def _tier_street_trees(trees: dict, th: dict) -> dict:
+    """Street-tree canopy coverage in a bbox around the address.
+    Threshold shape: {"green_pct", "amber_pct"}.
+    Green ≥ green_pct, amber ≥ amber_pct."""
+    if not trees or trees.get("crown_coverage_pct") is None:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Street-tree data unavailable",
+                "numeric": (trees or {}).get("error") or "trees WFS returned no rows"}
+    pct = trees["crown_coverage_pct"]
+    n = trees.get("count", 0)
+    numeric = f"{pct}% canopy across {n} trees"
+    if pct >= th["green_pct"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"canopy ≥ {th['green_pct']}%",
+                "numeric": numeric}
+    if pct >= th["amber_pct"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"canopy {th['amber_pct']}–{th['green_pct']-1}%",
+                "numeric": numeric}
+    return {"tier": TIER_RED,
+            "rule": f"canopy < {th['amber_pct']}%",
+            "numeric": numeric}
+
+
+def _tier_nightlife_inverted(features: list, th: dict) -> dict:
+    """Inverted nightlife density — for the Quiet Living lens, fewer
+    bars / clubs / pubs within radius is GREEN, not the newcomer
+    lens's numeric-only stance. Same OSM data, opposite framing.
+
+    Threshold shape: {"radius_m", "green_max", "amber_max"}.
+    Green ≤ green_max; amber green_max+1..amber_max; red > amber_max.
+    """
+    n = len(features)
+    r = _fmt_dist(th["radius_m"])
+    numeric = f"{n} bars / clubs / pubs within {th['radius_m']} m"
+    if n <= th["green_max"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"≤ {th['green_max']} nightlife venues within {r}",
+                "numeric": numeric}
+    if n <= th["amber_max"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"{th['green_max']+1}–{th['amber_max']} nightlife venues within {r}",
+                "numeric": numeric}
+    return {"tier": TIER_RED,
+            "rule": f"> {th['amber_max']} nightlife venues within {r}",
+            "numeric": numeric}
+
+
 def _tier_wochenmarkt(features: list, th: dict) -> dict:
     """Distance-to-nearest permitted weekly market (Wochenmarkt).
 
@@ -639,5 +812,77 @@ if __name__ == "__main__":
     r_cow = _tier_coworking([],
                              {"radius_m": 1000, "green_count": 3, "amber_count": 1})
     assert r_cow["tier"] == "red" and "remote-work" in r_cow["numeric"]
+
+    # -- Quiet Living tiers -----------------------------------------------
+
+    # Tempo-30 boundaries.
+    th_t30 = {"green_kmh": 30, "amber_kmh": 50, "default_kmh": 50}
+    r = _tier_tempo30({"speed_kmh": 30, "distance_m": 15,
+                       "reason": "verkehrsberuhigt", "time_restriction": None}, th_t30)
+    assert r["tier"] == "green" and "30 km/h" in r["numeric"], r
+    r = _tier_tempo30({"speed_kmh": 50, "distance_m": 5,
+                       "reason": None, "time_restriction": None}, th_t30)
+    assert r["tier"] == "amber", r
+    r = _tier_tempo30({"speed_kmh": 60, "distance_m": 1,
+                       "reason": None, "time_restriction": None}, th_t30)
+    assert r["tier"] == "red", r
+    # None → default 50 → amber, honest numeric.
+    r = _tier_tempo30(None, th_t30)
+    assert r["tier"] == "amber" and "assumed 50" in r["numeric"], r
+    # Time-restricted Tempo-30 (e.g. school-hour): still counts as green
+    # because the exception is present; numeric surfaces the restriction.
+    r = _tier_tempo30({"speed_kmh": 30, "distance_m": 20,
+                       "reason": None, "time_restriction": "07:00-17:00"},
+                      th_t30)
+    assert r["tier"] == "green" and "07:00-17:00" in r["numeric"], r
+
+    # Arterial road boundaries.
+    th_art = {"green_m": 150, "amber_m": 50}
+    r = _tier_arterial_road(None, th_art)
+    assert r["tier"] == "green" and "no arterial" in r["numeric"]
+    r = _tier_arterial_road({"name": "Torstraße", "class": "II",
+                              "distance_m": 200}, th_art)
+    assert r["tier"] == "green" and "Torstraße" in r["numeric"]
+    r = _tier_arterial_road({"name": "Torstraße", "class": "II",
+                              "distance_m": 100}, th_art)
+    assert r["tier"] == "amber"
+    r = _tier_arterial_road({"name": "Torstraße", "class": "II",
+                              "distance_m": 20}, th_art)
+    assert r["tier"] == "red"
+
+    # Rail noise boundaries. U-Bahn is always green (underground);
+    # S-Bahn scales by distance.
+    th_rail = {"green_m": 400, "amber_m": 200}
+    assert _tier_rail_noise(None, th_rail)["tier"] == "green"
+    assert _tier_rail_noise({"mode": "U-Bahn", "name": "U Turmstr.",
+                             "distance_m": 30}, th_rail)["tier"] == "green"
+    assert _tier_rail_noise({"mode": "S-Bahn", "name": "S Ostkreuz",
+                             "distance_m": 500}, th_rail)["tier"] == "green"
+    assert _tier_rail_noise({"mode": "S-Bahn", "name": "S Ostkreuz",
+                             "distance_m": 300}, th_rail)["tier"] == "amber"
+    assert _tier_rail_noise({"mode": "S-Bahn", "name": "S Ostkreuz",
+                             "distance_m": 100}, th_rail)["tier"] == "red"
+
+    # Solo quiet zone (Quiet Living splits from YF's composite refuge).
+    th_qz = {"green_m": 400, "amber_m": 1000}
+    assert _tier_quiet_zone_solo(None, th_qz)["tier"] == "unknown"
+    assert _tier_quiet_zone_solo({"name": "Volkspark", "distance_m": 300}, th_qz)["tier"] == "green"
+    assert _tier_quiet_zone_solo({"name": "V", "distance_m": 800}, th_qz)["tier"] == "amber"
+    assert _tier_quiet_zone_solo({"name": "V", "distance_m": 2000}, th_qz)["tier"] == "red"
+
+    # Solo street trees.
+    th_tr = {"green_pct": 25, "amber_pct": 15}
+    assert _tier_street_trees(None, th_tr)["tier"] == "unknown"
+    assert _tier_street_trees({"count": 100, "crown_coverage_pct": 30}, th_tr)["tier"] == "green"
+    assert _tier_street_trees({"count": 100, "crown_coverage_pct": 20}, th_tr)["tier"] == "amber"
+    assert _tier_street_trees({"count": 100, "crown_coverage_pct": 8}, th_tr)["tier"] == "red"
+
+    # Nightlife inverted — for the Quiet Living lens fewer = better.
+    th_nl = {"radius_m": 300, "green_max": 3, "amber_max": 8}
+    assert _tier_nightlife_inverted([], th_nl)["tier"] == "green"
+    assert _tier_nightlife_inverted([{}, {}, {}], th_nl)["tier"] == "green"
+    assert _tier_nightlife_inverted([{}] * 4, th_nl)["tier"] == "amber"
+    assert _tier_nightlife_inverted([{}] * 8, th_nl)["tier"] == "amber"
+    assert _tier_nightlife_inverted([{}] * 9, th_nl)["tier"] == "red"
 
     print("scoring.tiers selfcheck OK")
