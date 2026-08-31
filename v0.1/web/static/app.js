@@ -3147,6 +3147,19 @@ function renderLensModalBody(tile, lensSlug) {
     packstation:      'OSM Geofabrik weekly extract',
     wochenmarkt:      'OSM Geofabrik weekly extract',
     gesix_newcomer:   'BOD GESIx · 2022',
+    // Quiet Living lens cards. Every non-numeric-only Quiet Living tile
+    // MUST have a row here — the "Get Insight" button is gated on
+    // presence in this map, so a missing row silently hides the button
+    // even after the backend `_CARD_CONTEXT_BUILDERS` row is wired.
+    // The `card_insight.py::__main__` guard covers the backend side; keep
+    // both lists in sync when adding a new tile.
+    quiet_zone:         'Ruhige Gebiete 2018 (dl-de/by-2.0) — §47d BImSchG designated zones.',
+    street_trees:       'Baumbestand Berlin — Straßenbäume (dl-de/zero-2.0) — refreshed annually.',
+    tempo30:            'Berlin Tempolimits WFS (dl-de/zero-2.0) — orders + time restrictions.',
+    arterial_road:      'Übergeordnetes Straßennetz — Bestand (dl-de/zero-2.0).',
+    rail_noise:         'S/U-Bahn coords from VBB (CC-BY-4.0) — station as track proxy.',
+    nightlife_inverted: 'OSM Geofabrik weekly extract (ODbL) — inverted framing (fewer = greener).',
+    gesix_quiet:        'BOD GESIx · 2022',
   };
   const insightBlock = _INSIGHT_VINTAGE[tile.key] ? `
     <div class="card-insight-wrap" data-card="${escapeHtml(tile.key)}"

@@ -275,6 +275,12 @@ if __name__ == "__main__":
     # -- every lens on the Berlin CityConfig must have a matching entry
     # -- in _CARD_CONTEXT_BUILDERS. This is what would have caught the
     # -- Quiet Living gap at selfcheck time.
+    # --
+    # -- Frontend sibling: `web/static/app.js::_INSIGHT_VINTAGE` also
+    # -- lists every non-numeric-only tile key. When adding a new tile,
+    # -- update BOTH this dict AND the frontend map — the "Get Insight"
+    # -- button is gated on the frontend map, so a missing frontend row
+    # -- silently hides the button even with the backend row present.
     from app.cities.berlin import BERLIN as _BERLIN
     _lenses = (_BERLIN.young_family_lens,
                _BERLIN.newcomer_lens,
