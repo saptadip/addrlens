@@ -379,6 +379,14 @@ const LENS_TILE_EXPLANATIONS = {
   packstation: "Distance to the nearest DHL Packstation locker or Deutsche Post branch. Germany's parcel logistics assume you can retrieve mis-timed deliveries; a long walk turns weekly pickups into a chore.",
   wochenmarkt: "Distance to the nearest permitted Wochenmarkt. Cash-friendly, no-German-required, international vendors — a weekly market makes the neighbourhood feel like home faster than any single supermarket run.",
   nightlife_density: "Count of tagged bars, pubs, and nightclubs within a 1 km walk. Berlin's nightlife is famously part of its draw — but the same density is what can turn a bedroom window into a night-noise complaint. No verdict from us; the number is the signal.",
+  // Quiet Living lens explanations.
+  gesix_quiet: "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band, read for a quiet-living audience. Quintile 1 areas trend residential and quieter at night; quintile 5 areas trend denser with weekend nightlife audible from residential windows. The signal describes the polygon around the flat — walk the block after 22:00 before signing.",
+  quiet_zone:   "Berlin's 'Ruhige Gebiete' are legally designated under §47d BImSchG — meant to be protected from noise, not just labelled green space. Distance is to the polygon edge; short walks make a real difference to weekly noise recovery.",
+  street_trees: "Street-tree canopy percentage in a bounding box around the flat, from Berlin's Baumbestand. Dense mature canopy buffers road noise, drops summer heat, and softens the acoustic feel of the block outside the door.",
+  tempo30: "Berlin's Tempolimits WFS lists exceptions to the general 50 km/h — Tempo-30 zones, 40, 60, Autobahn limits. Perceived road noise roughly doubles per +10 km/h at street level, so a nearby Tempo-30 order is a material win.",
+  arterial_road: "Distance to the nearest arterial from the Übergeordnetes Straßennetz Bestand — Berlin's supra-local road network. A rough proxy for exposure to steady traffic noise, night-time truck passes, and pram-unfriendly pavements.",
+  rail_noise: "Distance to the nearest S/U-Bahn station as a proxy for track proximity. S-Bahn is above-ground and generates real façade noise; Berlin's U-Bahn is underground on most sections, so U-nearest reads greener regardless of walking distance.",
+  nightlife_inverted: "Same OSM bar/club count as the Newcomer nightlife tile, but the framing is inverted here: fewer venues within 300 m is greener. Nightlife density predicts weekend and night-time street noise better than any daytime traffic count.",
 };
 
 // -- Spec D: map-pin color per tier ------------------------------------------
@@ -3094,7 +3102,8 @@ function renderLensModalBody(tile, lensSlug) {
   // affordance so the Get-AI-Insight button always anchors to the
   // bottom-left of the modal.
   let cardRichBlock = '';
-  if (tile.key === 'gesix' || tile.key === 'gesix_newcomer') {
+  if (tile.key === 'gesix' || tile.key === 'gesix_newcomer'
+      || tile.key === 'gesix_quiet') {
     const g = (tile.metadata && tile.metadata.gesix) || null;
     const q = g && g.quintile_5;
     const segs = [1,2,3,4,5].map(i => {
