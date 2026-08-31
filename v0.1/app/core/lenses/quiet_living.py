@@ -27,7 +27,7 @@ New:
 
 from app.core.scoring.legends import _legend_for
 from app.core.scoring.provenance import _lens_provenance, _sources_for
-from app.core.scoring.shape import _shape_gesix
+from app.core.scoring.shape import _shape_gesix, _shape_osm_feature
 from app.core.scoring.tiers import (
     _tier_air, _tier_arterial_road, _tier_nightlife_inverted, _tier_noise,
     _tier_quiet_zone_solo, _tier_rail_noise, _tier_street_trees,
@@ -64,9 +64,14 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
     oc = getattr(index, "osm_local", None)
     _nl_radius = th["nightlife_inverted"]["radius_m"]
     if oc is None:
-        nightlife_feats = []
+        nightlife_raw = []
     else:
-        nightlife_feats = oc.near("nightlife", lon, lat, _nl_radius) or []
+        nightlife_raw = oc.near("nightlife", lon, lat, _nl_radius) or []
+    # Shape to the response feature dict (same as newcomer). The tier
+    # func only reads `len()`, but the feature list is what the AI
+    # insight paragraph reads — must be shaped.
+    nightlife_feats = [f for f in
+                       (_shape_osm_feature(o) for o in nightlife_raw) if f]
 
     results = [
         ("noise",              _tier_noise(noise, th["noise"])),
@@ -82,7 +87,8 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
     # Feature payloads per tile — kept minimal since most Quiet Living
     # tiles are aggregate readings, not shortlists. Tiles that carry a
     # single anchor (quiet zone, arterial, rail) expose it so the map
-    # can plot a pin.
+    # can plot a pin. Nightlife-inverted exposes the whole shaped list
+    # so the AI insight paragraph can reference specific venues.
     feat_map: dict = {
         "noise":              [],
         "air":                [],
@@ -91,7 +97,7 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
         "tempo30":            [],
         "arterial_road":      [],
         "rail_noise":         [],
-        "nightlife_inverted": [],
+        "nightlife_inverted": nightlife_feats[:10],
     }
     metadata_map: dict = {}
 
@@ -130,6 +136,13 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
         "l_night": (noise or {}).get("l_night"),
     }
     metadata_map["air"] = {"no2_ugm3": (air or {}).get("no2_ugm3")}
+
+    # New single-anchor / aggregate tiles — the card_insight route reads
+    # these keys via `_ctx_tempo30 / _ctx_arterial_road / _ctx_rail_noise`.
+    # None inputs are stored as `None` so downstream builders can guard.
+    metadata_map["tempo30"] = {"tempolimit": tempo}
+    metadata_map["arterial_road"] = {"arterial": arterial}
+    metadata_map["rail_noise"] = {"rail": rail}
 
     tiles = []
     for key, res in results:

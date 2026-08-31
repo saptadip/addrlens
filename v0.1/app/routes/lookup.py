@@ -169,10 +169,11 @@ def lookup(
     # --- Quiet Living lens ------------------------------------------------
     # Reuses the same air / noise / quiet_zone / trees values computed
     # once above so the raw view and the lens can never disagree.
-    # Additive — wrapped in try/except like every other lens.
+    # `quiet_living_lens` is re-exported by `app.core.scorer` for
+    # signature parity with young_family_lens / newcomer_lens; imported
+    # at module top so an import error fails at boot, not per-request.
     try:
-        from app.core.lenses.quiet_living import quiet_living_lens
-        lens_quiet = quiet_living_lens(
+        lens_quiet = scorer.quiet_living_lens(
             cfg, index, lon, lat,
             air=air, noise=_noise,
             quiet_zone=quiet_zone, trees=trees_summary,

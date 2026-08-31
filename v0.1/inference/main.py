@@ -94,6 +94,7 @@ from inference.templates import tempo30_insight as tempo30_insight_tpl
 from inference.templates import arterial_road_insight as arterial_road_insight_tpl
 from inference.templates import rail_noise_insight as rail_noise_insight_tpl
 from inference.templates import nightlife_inverted_insight as nightlife_inverted_insight_tpl
+from inference.templates import gesix_quiet_insight as gesix_quiet_insight_tpl
 
 # ---------- Sentry (production error tracking) ----------
 # Env-guarded. Local dev (Apple Silicon, INFERENCE_BACKEND=mlx) leaves the DSN
@@ -203,6 +204,7 @@ TEMPLATES = {
     "arterial_road_insight":      arterial_road_insight_tpl.run,
     "rail_noise_insight":         rail_noise_insight_tpl.run,
     "nightlife_inverted_insight": nightlife_inverted_insight_tpl.run,
+    "gesix_quiet_insight":         gesix_quiet_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state

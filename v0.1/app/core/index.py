@@ -426,8 +426,11 @@ class Index:
         if not (cfg.tempolimits_wfs_url and cfg.tempolimits_layer):
             return
         log_load("Tempolimits (speed exceptions)")
+        # `count=100000` — headroom over the ~30k current segment count
+        # so a future feed-side growth spurt doesn't silently drop
+        # segments from the STRtree.
         self.tempolimits = load_polygon_layer(
-            cfg, cfg.tempolimits_wfs_url, cfg.tempolimits_layer, 30000)
+            cfg, cfg.tempolimits_wfs_url, cfg.tempolimits_layer, 100000)
         if self.tempolimits:
             self._tempolimits_tree = STRtree([g for _, g in self.tempolimits])
         print(f"{len(self.tempolimits)} speed-exception segments")
@@ -443,8 +446,9 @@ class Index:
         if not (cfg.arterial_wfs_url and cfg.arterial_layer):
             return
         log_load("arterial road network")
+        # `count=100000` — headroom over the current segment count.
         self.arterial_roads = load_polygon_layer(
-            cfg, cfg.arterial_wfs_url, cfg.arterial_layer, 30000)
+            cfg, cfg.arterial_wfs_url, cfg.arterial_layer, 100000)
         if self.arterial_roads:
             self._arterial_tree = STRtree([g for _, g in self.arterial_roads])
         print(f"{len(self.arterial_roads)} arterial segments")
