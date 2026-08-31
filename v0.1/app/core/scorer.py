@@ -19,6 +19,7 @@ grow that surface.
 
 # ------------------------- Public API -------------------------
 from app.core.lenses.newcomer import newcomer_lens                     # noqa: F401
+from app.core.lenses.quiet_living import quiet_living_lens             # noqa: F401
 from app.core.lenses.young_family import young_family_lens             # noqa: F401
 from app.core.scoring.tiers import noise_tier, stroller_score          # noqa: F401
 

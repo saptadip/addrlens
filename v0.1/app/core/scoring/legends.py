@@ -105,8 +105,44 @@ def _legend_for(key: str, th: dict) -> list:
     if key == "coworking":
         return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
 
-    # nightlife_density (numeric-only) + gesix / gesix_newcomer (5-quintile)
-    # don't fit a 3-band legend — skip.
+    # -- Quiet Living ---------------------------------------------------
+    if key == "quiet_zone":
+        return _dist_legend(th['green_m'], th['amber_m'])
+    if key == "street_trees":
+        return [
+            {"tier": TIER_GREEN, "text": f"≥ {th['green_pct']}% canopy"},
+            {"tier": TIER_AMBER, "text": f"{th['amber_pct']}–{th['green_pct']-1}%"},
+            {"tier": TIER_RED,   "text": f"< {th['amber_pct']}%"},
+        ]
+    if key == "tempo30":
+        return [
+            {"tier": TIER_GREEN, "text": f"≤ {th['green_kmh']} km/h"},
+            {"tier": TIER_AMBER, "text": f"{th['green_kmh']+1}–{th['amber_kmh']} km/h"},
+            {"tier": TIER_RED,   "text": f"> {th['amber_kmh']} km/h"},
+        ]
+    if key == "arterial_road":
+        # Inverted-distance: further from the arterial is greener.
+        return [
+            {"tier": TIER_GREEN, "text": f"≥ {fd(th['green_m'])}"},
+            {"tier": TIER_AMBER, "text": f"{fd(th['amber_m'])}–{fd(th['green_m']-1)}"},
+            {"tier": TIER_RED,   "text": f"< {fd(th['amber_m'])}"},
+        ]
+    if key == "rail_noise":
+        return [
+            {"tier": TIER_GREEN, "text": f"S ≥ {fd(th['green_m'])} · U underground"},
+            {"tier": TIER_AMBER, "text": f"S {fd(th['amber_m'])}–{fd(th['green_m']-1)}"},
+            {"tier": TIER_RED,   "text": f"S < {fd(th['amber_m'])}"},
+        ]
+    if key == "nightlife_inverted":
+        r = fd(th['radius_m'])
+        return [
+            {"tier": TIER_GREEN, "text": f"≤ {th['green_max']} within {r}"},
+            {"tier": TIER_AMBER, "text": f"{th['green_max']+1}–{th['amber_max']} within {r}"},
+            {"tier": TIER_RED,   "text": f"> {th['amber_max']} within {r}"},
+        ]
+
+    # nightlife_density (numeric-only) + gesix / gesix_newcomer / gesix_quiet
+    # (5-quintile) don't fit a 3-band legend — skip.
     return []
 
 
@@ -118,5 +154,22 @@ if __name__ == "__main__":
     assert tram[0]["text"] == "≤500m walk"
     assert _legend_for("gesix", {}) == []
     assert _legend_for("nightlife_density", {}) == []
+    assert _legend_for("gesix_quiet", {}) == []
     assert _legend_for("unknown_key", {}) == []
+
+    # Quiet Living legends — spot-check inverted-distance shape.
+    qz = _legend_for("quiet_zone", {"green_m": 400, "amber_m": 1000})
+    assert len(qz) == 3 and qz[0]["text"] == "≤400m walk"
+
+    art = _legend_for("arterial_road", {"green_m": 150, "amber_m": 50})
+    assert len(art) == 3 and "≥ 150m" in art[0]["text"]
+
+    t30 = _legend_for("tempo30",
+                       {"green_kmh": 30, "amber_kmh": 50, "default_kmh": 50})
+    assert t30[0]["text"] == "≤ 30 km/h"
+
+    inv = _legend_for("nightlife_inverted",
+                       {"radius_m": 300, "green_max": 3, "amber_max": 8})
+    assert inv[0]["text"] == "≤ 3 within 300m"
+
     print("scoring.legends selfcheck OK")

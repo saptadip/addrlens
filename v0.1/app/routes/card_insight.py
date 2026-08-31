@@ -47,12 +47,20 @@ def _ctx_features(payload: dict) -> dict:
 def _ctx_gesix(payload: dict) -> dict:
     t = _tile(payload)
     g = (t.get("metadata") or {}).get("gesix") or {}
+    # Fall back the `lens` field from the tile key when the caller
+    # didn't set it explicitly: `gesix_newcomer` → newcomer,
+    # `gesix_quiet` → quiet_living, everything else → young_family.
+    card = (payload.get("card") or "").strip()
+    default_lens = {
+        "gesix_newcomer": "newcomer",
+        "gesix_quiet":    "quiet_living",
+    }.get(card, "young_family")
     return {
         "plr_name":   g.get("plr_name"),
         "quintile_5": g.get("quintile_5"),
         "rang":       g.get("rang"),
         "total":      g.get("total"),
-        "lens":       payload.get("lens", "young_family"),
+        "lens":       payload.get("lens", default_lens),
     }
 
 
@@ -86,6 +94,88 @@ def _ctx_air(payload: dict) -> dict:
             "numeric": _tile(payload).get("numeric")}
 
 
+# -- Quiet Living lens context builders ------------------------------------
+# These tiles' AI-insight prompts pull structured facts from tile.metadata
+# rather than tile.features. The composer at
+# `app/core/lenses/quiet_living.py` populates the metadata payloads to
+# match — keep the two files in sync when adding fields.
+
+
+def _ctx_quiet_zone(payload: dict) -> dict:
+    """Reuses the standard tier+features shape — the composer plots the
+    nearest quiet-zone anchor as a single feature."""
+    return _ctx_features(payload)
+
+
+def _ctx_street_trees(payload: dict) -> dict:
+    """Aggregate reading: count / crown % / age / species."""
+    t = _tile(payload)
+    md = t.get("metadata") or {}
+    trees = md.get("trees") or {}
+    return {
+        "tier":               t.get("tier"),
+        "rule":               t.get("rule"),
+        "numeric":            t.get("numeric"),
+        "count":              trees.get("count"),
+        "crown_coverage_pct": trees.get("crown_coverage_pct"),
+        "avg_age_yr":         trees.get("avg_age_yr"),
+        "tallest_m":          trees.get("tallest_m"),
+        "top_species":        trees.get("top_species") or [],
+    }
+
+
+def _ctx_tempo30(payload: dict) -> dict:
+    """Aggregate reading: nearest speed exception with distance + reason."""
+    t = _tile(payload)
+    md = t.get("metadata") or {}
+    tempo = md.get("tempolimit") or {}
+    return {
+        "tier":              t.get("tier"),
+        "rule":              t.get("rule"),
+        "numeric":           t.get("numeric"),
+        "speed_kmh":         tempo.get("speed_kmh"),
+        "distance_m":        tempo.get("distance_m"),
+        "reason":            tempo.get("reason"),
+        "time_restriction": tempo.get("time_restriction"),
+    }
+
+
+def _ctx_arterial_road(payload: dict) -> dict:
+    """Single-anchor readout: nearest arterial's name / class / distance."""
+    t = _tile(payload)
+    md = t.get("metadata") or {}
+    arterial = md.get("arterial") or {}
+    return {
+        "tier":       t.get("tier"),
+        "rule":       t.get("rule"),
+        "numeric":    t.get("numeric"),
+        "name":       arterial.get("name"),
+        "class":      arterial.get("class"),
+        "distance_m": arterial.get("distance_m"),
+    }
+
+
+def _ctx_rail_noise(payload: dict) -> dict:
+    """Single-anchor readout: mode / name / distance."""
+    t = _tile(payload)
+    md = t.get("metadata") or {}
+    rail = md.get("rail") or {}
+    return {
+        "tier":       t.get("tier"),
+        "rule":       t.get("rule"),
+        "numeric":    t.get("numeric"),
+        "mode":       rail.get("mode"),
+        "name":       rail.get("name"),
+        "distance_m": rail.get("distance_m"),
+    }
+
+
+def _ctx_nightlife_inverted(payload: dict) -> dict:
+    """Standard tier+features shape — composer populates the feature list
+    from the OSM `nightlife` bucket."""
+    return _ctx_features(payload)
+
+
 # Card → context builder. Adding a new card: append one row.
 _CARD_CONTEXT_BUILDERS = {
     "kita":         _ctx_features,
@@ -111,6 +201,14 @@ _CARD_CONTEXT_BUILDERS = {
     "packstation":      _ctx_features,
     "wochenmarkt":      _ctx_features,
     "gesix_newcomer":   _ctx_gesix,
+    # Quiet Living lens cards
+    "quiet_zone":         _ctx_quiet_zone,
+    "street_trees":       _ctx_street_trees,
+    "tempo30":            _ctx_tempo30,
+    "arterial_road":      _ctx_arterial_road,
+    "rail_noise":         _ctx_rail_noise,
+    "nightlife_inverted": _ctx_nightlife_inverted,
+    "gesix_quiet":        _ctx_gesix,
 }
 
 
@@ -172,4 +270,49 @@ if __name__ == "__main__":
     assert _CARD_CONTEXT_BUILDERS["wochenmarkt"] is _ctx_features
     assert _CARD_CONTEXT_BUILDERS["gesix_newcomer"] is _ctx_gesix
 
-    print("selfcheck ok: all 10 newcomer-lens cards registered in _CARD_CONTEXT_BUILDERS")
+    # -- Lens-tile-keys iteration guard (prevention for the class of gap
+    # -- the reviewer flagged in PR #9): every LensTileConfig.key across
+    # -- every lens on the Berlin CityConfig must have a matching entry
+    # -- in _CARD_CONTEXT_BUILDERS. This is what would have caught the
+    # -- Quiet Living gap at selfcheck time.
+    # --
+    # -- Frontend sibling: `web/static/app.js::_INSIGHT_VINTAGE` also
+    # -- lists every non-numeric-only tile key. When adding a new tile,
+    # -- update BOTH this dict AND the frontend map — the "Get Insight"
+    # -- button is gated on the frontend map, so a missing frontend row
+    # -- silently hides the button even with the backend row present.
+    from app.cities.berlin import BERLIN as _BERLIN
+    _lenses = (_BERLIN.young_family_lens,
+               _BERLIN.newcomer_lens,
+               _BERLIN.quiet_living_lens)
+    # Numeric-only tiles (tier=unknown by design) have no insight
+    # paragraph — the frontend hides the Get-insight button on them.
+    # They're allowed to sit outside `_CARD_CONTEXT_BUILDERS`.
+    _INSIGHTLESS_KEYS = {"nightlife_density"}
+    _missing = []
+    for _lens in _lenses:
+        for _tile_cfg in _lens.tiles:
+            if _tile_cfg.key in _INSIGHTLESS_KEYS:
+                continue
+            if _tile_cfg.key not in _CARD_CONTEXT_BUILDERS:
+                _missing.append(f"{_lens.slug}::{_tile_cfg.key}")
+    assert not _missing, (
+        "Every non-numeric-only LensTileConfig.key must have a "
+        "_CARD_CONTEXT_BUILDERS row. Missing: " + str(_missing)
+    )
+
+    # Quiet Living cards registered explicitly.
+    for _k in ("quiet_zone", "street_trees", "tempo30", "arterial_road",
+               "rail_noise", "nightlife_inverted", "gesix_quiet"):
+        assert _k in _CARD_CONTEXT_BUILDERS, _k
+    assert _CARD_CONTEXT_BUILDERS["gesix_quiet"] is _ctx_gesix
+
+    # `_ctx_gesix` picks the right default lens from the card key.
+    for _card, _expected_lens in (("gesix",          "young_family"),
+                                   ("gesix_newcomer", "newcomer"),
+                                   ("gesix_quiet",    "quiet_living")):
+        _ctx = _ctx_gesix({"card": _card,
+                            "tile": {"metadata": {"gesix": {"quintile_5": 2}}}})
+        assert _ctx["lens"] == _expected_lens, (_card, _ctx["lens"])
+
+    print("selfcheck ok: all lens tile keys registered in _CARD_CONTEXT_BUILDERS")
