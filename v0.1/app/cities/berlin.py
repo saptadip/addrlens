@@ -677,6 +677,15 @@ BERLIN = CityConfig(
         ("S Charlottenburg",                  52.504732, 13.303862),
         ("S+U Jungfernheide",                 52.530452, 13.300124),
         ("S Karow",                           52.615755, 13.470081),
+        # Inner-ring RE/RB platforms omitted from the original list.
+        # Alexanderplatz carries RE1/RE2/RE7/RB14; Friedrichstraße carries
+        # RE1/RE2/RE7/RB14 westbound; Potsdamer Platz carries RE3/RE4/RE5.
+        # Their absence was surfaced when Karl-Liebknecht-Str. tested
+        # AMBER on the Commuter lens because the nearest listed station
+        # (S Ostbahnhof) sat 1.8 km away.
+        ("S+U Alexanderplatz",                52.521650, 13.411483),
+        ("S Friedrichstraße",                 52.520008, 13.386880),
+        ("S+U Potsdamer Platz",               52.509703, 13.376229),
     ),
 
     # BER — public landmark, hard-coded coord.

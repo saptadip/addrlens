@@ -127,7 +127,27 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
     _carshare_raw    = _osm_near("car_sharing", th["car_sharing_reach"]["radius_m"])
     _ev_raw          = _osm_near("ev_charging", th["ev_charging_reach"]["radius_m"])
 
-    cycling_feats    = [f for f in (_shape_osm_feature(o) for o in _cycling_raw) if f]
+    # `highway=cycleway` ways almost never carry a `name=` tag, so
+    # `_shape_osm_feature` (which drops empty-name rows to avoid ghost
+    # amenities on the map) would collapse every cycling row and turn a
+    # dense cycleway grid into a false RED tier. Cycleways are UNNAMED
+    # linear infrastructure — the presence of an anonymous way at short
+    # distance IS the signal. Inline a minimal shape that keeps the row
+    # and synthesises a stable label for the numeric readout.
+    cycling_feats = []
+    for _o in _cycling_raw:
+        _d = _o.get("distance_m")
+        _la = _o.get("lat")
+        _lo = _o.get("lon")
+        if _d is None or _la is None or _lo is None:
+            continue
+        cycling_feats.append({
+            "name":       (_o.get("name") or "Cycleway").strip(),
+            "lat":        _la, "lon": _lo,
+            "distance_m": _d,
+        })
+    cycling_feats.sort(key=lambda x: x["distance_m"])
+
     carshare_feats   = [f for f in (_shape_osm_feature(o) for o in _carshare_raw) if f]
     ev_feats         = [f for f in (_shape_osm_feature(o) for o in _ev_raw) if f]
 
