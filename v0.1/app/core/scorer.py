@@ -168,6 +168,14 @@ if __name__ == "__main__":
     assert _tier_refuge({"distance_m": 800},
                         {"crown_coverage_pct": 4},
                         _T["refuge"])["tier"] == TIER_AMBER
+    # One-leg-missing partial-signal paths: a single signal in the green
+    # band must still deliver a green composite even when the other leg
+    # is None (WFS timeout, empty snapshot).
+    assert _tier_refuge({"distance_m": 300}, None,
+                        _T["refuge"])["tier"] == TIER_GREEN
+    assert _tier_refuge(None, {"crown_coverage_pct": 12},
+                        _T["refuge"])["tier"] == TIER_GREEN
+    # Both legs missing → unknown, never a false red.
     assert _tier_refuge(None, None, _T["refuge"])["tier"] == TIER_UNKNOWN
     print("scorer.py: young_family tier boundary sweeps OK")
 
