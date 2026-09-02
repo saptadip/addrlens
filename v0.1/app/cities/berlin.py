@@ -422,6 +422,73 @@ QUIET_LIVING_LENS: LensConfig = LensConfig(
     ),
 )
 
+# --- Commuter lens ---------------------------------------------------------
+# Nine tiles for a reader who needs a fast, reliable daily commute. Rail /
+# tram / bus keys are commuter-specific (retuned thresholds vs Newcomer) so
+# the AI-insight prompts can frame each mode as "daily starting point" not
+# "reach for Anmeldung". Everything else uses the Index preloads that
+# already exist for Young Family / Newcomer / Quiet Living.
+COMMUTER_LENS: LensConfig = LensConfig(
+    slug="commuter",
+    label="Commuter",
+    audience_hint="For someone who needs a fast, reliable daily commute.",
+    tiles=(
+        LensTileConfig(
+            key="commuter_rail_transit", label="S+U-Bahn reach", icon="commuter_rail",
+            # Tighter than Newcomer's 800/500/1200 — a commuter walking
+            # 12 min twice a day loses 4+ hours per week to the walk.
+            thresholds={"sbahn_m": 500, "ubahn_m": 500, "any_rail_m": 900},
+        ),
+        LensTileConfig(
+            key="commuter_tram_transit", label="Tram reach", icon="transit",
+            thresholds={"green_m": 400, "amber_m": 800},
+        ),
+        LensTileConfig(
+            key="commuter_bus_transit", label="Bus reach", icon="transit",
+            thresholds={"green_m": 250, "amber_m": 500},
+        ),
+        LensTileConfig(
+            key="regional_rail_reach", label="Regional rail reach", icon="regional_rail",
+            thresholds={"green_m": 1200, "amber_m": 2500},
+            caveat=("Curated list of Berlin RE/RB stations. Doesn't cover "
+                    "every S-Bahn stop the regional trains pass through; "
+                    "the tile is 'which platform will your commuter train "
+                    "actually stop at'."),
+        ),
+        LensTileConfig(
+            key="cycling_network", label="Cycling network reach", icon="bike_network",
+            thresholds={"green_m": 100, "amber_m": 300},
+            caveat=("OSM `highway=cycleway` from the weekly Geofabrik "
+                    "snapshot. Painted bike lanes on shared roads "
+                    "(cycleway=lane on a `highway=residential`) are NOT "
+                    "in this signal — only dedicated infrastructure."),
+        ),
+        LensTileConfig(
+            key="car_sharing_reach", label="Car-sharing reach", icon="car_sharing",
+            thresholds={"radius_m": 500, "green_count": 3, "amber_count": 1},
+            caveat=("Fixed pickup points from OSM community tags "
+                    "(SHARE NOW / Miles / WeShare stations). Free-float "
+                    "zones are NOT modelled — a station-based tile is "
+                    "the honest signal."),
+        ),
+        LensTileConfig(
+            key="ev_charging_reach", label="EV charger reach", icon="bolt",
+            thresholds={"radius_m": 500, "green_count": 2, "amber_count": 1},
+        ),
+        LensTileConfig(
+            key="airport_reach", label="Airport reach (BER)", icon="airport",
+            thresholds={"green_km": 20, "amber_km": 35},
+            caveat=("Straight-line distance to Berlin Brandenburg Airport. "
+                    "Actual door-to-gate time depends on S9 / RE7 timing; "
+                    "this tile is a rough exposure signal, not a routing."),
+        ),
+        LensTileConfig(
+            key="gesix_commuter", label="Neighbourhood profile", icon="gesix",
+            thresholds={},   # shape-only, same pattern as gesix / gesix_newcomer / gesix_quiet
+        ),
+    ),
+)
+
 BERLIN = CityConfig(
     slug="berlin",
     display_name="Berlin",
@@ -653,6 +720,8 @@ BERLIN = CityConfig(
         "arbeitsagentur": "Curated from Bundesagentur für Arbeit Berlin-Brandenburg (public reference)",
         "tempolimits":    "Geoportal Berlin / Tempolimits — angeordnete Höchstgeschwindigkeiten (dl-de/zero-2.0)",
         "arterial_road":  "Geoportal Berlin / Übergeordnetes Straßennetz — Bestand (dl-de/zero-2.0)",
+        "cycling":        "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=cycleway (weekly snapshot)",
+        "car_sharing":    "© OpenStreetMap contributors (ODbL) via Geofabrik — amenity=car_sharing (weekly snapshot)",
     },
     # Geofabrik weekly snapshot lives at data/osm/berlin-amenities.json.
     # Env override for prod: OSM_LOCAL_PATH=/mnt/osm/berlin-amenities.json.
@@ -670,6 +739,7 @@ BERLIN = CityConfig(
     young_family_lens=YOUNG_FAMILY_LENS,
     newcomer_lens=NEWCOMER_LENS,
     quiet_living_lens=QUIET_LIVING_LENS,
+    commuter_lens=COMMUTER_LENS,
 
     # --- Others tab: public-admin office data ---------------------
     bezirksgrenzen_wfs_url=_WFS_BEZIRKE,

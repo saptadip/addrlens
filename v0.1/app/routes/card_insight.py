@@ -54,6 +54,7 @@ def _ctx_gesix(payload: dict) -> dict:
     default_lens = {
         "gesix_newcomer": "newcomer",
         "gesix_quiet":    "quiet_living",
+        "gesix_commuter": "commuter",
     }.get(card, "young_family")
     return {
         "plr_name":   g.get("plr_name"),
@@ -176,6 +177,23 @@ def _ctx_nightlife_inverted(payload: dict) -> dict:
     return _ctx_features(payload)
 
 
+# -- Commuter lens context builders ----------------------------------------
+
+def _ctx_airport(payload: dict) -> dict:
+    """Aggregate reading: single-point airport distance from tile.metadata.
+    Bounces the airport object straight into the template context so the
+    prompt can reference `distance_m` and (if present) `name`."""
+    t = _tile(payload)
+    md = t.get("metadata") or {}
+    airport = md.get("airport") or {}
+    return {
+        "tier":    t.get("tier"),
+        "rule":    t.get("rule"),
+        "numeric": t.get("numeric"),
+        "airport": airport,
+    }
+
+
 # Card → context builder. Adding a new card: append one row.
 _CARD_CONTEXT_BUILDERS = {
     "kita":         _ctx_features,
@@ -209,6 +227,16 @@ _CARD_CONTEXT_BUILDERS = {
     "rail_noise":         _ctx_rail_noise,
     "nightlife_inverted": _ctx_nightlife_inverted,
     "gesix_quiet":        _ctx_gesix,
+    # Commuter lens cards
+    "commuter_rail_transit": _ctx_features,
+    "commuter_tram_transit": _ctx_features,
+    "commuter_bus_transit":  _ctx_features,
+    "regional_rail_reach":   _ctx_features,
+    "cycling_network":       _ctx_features,
+    "car_sharing_reach":     _ctx_features,
+    "ev_charging_reach":     _ctx_features,
+    "airport_reach":         _ctx_airport,
+    "gesix_commuter":        _ctx_gesix,
 }
 
 
@@ -284,7 +312,8 @@ if __name__ == "__main__":
     from app.cities.berlin import BERLIN as _BERLIN
     _lenses = (_BERLIN.young_family_lens,
                _BERLIN.newcomer_lens,
-               _BERLIN.quiet_living_lens)
+               _BERLIN.quiet_living_lens,
+               _BERLIN.commuter_lens)
     # Numeric-only tiles (tier=unknown by design) have no insight
     # paragraph — the frontend hides the Get-insight button on them.
     # They're allowed to sit outside `_CARD_CONTEXT_BUILDERS`.
@@ -307,10 +336,21 @@ if __name__ == "__main__":
         assert _k in _CARD_CONTEXT_BUILDERS, _k
     assert _CARD_CONTEXT_BUILDERS["gesix_quiet"] is _ctx_gesix
 
+    # Commuter cards registered explicitly.
+    for _k in ("commuter_rail_transit", "commuter_tram_transit",
+               "commuter_bus_transit",  "regional_rail_reach",
+               "cycling_network",       "car_sharing_reach",
+               "ev_charging_reach",     "airport_reach",
+               "gesix_commuter"):
+        assert _k in _CARD_CONTEXT_BUILDERS, _k
+    assert _CARD_CONTEXT_BUILDERS["airport_reach"] is _ctx_airport
+    assert _CARD_CONTEXT_BUILDERS["gesix_commuter"] is _ctx_gesix
+
     # `_ctx_gesix` picks the right default lens from the card key.
     for _card, _expected_lens in (("gesix",          "young_family"),
                                    ("gesix_newcomer", "newcomer"),
-                                   ("gesix_quiet",    "quiet_living")):
+                                   ("gesix_quiet",    "quiet_living"),
+                                   ("gesix_commuter", "commuter")):
         _ctx = _ctx_gesix({"card": _card,
                             "tile": {"metadata": {"gesix": {"quintile_5": 2}}}})
         assert _ctx["lens"] == _expected_lens, (_card, _ctx["lens"])

@@ -60,6 +60,28 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         # Nightlife inverted reuses the newcomer OSM Geofabrik line.
         "nightlife_inverted": ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "gesix_quiet":        [attr.get("gesix")],
+        # Ship D++ — Commuter lens
+        # `commuter_rail_transit`, `commuter_tram_transit`,
+        # `commuter_bus_transit` reuse the VBB S+U / Tram attribution and
+        # the standard OSM bus-stop line — same underlying feeds as the
+        # newcomer / young-family transit tiles, just tighter thresholds
+        # and a commuter framing in the AI prompt.
+        "commuter_rail_transit":  [attr.get("sbahn"), attr.get("ubahn")],
+        "commuter_tram_transit":  [attr.get("tram")],
+        "commuter_bus_transit":   ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        # Regional rail — the curated Berlin RE/RB list already carries a
+        # VBB station-coord provenance; reuse S-Bahn line as the closest
+        # extant attribution.
+        "regional_rail_reach":    [attr.get("sbahn")],
+        "cycling_network":        [attr.get("cycling")],
+        "car_sharing_reach":      [attr.get("car_sharing")],
+        # EV chargers already exist in the OSM `ev_charging` bucket — cite
+        # the ODbL Geofabrik line consistent with other OSM buckets.
+        "ev_charging_reach":      ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        # Airport reach is a single curated coordinate from cfg.airport —
+        # no external dataset to cite beyond the plain coordinate.
+        "airport_reach":          [],
+        "gesix_commuter":         [attr.get("gesix")],
     }
     return [s for s in (mapping.get(key) or []) if s]
 

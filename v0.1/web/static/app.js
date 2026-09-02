@@ -387,6 +387,19 @@ const LENS_TILE_EXPLANATIONS = {
   arterial_road: "Distance to the nearest arterial from the Übergeordnetes Straßennetz Bestand — Berlin's supra-local road network. A rough proxy for exposure to steady traffic noise, night-time truck passes, and pram-unfriendly pavements.",
   rail_noise: "Distance to the nearest S/U-Bahn station as a proxy for track proximity. S-Bahn is above-ground and generates real façade noise; Berlin's U-Bahn is underground on most sections, so U-nearest reads greener regardless of walking distance.",
   nightlife_inverted: "Same OSM bar/club count as the Newcomer nightlife tile, but the framing is inverted here: fewer venues within 300 m is greener. Nightlife density predicts weekend and night-time street noise better than any daytime traffic count.",
+  // Commuter lens explanations. Rail/tram/bus reuse the same underlying
+  // VBB / BVG / OSM feeds as the Newcomer transit tiles but retune the
+  // thresholds for the daily-commute framing (a short walk twice a day
+  // compounds; interchange delays cost more than intercity slack).
+  commuter_rail_transit: "S-Bahn and U-Bahn station reach retuned for a daily commuter. Thresholds are tighter than the Newcomer rail tile (500 m green vs. 800 m) — twice-daily walk time compounds across the working week, and single-mode coverage (S only or U only) adds risk on delays.",
+  commuter_tram_transit: "Tram stop reach for a daily commuter. Trams handle the last-mile between home and the nearest S/U hub, and often outrun U-Bahn coverage for intra-district hops in east-Berlin districts. Winter reliability is generally better than buses when snow slows road traffic.",
+  commuter_bus_transit:  "Bus stop reach for a daily commuter. Buses fill the last-mile gap where the S/U/Tram network thins, especially in outer districts, and the N-line night buses cover the same route after the rail network shuts down around 01:30 on weekdays.",
+  regional_rail_reach:   "Distance to the nearest RE/RB regional-rail station — the daily commute for anyone whose workplace is in Potsdam, Bernau, Königs Wusterhausen, or the wider Brandenburg region. RE/RB headways are 20–60 min, so missing a train costs more than missing an S-Bahn.",
+  cycling_network:       "Distance to dedicated cycleway infrastructure (OSM highway=cycleway). Painted bike lanes on shared roads are NOT in this signal — the tile measures 'protected cycleway near door', which is the single biggest quality signal for daily bike commuting in Berlin.",
+  car_sharing_reach:     "Count of fixed car-sharing pickup points within 500 m (OSM amenity=car_sharing — SHARE NOW / Miles / WeShare stations). Free-float zones are NOT modelled. A cluster of nearby stations makes occasional car access practical for the weekly IKEA run or a weekend trip out of the city.",
+  ev_charging_reach:     "Count of public EV chargers within 500 m (OSM). Matters mainly if you commute with an electric car and don't have home charging — overnight top-ups at a nearby street charger keep the daily commute practical. OSM coverage and public/private status are uneven; confirm on the operator's app before relying on a specific station.",
+  airport_reach:         "Straight-line distance from the flat to Berlin Brandenburg Airport (BER). For frequent flyers this compounds — shorter departure buffers, easier evening arrivals. Real door-to-gate time depends on the S9 or RE7 schedule, not on crow-flight distance alone; a nearby airport also carries a noise trade-off covered by the Quiet Living lens.",
+  gesix_commuter:        "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band, read for a daily commuter. Quintile 1 polygons often sit further from the S/U network (the tradeoff for residential quiet); quintile 5 polygons often sit ON it (the tradeoff for daily density and peak-hour platform crowding).",
 };
 
 // -- Spec D: map-pin color per tier ------------------------------------------
@@ -444,6 +457,12 @@ const LIFE_MODE_LENSES = [
    // frontend UI PR that also styles the three new tile icons
    // (tempo30, arterial_road, rail_noise).
    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h3v6H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2z"/><path d="M20 14h-3v6h3a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2z"/></svg>'},
+  {slug: 'commuter', label: 'Commuter',
+   // Placeholder train-and-track icon — the Phosphor-style production
+   // SVGs for the 8 new commuter tile icons (commuter_rail, transit,
+   // regional_rail, bike_network, car_sharing, bolt, airport, gesix)
+   // land with the frontend polish PR that follows this ship.
+   icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 12h14"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/><path d="M8 21l-2 2M16 21l2 2"/></svg>'},
   // Future: {slug: 'student', label: 'Student', icon: '<svg>…</svg>'},
   // Future: {slug: 'senior',  label: 'Senior',  icon: '<svg>…</svg>'},
 ];
@@ -3103,7 +3122,7 @@ function renderLensModalBody(tile, lensSlug) {
   // bottom-left of the modal.
   let cardRichBlock = '';
   if (tile.key === 'gesix' || tile.key === 'gesix_newcomer'
-      || tile.key === 'gesix_quiet') {
+      || tile.key === 'gesix_quiet' || tile.key === 'gesix_commuter') {
     const g = (tile.metadata && tile.metadata.gesix) || null;
     const q = g && g.quintile_5;
     const segs = [1,2,3,4,5].map(i => {
@@ -3169,6 +3188,20 @@ function renderLensModalBody(tile, lensSlug) {
     rail_noise:         'S/U-Bahn coords from VBB (CC-BY-4.0) — station as track proxy.',
     nightlife_inverted: 'OSM Geofabrik weekly extract (ODbL) — inverted framing (fewer = greener).',
     gesix_quiet:        'BOD GESIx · 2022',
+    // Commuter lens cards. Same discipline as Quiet Living above — the
+    // Get-Insight button is gated on presence here, so every
+    // non-numeric-only Commuter tile MUST carry a row. Backend guard in
+    // `card_insight.py::__main__` iterates `commuter_lens.tiles` and
+    // catches drift.
+    commuter_rail_transit: 'VBB · 2026 — same S+U feed as the Newcomer rail tile.',
+    commuter_tram_transit: 'BVG Straßenbahn (dl-de/by-2.0) — same feed as the Newcomer tram tile.',
+    commuter_bus_transit:  'OSM Geofabrik weekly extract (ODbL) — bus stops.',
+    regional_rail_reach:   'Curated Berlin RE/RB station list — coords from VBB (CC-BY-4.0).',
+    cycling_network:       'OSM Geofabrik weekly extract (ODbL) — highway=cycleway only, painted lanes not included.',
+    car_sharing_reach:     'OSM Geofabrik weekly extract (ODbL) — amenity=car_sharing (fixed pickup points only).',
+    ev_charging_reach:     'OSM Geofabrik weekly extract (ODbL) — coverage varies by operator.',
+    airport_reach:         'Straight-line distance to BER — real door-to-gate time depends on S9 / RE7 timing.',
+    gesix_commuter:        'BOD GESIx · 2022',
   };
   const insightBlock = _INSIGHT_VINTAGE[tile.key] ? `
     <div class="card-insight-wrap" data-card="${escapeHtml(tile.key)}"

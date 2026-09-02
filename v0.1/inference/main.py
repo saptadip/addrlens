@@ -95,6 +95,16 @@ from inference.templates import arterial_road_insight as arterial_road_insight_t
 from inference.templates import rail_noise_insight as rail_noise_insight_tpl
 from inference.templates import nightlife_inverted_insight as nightlife_inverted_insight_tpl
 from inference.templates import gesix_quiet_insight as gesix_quiet_insight_tpl
+# Commuter lens templates
+from inference.templates import commuter_rail_transit_insight as commuter_rail_transit_insight_tpl
+from inference.templates import commuter_tram_transit_insight as commuter_tram_transit_insight_tpl
+from inference.templates import commuter_bus_transit_insight as commuter_bus_transit_insight_tpl
+from inference.templates import regional_rail_reach_insight as regional_rail_reach_insight_tpl
+from inference.templates import cycling_network_insight as cycling_network_insight_tpl
+from inference.templates import car_sharing_reach_insight as car_sharing_reach_insight_tpl
+from inference.templates import ev_charging_reach_insight as ev_charging_reach_insight_tpl
+from inference.templates import airport_reach_insight as airport_reach_insight_tpl
+from inference.templates import gesix_commuter_insight as gesix_commuter_insight_tpl
 
 # ---------- Sentry (production error tracking) ----------
 # Env-guarded. Local dev (Apple Silicon, INFERENCE_BACKEND=mlx) leaves the DSN
@@ -205,6 +215,16 @@ TEMPLATES = {
     "rail_noise_insight":         rail_noise_insight_tpl.run,
     "nightlife_inverted_insight": nightlife_inverted_insight_tpl.run,
     "gesix_quiet_insight":         gesix_quiet_insight_tpl.run,
+    # Commuter lens templates:
+    "commuter_rail_transit_insight": commuter_rail_transit_insight_tpl.run,
+    "commuter_tram_transit_insight": commuter_tram_transit_insight_tpl.run,
+    "commuter_bus_transit_insight":  commuter_bus_transit_insight_tpl.run,
+    "regional_rail_reach_insight":   regional_rail_reach_insight_tpl.run,
+    "cycling_network_insight":       cycling_network_insight_tpl.run,
+    "car_sharing_reach_insight":     car_sharing_reach_insight_tpl.run,
+    "ev_charging_reach_insight":     ev_charging_reach_insight_tpl.run,
+    "airport_reach_insight":         airport_reach_insight_tpl.run,
+    "gesix_commuter_insight":        gesix_commuter_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state

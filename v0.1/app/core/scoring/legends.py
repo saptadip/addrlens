@@ -141,8 +141,34 @@ def _legend_for(key: str, th: dict) -> list:
             {"tier": TIER_RED,   "text": f"> {th['amber_max']} within {r}"},
         ]
 
+    # -- Commuter -------------------------------------------------------
+    # Rail tile shares the newcomer any_rail_m / sbahn_m / ubahn_m shape,
+    # so the legend renderer is identical.
+    if key == "commuter_rail_transit":
+        return [
+            {"tier": TIER_GREEN, "text": f"S ≤{fd(th['sbahn_m'])} or U ≤{fd(th['ubahn_m'])}"},
+            {"tier": TIER_AMBER, "text": f"rail ≤{fd(th['any_rail_m'])}"},
+            {"tier": TIER_RED,   "text": f">{fd(th['any_rail_m'])}"},
+        ]
+    if key in ("commuter_tram_transit", "commuter_bus_transit",
+               "regional_rail_reach", "cycling_network"):
+        return _dist_legend(th['green_m'], th['amber_m'])
+    if key in ("car_sharing_reach", "ev_charging_reach"):
+        return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
+    if key == "airport_reach":
+        # Distance-in-km. Bigger green = closer isn't right for an
+        # airport — closer is worse (noise) AND better (reach). We use
+        # "closer is better for reach" since that's what this tile
+        # measures; frontend caveat clarifies the noise trade-off lives
+        # in the Quiet Living lens.
+        return [
+            {"tier": TIER_GREEN, "text": f"≤{th['green_km']} km"},
+            {"tier": TIER_AMBER, "text": f"≤{th['amber_km']} km"},
+            {"tier": TIER_RED,   "text": f">{th['amber_km']} km"},
+        ]
+
     # nightlife_density (numeric-only) + gesix / gesix_newcomer / gesix_quiet
-    # (5-quintile) don't fit a 3-band legend — skip.
+    # / gesix_commuter (5-quintile) don't fit a 3-band legend — skip.
     return []
 
 
@@ -155,7 +181,21 @@ if __name__ == "__main__":
     assert _legend_for("gesix", {}) == []
     assert _legend_for("nightlife_density", {}) == []
     assert _legend_for("gesix_quiet", {}) == []
+    assert _legend_for("gesix_commuter", {}) == []
     assert _legend_for("unknown_key", {}) == []
+
+    # Commuter legends — spot-check the 4 shapes: rail-any, dist, count,
+    # km ladder.
+    crail = _legend_for("commuter_rail_transit",
+                        {"sbahn_m": 500, "ubahn_m": 500, "any_rail_m": 900})
+    assert len(crail) == 3 and "500m" in crail[0]["text"]
+    cbike = _legend_for("cycling_network", {"green_m": 100, "amber_m": 300})
+    assert cbike[0]["text"] == "≤100m walk"
+    ccs = _legend_for("car_sharing_reach",
+                      {"radius_m": 500, "green_count": 3, "amber_count": 1})
+    assert ccs[0]["text"] == "≥3 within 500m"
+    cair = _legend_for("airport_reach", {"green_km": 20, "amber_km": 35})
+    assert cair[0]["text"] == "≤20 km"
 
     # Quiet Living legends — spot-check inverted-distance shape.
     qz = _legend_for("quiet_zone", {"green_m": 400, "amber_m": 1000})
