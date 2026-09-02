@@ -382,8 +382,28 @@ QUIET_LIVING_LENS: LensConfig = LensConfig(
         ),
         LensTileConfig(
             key="street_trees", label="Street tree canopy", icon="refuge",
-            # Same cutoffs as YF's refuge composite half.
-            thresholds={"green_pct": 25, "amber_pct": 15},
+            # Retuned for a Straßenbäume-ONLY signal (Baumbestand data
+            # covers registered street trees only, not park or private-
+            # garden trees). Crown-coverage % is computed as the sum of
+            # crown-disk areas divided by the SEARCH-DISK area. Because
+            # street trees can physically only line curbs, the metric is
+            # bounded above by the ratio of "tree strip along kerbs" to
+            # "whole disk", which caps well under 20% even for tree-dense
+            # residential streets. Concrete calibration:
+            #
+            #   Hufelandstr. 25 — Bötzowviertel core, both sides tree-lined
+            #                     with mature Platanen/Ahorn, 199 registered
+            #                     trees → 7.2% crown coverage.
+            #
+            # The original 25/15 cutoffs were inherited from YF's refuge
+            # composite, where a low crown reading is rescued by the
+            # `OR quiet-zone ≤400 m` leg. Standalone here, they made
+            # green practically unreachable in Berlin. Retuned to 10/5
+            # so that:
+            #   green ≥10% = clearly tree-dense (Hufelandstr. tier)
+            #   amber  ≥5% = some canopy present
+            #   red   <5% = sparse / no street trees
+            thresholds={"green_pct": 10, "amber_pct": 5},
         ),
         LensTileConfig(
             key="tempo30", label="Speed limit at your street", icon="tempo30",
