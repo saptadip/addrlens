@@ -3248,6 +3248,86 @@ function renderLensModalBody(tile, lensSlug) {
 
 // -- Spec D Task 9: interaction handlers ------------------------------------
 
+// -- Tabbed modal disclosure -------------------------------------------------
+// The Life Lens tile modal renders three tabs above the tile content:
+//   Readout          — the traffic-light readout: tier rule, numeric,
+//                      colour scale, feature list, gesix chart, trees.
+//   How this works   — data-source explanation, tile-scoped caveat,
+//                      sources footer.
+//   AI Insight       — click-gated AI paragraph (the Get Insight button).
+// The tab bar is injected client-side after `renderLensModalBody`; CSS
+// shows/hides sections based on `data-tab` on the modal root.
+// Header (icon + label + tier badge + close X) stays fixed above the tabs
+// so it's always visible regardless of which tab is active.
+function _injectModalTabs(modal) {
+  if (modal.querySelector('.modal-tabbar')) return;   // idempotent
+  const head = modal.querySelector('.modal-head');
+  if (!head) return;
+
+  // Compute which tabs actually have content — a tile with no AI insight
+  // support (no `_INSIGHT_VINTAGE` entry) shouldn't render an empty
+  // Insight tab; a tile with no explanation shouldn't render an empty
+  // About tab. If fewer than two tabs have content, skip the tab bar
+  // entirely and let the modal flow flat.
+  const hasReadout = !!(
+    modal.querySelector('.modal-rule') ||
+    modal.querySelector('.modal-numeric') ||
+    modal.querySelector('.modal-legend') ||
+    modal.querySelector('.modal-features-list') ||
+    modal.querySelector('.modal-trees') ||
+    modal.querySelector('.gesix-modal-block')
+  );
+  const hasAbout = !!(
+    modal.querySelector('.modal-explanation') ||
+    modal.querySelector('.modal-caveat') ||
+    modal.querySelector('.modal-provenance')
+  );
+  const hasInsight = !!modal.querySelector('.card-insight-wrap');
+
+  const available = [
+    hasReadout && { id: 'readout', label: 'Readout' },
+    hasAbout   && { id: 'about',   label: 'How this works' },
+    hasInsight && { id: 'insight', label: 'AI Insight' },
+  ].filter(Boolean);
+  if (available.length < 2) return;                 // no tabs needed
+
+  // Phosphor Duotone icons per tab — matches the icon family used across
+  // the rest of the site (library / packstation / bolt / etc.).
+  const TAB_ICONS = {
+    readout: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M232,208H24V48H232Z" opacity="0.2"/><line x1="24" y1="128" x2="72" y2="80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="72" y1="80" x2="128" y2="136" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="136" x2="192" y2="72" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="152 72 192 72 192 112" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="24" y1="208" x2="232" y2="208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
+    about:   '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="128" cy="128" r="96" opacity="0.2"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="120 120 128 120 128 176 136 176" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="126" cy="84" r="10"/></svg>',
+    insight: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M197.58,129.06,146.94,152l-22.88,50.64a8,8,0,0,1-14.12,0L87.06,152,36.42,129.06a8,8,0,0,1,0-14.12L87.06,92l22.88-50.64a8,8,0,0,1,14.12,0L146.94,92l50.64,22.88A8,8,0,0,1,197.58,129.06Z" opacity="0.2"/><path d="M197.58,129.06,146.94,152l-22.88,50.64a8,8,0,0,1-14.12,0L87.06,152,36.42,129.06a8,8,0,0,1,0-14.12L87.06,92l22.88-50.64a8,8,0,0,1,14.12,0L146.94,92l50.64,22.88A8,8,0,0,1,197.58,129.06Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="176" y1="16" x2="176" y2="56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="196" y1="36" x2="156" y2="36" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="224" y1="72" x2="224" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="240" y1="88" x2="208" y2="88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
+  };
+  const tabs = document.createElement('nav');
+  tabs.className = 'modal-tabbar';
+  tabs.setAttribute('role', 'tablist');
+  tabs.innerHTML = available.map((t, i) =>
+    `<button type="button" class="modal-tab${i === 0 ? ' active' : ''}"` +
+    ` data-modal-tab="${t.id}" role="tab" aria-selected="${i === 0}">` +
+    `<span class="modal-tab-icon" aria-hidden="true">${TAB_ICONS[t.id] || ''}</span>` +
+    `<span class="modal-tab-label">${t.label}</span>` +
+    `</button>`
+  ).join('');
+  head.after(tabs);
+
+  // `has-tabs` class gates the hide-by-default CSS so tiles without a
+  // tab bar keep their pre-tabbed flat flow.
+  modal.classList.add('has-tabs');
+  modal.setAttribute('data-tab', available[0].id);
+
+  tabs.querySelectorAll('.modal-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.modalTab;
+      modal.setAttribute('data-tab', t);
+      tabs.querySelectorAll('.modal-tab').forEach(b => {
+        const on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    });
+  });
+}
+
 function openLensModal(tileKey) {
   if (!eduData || !eduData.lens) return;
   const active = getActiveLens();
@@ -3262,6 +3342,11 @@ function openLensModal(tileKey) {
   modal.innerHTML = renderLensModalBody(tile, active);
   modal.hidden = false;
   lensLastTileKey = tileKey;
+
+  // Inject the three-tab bar (Readout / How this works / AI Insight)
+  // above the tile content. Fires every open — `innerHTML` was just
+  // replaced, so no risk of duplicate tab bars.
+  _injectModalTabs(modal);
 
   // Focus the close button for keyboard users
   const closeBtn = modal.querySelector('.lens-modal-close');
@@ -3326,6 +3411,8 @@ function closeLensModal() {
   if (!modal || modal.hidden) return;
   modal.hidden = true;
   modal.innerHTML = '';
+  modal.classList.remove('has-tabs');
+  modal.removeAttribute('data-tab');
   // Sweep any open ⓘ popovers (they may have been portaled to document.body)
   if (typeof dropOrphanTooltips === 'function') dropOrphanTooltips();
   // Clear feature pins from map; restore address-centered view
