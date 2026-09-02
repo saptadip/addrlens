@@ -390,7 +390,12 @@ QUIET_LIVING_LENS: LensConfig = LensConfig(
             thresholds={"green_m": 400, "amber_m": 1000},
             caveat=("Berlin 'Ruhige Gebiete' §47d BImSchG designation — "
                     "these zones combine acoustic quiet with recreation "
-                    "value. Distance is to the polygon edge."),
+                    "value. Distance is to the polygon edge. State forests "
+                    "(Grunewald, Tegeler Forst, Köpenicker Wald) and other "
+                    "Landschaftsschutzgebiete are NOT on this list — they "
+                    "are protected under Forstwirtschaft law rather than "
+                    "§47d, so an address next to Grunewald Forst can still "
+                    "read red here despite the objectively quiet reality."),
         ),
         LensTileConfig(
             key="street_trees", label="Street tree canopy", icon="refuge",
