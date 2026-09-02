@@ -42,9 +42,9 @@ _SYSTEM = (
     "private-garden trees), and the metric divides crown-disk area by "
     "the whole search-disk area — most of that disk is buildings, so "
     "real Berlin residential streets rarely exceed the low teens. "
-    "Frame the number on that scale: under 5 percent is sparse, 5–10 "
-    "percent moderate, above 10 percent clearly tree-dense for a "
-    "Straßenbäume-only signal. Mention the top species when present; "
+    "Frame the number on that scale: under 5% is sparse, 5–10% "
+    "moderate, above 10% clearly tree-dense for a Straßenbäume-only "
+    "signal. Mention the top species when present; "
     "(c) one honest closing sentence linking the two signals to a young "
     "family's daily life — where the child will actually play and walk. "
     "Ground rules: "
@@ -97,7 +97,7 @@ def build_messages(ctx: dict) -> list[dict]:
             "The nearest official quiet zone, Volkspark Friedrichshain, sits "
             "620 metres from your door — a comfortable stroller walk. The park "
             "itself is 49 hectares, big enough for a full afternoon. Closer in, "
-            "the block around the flat carries roughly 11 percent street-tree "
+            "the block around the flat carries roughly 11% street-tree "
             "canopy — clearly tree-dense for a Straßenbäume-only signal, with "
             "Gemeine Rosskastanie (horse-chestnut) and Winter-Linde (linden) "
             "leading the local mix. For a young family this means daily walks "
@@ -139,21 +139,32 @@ if __name__ == "__main__":
     assert "invent" in sys_low or "fabricat" in sys_low
     # Anti-regression on the canopy calibration — same contract as the
     # street_trees_insight retune. The system prompt must anchor the
-    # Straßenbäume-only 5 / 10% scale AND drop the stale 10 / 20 anchors
-    # that would make a 22% canopy read "genuinely shady" when it is
-    # physically unreachable.
+    # Straßenbäume-only 5 / 10 % scale AND drop the stale 15 / 20 / 25 %
+    # anchors that would make a 22 % canopy read "genuinely shady" when
+    # it is physically unreachable.
+    #
+    # Notation is `%` glyph (matches street_trees_insight sibling — one
+    # canonical form for the numeric calibration statement across both
+    # canopy templates so a future edit can't reintroduce a "percent"
+    # spelling that would look like drift.
     assert "straßenbäume" in sys_low or "strassenbaume" in sys_low or \
            "street tree" in sys_low, \
         "system must name the Straßenbäume-only limitation"
-    assert "5 percent" in sys_low and "10 percent" in sys_low, \
-        "system must anchor the retuned 5 / 10 percent scale"
-    assert "20 percent" not in sys_low and "above 20" not in sys_low, \
-        "system must not carry the stale 20 percent 'shady' anchor"
+    assert "5%" in sys_low and "10%" in sys_low, \
+        "system must anchor the retuned 5 / 10 % scale (as `%` glyph)"
+    assert "5 percent" not in sys_low and "10 percent" not in sys_low, \
+        "system must use `%` glyph, not spelled-out 'percent' (parity with street_trees_insight)"
+    assert "15%" not in sys_low and "20%" not in sys_low and \
+           "22%" not in sys_low and "25%" not in sys_low, \
+        "system must not carry the stale 15 / 20 / 22 / 25 % 'shady' anchors"
     # Green exemplar canopy value must be within the plausible
     # Straßenbäume-only range (single digits to low teens).
     ex_assistant = msgs[2]["content"]
-    assert "22 percent" not in ex_assistant and "22.4" not in ex_assistant, \
-        "green exemplar must not carry the stale 22% canopy anchor"
+    assert "22%" not in ex_assistant and "22.4" not in ex_assistant and \
+           "22 percent" not in ex_assistant, \
+        "green exemplar must not carry the stale 22 % canopy anchor"
+    assert "11%" in ex_assistant, \
+        "green exemplar must show the retuned 11 % canopy value (as `%` glyph)"
     # Empty-both shortcut.
     empty = run(None, {"quiet": {}, "trees": {}})
     assert "walk it in person" in empty["insight"] or "hard signal" in empty["insight"].lower()
