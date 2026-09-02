@@ -3268,7 +3268,10 @@ function _injectModalTabs(modal) {
   // support (no `_INSIGHT_VINTAGE` entry) shouldn't render an empty
   // Insight tab; a tile with no explanation shouldn't render an empty
   // About tab. If fewer than two tabs have content, skip the tab bar
-  // entirely and let the modal flow flat.
+  // entirely and let the modal flow flat. `hasReadout` in practice is
+  // always true (renderLensModalBody always emits `.modal-rule`) — the
+  // shortcut fires when a numeric-only tile has neither About nor
+  // Insight content.
   const hasReadout = !!(
     modal.querySelector('.modal-rule') ||
     modal.querySelector('.modal-numeric') ||

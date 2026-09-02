@@ -1792,6 +1792,7 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
                                      white-space:nowrap; }
 @media (max-width: 480px) {
   .lens-modal .modal-tab-label     { display:none; }
+  .lens-modal .modal-tab           { gap:0; }
 }
 
 
