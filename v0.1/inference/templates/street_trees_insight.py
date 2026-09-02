@@ -103,7 +103,9 @@ if __name__ == "__main__":
     assert "straßenbäume" in sys_low or "strassenbaume" in sys_low or \
            "street tree" in sys_low
     assert "5%" in msgs[0]["content"] and "10%" in msgs[0]["content"], \
-        "system must anchor the retuned 5 / 10 % scale"
+        "system must anchor the retuned 5 / 10 % scale (as `%` glyph)"
+    assert "5 percent" not in sys_low and "10 percent" not in sys_low, \
+        "system must use `%` glyph, not spelled-out 'percent' (parity with refuge_insight)"
     assert "25%" not in msgs[0]["content"] and "15%" not in msgs[0]["content"], \
         "system must not carry the stale 25 / 15 % anchors"
     # Green exemplar rule must be `canopy ≥ 10%` (was `≥ 25%`).
