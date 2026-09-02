@@ -37,9 +37,14 @@ _SYSTEM = (
     "(a) plain-English readout of the quiet-zone distance — if it's within "
     "800 metres call it walkable, 800–1500 m a bike ride, further a "
     "commitment; if the payload omits the quiet zone say so plainly; "
-    "(b) plain-English readout of the street-tree canopy — crown-coverage "
-    "under 10 percent is sparse, 10–20 percent moderate, above 20 percent "
-    "genuinely shady; mention the top species when present; "
+    "(b) plain-English readout of the street-tree canopy. Berlin's "
+    "Baumbestand tracks REGISTERED STREET TREES ONLY (not park or "
+    "private-garden trees), and the metric divides crown-disk area by "
+    "the whole search-disk area — most of that disk is buildings, so "
+    "real Berlin residential streets rarely exceed the low teens. "
+    "Frame the number on that scale: under 5 percent is sparse, 5–10 "
+    "percent moderate, above 10 percent clearly tree-dense for a "
+    "Straßenbäume-only signal. Mention the top species when present; "
     "(c) one honest closing sentence linking the two signals to a young "
     "family's daily life — where the child will actually play and walk. "
     "Ground rules: "
@@ -81,23 +86,23 @@ def build_messages(ctx: dict) -> list[dict]:
             "{\n"
             "  \"quiet_zone\": {\"name\": \"Volkspark Friedrichshain\", "
             "\"distance_m\": 620, \"size_ha\": 49},\n"
-            "  \"street_trees\": {\"count\": 187, "
-            "\"crown_coverage_pct\": 22.4, \"avg_age_yr\": 41, "
+            "  \"street_trees\": {\"count\": 199, "
+            "\"crown_coverage_pct\": 11.4, \"avg_age_yr\": 41, "
             "\"top_species\": [{\"name\":\"Gemeine Rosskastanie\",\"count\":38}, "
-            "{\"name\":\"Kaiserlinde\",\"count\":29}, "
-            "{\"name\":\"Winter-Linde\",\"count\":22}]},\n"
+            "{\"name\":\"Winter-Linde\",\"count\":29}, "
+            "{\"name\":\"Kaiserlinde\",\"count\":22}]},\n"
             "  \"tier\": \"green\"\n"
             "}"},
         {"role": "assistant", "content":
             "The nearest official quiet zone, Volkspark Friedrichshain, sits "
             "620 metres from your door — a comfortable stroller walk. The park "
             "itself is 49 hectares, big enough for a full afternoon. Closer in, "
-            "the block around the flat carries roughly 22 percent street-tree "
-            "canopy — genuinely shady on a summer walk, with Gemeine Rosskastanie "
-            "(horse-chestnut) and Kaiserlinde (linden) leading the local mix. For "
-            "a young family this means daily walks stay green even before you "
-            "reach the park, and the summer heat won't hit the pavement at "
-            "full strength."},
+            "the block around the flat carries roughly 11 percent street-tree "
+            "canopy — clearly tree-dense for a Straßenbäume-only signal, with "
+            "Gemeine Rosskastanie (horse-chestnut) and Winter-Linde (linden) "
+            "leading the local mix. For a young family this means daily walks "
+            "stay green even before you reach the park, and the summer heat "
+            "won't hit the pavement at full strength."},
         {"role": "user", "content": facts},
     ]
 
@@ -121,16 +126,34 @@ def run(backend, ctx: dict) -> dict:
 if __name__ == "__main__":
     msgs = build_messages({
         "quiet": {"name": "Test-Park", "distance_m": 500, "size_ha": 20},
-        "trees": {"count": 150, "crown_coverage_pct": 18.2, "avg_age_yr": 35,
+        "trees": {"count": 150, "crown_coverage_pct": 6.4, "avg_age_yr": 35,
                   "top_species": [{"name": "Linde", "count": 40}]},
         "tier":  "green",
     })
     assert msgs[0]["role"] == "system"
-    assert "quiet zone" in msgs[0]["content"].lower()
-    assert "crown-coverage" in msgs[0]["content"].lower()
+    sys_low = msgs[0]["content"].lower()
+    assert "quiet zone" in sys_low
+    assert "crown-coverage" in sys_low or "canopy" in sys_low
     assert "Test-Park" in msgs[-1]["content"]
     # No invention rule.
-    assert "invent" in msgs[0]["content"].lower() or "fabricat" in msgs[0]["content"].lower()
+    assert "invent" in sys_low or "fabricat" in sys_low
+    # Anti-regression on the canopy calibration — same contract as the
+    # street_trees_insight retune. The system prompt must anchor the
+    # Straßenbäume-only 5 / 10% scale AND drop the stale 10 / 20 anchors
+    # that would make a 22% canopy read "genuinely shady" when it is
+    # physically unreachable.
+    assert "straßenbäume" in sys_low or "strassenbaume" in sys_low or \
+           "street tree" in sys_low, \
+        "system must name the Straßenbäume-only limitation"
+    assert "5 percent" in sys_low and "10 percent" in sys_low, \
+        "system must anchor the retuned 5 / 10 percent scale"
+    assert "20 percent" not in sys_low and "above 20" not in sys_low, \
+        "system must not carry the stale 20 percent 'shady' anchor"
+    # Green exemplar canopy value must be within the plausible
+    # Straßenbäume-only range (single digits to low teens).
+    ex_assistant = msgs[2]["content"]
+    assert "22 percent" not in ex_assistant and "22.4" not in ex_assistant, \
+        "green exemplar must not carry the stale 22% canopy anchor"
     # Empty-both shortcut.
     empty = run(None, {"quiet": {}, "trees": {}})
     assert "walk it in person" in empty["insight"] or "hard signal" in empty["insight"].lower()
