@@ -108,15 +108,18 @@ if __name__ == "__main__":
     # Forst adjacencies read RED on this tile because they're protected
     # under Forstwirtschaft law rather than §47d BImSchG. The system
     # prompt must name that gap so the AI paragraph can flag it when the
-    # tier is red.
+    # tier is red. Strict presence — a future edit that drops "Grunewald"
+    # in favour of a vaguer "state forest" (or vice versa) must fail so
+    # the concrete example survives.
     sys_low = msgs[0]["content"].lower()
-    assert "grunewald" in sys_low or "state forest" in sys_low, \
-        "system must name the state-forest exclusion from §47d"
-    assert "forstwirtschaft" in sys_low or "landschaftsschutz" in sys_low, \
-        "system must name the alternative protection mechanism"
+    assert "grunewald" in sys_low, \
+        "system must name Grunewald as the concrete state-forest example"
+    assert "forstwirtschaft" in sys_low, \
+        "system must name the alternative protection mechanism (Forstwirtschaft)"
+    assert "landschaftsschutz" in sys_low, \
+        "system must name Landschaftsschutzgebiete as the broader excluded set"
     # And the empty-msg for state-forest-adjacent addresses hits the
     # empty-features shortcut; it must carry the same caveat.
-    from inference.templates.quiet_zone_insight import _EMPTY_MSG
     assert "grunewald" in _EMPTY_MSG.lower(), \
         "empty-msg must acknowledge the state-forest exclusion"
     print("quiet_zone_insight.py selfcheck OK")
