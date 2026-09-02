@@ -732,7 +732,14 @@ def _tier_airport_reach(airport: dict, th: dict) -> dict:
 
 def _tier_commuter_tram_transit(features: list, th: dict) -> dict:
     """Commuter-tuned tram-stop reach — same shape as Newcomer's tram
-    tile but with tighter thresholds (see cfg.commuter_lens)."""
+    tile but with tighter thresholds (see cfg.commuter_lens).
+
+    ponytail: byte-identical to `_tier_tram_transit` today. Kept as a
+    distinct per-tile hook so the Commuter framing can diverge (e.g.
+    winter-reliability weighting, frequency band from VBB) without
+    touching the Newcomer tile. Fold back into `_tier_tram_transit`
+    only after a real divergence has landed and been reverted.
+    """
     return _tier_distance_ladder(features, th,
                                   nearest_label="tram stop",
                                   empty_label="tram",
@@ -740,7 +747,12 @@ def _tier_commuter_tram_transit(features: list, th: dict) -> dict:
 
 
 def _tier_commuter_bus_transit(features: list, th: dict) -> dict:
-    """Commuter-tuned bus-stop reach — tighter thresholds than Newcomer."""
+    """Commuter-tuned bus-stop reach — tighter thresholds than Newcomer.
+
+    ponytail: same as `_tier_commuter_tram_transit` above — distinct
+    hook for future commuter-specific divergence (N-line coverage,
+    peak-headway band). Byte-identical to `_tier_bus_transit` today.
+    """
     return _tier_distance_ladder(features, th,
                                   nearest_label="bus stop",
                                   empty_label="bus",
@@ -995,6 +1007,11 @@ if __name__ == "__main__":
     assert _tier_regional_rail_reach([{"name": "X", "distance_m": 1800}], th_rr)["tier"] == "amber"
     assert _tier_regional_rail_reach([{"name": "X", "distance_m": 3000}], th_rr)["tier"] == "red"
     assert _tier_regional_rail_reach([], th_rr)["tier"] == "red"
+    # Pinned boundaries: `<=` semantics on both transitions.
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 1200}], th_rr)["tier"] == "green"
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 1201}], th_rr)["tier"] == "amber"
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 2500}], th_rr)["tier"] == "amber"
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 2501}], th_rr)["tier"] == "red"
 
     # cycling_network — bucket_missing fallback + distance ladder.
     th_cy = {"green_m": 100, "amber_m": 300}
@@ -1005,6 +1022,11 @@ if __name__ == "__main__":
     assert _tier_cycling_network([{"name": "C", "distance_m": 250}], th_cy)["tier"] == "amber"
     assert _tier_cycling_network([{"name": "C", "distance_m": 400}], th_cy)["tier"] == "red"
     assert _tier_cycling_network([], th_cy)["tier"] == "red"
+    # Pinned boundaries.
+    assert _tier_cycling_network([{"name": "C", "distance_m": 100}], th_cy)["tier"] == "green"
+    assert _tier_cycling_network([{"name": "C", "distance_m": 101}], th_cy)["tier"] == "amber"
+    assert _tier_cycling_network([{"name": "C", "distance_m": 300}], th_cy)["tier"] == "amber"
+    assert _tier_cycling_network([{"name": "C", "distance_m": 301}], th_cy)["tier"] == "red"
 
     # car_sharing_reach — bucket_missing fallback + count band.
     th_cs = {"radius_m": 500, "green_count": 3, "amber_count": 1}
@@ -1029,13 +1051,28 @@ if __name__ == "__main__":
     assert _tier_airport_reach({"name": "BER", "distance_m": 28000}, th_ap)["tier"] == "amber"
     assert _tier_airport_reach({"name": "BER", "distance_m": 45000}, th_ap)["tier"] == "red"
     assert _tier_airport_reach(None, th_ap)["tier"] == "unknown"
+    # Pinned boundaries: `<=` semantics on km (green_km=20 → 20000 m still green).
+    assert _tier_airport_reach({"name": "BER", "distance_m": 20000}, th_ap)["tier"] == "green"
+    assert _tier_airport_reach({"name": "BER", "distance_m": 20001}, th_ap)["tier"] == "amber"
+    assert _tier_airport_reach({"name": "BER", "distance_m": 35000}, th_ap)["tier"] == "amber"
+    assert _tier_airport_reach({"name": "BER", "distance_m": 35001}, th_ap)["tier"] == "red"
 
     # Commuter tram / bus wrappers (retuned thresholds vs Newcomer).
-    r = _tier_commuter_tram_transit([{"name": "TS", "distance_m": 380}],
-                                     {"green_m": 400, "amber_m": 800})
+    th_ctram = {"green_m": 400, "amber_m": 800}
+    r = _tier_commuter_tram_transit([{"name": "TS", "distance_m": 380}], th_ctram)
     assert r["tier"] == "green" and "Tram" in r["numeric"]
-    r = _tier_commuter_bus_transit([{"name": "BS", "distance_m": 240}],
-                                    {"green_m": 250, "amber_m": 500})
+    # Pinned boundaries — locks retuning intent against future drift.
+    assert _tier_commuter_tram_transit([{"name": "T", "distance_m": 400}], th_ctram)["tier"] == "green"
+    assert _tier_commuter_tram_transit([{"name": "T", "distance_m": 401}], th_ctram)["tier"] == "amber"
+    assert _tier_commuter_tram_transit([{"name": "T", "distance_m": 800}], th_ctram)["tier"] == "amber"
+    assert _tier_commuter_tram_transit([{"name": "T", "distance_m": 801}], th_ctram)["tier"] == "red"
+
+    th_cbus = {"green_m": 250, "amber_m": 500}
+    r = _tier_commuter_bus_transit([{"name": "BS", "distance_m": 240}], th_cbus)
     assert r["tier"] == "green" and "Bus" in r["numeric"]
+    assert _tier_commuter_bus_transit([{"name": "B", "distance_m": 250}], th_cbus)["tier"] == "green"
+    assert _tier_commuter_bus_transit([{"name": "B", "distance_m": 251}], th_cbus)["tier"] == "amber"
+    assert _tier_commuter_bus_transit([{"name": "B", "distance_m": 500}], th_cbus)["tier"] == "amber"
+    assert _tier_commuter_bus_transit([{"name": "B", "distance_m": 501}], th_cbus)["tier"] == "red"
 
     print("scoring.tiers selfcheck OK")

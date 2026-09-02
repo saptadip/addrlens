@@ -46,7 +46,16 @@ const ico={
   // Production art (Phosphor-style) lands with the frontend UI PR.
   tempo30:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" stroke="none">30</text></svg>',
   arterial_road:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-16"/><path d="M20 20l-4-16"/><path d="M11 6h2M10 12h4M9 18h6"/></svg>',
-  rail_noise:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v14H5z"/><path d="M5 8h14M9 4v14M15 4v14"/><path d="M7 20l-2 2M17 20l2 2"/></svg>'};
+  rail_noise:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v14H5z"/><path d="M5 8h14M9 4v14M15 4v14"/><path d="M7 20l-2 2M17 20l2 2"/></svg>',
+  // Commuter lens — placeholder icons for the 5 new tiles that don't
+  // reuse existing icons. `transit` (bus + tram) and `bolt` (EV) and
+  // `gesix` are shared with earlier lenses. Production Phosphor art
+  // lands with the frontend UI polish PR.
+  commuter_rail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 12h14"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/><path d="M8 21l-2 2M16 21l2 2"/></svg>',
+  regional_rail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18"/><path d="M4 8l4-4h8l4 4v6H4z"/><circle cx="8" cy="14" r="1"/><circle cx="16" cy="14" r="1"/><path d="M7 22l1-3M17 22l-1-3"/></svg>',
+  bike_network:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="4"/><circle cx="18" cy="17" r="4"/><path d="M6 17l4-8h5l3 8"/><path d="M10 9l3-3h3"/></svg>',
+  car_sharing:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14l2-5a2 2 0 0 1 2-1h8a2 2 0 0 1 2 1l2 5"/><path d="M3 14h18v4a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-1H7v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><circle cx="7.5" cy="17" r="0.6"/><circle cx="16.5" cy="17" r="0.6"/><path d="M15 4l2 2-2 2"/><path d="M9 8V6a2 2 0 0 1 2-2h6"/></svg>',
+  airport:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1 8 8 4v2l-8-2-1 5 3 2v1l-4-1-4 1v-1l3-2-1-5-8 2v-2l8-4z"/></svg>'};
 const AMEN=[
   ['playgrounds','Playgrounds',ico.playground,'#22C55E'],
   ['parks','Parks / green space',ico.tree,'#10B981'],
