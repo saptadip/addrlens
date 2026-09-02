@@ -982,7 +982,11 @@ if __name__ == "__main__":
     assert _tier_quiet_zone_solo({"name": "V", "distance_m": 800}, th_qz)["tier"] == "amber"
     assert _tier_quiet_zone_solo({"name": "V", "distance_m": 2000}, th_qz)["tier"] == "red"
 
-    # Solo street trees.
+    # Solo street trees. `th_tr` is TEST-LOCAL — the tier fn is
+    # threshold-agnostic and this dict only exercises the `>=` boundary
+    # logic. Shipped Quiet Living thresholds live at
+    # `app/cities/berlin.py::QUIET_LIVING_LENS.street_trees` and are
+    # currently {10, 5} per the Straßenbäume-only physics retune.
     th_tr = {"green_pct": 25, "amber_pct": 15}
     assert _tier_street_trees(None, th_tr)["tier"] == "unknown"
     assert _tier_street_trees({"count": 100, "crown_coverage_pct": 30}, th_tr)["tier"] == "green"
