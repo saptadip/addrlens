@@ -154,8 +154,9 @@ if __name__ == "__main__":
         "system must anchor the retuned 5 / 10 % scale (as `%` glyph)"
     assert "5 percent" not in sys_low and "10 percent" not in sys_low, \
         "system must use `%` glyph, not spelled-out 'percent' (parity with street_trees_insight)"
-    assert "20%" not in sys_low and "22%" not in sys_low and "25%" not in sys_low, \
-        "system must not carry the stale 20 / 22 / 25 % 'shady' anchors"
+    assert "15%" not in sys_low and "20%" not in sys_low and \
+           "22%" not in sys_low and "25%" not in sys_low, \
+        "system must not carry the stale 15 / 20 / 22 / 25 % 'shady' anchors"
     # Green exemplar canopy value must be within the plausible
     # Straßenbäume-only range (single digits to low teens).
     ex_assistant = msgs[2]["content"]
