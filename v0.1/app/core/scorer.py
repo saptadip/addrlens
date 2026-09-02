@@ -136,19 +136,46 @@ if __name__ == "__main__":
     assert _tier_air({"no2_ugm3": 40.01}, _T["air"])["tier"] == TIER_RED
     assert _tier_air({"unavailable": True}, _T["air"])["tier"] == TIER_UNKNOWN
 
-    # Refuge — composite OR.
+    # Refuge — composite OR. Threshold anchors retuned to Straßenbäume
+    # physics (green_crown_pct=10, amber_crown_pct=5) so both legs of
+    # the OR-composite are actually reachable in Berlin.
+    #
+    # Quiet-zone green rescues low canopy.
     assert _tier_refuge({"distance_m": 400, "name": "Volkspark"},
-                        {"crown_coverage_pct": 5},
+                        {"crown_coverage_pct": 3},
                         _T["refuge"])["tier"] == TIER_GREEN
+    # Canopy green rescues distant quiet zone.
     assert _tier_refuge({"distance_m": 2000},
-                        {"crown_coverage_pct": 25},
+                        {"crown_coverage_pct": 12},
                         _T["refuge"])["tier"] == TIER_GREEN
-    assert _tier_refuge({"distance_m": 1000},
-                        {"crown_coverage_pct": 14.99},
+    # Canopy pinned at green boundary (10%) with quiet-zone red.
+    assert _tier_refuge({"distance_m": 2000},
+                        {"crown_coverage_pct": 10},
+                        _T["refuge"])["tier"] == TIER_GREEN
+    # Canopy amber-band (5–9%) with quiet-zone red → composite amber.
+    assert _tier_refuge({"distance_m": 2000},
+                        {"crown_coverage_pct": 7},
                         _T["refuge"])["tier"] == TIER_AMBER
+    # Canopy pinned at amber boundary (5%) with quiet-zone red → amber.
     assert _tier_refuge({"distance_m": 2000},
-                        {"crown_coverage_pct": 14.99},
+                        {"crown_coverage_pct": 5},
+                        _T["refuge"])["tier"] == TIER_AMBER
+    # Canopy below amber (4%) with quiet-zone red → composite red.
+    assert _tier_refuge({"distance_m": 2000},
+                        {"crown_coverage_pct": 4},
                         _T["refuge"])["tier"] == TIER_RED
+    # Quiet-zone amber (400–1000 m) with canopy red → composite amber.
+    assert _tier_refuge({"distance_m": 800},
+                        {"crown_coverage_pct": 4},
+                        _T["refuge"])["tier"] == TIER_AMBER
+    # One-leg-missing partial-signal paths: a single signal in the green
+    # band must still deliver a green composite even when the other leg
+    # is None (WFS timeout, empty snapshot).
+    assert _tier_refuge({"distance_m": 300}, None,
+                        _T["refuge"])["tier"] == TIER_GREEN
+    assert _tier_refuge(None, {"crown_coverage_pct": 12},
+                        _T["refuge"])["tier"] == TIER_GREEN
+    # Both legs missing → unknown, never a false red.
     assert _tier_refuge(None, None, _T["refuge"])["tier"] == TIER_UNKNOWN
     print("scorer.py: young_family tier boundary sweeps OK")
 
@@ -178,7 +205,10 @@ if __name__ == "__main__":
         air={"no2_ugm3": 60}, heat={"day_class": "extreme Belastung"},
         noise={"l_den": {"total": 70}},
         amenities={"playgrounds": {"items": []}, "gps": {"items": []}},
-        trees={"crown_coverage_pct": 5},
+        # `crown_coverage_pct=2` sits below the retuned amber_crown_pct=5
+        # threshold so this "empty-but-available" case still yields RED on
+        # the refuge composite (both quiet-leg and canopy-leg fail).
+        trees={"crown_coverage_pct": 2},
         quiet_zone={"distance_m": 5000},
     )
     _tiers = {t["key"]: t["tier"] for t in _empty_result["tiles"]}

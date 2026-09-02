@@ -254,9 +254,21 @@ YOUNG_FAMILY_LENS: LensConfig = LensConfig(
             key="refuge", label="Quiet / green refuge nearby", icon="refuge",
             # Composite: quiet zone distance OR crown coverage %. OR-forgiving
             # at both tiers so losing one signal still yields a real tier.
+            #
+            # Crown-coverage anchors retuned in sync with the Quiet Living
+            # `street_trees` tile (PR #12) to reflect the Straßenbäume-only
+            # physics. Berlin's Baumbestand tracks REGISTERED STREET TREES
+            # ONLY, and the metric divides crown-disk area by whole-search-
+            # disk area — real Berlin residential blocks rarely exceed the
+            # low teens. The old 25 / 15 anchors were physically unreachable
+            # via the canopy leg alone; the OR-with-quiet-zone leg was
+            # carrying every green case in practice. Retuned to 10 / 5 so
+            # both legs of the composite are actually reachable and an
+            # address with 9% canopy + 500m quiet zone can now read green
+            # via the canopy leg, matching the ground truth.
             thresholds={
                 "green_quiet_m": 400,  "amber_quiet_m": 1000,
-                "green_crown_pct": 25, "amber_crown_pct": 15,
+                "green_crown_pct": 10, "amber_crown_pct": 5,
             },
         ),
         LensTileConfig(
