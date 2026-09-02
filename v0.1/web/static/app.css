@@ -1170,8 +1170,13 @@ body.life-mode #panel-others{ display:none !important; }
 
 /* Modal — reuses .amen-modal visual language via new selectors */
 .lens-modal       { position:absolute; inset:0;
-                    background: rgba(238,242,255,.98); backdrop-filter: blur(8px);
-                    border-radius:16px; padding:20px 24px; overflow-y:auto; z-index:10; }
+                    background: linear-gradient(160deg, #EEF0FF 0%, #DBE0FE 100%);
+                    backdrop-filter: blur(8px);
+                    border-radius:16px; padding:20px 24px; overflow-y:auto; z-index:10;
+                    border: 1px solid rgba(99,102,241,.14);
+                    box-shadow:
+                      0 20px 48px rgba(99,102,241,.16),
+                      0 4px 12px rgba(99,102,241,.10); }
 .lens-modal[hidden] { display:none; }
 .lens-modal-close { position:absolute; top:14px; right:14px; width:34px; height:34px;
                     border-radius:50%; border:none; background:rgba(255,255,255,.9);
@@ -1739,3 +1744,92 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
                                     font-style:italic; color:#3A2A0F; }
 .addr-history-foot               { margin:12px 0 0; font-family:'Merriweather','Georgia',serif;
                                     font-size:8.8px; font-style:italic; color:#7A5A20; }
+
+
+/* =========================================================================
+   TABBED MODAL DISCLOSURE (V3 shipped)
+   =========================================================================
+   Life Lens tile modals render three tabs above the content:
+     Readout         — tier rule, numeric, colour scale, feature list,
+                       gesix chart, trees summary.
+     How this works  — data-source explanation, tile-scoped caveat,
+                       sources footer.
+     AI Insight      — click-gated AI paragraph (Get Insight button).
+   The tab bar is a JS-injected `<nav.modal-tabbar>` after `.modal-head`.
+   CSS toggles visibility per section via `[data-tab]` on the modal root.
+   Header (icon + label + tier badge + close X) stays fixed above the
+   tabs so it's always visible regardless of which tab is active.
+   ========================================================================= */
+
+/* Neutral segmented control — the eye is pulled by the modal
+   background variant (v1/v2/v3), not by the tab bar itself. */
+.lens-modal .modal-tabbar          { display:flex; gap:4px;
+                                     margin:0 0 20px;
+                                     padding:4px;
+                                     background: rgba(99,102,241,.08);
+                                     border-radius:10px; }
+.lens-modal .modal-tab             { flex:1; border:none;
+                                     display:flex; align-items:center;
+                                     justify-content:center; gap:8px;
+                                     padding:10px 12px;
+                                     background:transparent;
+                                     font:600 12.5px 'Inter', sans-serif;
+                                     color:var(--muted);
+                                     cursor:pointer;
+                                     border-radius:8px;
+                                     transition:all .15s ease; }
+.lens-modal .modal-tab:hover       { color:var(--ink-2); }
+.lens-modal .modal-tab.active      { background:#fff;
+                                     color:var(--brand);
+                                     box-shadow: var(--sh-1); }
+.lens-modal .modal-tab:focus-visible { outline:2px solid var(--brand);
+                                       outline-offset:2px; }
+.lens-modal .modal-tab-icon        { display:inline-flex;
+                                     width:16px; height:16px;
+                                     flex-shrink:0; }
+.lens-modal .modal-tab-icon svg    { width:100%; height:100%; }
+.lens-modal .modal-tab-label       { line-height:1;
+                                     white-space:nowrap; }
+@media (max-width: 480px) {
+  .lens-modal .modal-tab-label     { display:none; }
+  .lens-modal .modal-tab           { gap:0; }
+}
+
+
+/* Tab-scoped visibility only fires when the modal has the `has-tabs`
+   class — i.e. the tab bar was actually injected. Tiles too small for
+   tabs (fewer than two tabs' worth of content) keep the pre-tabbed flat
+   flow. */
+
+/* Readout tab — traffic-light readout content. Hidden on other tabs. */
+.lens-modal.has-tabs .modal-rule,
+.lens-modal.has-tabs .modal-numeric,
+.lens-modal.has-tabs .modal-legend,
+.lens-modal.has-tabs .modal-trees,
+.lens-modal.has-tabs .gesix-modal-block,
+.lens-modal.has-tabs .modal-empty           { display:none; }
+.lens-modal.has-tabs[data-tab="readout"] .modal-rule,
+.lens-modal.has-tabs[data-tab="readout"] .modal-numeric,
+.lens-modal.has-tabs[data-tab="readout"] .modal-legend,
+.lens-modal.has-tabs[data-tab="readout"] .modal-trees,
+.lens-modal.has-tabs[data-tab="readout"] .gesix-modal-block,
+.lens-modal.has-tabs[data-tab="readout"] .modal-empty { display:block; }
+
+/* Feature list defaults to `display:flex` on its column; restore it under
+   readout. Hide on other tabs. */
+.lens-modal.has-tabs .modal-features-list   { display:none; }
+.lens-modal.has-tabs[data-tab="readout"] .modal-features-list { display:flex; }
+
+/* About tab — data-source explanation, caveat, sources footer. */
+.lens-modal.has-tabs .modal-caveat,
+.lens-modal.has-tabs .modal-explanation,
+.lens-modal.has-tabs .modal-provenance      { display:none; }
+.lens-modal.has-tabs[data-tab="about"] .modal-caveat,
+.lens-modal.has-tabs[data-tab="about"] .modal-explanation,
+.lens-modal.has-tabs[data-tab="about"] .modal-provenance { display:block; }
+
+/* AI Insight tab — the click-gated paragraph. */
+.lens-modal.has-tabs .card-insight-wrap     { display:none; }
+.lens-modal.has-tabs[data-tab="insight"] .card-insight-wrap { display:block; }
+.lens-modal.has-tabs[data-tab="insight"] .card-insight-btn  { width:100%;
+                                                              justify-content:center; }
