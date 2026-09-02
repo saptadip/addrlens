@@ -647,6 +647,118 @@ def _tier_rail_noise(rail: dict, th: dict) -> dict:
             "numeric": f"{int(d)} m to S-Bahn {name}"}
 
 
+# ==================================================================== #
+# Commuter tiers.                                                       #
+# ==================================================================== #
+#
+# c1/c2/c3 (commuter_rail_transit / _tram_transit / _bus_transit) reuse
+# the existing `_tier_rail_transit` / `_tier_distance_ladder` machinery
+# with retuned thresholds — no new tier funcs needed. See wrappers below.
+
+
+def _tier_regional_rail_reach(features: list, th: dict) -> dict:
+    """Distance-to-nearest regional-rail station (RE/RB). `features` is
+    the curated `Index.regional_rail` list decorated with distance_m.
+    Uses the shared distance ladder with a regional-rail label."""
+    return _tier_distance_ladder(features, th,
+                                  nearest_label="regional rail",
+                                  empty_label="regional-rail station")
+
+
+def _tier_cycling_network(features: list, th: dict) -> dict:
+    """Nearest OSM cycleway centroid within the search radius. When the
+    OSM snapshot doesn't have a `cycling` bucket yet (fresh code / stale
+    snapshot combination — see refresh_osm_amenities.py notes), the
+    Composer passes an empty features list AND a `bucket_missing=True`
+    threshold flag so the tile can report 'unknown' rather than red.
+    """
+    if th.get("bucket_missing"):
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Cycling data unavailable",
+                "numeric": "OSM cycling bucket not yet in local snapshot"}
+    return _tier_distance_ladder(features, th,
+                                  nearest_label="dedicated cycleway",
+                                  empty_label="cycleway")
+
+
+def _tier_car_sharing_reach(features: list, th: dict) -> dict:
+    """Count-band tier for car-sharing stations within radius_m. Same
+    fresh-code / stale-snapshot fallback as `_tier_cycling_network`."""
+    if th.get("bucket_missing"):
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Car-sharing data unavailable",
+                "numeric": "OSM car_sharing bucket not yet in local snapshot"}
+    return _tier_count_band(features, th,
+                             rule_label="car-sharing stations",
+                             numeric_fmt=lambda n, r:
+                                f"{n} car-sharing stations within {r} m")
+
+
+def _tier_ev_charging_reach(features: list, th: dict) -> dict:
+    """Count-band tier for EV chargers within radius_m."""
+    return _tier_count_band(features, th,
+                             rule_label="EV chargers",
+                             numeric_fmt=lambda n, r:
+                                f"{n} EV chargers within {r} m")
+
+
+def _tier_airport_reach(airport: dict, th: dict) -> dict:
+    """Distance to Berlin Brandenburg Airport (BER). `airport` is a
+    single-point dict with `distance_m` (haversine from address). Uses
+    kilometres for the numeric readout since BER is 15–40 km out.
+
+    Threshold shape: {"green_km", "amber_km"}.
+    """
+    if not airport or airport.get("distance_m") is None:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Airport data unavailable",
+                "numeric": "no airport wired for this city"}
+    d_m = airport["distance_m"]
+    d_km = d_m / 1000.0
+    name = airport.get("name") or "BER"
+    numeric = f"{d_km:.1f} km to {name}"
+    if d_km <= th["green_km"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"≤ {th['green_km']} km to airport",
+                "numeric": numeric}
+    if d_km <= th["amber_km"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"{th['green_km']}–{th['amber_km']} km to airport",
+                "numeric": numeric}
+    return {"tier": TIER_RED,
+            "rule": f"> {th['amber_km']} km to airport",
+            "numeric": numeric}
+
+
+def _tier_commuter_tram_transit(features: list, th: dict) -> dict:
+    """Commuter-tuned tram-stop reach — same shape as Newcomer's tram
+    tile but with tighter thresholds (see cfg.commuter_lens).
+
+    ponytail: byte-identical to `_tier_tram_transit` today. Kept as a
+    distinct per-tile hook so the Commuter framing can diverge (e.g.
+    winter-reliability weighting, frequency band from VBB) without
+    touching the Newcomer tile. Fold back into `_tier_tram_transit`
+    only after a real divergence has landed and been reverted.
+    """
+    return _tier_distance_ladder(features, th,
+                                  nearest_label="tram stop",
+                                  empty_label="tram",
+                                  numeric_prefix="Tram ")
+
+
+def _tier_commuter_bus_transit(features: list, th: dict) -> dict:
+    """Commuter-tuned bus-stop reach — tighter thresholds than Newcomer.
+
+    ponytail: same as `_tier_commuter_tram_transit` above — distinct
+    hook for future commuter-specific divergence (N-line coverage,
+    peak-headway band). Byte-identical to `_tier_bus_transit` today.
+    """
+    return _tier_distance_ladder(features, th,
+                                  nearest_label="bus stop",
+                                  empty_label="bus",
+                                  numeric_prefix="Bus ")
+
+
 def _tier_quiet_zone_solo(quiet_zone: dict, th: dict) -> dict:
     """Standalone version of the quiet-zone distance signal — no
     compositing with trees. Threshold shape: {"green_m", "amber_m"}.
@@ -884,5 +996,83 @@ if __name__ == "__main__":
     assert _tier_nightlife_inverted([{}] * 4, th_nl)["tier"] == "amber"
     assert _tier_nightlife_inverted([{}] * 8, th_nl)["tier"] == "amber"
     assert _tier_nightlife_inverted([{}] * 9, th_nl)["tier"] == "red"
+
+    # -- Commuter tiers ---------------------------------------------------
+
+    # regional_rail_reach (distance ladder with regional-rail label).
+    th_rr = {"green_m": 1200, "amber_m": 2500}
+    r = _tier_regional_rail_reach(
+        [{"name": "S Ostbahnhof", "distance_m": 900}], th_rr)
+    assert r["tier"] == "green" and "regional rail" in r["rule"], r
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 1800}], th_rr)["tier"] == "amber"
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 3000}], th_rr)["tier"] == "red"
+    assert _tier_regional_rail_reach([], th_rr)["tier"] == "red"
+    # Pinned boundaries: `<=` semantics on both transitions.
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 1200}], th_rr)["tier"] == "green"
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 1201}], th_rr)["tier"] == "amber"
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 2500}], th_rr)["tier"] == "amber"
+    assert _tier_regional_rail_reach([{"name": "X", "distance_m": 2501}], th_rr)["tier"] == "red"
+
+    # cycling_network — bucket_missing fallback + distance ladder.
+    th_cy = {"green_m": 100, "amber_m": 300}
+    assert _tier_cycling_network([], {**th_cy, "bucket_missing": True})["tier"] == "unknown"
+    r = _tier_cycling_network([{"name": "Cycleway",
+                                 "distance_m": 80}], th_cy)
+    assert r["tier"] == "green" and "cycleway" in r["rule"].lower()
+    assert _tier_cycling_network([{"name": "C", "distance_m": 250}], th_cy)["tier"] == "amber"
+    assert _tier_cycling_network([{"name": "C", "distance_m": 400}], th_cy)["tier"] == "red"
+    assert _tier_cycling_network([], th_cy)["tier"] == "red"
+    # Pinned boundaries.
+    assert _tier_cycling_network([{"name": "C", "distance_m": 100}], th_cy)["tier"] == "green"
+    assert _tier_cycling_network([{"name": "C", "distance_m": 101}], th_cy)["tier"] == "amber"
+    assert _tier_cycling_network([{"name": "C", "distance_m": 300}], th_cy)["tier"] == "amber"
+    assert _tier_cycling_network([{"name": "C", "distance_m": 301}], th_cy)["tier"] == "red"
+
+    # car_sharing_reach — bucket_missing fallback + count band.
+    th_cs = {"radius_m": 500, "green_count": 3, "amber_count": 1}
+    assert _tier_car_sharing_reach([], {**th_cs, "bucket_missing": True})["tier"] == "unknown"
+    assert _tier_car_sharing_reach([{}] * 3, th_cs)["tier"] == "green"
+    assert _tier_car_sharing_reach([{}], th_cs)["tier"] == "amber"
+    assert _tier_car_sharing_reach([], th_cs)["tier"] == "red"
+
+    # ev_charging_reach — count band.
+    th_ev = {"radius_m": 500, "green_count": 2, "amber_count": 1}
+    assert _tier_ev_charging_reach([{}, {}], th_ev)["tier"] == "green"
+    assert _tier_ev_charging_reach([{}], th_ev)["tier"] == "amber"
+    assert _tier_ev_charging_reach([], th_ev)["tier"] == "red"
+    # numeric_fmt fires with EV-specific phrasing.
+    _r = _tier_ev_charging_reach([{}, {}, {}], th_ev)
+    assert "EV chargers" in _r["numeric"]
+
+    # airport_reach — km-based single-point distance.
+    th_ap = {"green_km": 20, "amber_km": 35}
+    r = _tier_airport_reach({"name": "BER", "distance_m": 15000}, th_ap)
+    assert r["tier"] == "green" and "km to BER" in r["numeric"], r
+    assert _tier_airport_reach({"name": "BER", "distance_m": 28000}, th_ap)["tier"] == "amber"
+    assert _tier_airport_reach({"name": "BER", "distance_m": 45000}, th_ap)["tier"] == "red"
+    assert _tier_airport_reach(None, th_ap)["tier"] == "unknown"
+    # Pinned boundaries: `<=` semantics on km (green_km=20 → 20000 m still green).
+    assert _tier_airport_reach({"name": "BER", "distance_m": 20000}, th_ap)["tier"] == "green"
+    assert _tier_airport_reach({"name": "BER", "distance_m": 20001}, th_ap)["tier"] == "amber"
+    assert _tier_airport_reach({"name": "BER", "distance_m": 35000}, th_ap)["tier"] == "amber"
+    assert _tier_airport_reach({"name": "BER", "distance_m": 35001}, th_ap)["tier"] == "red"
+
+    # Commuter tram / bus wrappers (retuned thresholds vs Newcomer).
+    th_ctram = {"green_m": 400, "amber_m": 800}
+    r = _tier_commuter_tram_transit([{"name": "TS", "distance_m": 380}], th_ctram)
+    assert r["tier"] == "green" and "Tram" in r["numeric"]
+    # Pinned boundaries — locks retuning intent against future drift.
+    assert _tier_commuter_tram_transit([{"name": "T", "distance_m": 400}], th_ctram)["tier"] == "green"
+    assert _tier_commuter_tram_transit([{"name": "T", "distance_m": 401}], th_ctram)["tier"] == "amber"
+    assert _tier_commuter_tram_transit([{"name": "T", "distance_m": 800}], th_ctram)["tier"] == "amber"
+    assert _tier_commuter_tram_transit([{"name": "T", "distance_m": 801}], th_ctram)["tier"] == "red"
+
+    th_cbus = {"green_m": 250, "amber_m": 500}
+    r = _tier_commuter_bus_transit([{"name": "BS", "distance_m": 240}], th_cbus)
+    assert r["tier"] == "green" and "Bus" in r["numeric"]
+    assert _tier_commuter_bus_transit([{"name": "B", "distance_m": 250}], th_cbus)["tier"] == "green"
+    assert _tier_commuter_bus_transit([{"name": "B", "distance_m": 251}], th_cbus)["tier"] == "amber"
+    assert _tier_commuter_bus_transit([{"name": "B", "distance_m": 500}], th_cbus)["tier"] == "amber"
+    assert _tier_commuter_bus_transit([{"name": "B", "distance_m": 501}], th_cbus)["tier"] == "red"
 
     print("scoring.tiers selfcheck OK")

@@ -182,6 +182,19 @@ def lookup(
         lens_quiet = {"slug": "quiet_living",
                       "error": f"{type(e).__name__}: {e}"}
 
+    # --- Commuter lens ----------------------------------------------------
+    # Reuses the Index preloads for S+U/tram/regional-rail and the OSM
+    # local snapshot for cycling / car-sharing / EV chargers. Amenities
+    # bundle is passed for the OSM bus-stop signal (transit bucket).
+    # Additive; try/except keeps /api/lookup resilient (§14.7).
+    try:
+        lens_commuter = scorer.commuter_lens(
+            cfg, index, lon, lat, amenities=_amen or {},
+        )
+    except Exception as e:
+        lens_commuter = {"slug": "commuter",
+                         "error": f"{type(e).__name__}: {e}"}
+
     return {
         "address": {"street": street, "hnr": hnr, "plz": plz,
                     "lon": lon, "lat": lat, "raw": geo["props"]},
@@ -204,7 +217,8 @@ def lookup(
         "heat":         heat,
         "lens":         {"young_family":  lens_yf,
                          "newcomer":      lens_newcomer,
-                         "quiet_living":  lens_quiet},
+                         "quiet_living":  lens_quiet,
+                         "commuter":      lens_commuter},
         "others":       {"bureaucracy": others_admin},
         "provenance": {
             "catchment":     cfg.attribution["catchment"],

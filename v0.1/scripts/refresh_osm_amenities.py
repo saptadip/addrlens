@@ -147,6 +147,26 @@ _TAG_RULES = {
     "nightlife": [
         {"amenity": {"bar", "pub", "nightclub"}},
     ],
+
+    # cycling — dedicated cycle infrastructure. `highway=cycleway` lives on
+    # WAYS (linestrings), which the existing way-centroid handler already
+    # supports; each qualifying way is stored as one point at its centroid.
+    # ponytail: centroid is a rough position for a linear feature — a
+    # 500 m bike lane's centroid can be ~250 m from either end. Good
+    # enough for the Commuter lens's "within 100 m of home" band; upgrade
+    # path is per-segment emission (every N metres along the way) or a
+    # proper polyline nearest-point query.
+    "cycling": [
+        {"highway": {"cycleway"}},
+    ],
+
+    # car_sharing — SHARE NOW, Miles, WeShare and independent operators.
+    # OSM community tags free-floating station-hub locations as
+    # amenity=car_sharing. Free-float ZONES are not modelled here — the
+    # tile intentionally reports fixed pickup points only.
+    "car_sharing": [
+        {"amenity": {"car_sharing"}},
+    ],
 }
 
 # Categories that must have a `name` tag to survive (mirrors _DROP_UNNAMED
@@ -446,6 +466,10 @@ if __name__ == "__main__":
     assert _cat_for({"amenity": "bar"})       == "nightlife"
     assert _cat_for({"amenity": "pub"})       == "nightlife"
     assert _cat_for({"amenity": "nightclub"}) == "nightlife"
+    # Commuter lens buckets — cycling (highway=cycleway on ways) and
+    # car_sharing (amenity=car_sharing on nodes).
+    assert _cat_for({"highway": "cycleway"})  == "cycling"
+    assert _cat_for({"amenity": "car_sharing"}) == "car_sharing"
     # German cuisine restaurant must NOT match (post-filter catches it, but _cat_for
     # will still return intl_food — exclusion is in _add, not _cat_for).
     # (We verify exclusion logic through _INTL_FOOD_EXCLUDE_CUISINE membership.)
@@ -471,6 +495,11 @@ if __name__ == "__main__":
         import json as _json
         j = _json.loads(snap.read_text())
         buckets = j.get("buckets", j)   # tolerate flat shape (legacy)
+        # `cycling` and `car_sharing` were added by the Commuter-lens PR.
+        # Existing snapshots on the box may pre-date them — those keys are
+        # NOT asserted here so a fresh-code / stale-snapshot combination
+        # doesn't fail. The Commuter lens composer treats a missing bucket
+        # as "unknown", and the next weekly refresh populates it.
         for key in ("intl_food", "coworking", "english_clinic", "buergeramt",
                     "language_school", "library", "packstation", "wochenmarkt",
                     "ev_charging", "nightlife"):

@@ -213,6 +213,9 @@ class CityConfig:
     # -- Quiet Living lens (Ship D+) -----------------------------------
     quiet_living_lens: LensConfig
 
+    # -- Commuter lens (Ship D+) ---------------------------------------
+    commuter_lens: LensConfig
+
     # -- Public-admin office data (raw view "Others" tab) --------------
     # Was the Bureaucracy lens (Spec B); the traffic-light composer was
     # removed once the underlying cards moved to the raw-view Others tab.
