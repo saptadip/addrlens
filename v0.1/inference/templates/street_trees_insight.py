@@ -18,8 +18,14 @@ _SYSTEM = (
     "readout, and a metadata block with count, crown_coverage_pct, "
     "avg_age_yr, tallest_m, and top_species (list of {name, n}). "
     "Write ONE paragraph, 70–110 words, doing three things in order: "
-    "(a) plain-English readout of the canopy percentage — under 15% is "
-    "sparse, 15–25% moderate, above 25% genuinely shady; "
+    "(a) plain-English readout of the canopy percentage. Berlin's "
+    "Baumbestand dataset tracks registered street trees ONLY (not park "
+    "or private-garden trees), and the metric divides crown-disk area "
+    "by the whole search-disk area — most of that disk is buildings, "
+    "so real Berlin residential streets rarely exceed the low teens. "
+    "Frame the number on that scale: under 5% is sparse, 5–10% "
+    "moderate, above 10% clearly tree-dense for a Straßenbäume-only "
+    "signal; "
     "(b) practical framing for a quiet-living audience: dense mature "
     "street trees buffer road noise, drop summer heat, and change the "
     "quality of a morning walk. Mention the top species when present "
@@ -50,9 +56,9 @@ def build_messages(ctx: dict) -> list[dict]:
         {"role": "system", "content": _SYSTEM},
         {"role": "user", "content":
             "{\n"
-            "  \"tier\": \"green\", \"rule\": \"canopy ≥ 25%\",\n"
-            "  \"numeric\": \"28% canopy across 187 trees\",\n"
-            "  \"trees\": {\"count\": 187, \"crown_coverage_pct\": 28.4,\n"
+            "  \"tier\": \"green\", \"rule\": \"canopy ≥ 10%\",\n"
+            "  \"numeric\": \"11.4% canopy across 199 trees\",\n"
+            "  \"trees\": {\"count\": 199, \"crown_coverage_pct\": 11.4,\n"
             "     \"avg_age_yr\": 41, \"tallest_m\": 22,\n"
             "     \"top_species\": [\n"
             "       {\"name\": \"Gemeine Rosskastanie\", \"n\": 38},\n"
@@ -60,16 +66,16 @@ def build_messages(ctx: dict) -> list[dict]:
             "     ]}\n"
             "}"},
         {"role": "assistant", "content":
-            "The block around the flat carries roughly 28% street-tree "
-            "canopy — genuinely shady on a summer walk, and the average "
-            "trunk is forty years old, so the shade is stable rather "
-            "than seasonal. Gemeine Rosskastanie (horse-chestnut) and "
-            "Winter-Linde (small-leaved linden) lead the mix, both good "
-            "at buffering road noise and dropping the pavement "
-            "temperature. For a quiet-living audience this matters "
-            "twice: the trees soften the acoustic environment, and "
-            "they make the daily walk to transit feel calm even before "
-            "you reach a park."},
+            "The block around the flat carries roughly 11% street-tree "
+            "canopy — clearly tree-dense for a Straßenbäume-only signal, "
+            "and the average trunk is forty years old, so the shade is "
+            "stable rather than seasonal. Gemeine Rosskastanie "
+            "(horse-chestnut) and Winter-Linde (small-leaved linden) "
+            "lead the mix, both good at buffering road noise and "
+            "dropping the pavement temperature. For a quiet-living "
+            "audience this matters twice: the trees soften the acoustic "
+            "environment, and they make the daily walk to transit feel "
+            "calm even before you reach a park."},
         {"role": "user", "content": facts},
     ]
 
@@ -84,12 +90,25 @@ def run(backend, ctx: dict) -> dict:
 
 if __name__ == "__main__":
     msgs = build_messages({
-        "tier": "amber", "rule": "canopy 15–24%",
-        "numeric": "18% canopy across 90 trees",
-        "count": 90, "crown_coverage_pct": 18.2, "avg_age_yr": 32,
+        "tier": "amber", "rule": "canopy 5–9%",
+        "numeric": "6.8% canopy across 90 trees",
+        "count": 90, "crown_coverage_pct": 6.8, "avg_age_yr": 32,
         "top_species": [{"name": "Linde", "n": 40}],
     })
-    assert "canopy" in msgs[0]["content"].lower()
-    assert "invent" in msgs[0]["content"].lower()
+    sys_low = msgs[0]["content"].lower()
+    assert "canopy" in sys_low
+    # System prompt now names the Straßenbäume-only limitation and the
+    # 5 / 10 % calibration. Guard against a regression that would
+    # re-introduce the physically unreachable 25 / 15 % numbers.
+    assert "straßenbäume" in sys_low or "strassenbaume" in sys_low or \
+           "street tree" in sys_low
+    assert "5%" in msgs[0]["content"] and "10%" in msgs[0]["content"], \
+        "system must anchor the retuned 5 / 10 % scale"
+    assert "25%" not in msgs[0]["content"] and "15%" not in msgs[0]["content"], \
+        "system must not carry the stale 25 / 15 % anchors"
+    # Green exemplar rule must be `canopy ≥ 10%` (was `≥ 25%`).
+    ex_rule = msgs[1]["content"]
+    assert "≥ 10%" in ex_rule or "canopy ≥ 10%" in ex_rule
+    assert "25%" not in ex_rule
     assert "Linde" in msgs[-1]["content"]
     print("street_trees_insight.py selfcheck OK")
