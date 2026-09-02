@@ -1774,7 +1774,7 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
                                      padding:10px 12px;
                                      background:transparent;
                                      font:600 12.5px 'Inter', sans-serif;
-                                     color:rgba(30,27,75,.65);
+                                     color:rgba(30,27,75,.78);
                                      cursor:pointer;
                                      border-radius:8px;
                                      transition:all .15s ease; }
@@ -1786,10 +1786,15 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
                                        outline-offset:2px; }
 
 /* Feature rows and legend get a translucent white wash so they stand
-   out from the deeper indigo modal backdrop. */
+   out from the deeper indigo modal backdrop. Muted meta text
+   (distance, caveat) is overridden to `--ink-2` inside the modal
+   scope to hit WCAG AA (var(--muted) at #6B7280 fails 4.5:1 on the
+   translucent-white pill). */
 .lens-modal .lens-feature          { background: rgba(255,255,255,.65); }
 .lens-modal .lens-feature:hover    { background: rgba(255,255,255,.85); }
 .lens-modal .modal-legend          { background: rgba(255,255,255,.5); }
+.lens-modal .lens-feature .feature-distance { color: var(--ink-2); }
+.lens-modal .modal-caveat          { color: var(--ink-2); }
 .lens-modal .modal-tab-icon        { display:inline-flex;
                                      width:16px; height:16px;
                                      flex-shrink:0; }
