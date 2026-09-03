@@ -1816,12 +1816,14 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 .lens-modal.has-tabs .modal-rule,
 .lens-modal.has-tabs .modal-numeric,
 .lens-modal.has-tabs .modal-legend,
+.lens-modal.has-tabs .modal-glossary,
 .lens-modal.has-tabs .modal-trees,
 .lens-modal.has-tabs .gesix-modal-block,
 .lens-modal.has-tabs .modal-empty           { display:none; }
 .lens-modal.has-tabs[data-tab="readout"] .modal-rule,
 .lens-modal.has-tabs[data-tab="readout"] .modal-numeric,
 .lens-modal.has-tabs[data-tab="readout"] .modal-legend,
+.lens-modal.has-tabs[data-tab="readout"] .modal-glossary,
 .lens-modal.has-tabs[data-tab="readout"] .modal-trees,
 .lens-modal.has-tabs[data-tab="readout"] .gesix-modal-block,
 .lens-modal.has-tabs[data-tab="readout"] .modal-empty { display:block; }
@@ -1844,3 +1846,68 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 .lens-modal.has-tabs[data-tab="insight"] .card-insight-wrap { display:block; }
 .lens-modal.has-tabs[data-tab="insight"] .card-insight-btn  { width:100%;
                                                               justify-content:center; }
+
+/* =========================================================================
+   GLOSSARY (Readout tab)
+   =========================================================================
+   Renders a comma-separated strip of German civic terms per tile with a
+   dotted-underline chip on each word. Hover / focus / tap shows a single
+   shared popup with a plain-English definition. Popup is a `.glossary-
+   popup` element attached inside the modal — inherits z-index, disappears
+   when the modal is closed (innerHTML cleared).
+   ========================================================================= */
+.modal-glossary                    { margin: 12px 0 14px;
+                                     padding: 12px 14px;
+                                     background: rgba(255,255,255,.55);
+                                     border-radius: 10px; }
+.modal-glossary-title              { font: 700 11px 'Inter', sans-serif;
+                                     letter-spacing: .10em;
+                                     text-transform: uppercase;
+                                     color: rgba(30,27,75,.72);
+                                     margin-bottom: 6px; }
+.modal-glossary-list               { font: 500 13px 'Inter', sans-serif;
+                                     color: var(--ink);
+                                     line-height: 1.7; }
+.glossary-word                     { position: relative;
+                                     color: var(--brand);
+                                     font-weight: 600;
+                                     text-decoration: underline dotted;
+                                     text-decoration-thickness: 1.5px;
+                                     text-underline-offset: 3px;
+                                     cursor: help;
+                                     transition: color .12s ease; }
+.glossary-word:hover,
+.glossary-word:focus-visible       { color: #4F46E5;
+                                     text-decoration-color: #4F46E5;
+                                     outline: none; }
+.glossary-word:focus-visible       { text-decoration-style: solid; }
+
+/* Popup — a small card floating above / below the hovered word.
+   Positioned in JS via absolute top/left on the modal container. */
+.glossary-popup                    { position: absolute;
+                                     z-index: 20;
+                                     max-width: 280px;
+                                     padding: 10px 12px;
+                                     background: #FFFFFF;
+                                     border: 1.5px solid var(--brand);
+                                     border-radius: 10px;
+                                     box-shadow:
+                                       0 10px 24px rgba(30,27,75,.20),
+                                       0 3px 8px rgba(30,27,75,.12);
+                                     pointer-events: none;   /* hover on the popup itself would trigger mouseleave loop */
+                                     animation: glossary-popup-in .14s ease-out; }
+.glossary-popup[hidden]            { display: none; }
+.glossary-popup-term               { font: 700 12.5px 'Inter', sans-serif;
+                                     color: var(--brand);
+                                     margin-bottom: 4px;
+                                     letter-spacing: .01em; }
+.glossary-popup-def                { font: 400 12.5px 'Inter', sans-serif;
+                                     color: var(--ink);
+                                     line-height: 1.5; }
+@keyframes glossary-popup-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glossary-popup                  { animation: none; }
+}

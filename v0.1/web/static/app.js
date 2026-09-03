@@ -413,6 +413,108 @@ const LENS_TILE_EXPLANATIONS = {
   gesix_commuter:        "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band, read for a daily commuter. Quintile 1 polygons often sit further from the S/U network (the tradeoff for residential quiet); quintile 5 polygons often sit ON it (the tradeoff for daily density and peak-hour platform crowding).",
 };
 
+// -- German glossary -------------------------------------------------------
+// Every term that appears in tile copy, sources, or dataset names and would
+// not be understood by a non-native English reader has an entry here. Text
+// is deliberately conversational — this is not a legal dictionary. Keep
+// each definition to 1–3 sentences.
+const GLOSSARY = {
+  'Kita': "Short for 'Kindertagesstätte' — the German name for a daycare centre serving children roughly 0–6 years old. Spots are limited; families often reserve one during pregnancy.",
+  'S-Bahn': "Berlin's mostly above-ground suburban rail network. Trains run every 5–20 minutes and share a single ticket with the U-Bahn. Blue-and-white 'S' logo on a green disk.",
+  'U-Bahn': "Berlin's mostly underground metro network. Trains every 3–10 minutes on most lines. Blue-and-white 'U' logo on a blue disk.",
+  'Tram': "Berlin's tram (streetcar) network — the German name is Straßenbahn. Concentrated in former East Berlin (Mitte, Prenzlauer Berg, Friedrichshain, Lichtenberg); West Berlin removed most of its trams by 1967.",
+  'Straßenbahn': "German for tram / streetcar. Same network as the 'Tram' entry.",
+  'Straßenbahnhaltestellen': "Tram stops (literally 'streetcar stopping-places'). The name of the BVG dataset that lists every operational tram stop in Berlin.",
+  'BVG': "Berliner Verkehrsbetriebe — the company that runs Berlin's U-Bahn, tram, bus, and ferry network. Not to be confused with the S-Bahn (a different operator).",
+  'VBB': "Verkehrsverbund Berlin-Brandenburg — the regional transit union. One ticket works across S-Bahn, U-Bahn, tram, bus, and regional rail in Berlin plus the surrounding Brandenburg state.",
+  'ÖPNV': "Öffentlicher Personennahverkehr — 'public local passenger transport'. Umbrella German term covering S-Bahn, U-Bahn, tram, and bus service.",
+  'Ungestörtes ÖPNV-Netz': "'Undisturbed public-transit network' — BVG's data set of its own transit stops (U-Bahn, tram, bus, ferry) merged into one inventory. The 'ungestört' part refers to the network being represented without traffic-simulation overlays.",
+  'Regionalbahn': "Regional rail — trains connecting Berlin to surrounding Brandenburg towns (Potsdam, Bernau, Erkner). Two service classes: RE (Regional-Express, fewer stops) and RB (Regionalbahn, more stops).",
+  'Hauptbahnhof': "Berlin's main train station, opened 2006. Central hub for intercity trains (ICE, IC) and regional rail (RE, RB). Located north of the Reichstag.",
+  'L_DEN': "EU-standard 24-hour noise average, weighted higher for evening and night to reflect sleep-disturbance impact. Measured in decibels (dB). WHO recommends ≤ 55 dB in residential areas.",
+  'L_night': "Night-time noise average, 22:00–06:00. Measured in decibels (dB). WHO recommends ≤ 40 dB in residential areas for undisturbed sleep.",
+  'Belastung': "German for 'burden' or 'stress'. Used by Berlin's Umweltatlas to grade environmental exposure. Bands: keine (none), geringe (low), mäßige (moderate), starke (strong), extreme (extreme).",
+  'Umweltatlas': "Berlin's Environmental Atlas — a municipal open-data mapping of air quality, noise, heat, groundwater, vegetation, and other environmental signals. Refreshed by the Senate on a rolling basis.",
+  'PET': "Physiological Equivalent Temperature — a heat-stress metric that combines air temperature, humidity, wind, and solar radiation. Used to grade a block's summertime bioclimate.",
+  'Ruhige Gebiete': "Berlin's legally designated quiet zones under §47d BImSchG. Roughly 50 urban parks specifically protected from noise. State forests (Grunewald, Tegeler Forst) are NOT on this list — they're protected under Forstwirtschaft law instead.",
+  '§47d BImSchG': "Section 47d of the German Federal Immission Control Act (Bundes-Immissionsschutzgesetz). Requires municipalities to designate 'quiet zones' meant to protect recreation areas from noise.",
+  'BImSchG': "Bundes-Immissionsschutzgesetz — Germany's Federal Immission Control Act. The law that regulates emissions, noise, and other environmental pollutants.",
+  'Landschaftsschutzgebiete': "Landscape protection areas — a German legal designation protecting landscape character and biodiversity (e.g. Grunewald). Different from Ruhige Gebiete: Landschaftsschutzgebiete protect scenery, Ruhige Gebiete specifically protect quiet.",
+  'Forstwirtschaft': "German forestry law — the legal category under which state forests like Grunewald and Tegeler Forst are protected. Not the same as §47d quiet zones.",
+  'Baumbestand': "Berlin's municipal tree register — an open-data inventory of every registered street tree, with species, age, crown diameter, and location.",
+  'Straßenbäume': "Street trees — trees planted along public streets by the city. Registered in the Baumbestand. Does NOT include park trees or private-garden trees.",
+  'Planungsraum': "Berlin's smallest official planning unit — roughly 7,500 residents each. Berlin has ~540 Planungsräume (raised from ~447 in the 2021 LOR boundary reform). GESIx and many other municipal statistics are reported at this level.",
+  'GESIx': "Berlin's socioeconomic index — a composite score of 20+ health, social, and employment indicators aggregated per Planungsraum. Higher quintile = healthier / more stable neighbourhood context.",
+  'Kiez': "Berlin slang for a small neighbourhood or block district — the few streets around your flat where you know the corner store, the bakery, the local park.",
+  'Bezirk': "One of Berlin's 12 official boroughs (Mitte, Kreuzberg, Pankow, etc.). Each administered by its own Bezirksamt (borough office).",
+  'Bürgeramt': "Berlin's citizens' registration office. Where you go for Anmeldung, passport renewal, driver's license, and other civic services. Berlin has ~46 branches.",
+  'Anmeldung': "Mandatory address registration for anyone living in Germany. Must be done at a Bürgeramt within 14 days of moving. Required for opening a bank account, getting a health card, and most basic services.",
+  'Aufenthaltstitel': "German residence permit — the visa document that lets non-EU citizens live and work in Germany. Requires Anmeldung, health insurance, and (for many types) B1-level German.",
+  'Einbürgerung': "German naturalization — the process of becoming a German citizen. Usually requires 5–8 years of residence, B1 German, financial self-sufficiency, and passing a civics test.",
+  'Sprachschule': "German language school — private course provider. Most offer A1–C2 courses, often intensive (20 hrs/week) for students on a language visa.",
+  'Volkshochschule': "Adult education centre (VHS) — one per Bezirk. The cheapest German-course option in Berlin. Also offers cooking, art, and civics classes.",
+  'VÖBB': "Verbund Öffentlicher Bibliotheken Berlins — Berlin's public library network. A single €10/year card gives access to 80+ branches across all 12 Bezirke.",
+  'Bibliothek': "German for library. Berlin's public library network is called VÖBB.",
+  'Packstation': "DHL's parcel-locker network — where packages get delivered when you're not home. Uses a PIN or app to open. Named 'Packstation' (yes, that's the actual German name).",
+  'Deutsche Post': "Germany's national postal service. Runs Packstation and has staffed post branches (Postfilialen) at many corner shops.",
+  'Wochenmarkt': "Weekly outdoor market — typically Wednesday or Saturday. Vendors sell fruits, vegetables, cheese, bread, flowers. Cash-friendly, usually no German required.",
+  'Übergeordnetes Straßennetz': "Berlin's 'supra-local road network' — the register of major arterials (Ku'damm, Karl-Marx-Allee, Frankfurter Allee, etc.). These are the cross-city routes; residential streets branch off.",
+  'Tempolimits': "Berlin's speed-limit dataset — a live map of every exception to the general 50 km/h city limit. Tempo-30 zones dominate residential streets.",
+  'Tempo-30': "30 km/h zone — a residential street where the speed limit is 30 km/h instead of the default 50. Reduces noise noticeably and cuts pedestrian-collision severity.",
+  'Autobahn': "German motorway. In Berlin, the A100 city motorway ring and the A111/A113/A114/A115 spokes. Rural sections often have no general speed limit.",
+  'Grünanlagen': "Green spaces — Berlin's municipal category for parks, playgrounds, and other public open spaces.",
+  'Spielplätze': "Playgrounds. Berlin's Grünanlagen — Spielplätze dataset lists every registered municipal playground.",
+};
+
+// Tile → glossary keys. Only add words that actually surface in that tile's
+// caveat / explanation / sources / dataset name. Empty list = no glossary
+// section rendered for that tile.
+const TILE_GLOSSARY_KEYS = {
+  // Young Family
+  kita:                  ['Kita', 'Bezirk'],
+  playground:            ['Grünanlagen', 'Spielplätze'],
+  pediatrician:          [],
+  transit:               ['S-Bahn', 'U-Bahn', 'Tram', 'Straßenbahn', 'BVG', 'VBB'],
+  supermarket:           [],
+  noise:                 ['L_DEN', 'L_night', 'Belastung'],
+  heat:                  ['Belastung', 'Umweltatlas', 'PET'],
+  air:                   ['Umweltatlas'],
+  refuge:                ['Ruhige Gebiete', '§47d BImSchG', 'Baumbestand', 'Straßenbäume'],
+  gesix:                 ['Planungsraum', 'GESIx', 'Kiez', 'Bezirk'],
+  // Newcomer
+  buergeramt:            ['Bürgeramt', 'Anmeldung', 'Aufenthaltstitel'],
+  rail_transit:          ['S-Bahn', 'U-Bahn', 'Hauptbahnhof', 'VBB'],
+  tram_transit:          ['Tram', 'Straßenbahn', 'BVG', 'VBB'],
+  bus_transit:           ['BVG'],
+  intl_food:             [],
+  coworking:             [],
+  english_clinic:        [],
+  language_school:       ['Sprachschule', 'Volkshochschule', 'Aufenthaltstitel', 'Einbürgerung'],
+  library:               ['VÖBB', 'Bibliothek', 'Bezirk'],
+  packstation:           ['Packstation', 'Deutsche Post'],
+  wochenmarkt:           ['Wochenmarkt'],
+  nightlife_density:     [],
+  gesix_newcomer:        ['Planungsraum', 'GESIx', 'Kiez', 'Bezirk'],
+  // Quiet Living
+  quiet_zone:            ['Ruhige Gebiete', '§47d BImSchG', 'BImSchG', 'Landschaftsschutzgebiete', 'Forstwirtschaft'],
+  street_trees:          ['Baumbestand', 'Straßenbäume'],
+  tempo30:               ['Tempo-30', 'Tempolimits', 'Autobahn'],
+  arterial_road:         ['Übergeordnetes Straßennetz'],
+  rail_noise:            ['S-Bahn', 'U-Bahn'],
+  nightlife_inverted:    [],
+  gesix_quiet:           ['Planungsraum', 'GESIx', 'Kiez', 'Bezirk'],
+  // Commuter
+  commuter_rail_transit: ['S-Bahn', 'U-Bahn', 'VBB'],
+  commuter_tram_transit: ['Straßenbahn', 'BVG', 'Straßenbahnhaltestellen', 'Ungestörtes ÖPNV-Netz', 'ÖPNV'],
+  commuter_bus_transit:  ['BVG'],
+  regional_rail_reach:   ['Regionalbahn', 'VBB'],
+  cycling_network:       [],
+  car_sharing_reach:     [],
+  ev_charging_reach:     [],
+  airport_reach:         [],
+  gesix_commuter:        ['Planungsraum', 'GESIx', 'Kiez', 'Bezirk'],
+};
+
 // -- Spec D: map-pin color per tier ------------------------------------------
 const TIER_PIN_COLORS = {
   green:   '#22C55E',   // matches --success
@@ -2866,6 +2968,29 @@ function renderModalLegend(legend, currentTier) {
     </div>`;
 }
 
+// Render the German-glossary strip for a tile. Renders each glossary key
+// as an inline span with a dotted underline; `_wireGlossaryPopups` binds
+// hover / focus / tap → popup. Returns '' when a tile has no glossary
+// keys (empty list or unknown tile key) so the section is fully hidden.
+function renderModalGlossary(tile) {
+  const keys = TILE_GLOSSARY_KEYS[tile.key];
+  if (!Array.isArray(keys) || keys.length === 0) return '';
+  const chips = keys
+    .filter(k => GLOSSARY[k])       // guard against a mapping typo
+    .map(k =>
+      `<span class="glossary-word" data-glossary-term="${escapeHtml(k)}"` +
+      ` tabindex="0" role="button" aria-label="Definition of ${escapeHtml(k)}">` +
+      `${escapeHtml(k)}</span>`
+    )
+    .join(', ');
+  if (!chips) return '';
+  return `
+    <div class="modal-glossary" aria-label="German glossary for this tile">
+      <div class="modal-glossary-title">German glossary</div>
+      <div class="modal-glossary-list">${chips}</div>
+    </div>`;
+}
+
 function renderLensSingle(addr) {
   const active = getActiveLens();
   const lens = addr && addr.lens && addr.lens[active];
@@ -3236,6 +3361,7 @@ function renderLensModalBody(tile, lensSlug) {
     <div class="modal-rule">${escapeHtml(tile.rule || '')}</div>
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
     ${renderModalLegend(tile.legend, tier)}
+    ${renderModalGlossary(tile)}
     ${caveat}
     ${explBlock}
     ${cardRichBlock}
@@ -3331,6 +3457,110 @@ function _injectModalTabs(modal) {
   });
 }
 
+// Wire glossary-word hover / focus / tap → single shared popup element.
+// The popup lives inside the modal so it inherits the modal's z-index and
+// disappears when the modal closes (innerHTML = '' in closeLensModal).
+function _wireGlossaryPopups(modal) {
+  const words = modal.querySelectorAll('.glossary-word');
+  if (!words.length) return;
+
+  // One popup element shared across every word. Created lazily so a modal
+  // with no glossary section stays clean.
+  let popup = modal.querySelector('.glossary-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.className = 'glossary-popup';
+    popup.id = 'glossary-popup';                       // linked via aria-describedby
+    popup.setAttribute('role', 'tooltip');
+    popup.setAttribute('hidden', '');
+    popup.innerHTML = `
+      <div class="glossary-popup-term"></div>
+      <div class="glossary-popup-def"></div>`;
+    modal.appendChild(popup);
+  }
+  const popupTerm = popup.querySelector('.glossary-popup-term');
+  const popupDef  = popup.querySelector('.glossary-popup-def');
+  let activeWord  = null;                              // currently-linked term span
+
+  const showFor = (word) => {
+    const term = word.dataset.glossaryTerm;
+    const def  = GLOSSARY[term];
+    if (!def) return;
+    popupTerm.textContent = term;
+    popupDef.textContent  = def;
+    popup.hidden = false;
+    // Link the term to the popup for screen readers.
+    word.setAttribute('aria-describedby', popup.id);
+    activeWord = word;
+    // Position: prefer above the word, fall back below when clipped.
+    // `.lens-modal` has `position:absolute` + `overflow-y:auto`, so
+    // popup coordinates are measured in the modal's SCROLL coord space
+    // (padding-box origin + scrollTop / scrollLeft). Adding scrollTop
+    // / scrollLeft to the viewport delta keeps the popup anchored to
+    // the term when the modal scrolls.
+    const wr = word.getBoundingClientRect();
+    const mr = modal.getBoundingClientRect();
+    const pw = popup.offsetWidth;
+    const ph = popup.offsetHeight;
+    // Horizontal: center on the word, clamp to modal edges (12 px padding).
+    let left = wr.left - mr.left + modal.scrollLeft + (wr.width / 2) - (pw / 2);
+    left = Math.max(12, Math.min(left, mr.width - pw - 12));
+    // Vertical: above the word if space (viewport-wise), else below.
+    const spaceAbove = wr.top - mr.top;
+    const yBase = modal.scrollTop;
+    let top;
+    if (spaceAbove >= ph + 10) top = (wr.top - mr.top) + yBase - ph - 8;
+    else                       top = (wr.bottom - mr.top) + yBase + 8;
+    popup.style.left = `${left}px`;
+    popup.style.top  = `${top}px`;
+  };
+  const hide = () => {
+    popup.hidden = true;
+    if (activeWord) {
+      activeWord.removeAttribute('aria-describedby');
+      activeWord = null;
+    }
+  };
+
+  words.forEach(word => {
+    // Idempotency guard — a stray second call to `_wireGlossaryPopups`
+    // (e.g. future refactor that runs it twice) must not stack
+    // listeners on the same term. The modal is rebuilt on every open
+    // so in practice this is defense-in-depth.
+    if (word.dataset.glossaryWired === '1') return;
+    word.dataset.glossaryWired = '1';
+
+    word.addEventListener('mouseenter', () => showFor(word));
+    word.addEventListener('mouseleave', hide);
+    word.addEventListener('focus',      () => showFor(word));
+    word.addEventListener('blur',       hide);
+    // Mobile / tap: toggle. Prevents propagation so an outside-modal tap
+    // handler doesn't close the modal at the same time.
+    word.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (popup.hidden || popup.dataset.forTerm !== word.dataset.glossaryTerm) {
+        popup.dataset.forTerm = word.dataset.glossaryTerm;
+        showFor(word);
+      } else {
+        hide();
+      }
+    });
+    // Escape while focused hides the popup ONLY — must not bubble to
+    // the document-level Escape handler that closes the whole modal.
+    // Without `stopPropagation`, keyboard users lose the modal when
+    // they try to dismiss the tooltip.
+    word.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        hide();
+        word.blur();
+      }
+    });
+  });
+}
+
+
 function openLensModal(tileKey) {
   if (!eduData || !eduData.lens) return;
   const active = getActiveLens();
@@ -3350,6 +3580,10 @@ function openLensModal(tileKey) {
   // above the tile content. Fires every open — `innerHTML` was just
   // replaced, so no risk of duplicate tab bars.
   _injectModalTabs(modal);
+
+  // Wire glossary-word popups (hover / focus / tap). No-op when the tile
+  // has no German glossary entries.
+  _wireGlossaryPopups(modal);
 
   // Focus the close button for keyboard users
   const closeBtn = modal.querySelector('.lens-modal-close');
