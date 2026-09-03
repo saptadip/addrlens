@@ -2966,7 +2966,44 @@ function renderLensTile(tile, lensSlug) {
 // is bold + opaque; the other two are dim so the user's result stays
 // the focal point while the reference sits alongside. Empty legend
 // (GESIx quintile tile, numeric-only nightlife) skips this block.
-function renderModalLegend(legend, currentTier) {
+// Render a 3-segment tier donut for the Colour Scale panel. Center holds
+// the tile's own icon. The segment matching the current tier is saturated;
+// the other two are muted at .22 opacity. Returns '' for tiles with no
+// tiered state (numeric-only). Segments are drawn as stroked arcs on a
+// circle — no path math needed. Rotations place green at 12, amber at 4,
+// red at 8 o'clock.
+function renderTierDonut(tile) {
+  const tier = tile && tile.tier;
+  if (!['green', 'amber', 'red'].includes(tier)) return '';
+  const iconSVG = ico[tile.icon] || '';
+  const activeIdx = { green: 0, amber: 1, red: 2 }[tier];
+  const cx = 100, cy = 100, r = 74, sw = 22;
+  const C = 2 * Math.PI * r;
+  const segLen = C / 3;
+  const restLen = C - segLen;
+  const colors = ['#22C55E', '#F59E0B', '#EF4444'];
+  // Tiny gap between arcs so they don't overlap on their end-caps.
+  const gap = 3;
+  const segs = colors.map((color, i) => {
+    const rot = -90 + (i * 120);
+    const isActive = i === activeIdx;
+    const op = isActive ? 1 : 0.22;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}"
+              fill="none" stroke="${color}" stroke-width="${sw}"
+              stroke-dasharray="${segLen - gap} ${restLen + gap}"
+              opacity="${op}"
+              transform="rotate(${rot} ${cx} ${cy})"/>`;
+  }).join('');
+  return `
+    <div class="tier-donut" aria-hidden="true">
+      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        ${segs}
+      </svg>
+      <div class="tier-donut-icon tier-donut-icon--${escapeHtml(tier)}">${iconSVG}</div>
+    </div>`;
+}
+
+function renderModalLegend(legend, currentTier, tile) {
   if (!Array.isArray(legend) || legend.length === 0) return '';
   const rows = legend.map(l => {
     const isCurrent = l.tier === currentTier;
@@ -2976,10 +3013,14 @@ function renderModalLegend(legend, currentTier) {
         <span class="modal-legend-text">${escapeHtml(l.text)}</span>
       </div>`;
   }).join('');
+  const donut = renderTierDonut(tile);
   return `
     <div class="modal-legend" aria-label="Colour-coding criteria">
-      <div class="modal-legend-title">Colour scale</div>
-      ${rows}
+      <div class="modal-legend-body">
+        <div class="modal-legend-title">Colour scale</div>
+        ${rows}
+      </div>
+      ${donut}
     </div>`;
 }
 
@@ -3377,7 +3418,7 @@ function renderLensModalBody(tile, lensSlug) {
     </div>
     <div class="modal-rule">${escapeHtml(tile.rule || '')}</div>
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
-    ${renderModalLegend(tile.legend, tier)}
+    ${renderModalLegend(tile.legend, tier, tile)}
     ${renderModalGlossary(tile)}
     ${caveat}
     ${explBlock}
@@ -3634,6 +3675,7 @@ function openLensModal(tileKey) {
     modal.classList.add('sidebar-layout');
     _wrapSidebarPanelCol(modal);
   }
+
 
   // Focus the close button for keyboard users
   const closeBtn = modal.querySelector('.lens-modal-close');

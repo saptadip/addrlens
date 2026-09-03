@@ -2121,3 +2121,101 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 .lens-modal .modal-provenance { font-size: 12px;
                                 line-height: 1.55; }
 .lens-modal .modal-explanation { line-height: 1.55; }
+
+/* =========================================================================
+   COLOUR SCALE — LEGEND + TIER DONUT
+   =========================================================================
+   Two-column layout inside `.modal-legend`: legend rows left, donut
+   right. Donut is a 3-arc SVG showing green / amber / red segments;
+   the active tier is saturated, other two are faded to .22 opacity.
+   Center holds the tile's own icon, tinted to the active tier.
+   Style: skeuomorphic clay dial — raised puck with soft shadows.
+   ========================================================================= */
+/* Sidebar-scoped selector must out-specify the tab-gate rule at line
+   1825 (`.lens-modal.has-tabs[data-tab="readout"] .modal-legend`), which
+   sets `display: block` when the readout tab is active and otherwise
+   would flatten our flex-row into vertical block flow. We match its
+   `.lens-modal.has-tabs[data-tab="readout"]` prefix so specificity ties
+   and source order (this rule is later) wins. A second selector covers
+   the sidebar-layout-without-tabs case, and a third handles the bare
+   `.modal-legend` fallback used outside the sidebar shell. */
+.lens-modal.has-tabs[data-tab="readout"] .modal-legend,
+.lens-modal.sidebar-layout .modal-legend,
+.modal-legend                     { display: flex;
+                                    flex-direction: row;
+                                    align-items: flex-start;
+                                    gap: 16px; }
+.modal-legend-body                { flex: 1;
+                                    min-width: 0;
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 4px; }
+.modal-legend .modal-legend-row   { margin: 0; }
+.modal-legend .modal-legend-title { margin-bottom: 6px; }
+
+/* Donut container ------------------------------------------------------- */
+.tier-donut                       { position: relative;
+                                    flex: 0 0 96px;
+                                    width: 96px;
+                                    height: 96px;
+                                    border-radius: 50%; }
+.tier-donut svg                   { width: 100%;
+                                    height: 100%;
+                                    display: block; }
+.tier-donut-icon                  { position: absolute;
+                                    top: 50%; left: 50%;
+                                    width: 38px; height: 38px;
+                                    transform: translate(-50%, -50%);
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    color: var(--brand);
+                                    border-radius: 50%; }
+.tier-donut-icon svg              { width: 22px; height: 22px; }
+
+/* Tint the center icon subtly to match the active tier — supports the
+   "your reading is X" signal without shouting. */
+.tier-donut-icon--green           { color: #16A34A; }
+.tier-donut-icon--amber           { color: #D97706; }
+.tier-donut-icon--red             { color: #DC2626; }
+
+/* Skeuomorphic clay dial. Layered shadows fake a top-left light source:
+   highlight ridge on the top edge, groove shadow on the bottom, plus a
+   strong outer drop-shadow for lift off the panel. Center puck is a
+   raised satellite with its own drop-shadow. Arcs get a mild
+   drop-shadow filter so they read as segments sitting in a groove. */
+.tier-donut {
+    background:
+      radial-gradient(circle at 32% 26%,
+        #FFFFFF 0%,
+        #F0F2FF 40%,
+        #D6DBF5 90%,
+        #C5CCEE 100%);
+    box-shadow:
+      0 14px 28px rgba(30,27,75,.22),
+      0 5px 10px rgba(30,27,75,.14),
+      inset 3px 3px 6px rgba(255,255,255,.85),
+      inset 2px 2px 3px rgba(255,255,255,.95),
+      inset -3px -3px 8px rgba(30,27,75,.18),
+      inset -2px -2px 4px rgba(30,27,75,.12);
+    filter: drop-shadow(0 2px 3px rgba(30,27,75,.06));
+}
+.tier-donut .tier-donut-icon {
+    width: 42px; height: 42px;
+    background:
+      radial-gradient(circle at 32% 26%,
+        #FFFFFF 0%,
+        #FAFBFF 60%,
+        #EDF0FC 100%);
+    box-shadow:
+      0 6px 12px rgba(30,27,75,.28),
+      0 2px 4px rgba(30,27,75,.20),
+      inset 1px 2px 3px rgba(255,255,255,.95),
+      inset -1px -2px 3px rgba(30,27,75,.10);
+}
+.tier-donut svg { filter: drop-shadow(0 1px 1px rgba(30,27,75,.14)); }
+
+/* Under ~480 px, drop the donut to keep the modal tight on mobile */
+@media (max-width: 480px) {
+  .tier-donut                     { display: none; }
+}
