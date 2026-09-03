@@ -385,7 +385,7 @@ const LENS_TILE_EXPLANATIONS = {
   pediatrician: "Distance to the nearest OSM community-tagged pediatrician (Kinderarzt). Green ≤ 800 m walk; amber ≤ 1.5 km. First-time parents visit every 4–6 weeks in year one; walkable proximity beats waiting-list matching for a distant clinic.",
   transit:      "Walking time to the nearest S-Bahn / U-Bahn / Tram / Bus stop (VBB station coords + BVG Straßenbahnhaltestellen + OSM bus stops). Green ≤ 5 min stroller walk; amber ≤ 10 min. Stroller-tuned rather than commute-tuned — the walk speed assumed is slower and any mode reaching counts.",
   supermarket:  "Walking time to the nearest supermarket (OSM community-tagged). Green ≤ 5 min stroller walk; amber ≤ 10 min. Weekly grocery runs and last-minute nappy trips both compound around this distance.",
-  refuge:       "Composite signal — the nearest §47d Ruhige Gebiet OR the street-tree canopy % from Berlin's Baumbestand around the flat. Green if quiet zone ≤ 400 m OR canopy ≥ 10 %. Answers 'can we walk somewhere calm' for daily park routines.",
+  refuge:       "Composite signal — the nearest §47d Ruhige Gebiet OR the street-tree canopy % from Berlin's Baumbestand around the flat. Green if quiet zone ≤ 400 m OR canopy ≥ 10 %; amber if quiet zone ≤ 1 km OR canopy ≥ 5 %. Answers 'can we walk somewhere calm' for daily park routines.",
   noise: "L_DEN is EU-standard day-evening-night noise averaging. WHO recommends ≤55 dB in residential areas; above 60 dB is linked to sleep disturbance.",
   heat:  "Berlin's Umweltatlas classifies each block's bioclimate (PET at 14:00 in summer). 'Belastung' = burden; higher classes indicate more heat stress.",
   air:   "NO₂ measured µg/m³ per street segment (Umweltatlas trend scenario). WHO 2021 annual guideline is 10 µg/m³; Germany's legal limit is 40.",
@@ -3624,14 +3624,16 @@ function openLensModal(tileKey) {
   // has no German glossary entries.
   _wireGlossaryPopups(modal);
 
-  // Sidebar tab layout — always on. CSS Grid on the modal places the
-  // tab bar in col 1 (vertical rail) and a single `.modal-panel-col`
-  // wrapper (containing everything else) into col 2. Wrapping is
-  // required — without it every content section becomes its own grid
-  // row and the right column smears down the modal height instead of
-  // packing tightly under the panel top.
-  modal.classList.add('sidebar-layout');
-  _wrapSidebarPanelCol(modal);
+  // Sidebar tab layout — applied only when the tab bar actually exists.
+  // `_injectModalTabs` returns early on tiles with fewer than 2 tabs of
+  // content (numeric-only tiles), leaving no `.modal-tabbar` in the
+  // DOM. Applying `.sidebar-layout` in that case would render a 156 px
+  // + 28 px empty gutter to the left of the content. Gate on the
+  // `.has-tabs` class that `_injectModalTabs` sets when it does inject.
+  if (modal.classList.contains('has-tabs')) {
+    modal.classList.add('sidebar-layout');
+    _wrapSidebarPanelCol(modal);
+  }
 
   // Focus the close button for keyboard users
   const closeBtn = modal.querySelector('.lens-modal-close');

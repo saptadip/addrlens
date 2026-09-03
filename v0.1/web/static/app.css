@@ -1913,12 +1913,15 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 }
 
 /* =========================================================================
-   SIDEBAR TAB LAYOUT (dev-only, gated behind ?sidebar=1)
+   SIDEBAR TAB LAYOUT (shipped default for tabbed modals)
    =========================================================================
    Restructures the modal into a 2-column grid: left column = vertical
    tab bar, right column = tab content. Header (icon + label + close X)
-   spans both columns at the top. All other content siblings drop into
-   column 2 automatically via `.lens-modal.sidebar-layout > *`.
+   spans both columns at the top. All content sections are moved by
+   `_wrapSidebarPanelCol` in app.js into a single `.modal-panel-col`
+   div that occupies column 2 — one grid cell — so vertical rhythm
+   inside the right column becomes plain block flow instead of
+   per-section grid rows that would inflate to match the tab-bar height.
    ========================================================================= */
 /* ---------------------------------------------------------------------------
    Structural fix: right-column content is wrapped by JS into a single
