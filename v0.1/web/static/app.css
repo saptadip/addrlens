@@ -2164,7 +2164,7 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
                                     display: block; }
 .tier-donut-icon                  { position: absolute;
                                     top: 50%; left: 50%;
-                                    width: 38px; height: 38px;
+                                    width: 42px; height: 42px;
                                     transform: translate(-50%, -50%);
                                     display: flex;
                                     align-items: center;
@@ -2175,9 +2175,17 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 
 /* Tint the center icon subtly to match the active tier — supports the
    "your reading is X" signal without shouting. */
+/* Tier tint colors chosen for WCAG AA on the #FAFBFF puck background
+   (≥ 4.5:1). Amber bumped from #D97706 (~3.4:1) → #B45309 (~5.0:1). */
 .tier-donut-icon--green           { color: #16A34A; }
-.tier-donut-icon--amber           { color: #D97706; }
+.tier-donut-icon--amber           { color: #B45309; }
 .tier-donut-icon--red             { color: #DC2626; }
+
+/* Force the Phosphor duotone fill layer (opacity 0.2) to inherit the
+   tier tint. Without this, the semi-transparent fill defaults to black
+   because Phosphor duotone paths carry `opacity` but no `fill`
+   attribute — only the stroked outline would pick up `currentColor`. */
+.tier-donut-icon svg [opacity="0.2"] { fill: currentColor; }
 
 /* Skeuomorphic clay dial. Layered shadows fake a top-left light source:
    highlight ridge on the top edge, groove shadow on the bottom, plus a
@@ -2201,7 +2209,6 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
     filter: drop-shadow(0 2px 3px rgba(30,27,75,.06));
 }
 .tier-donut .tier-donut-icon {
-    width: 42px; height: 42px;
     background:
       radial-gradient(circle at 32% 26%,
         #FFFFFF 0%,

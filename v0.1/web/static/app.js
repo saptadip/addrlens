@@ -2970,8 +2970,9 @@ function renderLensTile(tile, lensSlug) {
 // the tile's own icon. The segment matching the current tier is saturated;
 // the other two are muted at .22 opacity. Returns '' for tiles with no
 // tiered state (numeric-only). Segments are drawn as stroked arcs on a
-// circle — no path math needed. Rotations place green at 12, amber at 4,
-// red at 8 o'clock.
+// circle — no path math needed. Green segment STARTS at 12 o'clock and
+// runs clockwise (centre near 2 o'clock); amber starts at 4 (centre
+// near 6); red starts at 8 (centre near 10).
 function renderTierDonut(tile) {
   const tier = tile && tile.tier;
   if (!['green', 'amber', 'red'].includes(tier)) return '';
@@ -3675,7 +3676,6 @@ function openLensModal(tileKey) {
     modal.classList.add('sidebar-layout');
     _wrapSidebarPanelCol(modal);
   }
-
 
   // Focus the close button for keyboard users
   const closeBtn = modal.querySelector('.lens-modal-close');
