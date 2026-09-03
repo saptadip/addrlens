@@ -443,7 +443,7 @@ const GLOSSARY = {
   'Forstwirtschaft': "German forestry law — the legal category under which state forests like Grunewald and Tegeler Forst are protected. Not the same as §47d quiet zones.",
   'Baumbestand': "Berlin's municipal tree register — an open-data inventory of every registered street tree, with species, age, crown diameter, and location.",
   'Straßenbäume': "Street trees — trees planted along public streets by the city. Registered in the Baumbestand. Does NOT include park trees or private-garden trees.",
-  'Planungsraum': "Berlin's smallest official planning unit — roughly 10,000 residents each. Berlin has ~447 Planungsräume. GESIx and many other municipal statistics are reported at this level.",
+  'Planungsraum': "Berlin's smallest official planning unit — roughly 7,500 residents each. Berlin has ~540 Planungsräume (raised from ~447 in the 2021 LOR boundary reform). GESIx and many other municipal statistics are reported at this level.",
   'GESIx': "Berlin's socioeconomic index — a composite score of 20+ health, social, and employment indicators aggregated per Planungsraum. Higher quintile = healthier / more stable neighbourhood context.",
   'Kiez': "Berlin slang for a small neighbourhood or block district — the few streets around your flat where you know the corner store, the bakery, the local park.",
   'Bezirk': "One of Berlin's 12 official boroughs (Mitte, Kreuzberg, Pankow, etc.). Each administered by its own Bezirksamt (borough office).",
@@ -3470,6 +3470,7 @@ function _wireGlossaryPopups(modal) {
   if (!popup) {
     popup = document.createElement('div');
     popup.className = 'glossary-popup';
+    popup.id = 'glossary-popup';                       // linked via aria-describedby
     popup.setAttribute('role', 'tooltip');
     popup.setAttribute('hidden', '');
     popup.innerHTML = `
@@ -3479,6 +3480,7 @@ function _wireGlossaryPopups(modal) {
   }
   const popupTerm = popup.querySelector('.glossary-popup-term');
   const popupDef  = popup.querySelector('.glossary-popup-def');
+  let activeWord  = null;                              // currently-linked term span
 
   const showFor = (word) => {
     const term = word.dataset.glossaryTerm;
@@ -3487,25 +3489,47 @@ function _wireGlossaryPopups(modal) {
     popupTerm.textContent = term;
     popupDef.textContent  = def;
     popup.hidden = false;
+    // Link the term to the popup for screen readers.
+    word.setAttribute('aria-describedby', popup.id);
+    activeWord = word;
     // Position: prefer above the word, fall back below when clipped.
+    // `.lens-modal` has `position:absolute` + `overflow-y:auto`, so
+    // popup coordinates are measured in the modal's SCROLL coord space
+    // (padding-box origin + scrollTop / scrollLeft). Adding scrollTop
+    // / scrollLeft to the viewport delta keeps the popup anchored to
+    // the term when the modal scrolls.
     const wr = word.getBoundingClientRect();
     const mr = modal.getBoundingClientRect();
     const pw = popup.offsetWidth;
     const ph = popup.offsetHeight;
     // Horizontal: center on the word, clamp to modal edges (12 px padding).
-    let left = wr.left - mr.left + (wr.width / 2) - (pw / 2);
+    let left = wr.left - mr.left + modal.scrollLeft + (wr.width / 2) - (pw / 2);
     left = Math.max(12, Math.min(left, mr.width - pw - 12));
-    // Vertical: above the word if space, else below.
+    // Vertical: above the word if space (viewport-wise), else below.
     const spaceAbove = wr.top - mr.top;
+    const yBase = modal.scrollTop;
     let top;
-    if (spaceAbove >= ph + 10) top = wr.top - mr.top - ph - 8;
-    else                       top = wr.bottom - mr.top + 8;
+    if (spaceAbove >= ph + 10) top = (wr.top - mr.top) + yBase - ph - 8;
+    else                       top = (wr.bottom - mr.top) + yBase + 8;
     popup.style.left = `${left}px`;
     popup.style.top  = `${top}px`;
   };
-  const hide = () => { popup.hidden = true; };
+  const hide = () => {
+    popup.hidden = true;
+    if (activeWord) {
+      activeWord.removeAttribute('aria-describedby');
+      activeWord = null;
+    }
+  };
 
   words.forEach(word => {
+    // Idempotency guard — a stray second call to `_wireGlossaryPopups`
+    // (e.g. future refactor that runs it twice) must not stack
+    // listeners on the same term. The modal is rebuilt on every open
+    // so in practice this is defense-in-depth.
+    if (word.dataset.glossaryWired === '1') return;
+    word.dataset.glossaryWired = '1';
+
     word.addEventListener('mouseenter', () => showFor(word));
     word.addEventListener('mouseleave', hide);
     word.addEventListener('focus',      () => showFor(word));
@@ -3521,9 +3545,17 @@ function _wireGlossaryPopups(modal) {
         hide();
       }
     });
-    // Escape key while focused hides the popup.
+    // Escape while focused hides the popup ONLY — must not bubble to
+    // the document-level Escape handler that closes the whole modal.
+    // Without `stopPropagation`, keyboard users lose the modal when
+    // they try to dismiss the tooltip.
     word.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { hide(); word.blur(); }
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        hide();
+        word.blur();
+      }
     });
   });
 }
