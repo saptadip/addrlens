@@ -379,10 +379,25 @@ const LM_DEFAULT_LENS = 'young_family';            // default for first-time use
 
 // -- Spec D: aggregate-tile explanations (rendered in modal only) -----------
 const LENS_TILE_EXPLANATIONS = {
+  // Young Family lens
+  kita:         "Distance to the nearest registered Kita AND count within a search radius, from Berlin's Kindertagesstätten BOD dataset. Green requires ≥ 3 kitas within 400 m walk; amber ≥ 1 within 800 m. Berlin's kita waitlists are long — proximity to several branches multiplies your shot at securing a spot.",
+  playground:   "Distance to the nearest municipal playground (Grünanlagen — Spielplätze BOD + OSM). Green ≤ 400 m stroller walk; amber ≤ 800 m. For under-6s, frequency of use tracks proximity — a closer one gets visited every day, a further one becomes a weekend outing.",
+  pediatrician: "Distance to the nearest OSM community-tagged pediatrician (Kinderarzt). Green ≤ 800 m walk; amber ≤ 1.5 km. First-time parents visit every 4–6 weeks in year one; walkable proximity beats waiting-list matching for a distant clinic.",
+  transit:      "Walking time to the nearest S-Bahn / U-Bahn / Tram / Bus stop (VBB station coords + BVG Straßenbahnhaltestellen + OSM bus stops). Green ≤ 5 min stroller walk; amber ≤ 10 min. Stroller-tuned rather than commute-tuned — the walk speed assumed is slower and any mode reaching counts.",
+  supermarket:  "Walking time to the nearest supermarket (OSM community-tagged). Green ≤ 5 min stroller walk; amber ≤ 10 min. Weekly grocery runs and last-minute nappy trips both compound around this distance.",
+  refuge:       "Composite signal — the nearest §47d Ruhige Gebiet OR the street-tree canopy % from Berlin's Baumbestand around the flat. Green if quiet zone ≤ 400 m OR canopy ≥ 10 %. Answers 'can we walk somewhere calm' for daily park routines.",
   noise: "L_DEN is EU-standard day-evening-night noise averaging. WHO recommends ≤55 dB in residential areas; above 60 dB is linked to sleep disturbance.",
   heat:  "Berlin's Umweltatlas classifies each block's bioclimate (PET at 14:00 in summer). 'Belastung' = burden; higher classes indicate more heat stress.",
   air:   "NO₂ measured µg/m³ per street segment (Umweltatlas trend scenario). WHO 2021 annual guideline is 10 µg/m³; Germany's legal limit is 40.",
   gesix: "Berlin's Senate publishes a composite of 20 health, social and employment indicators per Planungsraum (~10k residents). Higher quintile = healthier / more stable neighbourhood context. The signal describes the polygon around the flat, not the building itself.",
+  // Newcomer lens
+  buergeramt:      "Distance to the nearest Bürgeramt (BOD Bezirks-Services). Green ≤ 1.5 km walk; amber ≤ 3 km. First-90-days visit cadence is high (Anmeldung, tax-ID, driver-license conversion) — a nearby branch saves cross-district trips.",
+  rail_transit:    "Walking distance to the nearest S-Bahn AND U-Bahn station (VBB station-access dataset). Green requires S ≤ 800 m OR U ≤ 500 m. Newcomer-tuned for intercity trips (Hauptbahnhof) and airport runs (BER via S9 / RE7), not daily commute — the Commuter lens applies tighter thresholds.",
+  tram_transit:    "Walking distance to the nearest tram stop (BVG Straßenbahnhaltestellen dataset). Green ≤ 500 m walk; amber ≤ 1 km. Trams fill the last-mile gap between S/U hub and home in former East Berlin; West Berlin has essentially no active tram network.",
+  bus_transit:     "Walking distance to the nearest bus stop (OSM `highway=bus_stop` via weekly Geofabrik snapshot). Green ≤ 300 m walk; amber ≤ 600 m. Bus covers routes S/U/Tram skip, and N-line night buses run after the 01:30 rail shutdown on weekdays.",
+  intl_food:       "Count of international-cuisine venues within 1 km (OSM tagged Vietnamese, Middle Eastern, Italian, Turkish and similar). Green ≥ 6 within 1 km; amber ≥ 2. Familiar-cuisine anchors in walkable distance make a neighbourhood feel like home faster.",
+  coworking:       "Count of coworking spaces and laptop-friendly cafés within 1 km (OSM `office=coworking` + tagged cafés). Green ≥ 3; amber ≥ 1. Having multiple options avoids the single-spot problem when the Wi-Fi's down or the seat's taken.",
+  english_clinic:  "Distance to the nearest OSM-tagged English-language-friendly clinic. Green ≤ 1 km walk; amber ≤ 3 km. Newcomers without B1 German need at least one nearby clinic where consultations run in English.",
   gesix_newcomer: "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band. Lower and higher quintiles both come with real tradeoffs for a newcomer — language mix, rent band, mutual-aid density — so walk the block before you sign.",
   language_school: "Walking distance to the nearest Sprachschule or Volkshochschule (VHS) branch. B1 German is the practical gate to Aufenthaltstitel and Einbürgerung — course finish rates track attendance, and attendance tracks how close class is to home.",
   library: "Distance to the nearest public library (VÖBB) or university library. For newcomers the library is the lowest-friction 'third place' — free Wi-Fi, warm study space, English fiction, integration events, no purchase pressure.",
@@ -3240,8 +3255,10 @@ function renderLensModalBody(tile, lensSlug) {
       }</ul>`
     : emptyBody;
   const treesHtml = renderLensTreesBlock(trees);
+  // "Sources:" prefix dropped — the About-tab section-header CSS
+  // supplies a "Data sources" heading above this block.
   const sourcesHtml = Array.isArray(tile.sources) && tile.sources.length
-    ? `<div class="modal-provenance">Sources: ${
+    ? `<div class="modal-provenance">${
         tile.sources.map(escapeHtml).join(' · ')
       }</div>`
     : '';
@@ -3457,6 +3474,28 @@ function _injectModalTabs(modal) {
   });
 }
 
+// Sidebar-layout structural helper: gather every direct child of the
+// modal that belongs in the right column (i.e. not the header, not the
+// tabbar, not the close button, not the glossary popup) into a single
+// `.modal-panel-col` wrapper. One grid cell, block-flow rhythm inside.
+// Idempotent: re-running finds the existing wrapper and only appends
+// any new stragglers that appeared after last invocation.
+function _wrapSidebarPanelCol(modal) {
+  let col = modal.querySelector(':scope > .modal-panel-col');
+  if (!col) {
+    col = document.createElement('div');
+    col.className = 'modal-panel-col';
+  }
+  const skip = new Set(['modal-head', 'modal-tabbar', 'lens-modal-close',
+                        'glossary-popup', 'modal-panel-col']);
+  // Snapshot first — moving nodes mutates the live NodeList.
+  const movers = Array.from(modal.children).filter(el =>
+    ![...el.classList].some(c => skip.has(c))
+  );
+  movers.forEach(el => col.appendChild(el));
+  if (!col.parentNode) modal.appendChild(col);
+}
+
 // Wire glossary-word hover / focus / tap → single shared popup element.
 // The popup lives inside the modal so it inherits the modal's z-index and
 // disappears when the modal closes (innerHTML = '' in closeLensModal).
@@ -3584,6 +3623,15 @@ function openLensModal(tileKey) {
   // Wire glossary-word popups (hover / focus / tap). No-op when the tile
   // has no German glossary entries.
   _wireGlossaryPopups(modal);
+
+  // Sidebar tab layout — always on. CSS Grid on the modal places the
+  // tab bar in col 1 (vertical rail) and a single `.modal-panel-col`
+  // wrapper (containing everything else) into col 2. Wrapping is
+  // required — without it every content section becomes its own grid
+  // row and the right column smears down the modal height instead of
+  // packing tightly under the panel top.
+  modal.classList.add('sidebar-layout');
+  _wrapSidebarPanelCol(modal);
 
   // Focus the close button for keyboard users
   const closeBtn = modal.querySelector('.lens-modal-close');
