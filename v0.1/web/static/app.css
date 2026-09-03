@@ -1911,3 +1911,213 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 @media (prefers-reduced-motion: reduce) {
   .glossary-popup                  { animation: none; }
 }
+
+/* =========================================================================
+   SIDEBAR TAB LAYOUT (shipped default for tabbed modals)
+   =========================================================================
+   Restructures the modal into a 2-column grid: left column = vertical
+   tab bar, right column = tab content. Header (icon + label + close X)
+   spans both columns at the top. All content sections are moved by
+   `_wrapSidebarPanelCol` in app.js into a single `.modal-panel-col`
+   div that occupies column 2 — one grid cell — so vertical rhythm
+   inside the right column becomes plain block flow instead of
+   per-section grid rows that would inflate to match the tab-bar height.
+   ========================================================================= */
+/* ---------------------------------------------------------------------------
+   Structural fix: right-column content is wrapped by JS into a single
+   `.modal-panel-col`. That means the grid has exactly TWO body rows
+   (header, then [tabbar | panel-col]) — no more per-section row inflation
+   dragging content down the modal height. Vertical rhythm inside the
+   right column is plain block flow, which is what an editorial reader
+   scans naturally.
+   ------------------------------------------------------------------------ */
+
+.lens-modal.sidebar-layout          { display: grid;
+                                      grid-template-columns: 156px minmax(0, 1fr);
+                                      column-gap: 28px;
+                                      row-gap: 0;
+                                      align-content: start;
+                                      padding: 22px 26px 24px; }
+
+/* Header row: spans both columns. Close × keeps its absolute anchoring
+   from the base modal — no need to re-place it into the grid. */
+.lens-modal.sidebar-layout .modal-head            { grid-column: 1 / -1;
+                                                    margin: 0 0 18px;
+                                                    padding-bottom: 16px;
+                                                    border-bottom: 1px solid rgba(30,27,75,.08); }
+.lens-modal.sidebar-layout .lens-modal-close      { top: 18px; right: 22px; }
+
+/* -----------------------------------------------------------------------
+   LEFT COLUMN — vertical nav.
+   Strip the pill-container chrome. This should read as a nav rail, not
+   a floating card. Active state uses a 2 px inset accent bar + ink-black
+   text; hover uses a whisper of white. Every affordance stays inside
+   the row — no drop shadow, no white fill, no chip look.
+   ----------------------------------------------------------------------- */
+.lens-modal.sidebar-layout .modal-tabbar          { grid-column: 1;
+                                                    display: flex;
+                                                    flex-direction: column;
+                                                    align-items: stretch;
+                                                    align-self: start;
+                                                    gap: 2px;
+                                                    margin: 0;
+                                                    padding: 0;
+                                                    background: transparent;
+                                                    border-radius: 0;
+                                                    position: relative; }
+/* Faint vertical rule separating rail from content — one hairline, not a
+   full column border. */
+.lens-modal.sidebar-layout .modal-tabbar::after   { content: '';
+                                                    position: absolute;
+                                                    top: 2px; bottom: 2px;
+                                                    right: -14px;
+                                                    width: 1px;
+                                                    background: rgba(30,27,75,.08); }
+
+.lens-modal.sidebar-layout .modal-tab             { display: flex;
+                                                    align-items: center;
+                                                    justify-content: flex-start;
+                                                    gap: 10px;
+                                                    padding: 9px 10px 9px 12px;
+                                                    background: transparent;
+                                                    border: none;
+                                                    border-radius: 6px;
+                                                    text-align: left;
+                                                    font: 500 12.5px 'Inter', sans-serif;
+                                                    letter-spacing: .01em;
+                                                    color: rgba(30,27,75,.62);
+                                                    cursor: pointer;
+                                                    transition: color .15s ease,
+                                                                background .15s ease; }
+.lens-modal.sidebar-layout .modal-tab:hover       { background: rgba(255,255,255,.35);
+                                                    color: #1E1B4B;
+                                                    box-shadow: none; }
+.lens-modal.sidebar-layout .modal-tab.active      { background: transparent;
+                                                    color: #1E1B4B;
+                                                    font-weight: 600;
+                                                    box-shadow: inset 2px 0 0 var(--brand); }
+.lens-modal.sidebar-layout .modal-tab:focus-visible { outline: 2px solid var(--brand);
+                                                      outline-offset: 2px;
+                                                      background: rgba(255,255,255,.35); }
+.lens-modal.sidebar-layout .modal-tab-icon        { width: 15px; height: 15px;
+                                                    color: currentColor;
+                                                    opacity: .75; }
+.lens-modal.sidebar-layout .modal-tab.active .modal-tab-icon { opacity: 1;
+                                                               color: var(--brand); }
+.lens-modal.sidebar-layout .modal-tab-label       { display: inline;
+                                                    line-height: 1.25; }
+
+/* -----------------------------------------------------------------------
+   RIGHT COLUMN — content panel.
+   Wrapped by JS in `.modal-panel-col`. One grid cell → normal block flow
+   → controllable rhythm. Section spacing is a single token: 14 px between
+   sections, 18 px above section headings that follow a data block. Any
+   direct-child element that ISN'T in the wrapper (glossary popup etc.)
+   is untouched.
+   ----------------------------------------------------------------------- */
+.lens-modal.sidebar-layout .modal-panel-col       { grid-column: 2;
+                                                    min-width: 0;
+                                                    display: flex;
+                                                    flex-direction: column; }
+
+/* Tight rhythm — every content section drops onto the same 14 px cadence.
+   First child never has a top margin (rule/numeric sits flush with the
+   top of the panel column, level with the first tab). */
+.lens-modal.sidebar-layout .modal-panel-col > *           { margin: 14px 0 0; }
+.lens-modal.sidebar-layout .modal-panel-col > *:first-child { margin-top: 0; }
+
+/* Emphasise the rule line — this is the tile's thesis statement. */
+.lens-modal.sidebar-layout .modal-rule            { font: 500 14px/1.5 'Inter', sans-serif;
+                                                    color: #1E1B4B;
+                                                    letter-spacing: .005em; }
+/* Numeric readout follows the rule directly with only 6 px between them
+   — they belong together as a stat pair. */
+.lens-modal.sidebar-layout .modal-rule + .modal-numeric { margin-top: 6px; }
+.lens-modal.sidebar-layout .modal-numeric         { font: 600 20px/1.25 'Space Grotesk', 'Inter', sans-serif;
+                                                    color: #1E1B4B;
+                                                    letter-spacing: -.01em; }
+
+/* Legend + glossary panels — quieten the translucent white wash, tighten
+   internal padding. */
+.lens-modal.sidebar-layout .modal-legend          { padding: 12px 14px;
+                                                    border-radius: 8px;
+                                                    background: rgba(255,255,255,.55); }
+.lens-modal.sidebar-layout .modal-legend-title    { font: 600 10.5px/1 'Inter', sans-serif;
+                                                    text-transform: uppercase;
+                                                    letter-spacing: .09em;
+                                                    color: rgba(30,27,75,.6);
+                                                    margin-bottom: 8px; }
+
+/* Feature list — remove excess row padding, keep hover restrained. */
+/* Do NOT set `display` here — the `.has-tabs[data-tab="readout"]` rule
+   owns visibility. Setting `display: flex` unconditionally would
+   override that gate at equal specificity, and feature rows would show
+   on every tab. Only tune the flex properties that apply once the tab
+   gate says `display: flex`. */
+.lens-modal.sidebar-layout .modal-features-list   { flex-direction: column;
+                                                    gap: 4px; }
+.lens-modal.sidebar-layout .lens-feature          { padding: 10px 12px;
+                                                    border-radius: 6px; }
+
+/* About / provenance / caveat blocks: reduce visual weight — this is
+   secondary reference material. */
+.lens-modal.sidebar-layout .modal-explanation,
+.lens-modal.sidebar-layout .modal-caveat,
+.lens-modal.sidebar-layout .modal-provenance      { font-size: 13px;
+                                                    line-height: 1.55;
+                                                    color: rgba(30,27,75,.72); }
+
+/* -----------------------------------------------------------------------
+   Responsive fold.
+   Below 720 px the 156 px rail eats too much horizontal room. Fold the
+   nav back to a horizontal segmented control at the top of the panel
+   and let the right column flow full width.
+   ----------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .lens-modal.sidebar-layout        { grid-template-columns: 1fr;
+                                      column-gap: 0;
+                                      row-gap: 14px; }
+  .lens-modal.sidebar-layout .modal-tabbar { flex-direction: row;
+                                             align-self: stretch;
+                                             gap: 4px;
+                                             padding: 4px;
+                                             background: rgba(255,255,255,.55);
+                                             border-radius: 10px; }
+  .lens-modal.sidebar-layout .modal-tabbar::after { display: none; }
+  .lens-modal.sidebar-layout .modal-tab     { flex: 1;
+                                              justify-content: center;
+                                              border-radius: 8px;
+                                              padding: 9px 10px; }
+  .lens-modal.sidebar-layout .modal-tab.active { background: #FFFFFF;
+                                                 color: var(--brand);
+                                                 box-shadow: 0 2px 8px rgba(30,27,75,.14); }
+  .lens-modal.sidebar-layout .modal-tab.active .modal-tab-icon { color: var(--brand); }
+  .lens-modal.sidebar-layout .modal-panel-col { grid-column: 1; }
+}
+
+/* -------------------------------------------------------------------------
+   About-tab section headers — labelled "About this signal" (above the
+   explanation strip) and "Data sources" (above the provenance line).
+   Uses ::before pseudo-elements so no JS/render change is needed. Only
+   fires when the About tab is active (or when the tab bar is absent,
+   for tiles that skip tabs entirely).
+   ------------------------------------------------------------------------- */
+.lens-modal .modal-explanation::before,
+.lens-modal .modal-provenance::before {
+  content: attr(data-section-title);
+  display: block;
+  font: 700 10.5px 'Inter', sans-serif;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: rgba(30,27,75,.55);
+  margin-bottom: 6px;
+}
+/* Attribute-driven title text — set via CSS attr() with a static fallback
+   because these rules can't inject dynamic strings. */
+.lens-modal .modal-explanation::before { content: "About this signal"; }
+.lens-modal .modal-provenance::before  { content: "Data sources"; }
+/* Restore inline appearance and remove the neu-morph "Sources: " prefix
+   styling now that the header lives above. */
+.lens-modal .modal-provenance { font-size: 12px;
+                                line-height: 1.55; }
+.lens-modal .modal-explanation { line-height: 1.55; }
