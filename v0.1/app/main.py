@@ -26,6 +26,7 @@ from app.routes.card_insight import router as card_insight_router
 from app.routes.explain import router as explain_router
 from app.routes.history import router as history_router
 from app.routes.impression import router as impression_router
+from app.routes.lens_insight import router as lens_insight_router
 from app.routes.lookup import router as lookup_router
 from app.routes.noise import router as noise_router
 from app.routes.suggest import router as suggest_router
@@ -177,6 +178,7 @@ app.include_router(impression_router)
 app.include_router(explain_router)
 app.include_router(history_router)
 app.include_router(card_insight_router)
+app.include_router(lens_insight_router)
 
 
 @app.get("/health")

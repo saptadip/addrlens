@@ -1160,6 +1160,91 @@ body.life-mode #panel-others{ display:none !important; }
      0 0 0 3px rgba(99,102,241,.4);
 }
 
+/* --- Lens-level AI Insight panel (pilot, ?ai=lens) ---------------------- */
+/* Sits between .lens-picker-row and .lens-body — full-width above tiles.
+   One Cloudflare call per lens per address; replaces the per-tile Get
+   Insight button while the pilot is running behind the ?ai=lens flag. */
+.lens-ai-panel { margin: 8px 0 14px; padding: 18px 20px;
+                 background: linear-gradient(135deg, rgba(238,242,255,.85), rgba(224,231,255,.9));
+                 border: 1px solid rgba(99,102,241,.16);
+                 border-radius: 16px;
+                 box-shadow: 0 4px 14px rgba(79,70,229,.06); }
+.lens-ai-summary { font-family: 'Space Grotesk', 'Inter', sans-serif;
+                   font-weight: 500; font-size: 17px; line-height: 1.45;
+                   color: var(--ink); margin-bottom: 14px; }
+.lens-ai-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 12px; margin-bottom: 12px; }
+.lens-ai-col { background: rgba(255,255,255,.55); border-radius: 12px;
+               padding: 12px 14px; }
+.lens-ai-col-head { font: 700 11px 'Inter', sans-serif; text-transform: uppercase;
+                    letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+.lens-ai-sec { padding: 4px 0; border-bottom: 1px dashed rgba(107,114,128,.16); }
+.lens-ai-sec:last-child { border-bottom: 0; }
+.lens-ai-sec-title { font: 600 13px 'Inter', sans-serif; color: var(--ink);
+                     display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.lens-ai-sec-note { font-size: 12.5px; color: var(--ink-2); line-height: 1.4;
+                    padding-left: 18px; }
+.tier-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+            flex-shrink: 0; }
+.tier-dot.tier-green   { background: #22C55E; }
+.tier-dot.tier-amber   { background: #F59E0B; }
+.tier-dot.tier-red     { background: #EF4444; }
+.tier-dot.tier-unknown { background: #9CA3AF; }
+.lens-ai-hilights-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+                         margin-top: 8px; }
+@media (max-width: 700px) { .lens-ai-hilights-wrap { grid-template-columns: 1fr; } }
+.lens-ai-hilights { list-style: none; padding: 0; margin: 0;
+                    background: rgba(255,255,255,.55); border-radius: 12px;
+                    padding: 10px 14px; }
+.lens-ai-hilights li { display: flex; align-items: baseline; gap: 8px;
+                       padding: 4px 0; font-size: 12.5px; color: var(--ink-2);
+                       border-bottom: 1px dashed rgba(107,114,128,.14); }
+.lens-ai-hilights li:last-child { border-bottom: 0; }
+.lens-ai-hilights .hl-tile { font-weight: 700; color: var(--ink);
+                             font-family: 'Space Grotesk', sans-serif;
+                             text-transform: uppercase; font-size: 10.5px;
+                             letter-spacing: .06em; flex-shrink: 0; }
+.lens-ai-hilights .hl-line { flex: 1; }
+.lens-ai-footer { margin-top: 10px; padding-top: 10px;
+                  border-top: 1px solid rgba(107,114,128,.15);
+                  font-size: 11px; color: var(--muted); font-style: italic; }
+/* Idle state — call-to-action button. Compact horizontal layout: copy on
+   the left, button on the right. Falls to stacked on narrow screens. */
+.lens-ai-idle { display: flex; align-items: center; gap: 20px;
+                justify-content: space-between; flex-wrap: wrap; }
+.lens-ai-idle-copy { flex: 1 1 auto; min-width: 0; }
+.lens-ai-idle-title { font: 700 15px 'Space Grotesk', 'Inter', sans-serif;
+                      color: var(--ink); margin-bottom: 2px; }
+.lens-ai-idle-sub { font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+.lens-ai-btn { display: inline-flex; align-items: center; gap: 8px;
+               padding: 10px 18px; border-radius: 999px; border: 0; cursor: pointer;
+               font: 600 13px 'Inter', sans-serif;
+               background: linear-gradient(135deg, #4F46E5, #6366F1); color: #fff;
+               box-shadow: 0 4px 14px rgba(79,70,229,.24);
+               transition: transform .12s ease, box-shadow .12s ease; }
+.lens-ai-btn:hover  { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(79,70,229,.32); }
+.lens-ai-btn:active { transform: translateY(0); }
+.lens-ai-btn-arrow svg { width: 14px; height: 14px; }
+.lens-ai-err { margin-top: 8px; padding: 8px 12px; border-radius: 8px;
+               background: rgba(239,68,68,.08); color: #B91C1C;
+               font-size: 12px; font-weight: 500; }
+/* Skeleton shimmer while the Cloudflare call resolves. */
+.lens-ai-skel-summary { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.lens-ai-skel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.skel-line, .skel-block { background: linear-gradient(90deg, rgba(199,210,254,.4),
+                          rgba(224,231,255,.7), rgba(199,210,254,.4));
+                          background-size: 200% 100%;
+                          animation: skel-shimmer 1.4s linear infinite;
+                          border-radius: 8px; }
+.skel-line { height: 14px; }
+.skel-w-90 { width: 92%; }
+.skel-w-75 { width: 76%; }
+.skel-block { height: 90px; }
+@keyframes skel-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* --- Spec D: clickable lens tiles, 2-col layout, modal, map ------------- */
 
 /* 2-col split — mirrors raw-mode Amenities .grid + .map-cell */
