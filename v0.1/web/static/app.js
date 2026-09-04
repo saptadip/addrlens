@@ -3030,6 +3030,8 @@ function renderModalLegend(legend, currentTier, tile) {
 // as an inline span with a dotted underline; `_wireGlossaryPopups` binds
 // hover / focus / tap → popup. Returns '' when a tile has no glossary
 // keys (empty list or unknown tile key) so the section is fully hidden.
+// Tab placement: About tab (PR #25 moved this out of Readout so the
+// vocabulary lives with the tile explanation, thresholds, and sources).
 function renderModalGlossary(tile) {
   const keys = TILE_GLOSSARY_KEYS[tile.key];
   if (!Array.isArray(keys) || keys.length === 0) return '';

@@ -1850,13 +1850,15 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
                                                               justify-content:center; }
 
 /* =========================================================================
-   GLOSSARY (Readout tab)
+   GLOSSARY (About tab)
    =========================================================================
    Renders a comma-separated strip of German civic terms per tile with a
    dotted-underline chip on each word. Hover / focus / tap shows a single
    shared popup with a plain-English definition. Popup is a `.glossary-
    popup` element attached inside the modal — inherits z-index, disappears
    when the modal is closed (innerHTML cleared).
+   Tab placement: About (moved from Readout in PR #25 — vocabulary lives
+   with the rest of the "learn more" surface).
    ========================================================================= */
 .modal-glossary                    { margin: 12px 0 14px;
                                      padding: 12px 14px;
