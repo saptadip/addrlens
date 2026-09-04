@@ -71,7 +71,12 @@ _CACHE_GRID = int(os.environ.get("LENS_INSIGHT_CACHE_GRID", 3))
 # across a template edit.
 # v2: tone-discipline rule added — amber tiles now get neutral framing
 #     (was: sometimes framed with red-tier language like "long distance").
-_CACHE_VERSION = "v2"
+# v3: response now includes `fit_score` (0-100) computed by the backend
+#     template after deterministic rollup. Frontend hero chip reads from
+#     this field instead of client-side derivation. v2 entries would
+#     silently fall back to the client path — bump forces regeneration
+#     so all pilot users see the backend-authoritative score.
+_CACHE_VERSION = "v3"
 
 
 def _cache_key(city_slug: str, lens: str, lat: float, lon: float) -> tuple:

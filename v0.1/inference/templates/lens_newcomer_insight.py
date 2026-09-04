@@ -89,6 +89,30 @@ LENS_SECTION_MAP: list[dict] = [
 # tiles rolls up to `unknown`.
 _TIER_RANK = {"green": 0, "amber": 1, "red": 2, "unknown": -1}
 
+# Fit score weights — used by `_compute_fit_score` after section rollup.
+# green=100 (walkable/dense), amber=60 (walkable but not doorstep — full
+# middle of the range), red=20 (not zero because "no rail within 1.2 km"
+# still means SOME transit is reachable further). Unknown / info sections
+# are excluded from both numerator and denominator so they don't drag
+# the score toward zero when a lens has numeric-only tiles.
+_FIT_WEIGHTS = {"green": 100, "amber": 60, "red": 20}
+
+
+def _compute_fit_score(sections: list) -> int | None:
+    """Weighted average of section verdicts. Returns None when no
+    tiered section exists (all-unknown case) so the frontend can hide
+    the score chip instead of showing 0."""
+    total, n = 0, 0
+    for sec in sections or []:
+        w = _FIT_WEIGHTS.get(sec.get("verdict"))
+        if w is None:
+            continue
+        total += w
+        n += 1
+    if not n:
+        return None
+    return round(total / n)
+
 
 def _rollup_verdict(tiles: list[dict]) -> str:
     """Worst-tier-wins over a section's tiles. Ignores unknown / info /
@@ -432,6 +456,13 @@ def _apply_deterministic_rollup(obj: dict, tile_contexts: list[dict]) -> dict:
         obj["highlights_red"] = [h for h in obj["highlights_red"]
                                  if h.get("tile") not in green_keys]
 
+    # Fit score — computed AFTER rollup so it reflects deterministic
+    # verdicts, not the LLM's guesses. Skipped if all sections roll up
+    # to unknown (score field omitted → frontend hides the chip).
+    _score = _compute_fit_score(obj.get("sections") or [])
+    if _score is not None:
+        obj["fit_score"] = _score
+
     return obj
 
 
@@ -669,6 +700,32 @@ if __name__ == "__main__":
     _r_keys = [h["tile"] for h in _obj3b.get("highlights_red", [])]
     assert _g_keys == ["a"], f"green list should keep only 'a', got {_g_keys}"
     assert _r_keys == ["b", "c"], f"red list should be [b, c], got {_r_keys}"
+
+    # -- Fit score: weighted average over tiered sections; None when
+    # all sections are unknown (no chip shown by frontend).
+    assert _compute_fit_score([]) is None
+    assert _compute_fit_score([{"verdict": "unknown"}]) is None
+    assert _compute_fit_score([{"verdict": "green"}]) == 100
+    assert _compute_fit_score([{"verdict": "red"}]) == 20
+    assert _compute_fit_score([{"verdict": "green"}, {"verdict": "red"}]) == 60
+    # Konrad-Wolf-Straße 44A scenario: amber, red, red, amber, unknown
+    # → (60+20+20+60)/4 = 40.
+    _kws = [{"verdict": "amber"}, {"verdict": "red"},
+            {"verdict": "red"}, {"verdict": "amber"},
+            {"verdict": "unknown"}]
+    assert _compute_fit_score(_kws) == 40, _compute_fit_score(_kws)
+    # Rollup output carries the score post-computation.
+    _obj4 = {"sections": [
+        {"title": "T1", "tiles": ["a"], "verdict": "wrong", "note": "..."},
+        {"title": "T2", "tiles": ["b"], "verdict": "wrong", "note": "..."},
+    ]}
+    _tcs4 = [{"key": "a", "tier": "green"}, {"key": "b", "tier": "red"}]
+    _obj4b = _apply_deterministic_rollup(_obj4, _tcs4)
+    assert _obj4b.get("fit_score") == 60, _obj4b.get("fit_score")
+    # All-unknown → no fit_score field.
+    _obj5 = {"sections": [{"title": "T", "tiles": ["a"], "verdict": "x", "note": "n"}]}
+    _obj5b = _apply_deterministic_rollup(_obj5, [{"key": "a", "tier": "unknown"}])
+    assert "fit_score" not in _obj5b, "all-unknown should omit fit_score"
 
     # -- run(): empty tile_contexts returns the "no data" shortcut with
     # a shaped skeleton — SPA can still render the panel structure.
