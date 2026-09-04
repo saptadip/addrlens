@@ -3073,15 +3073,19 @@ function _hasLensAI(slug) { return _LENS_WITH_AI.has(slug); }
 // Idle state — call-to-action button. Explicit click gates the
 // Cloudflare hop so users only pay the wall-clock (and the cost) when
 // they actually want the summary.
-function renderLensAIIdle(lensLabel) {
+function renderLensAIIdle(lensLabel, audience) {
+  // Title = lens audience_hint (the one-line framing that already sits
+  // in the picker row) — no need to re-state "AI Insight for X". Subline
+  // is a corporate framing of what the button produces, not AI-slang.
+  const title = (audience || '').trim() || `Insight for the ${lensLabel || 'this'} lens`;
   return `
     <div class="lens-ai-idle">
       <div class="lens-ai-idle-copy">
-        <div class="lens-ai-idle-title">AI Insight for ${escapeHtml(lensLabel || 'this lens')}</div>
-        <div class="lens-ai-idle-sub">One-shot executive summary of this address across all ${escapeHtml(lensLabel || 'lens')} tiles.</div>
+        <div class="lens-ai-idle-title">${escapeHtml(title)}</div>
+        <div class="lens-ai-idle-sub">Turn this address into a decision-ready ${escapeHtml(lensLabel || 'lens')} brief — headline verdict, criteria breakdown, and the standout facts to weigh.</div>
       </div>
       <button type="button" class="lens-ai-btn" data-action="generate">
-        <span class="lens-ai-btn-label">Generate Insight</span>
+        <span class="lens-ai-btn-label">Lens Insight</span>
         <span class="lens-ai-btn-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </span>
@@ -3229,6 +3233,8 @@ function renderLensAIBody(li, tileTierByKey, ctx) {
   const summaryText = (li.executive_summary || '')
     .replace(/^\s*["'‘“„«‹„"''‚‹]+\s*/, '');
   return `
+    <button type="button" class="lens-ai-close-btn" data-action="close-report"
+            aria-label="Dismiss insight report" title="Dismiss">✕</button>
     <div class="lens-ai-hero${scoreCardBlock ? '' : ' lens-ai-hero-solo'}">
       <div class="lens-ai-hero-copy">
         <div class="lens-ai-hero-rule"></div>
@@ -3305,11 +3311,12 @@ function hydrateLensAIPanel(addr) {
       });
       panel.classList.remove('lens-ai-loading');
       _bindLensAIDownload(panel, addr, lens, active);
+      _bindLensAIClose(panel, addr, lens, active);
     } catch (e) {
       // Restore the idle state with an inline retry-friendly note so the
       // user can try again. Keep it terse — the tile grid is the fallback.
       panel.classList.remove('lens-ai-loading');
-      panel.innerHTML = renderLensAIIdle(lens.label || active) +
+      panel.innerHTML = renderLensAIIdle(lens.label || active, lens.audience) +
         `<div class="lens-ai-err">Insight generation failed. Please try again.</div>`;
       hydrateLensAIPanel(addr);   // rebind the click listener on the new button
     }
@@ -3374,9 +3381,10 @@ function _bindLensAIDownload(panel, addr, lens, active) {
     // live panel's id — a stray `getElementById('lens-ai-panel')` in a
     // race with a Generate retry would otherwise grab the wrong node.
     clone.removeAttribute('id');
-    // Kill the download button in the clone — no self-download button in the PDF.
-    const cloneBtn = clone.querySelector('.lens-ai-dl-btn');
-    if (cloneBtn) cloneBtn.remove();
+    // Kill the download + close buttons in the clone — no interactive
+    // affordances belong on the PDF.
+    clone.querySelectorAll('.lens-ai-dl-btn, .lens-ai-close-btn')
+         .forEach(el => el.remove());
     root.appendChild(clone);
     document.body.appendChild(root);
 
@@ -3397,6 +3405,20 @@ function _bindLensAIDownload(panel, addr, lens, active) {
   });
 }
 
+// Bind the ✕ close-report button. Dismisses the rendered report and
+// restores the idle Generate-Insight CTA so the user can regenerate
+// later without leaving the lens. Re-runs `hydrateLensAIPanel` to
+// rebind the Generate click on the fresh button.
+function _bindLensAIClose(panel, addr, lens, active) {
+  const btn = panel.querySelector('.lens-ai-close-btn[data-action="close-report"]');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    panel.classList.remove('lens-ai-loading');
+    panel.innerHTML = renderLensAIIdle(lens.label || active, lens.audience);
+    hydrateLensAIPanel(addr);
+  }, { once: true });
+}
+
 function renderLensSingle(addr) {
   const active = getActiveLens();
   const lens = addr && addr.lens && addr.lens[active];
@@ -3410,19 +3432,23 @@ function renderLensSingle(addr) {
   }
   const tilesHtml = lens.tiles.map(t => renderLensTile(t, active)).join('');
   const audience  = escapeHtml(lens.audience || '');
-  const aiPanel = (_isAiLensFlagOn() && _hasLensAI(active))
+  const showAiPanel = _isAiLensFlagOn() && _hasLensAI(active);
+  const aiPanel = showAiPanel
     ? `<section class="lens-ai-panel" id="lens-ai-panel"
                 data-lens="${escapeHtml(active)}"
                 aria-label="AI Insight for the ${escapeHtml(lens.label || active)} lens">
-         ${renderLensAIIdle(lens.label || active)}
+         ${renderLensAIIdle(lens.label || active, lens.audience)}
        </section>` : '';
   // Lens-level provenance intentionally not rendered here — dataset-level
   // attribution already appears once in the site footer's "Attribution &
   // licences" modal, so surfacing the same string twice is noise.
+  // Picker-row audience hidden when the AI panel is showing — its idle
+  // title already carries the audience_hint, so keeping the picker-row
+  // copy would duplicate the same line twice on one screen.
   return `
     <div class="lens-picker-row">
       ${renderLensPicker(active)}
-      ${audience ? `<p class="lens-audience">${audience}</p>` : ''}
+      ${(audience && !showAiPanel) ? `<p class="lens-audience">${audience}</p>` : ''}
     </div>
     ${aiPanel}
     <div class="lens-body">

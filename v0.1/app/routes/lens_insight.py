@@ -76,7 +76,17 @@ _CACHE_GRID = int(os.environ.get("LENS_INSIGHT_CACHE_GRID", 3))
 #     this field instead of client-side derivation. v2 entries would
 #     silently fall back to the client path — bump forces regeneration
 #     so all pilot users see the backend-authoritative score.
-_CACHE_VERSION = "v3"
+# v4: system prompt now forbids conflating section titles (e.g.
+#     "Neighbourhood profile") with specific tile names (e.g.
+#     "nightlife_density"). v3 summaries occasionally wrote things like
+#     "The Neighbourhood profile is dense nightlife" — bump forces
+#     regeneration under the clarified rule.
+# v5: prompt now correctly frames `gesix_newcomer` as a real socioeconomic
+#     tier (was wrongly lumped with `nightlife_density` as info-only).
+#     v4 summaries were skipping GESIx as a citable signal — bump forces
+#     regeneration so gesix-strong / gesix-weak addresses get the
+#     socioeconomic axis surfaced in the summary + highlights.
+_CACHE_VERSION = "v5"
 
 
 def _cache_key(city_slug: str, lens: str, lat: float, lon: float) -> tuple:
