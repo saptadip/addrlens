@@ -399,19 +399,19 @@ const LENS_TILE_EXPLANATIONS = {
   coworking:       "Count of coworking spaces and laptop-friendly cafés within 1 km (OSM `office=coworking` + tagged cafés). Green ≥ 3; amber ≥ 1. Having multiple options avoids the single-spot problem when the Wi-Fi's down or the seat's taken.",
   english_clinic:  "Distance to the nearest OSM-tagged English-language-friendly clinic. Green ≤ 1 km walk; amber ≤ 3 km. Newcomers without B1 German need at least one nearby clinic where consultations run in English.",
   gesix_newcomer: "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band. Lower and higher quintiles both come with real tradeoffs for a newcomer — language mix, rent band, mutual-aid density — so walk the block before you sign.",
-  language_school: "Walking distance to the nearest Sprachschule or Volkshochschule (VHS) branch. B1 German is the practical gate to Aufenthaltstitel and Einbürgerung — course finish rates track attendance, and attendance tracks how close class is to home.",
-  library: "Distance to the nearest public library (VÖBB) or university library. For newcomers the library is the lowest-friction 'third place' — free Wi-Fi, warm study space, English fiction, integration events, no purchase pressure.",
-  packstation: "Distance to the nearest DHL Packstation locker or Deutsche Post branch. Germany's parcel logistics assume you can retrieve mis-timed deliveries; a long walk turns weekly pickups into a chore.",
-  wochenmarkt: "Distance to the nearest permitted Wochenmarkt. Cash-friendly, no-German-required, international vendors — a weekly market makes the neighbourhood feel like home faster than any single supermarket run.",
-  nightlife_density: "Count of tagged bars, pubs, and nightclubs within a 1 km walk. Berlin's nightlife is famously part of its draw — but the same density is what can turn a bedroom window into a night-noise complaint. No verdict from us; the number is the signal.",
+  language_school: "Walking distance to the nearest Sprachschule or Volkshochschule (VHS) branch. Green ≤ 1.5 km walk; amber ≤ 3.5 km. B1 German is the practical gate to Aufenthaltstitel and Einbürgerung — course finish rates track attendance, and attendance tracks how close class is to home.",
+  library: "Distance to the nearest public library (VÖBB) or university library. Green ≤ 1 km walk; amber ≤ 2.5 km. For newcomers the library is the lowest-friction 'third place' — free Wi-Fi, warm study space, English fiction, integration events, no purchase pressure.",
+  packstation: "Distance to the nearest DHL Packstation locker or Deutsche Post branch. Green ≤ 400 m walk; amber ≤ 1 km. Germany's parcel logistics assume you can retrieve mis-timed deliveries; a long walk turns weekly pickups into a chore.",
+  wochenmarkt: "Distance to the nearest permitted Wochenmarkt. Green ≤ 800 m walk; amber ≤ 2 km. Cash-friendly, no-German-required, international vendors — a weekly market makes the neighbourhood feel like home faster than any single supermarket run.",
+  nightlife_density: "Count of tagged bars, pubs, and nightclubs within a 1 km walk (OSM community-tagged, via the weekly Geofabrik snapshot). Numeric-only — no green / amber / red verdict. Berlin's nightlife is famously part of its draw, but the same density is what can turn a bedroom window into a night-noise complaint.",
   // Quiet Living lens explanations.
   gesix_quiet: "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band, read for a quiet-living audience. Quintile 1 areas trend residential and quieter at night; quintile 5 areas trend denser with weekend nightlife audible from residential windows. The signal describes the polygon around the flat — walk the block after 22:00 before signing.",
   quiet_zone:   "Berlin's 'Ruhige Gebiete' are legally designated under §47d BImSchG — meant to be protected from noise, not just labelled green space. Distance is to the polygon edge; short walks make a real difference to weekly noise recovery. State forests (Grunewald, Tegeler Forst, Köpenicker Wald) and other Landschaftsschutzgebiete are NOT on this list — they're protected under Forstwirtschaft law instead — so an address next to a big forest can read red here despite abundant nearby quiet.",
-  street_trees: "Street-tree canopy percentage in a bounding box around the flat, from Berlin's Baumbestand. Dense mature canopy buffers road noise, drops summer heat, and softens the acoustic feel of the block outside the door.",
-  tempo30: "Berlin's Tempolimits WFS lists exceptions to the general 50 km/h — Tempo-30 zones, 40, 60, Autobahn limits. Perceived road noise roughly doubles per +10 km/h at street level, so a nearby Tempo-30 order is a material win.",
-  arterial_road: "Distance to the nearest arterial from the Übergeordnetes Straßennetz Bestand — Berlin's supra-local road network. A rough proxy for exposure to steady traffic noise, night-time truck passes, and pram-unfriendly pavements.",
-  rail_noise: "Distance to the nearest S/U-Bahn station as a proxy for track proximity. S-Bahn is above-ground and generates real façade noise; Berlin's U-Bahn is underground on most sections, so U-nearest reads greener regardless of walking distance.",
-  nightlife_inverted: "Same OSM bar/club count as the Newcomer nightlife tile, but the framing is inverted here: fewer venues within 300 m is greener. Nightlife density predicts weekend and night-time street noise better than any daytime traffic count.",
+  street_trees: "Street-tree canopy percentage in a bounding box around the flat, from Berlin's Baumbestand. Green ≥ 10 % crown coverage; amber ≥ 5 %. Dense mature canopy buffers road noise, drops summer heat, and softens the acoustic feel of the block outside the door.",
+  tempo30: "Berlin's Tempolimits WFS lists exceptions to the general 50 km/h — Tempo-30 zones, 40, 60, Autobahn limits. Green if the local order is ≤ 30 km/h; amber up to 50 km/h; red above 50. Perceived road noise roughly doubles per +10 km/h at street level, so a Tempo-30 order at your door is a material win.",
+  arterial_road: "Distance to the nearest arterial from the Übergeordnetes Straßennetz Bestand — Berlin's supra-local road network. INVERTED signal — further is better. Green ≥ 150 m away; amber ≥ 50 m; red inside 50 m. A rough proxy for exposure to steady traffic noise, night-time truck passes, and pram-unfriendly pavements.",
+  rail_noise: "Distance to the nearest S/U-Bahn station as a proxy for track proximity. INVERTED signal — further is better. Green ≥ 400 m away; amber ≥ 200 m; red inside 200 m. S-Bahn is above-ground and generates real façade noise; Berlin's U-Bahn is underground on most sections, so U-nearest reads greener regardless of walking distance.",
+  nightlife_inverted: "Same OSM bar/club count as the Newcomer nightlife tile, but the framing is inverted here: fewer venues within 300 m is greener. Green ≤ 3 venues within 300 m; amber ≤ 8; red above 8. Nightlife density predicts weekend and night-time street noise better than any daytime traffic count.",
   // Commuter lens explanations. Voice follows YF / Newcomer / QL:
   // lead with WHAT dataset the tile reads and HOW it's measured, close
   // with a short audience note. Rail/tram/bus share their feed with the
@@ -421,10 +421,10 @@ const LENS_TILE_EXPLANATIONS = {
   commuter_tram_transit: "Walking distance to the nearest tram stop, from BVG's Straßenbahnhaltestellen dataset (Ungestörtes ÖPNV-Netz). Green threshold is 400 m — tighter than the Newcomer tram tile's 500 m. Berlin's tram network is concentrated in former East Berlin (Mitte, Friedrichshain, Prenzlauer Berg, Lichtenberg, Marzahn); West Berlin removed most of its lines 1954–67, so this tile often reads red west of the S1 corridor.",
   commuter_bus_transit:  "Walking distance to the nearest bus stop, from OpenStreetMap's community-tagged `highway=bus_stop` layer (via the weekly Geofabrik snapshot). Green threshold is 250 m — tighter than the Newcomer bus tile's 300 m — reflecting the daily cost of a longer walk twice a day.",
   regional_rail_reach:   "Walking distance to the nearest curated RE/RB regional-rail station. Berlin has ~15 inner-ring platforms served by regional trains (Alexanderplatz, Friedrichstraße, Potsdamer Platz, Hauptbahnhof, Ostbahnhof, Südkreuz, Ostkreuz, etc.). Green threshold is 1200 m — longer than S/U — because RE/RB headways run 20–60 min and missing a train costs more than missing an S-Bahn.",
-  cycling_network:       "Distance to dedicated cycleway infrastructure (OSM highway=cycleway). Painted bike lanes on shared roads are NOT in this signal — the tile measures 'protected cycleway near door', which is the single biggest quality signal for daily bike commuting in Berlin.",
-  car_sharing_reach:     "Count of fixed car-sharing pickup points within 500 m (OSM amenity=car_sharing — SHARE NOW / Miles / WeShare stations). Free-float zones are NOT modelled. A cluster of nearby stations makes occasional car access practical for the weekly IKEA run or a weekend trip out of the city.",
-  ev_charging_reach:     "Count of public EV chargers within 500 m (OSM). Matters mainly if you commute with an electric car and don't have home charging — overnight top-ups at a nearby street charger keep the daily commute practical. OSM coverage and public/private status are uneven; confirm on the operator's app before relying on a specific station.",
-  airport_reach:         "Straight-line distance from the flat to Berlin Brandenburg Airport (BER). For frequent flyers this compounds — shorter departure buffers, easier evening arrivals. Real door-to-gate time depends on the S9 or RE7 schedule, not on crow-flight distance alone; a nearby airport also carries a noise trade-off covered by the Quiet Living lens.",
+  cycling_network:       "Distance to dedicated cycleway infrastructure (OSM highway=cycleway). Green ≤ 100 m walk; amber ≤ 300 m. Painted bike lanes on shared roads are NOT in this signal — the tile measures 'protected cycleway near door', which is the single biggest quality signal for daily bike commuting in Berlin.",
+  car_sharing_reach:     "Count of fixed car-sharing pickup points within 500 m (OSM amenity=car_sharing — SHARE NOW / Miles / WeShare stations). Green ≥ 3 stations within 500 m; amber ≥ 1. Free-float zones are NOT modelled. A cluster of nearby stations makes occasional car access practical for the weekly IKEA run or a weekend trip out of the city.",
+  ev_charging_reach:     "Count of public EV chargers within 500 m (OSM). Green ≥ 2 within 500 m; amber ≥ 1. Matters mainly if you commute with an electric car and don't have home charging — overnight top-ups at a nearby street charger keep the daily commute practical. OSM coverage and public/private status are uneven; confirm on the operator's app before relying on a specific station.",
+  airport_reach:         "Straight-line distance from the flat to Berlin Brandenburg Airport (BER). Green ≤ 20 km; amber ≤ 35 km. For frequent flyers this compounds — shorter departure buffers, easier evening arrivals. Real door-to-gate time depends on the S9 or RE7 schedule, not on crow-flight distance alone; a nearby airport also carries a noise trade-off covered by the Quiet Living lens.",
   gesix_commuter:        "How this Planungsraum sits on Berlin's 2022 GESIx socioeconomic band, read for a daily commuter. Quintile 1 polygons often sit further from the S/U network (the tradeoff for residential quiet); quintile 5 polygons often sit ON it (the tradeoff for daily density and peak-hour platform crowding).",
 };
 
@@ -435,6 +435,7 @@ const LENS_TILE_EXPLANATIONS = {
 // each definition to 1–3 sentences.
 const GLOSSARY = {
   'Kita': "Short for 'Kindertagesstätte' — the German name for a daycare centre serving children roughly 0–6 years old. Spots are limited; families often reserve one during pregnancy.",
+  'Kinderarzt': "German for pediatrician — a doctor specialising in children's health. Most public health-insurance plans (gesetzliche Krankenkasse) pay for regular check-ups from birth through age ~18; parents book directly with a Kinderarzt of their choice.",
   'S-Bahn': "Berlin's mostly above-ground suburban rail network. Trains run every 5–20 minutes and share a single ticket with the U-Bahn. Blue-and-white 'S' logo on a green disk.",
   'U-Bahn': "Berlin's mostly underground metro network. Trains every 3–10 minutes on most lines. Blue-and-white 'U' logo on a blue disk.",
   'Tram': "Berlin's tram (streetcar) network — the German name is Straßenbahn. Concentrated in former East Berlin (Mitte, Prenzlauer Berg, Friedrichshain, Lichtenberg); West Berlin removed most of its trams by 1967.",
@@ -488,7 +489,7 @@ const TILE_GLOSSARY_KEYS = {
   // Young Family
   kita:                  ['Kita', 'Bezirk'],
   playground:            ['Grünanlagen', 'Spielplätze'],
-  pediatrician:          [],
+  pediatrician:          ['Kinderarzt'],
   transit:               ['S-Bahn', 'U-Bahn', 'Tram', 'Straßenbahn', 'BVG', 'VBB'],
   supermarket:           [],
   noise:                 ['L_DEN', 'L_night', 'Belastung'],
@@ -500,7 +501,7 @@ const TILE_GLOSSARY_KEYS = {
   buergeramt:            ['Bürgeramt', 'Anmeldung', 'Aufenthaltstitel'],
   rail_transit:          ['S-Bahn', 'U-Bahn', 'Hauptbahnhof', 'VBB'],
   tram_transit:          ['Tram', 'Straßenbahn', 'BVG', 'VBB'],
-  bus_transit:           ['BVG'],
+  bus_transit:           ['BVG', 'S-Bahn', 'U-Bahn', 'Tram'],
   intl_food:             [],
   coworking:             [],
   english_clinic:        [],
@@ -521,12 +522,12 @@ const TILE_GLOSSARY_KEYS = {
   // Commuter
   commuter_rail_transit: ['S-Bahn', 'U-Bahn', 'VBB'],
   commuter_tram_transit: ['Straßenbahn', 'BVG', 'Straßenbahnhaltestellen', 'Ungestörtes ÖPNV-Netz', 'ÖPNV'],
-  commuter_bus_transit:  ['BVG'],
+  commuter_bus_transit:  [],
   regional_rail_reach:   ['Regionalbahn', 'VBB'],
   cycling_network:       [],
   car_sharing_reach:     [],
   ev_charging_reach:     [],
-  airport_reach:         [],
+  airport_reach:         ['S-Bahn', 'Regionalbahn'],
   gesix_commuter:        ['Planungsraum', 'GESIx', 'Kiez', 'Bezirk'],
 };
 
