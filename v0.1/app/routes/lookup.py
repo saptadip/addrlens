@@ -115,16 +115,25 @@ def lookup(
         "bus":           None,
         "airport":       None,
     }
-    if getattr(index, "osm_local", None):
-        _bus_items = [f for f in index.osm_local.near("transit", lon, lat, 800)
-                      if (f.get("tags") or {}).get("highway") == "bus_stop"
-                      or (f.get("tags") or {}).get("bus") == "yes"]
-        if _bus_items:
-            _bus_items.sort(key=lambda f: f.get("distance_m", 10**9))
-            b = _bus_items[0]
-            conn["bus"] = {"name": b.get("name") or "Bus stop",
-                           "lat": b["lat"], "lon": b["lon"],
-                           "distance_m": round(b["distance_m"])}
+    # Wrapped in try/except per §14.7 — an additive computation must never
+    # 500 /api/lookup for consumers that don't use this field. Unnamed stops
+    # are skipped so raw-view Bus card can't disagree with the Commuter lens
+    # bus_transit tile, which drops unnamed items at commuter.py:88-91.
+    try:
+        if getattr(index, "osm_local", None):
+            for f in index.osm_local.near("transit", lon, lat, 800):
+                tags = f.get("tags") or {}
+                if tags.get("highway") != "bus_stop" and tags.get("bus") != "yes":
+                    continue
+                name = (f.get("name") or "").strip()
+                if not name or f.get("distance_m") is None:
+                    continue
+                conn["bus"] = {"name": name,
+                               "lat": f["lat"], "lon": f["lon"],
+                               "distance_m": round(f["distance_m"])}
+                break                             # near() returns sorted
+    except Exception:
+        pass                                       # keep conn["bus"] = None
     if cfg.airport:
         conn["airport"] = {
             **cfg.airport,
