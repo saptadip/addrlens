@@ -3421,13 +3421,13 @@ function renderLensModalBody(tile, lensSlug) {
     <div class="modal-rule">${escapeHtml(tile.rule || '')}</div>
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
     ${renderModalLegend(tile.legend, tier, tile)}
-    ${renderModalGlossary(tile)}
     ${caveat}
     ${explBlock}
     ${cardRichBlock}
     ${featuresHtml}
     ${treesHtml}
     ${sourcesHtml}
+    ${renderModalGlossary(tile)}
     ${insightBlock}
   `;
 }
@@ -3469,7 +3469,8 @@ function _injectModalTabs(modal) {
   const hasAbout = !!(
     modal.querySelector('.modal-explanation') ||
     modal.querySelector('.modal-caveat') ||
-    modal.querySelector('.modal-provenance')
+    modal.querySelector('.modal-provenance') ||
+    modal.querySelector('.modal-glossary')
   );
   const hasInsight = !!modal.querySelector('.card-insight-wrap');
 

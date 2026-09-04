@@ -1823,7 +1823,6 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 .lens-modal.has-tabs[data-tab="readout"] .modal-rule,
 .lens-modal.has-tabs[data-tab="readout"] .modal-numeric,
 .lens-modal.has-tabs[data-tab="readout"] .modal-legend,
-.lens-modal.has-tabs[data-tab="readout"] .modal-glossary,
 .lens-modal.has-tabs[data-tab="readout"] .modal-trees,
 .lens-modal.has-tabs[data-tab="readout"] .gesix-modal-block,
 .lens-modal.has-tabs[data-tab="readout"] .modal-empty { display:block; }
@@ -1833,13 +1832,16 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 .lens-modal.has-tabs .modal-features-list   { display:none; }
 .lens-modal.has-tabs[data-tab="readout"] .modal-features-list { display:flex; }
 
-/* About tab — data-source explanation, caveat, sources footer. */
+/* About tab — data-source explanation, caveat, sources footer, and the
+   German glossary panel (moved from Readout so the vocabulary lives with
+   the rest of the "learn more" surface). */
 .lens-modal.has-tabs .modal-caveat,
 .lens-modal.has-tabs .modal-explanation,
 .lens-modal.has-tabs .modal-provenance      { display:none; }
 .lens-modal.has-tabs[data-tab="about"] .modal-caveat,
 .lens-modal.has-tabs[data-tab="about"] .modal-explanation,
-.lens-modal.has-tabs[data-tab="about"] .modal-provenance { display:block; }
+.lens-modal.has-tabs[data-tab="about"] .modal-provenance,
+.lens-modal.has-tabs[data-tab="about"] .modal-glossary   { display:block; }
 
 /* AI Insight tab — the click-gated paragraph. */
 .lens-modal.has-tabs .card-insight-wrap     { display:none; }
