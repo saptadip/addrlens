@@ -16,7 +16,7 @@ Response shape:
       "tiles": [
         {"key": "buergeramt", "label": "Bürgeramt (Anmeldung)",
          "icon": "buergeramt", "features": [{"name", "lat", "lon",
-         "distance_m", "walk_min", "address", "website"}, ...]},
+         "distance_m", "address", "website"}, ...]},
         ...
       ],
       "provenance": "Bürgerämter — Berlin Open Data · dl-de/by-2-0 · ...",
@@ -57,8 +57,7 @@ def _shape_office(o: dict):
     if not (isinstance(lat, (int, float)) and isinstance(lon, (int, float))
             and -90 <= lat <= 90 and -180 <= lon <= 180):
         return None
-    r = {"name": name, "lat": lat, "lon": lon, "distance_m": d,
-         "walk_min": round(d / 62)}
+    r = {"name": name, "lat": lat, "lon": lon, "distance_m": d}
     addr = (o.get("address") or "").strip()
     if addr:
         r["address"] = addr
@@ -160,7 +159,8 @@ if __name__ == "__main__":
             "lat": 52.5, "lon": 13.4, "distance_m": 620,
             "website": "https://x.example/"}
     _s = _shape_office(_off)
-    assert _s["walk_min"] == 10, _s   # 620 / 62 = 10.0
+    assert _s["distance_m"] == 620, _s
+    assert "walk_min" not in _s, _s   # walk_min pruned; frontend renders km via fmtDistance
     assert _s["website"] == "https://x.example/"
     assert _s["address"] == "Y-Str. 1, 10000 Berlin"
     # Missing required fields → None
@@ -203,7 +203,7 @@ if __name__ == "__main__":
 
     _by = {t["key"]: t for t in r_a["tiles"]}
     assert len(_by["buergeramt"]["features"]) == 1
-    assert _by["buergeramt"]["features"][0]["walk_min"] == 8   # 500 / 62 = 8.06
+    assert _by["buergeramt"]["features"][0]["distance_m"] == 500
     assert len(_by["lea"]["features"]) == 1                     # from cfg.lea_office
 
     # Provenance concatenates non-empty attribution strings for cards that
