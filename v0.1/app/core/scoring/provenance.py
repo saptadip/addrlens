@@ -59,6 +59,7 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "rail_noise":         [attr.get("sbahn"), attr.get("ubahn")],
         # Nightlife inverted reuses the newcomer OSM Geofabrik line.
         "nightlife_inverted": ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "nightlife_density":  ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "gesix_quiet":        [attr.get("gesix")],
         # Ship D++ — Commuter lens
         # `commuter_rail_transit`, `commuter_tram_transit`,
@@ -79,8 +80,9 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         # the ODbL Geofabrik line consistent with other OSM buckets.
         "ev_charging_reach":      ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         # Airport reach is a single curated coordinate from cfg.airport —
-        # no external dataset to cite beyond the plain coordinate.
-        "airport_reach":          [],
+        # attribute to the public BER coordinate to avoid rendering an
+        # empty "Data sources" section on the About tab.
+        "airport_reach":          ["Curated coordinate — Berlin Brandenburg Airport (BER, public)"],
         "gesix_commuter":         [attr.get("gesix")],
     }
     return [s for s in (mapping.get(key) or []) if s]
