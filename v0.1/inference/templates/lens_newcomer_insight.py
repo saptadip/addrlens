@@ -82,11 +82,15 @@ LENS_SECTION_MAP: list[dict] = [
 
 # Worst-tier-wins ordering. The scoring pipeline emits `green`,
 # `amber`, `red`, and `unknown` only (see `app/core/scoring/constants.py`).
-# `info` is accepted as an alias for `unknown` — some numeric-only tiles
-# (`nightlife_density`) or shape-only tiles (`gesix_newcomer` when data
-# is missing) may land here; the `.get(tier, -1)` default excludes any
-# non-ranked value from the rollup so a section of only unknown / info
-# tiles rolls up to `unknown`.
+# `info` is accepted as an alias for `unknown` — the numeric-only
+# `nightlife_density` tile carries no verdict (dense nightlife is a
+# positive for some newcomers and a negative for others; framing lives
+# in the tile caveat). `gesix_newcomer` DOES carry a real tier (Q1-2 →
+# green, Q3 → amber, Q4-5 → red via `_shape_gesix`); it only lands as
+# unknown when the address falls outside a Planungsraum with published
+# data. The `.get(tier, -1)` default excludes any non-ranked value from
+# the rollup so a section of only unknown / info tiles rolls up to
+# `unknown`.
 _TIER_RANK = {"green": 0, "amber": 1, "red": 2, "unknown": -1}
 
 # Fit score weights — used by `_compute_fit_score` after section rollup.
@@ -144,7 +148,25 @@ _SYSTEM = (
     "`highlights_red` (array of {tile, one_line}). "
     "Rules for `executive_summary`: 2-3 sentences of plain English, "
     "60-100 words total. Frame the address as a settling-in prospect. "
-    "Cite the strongest 1-2 positives and the sharpest 1-2 concerns. "
+    "Cite the strongest 1-2 positives and the sharpest 1-2 concerns "
+    "drawn from tiered tiles (green / amber / red). `gesix_newcomer` "
+    "is a real socioeconomic tier and IS eligible to be cited as a "
+    "positive or concern the same way transit or Bürgeramt tiles are. "
+    "`nightlife_density` is the ONLY info-only tile — it carries no "
+    "verdict (dense nightlife is a positive for some newcomers and a "
+    "negative for others); if you mention it, describe the raw fact "
+    "neutrally — do not frame it as a strength or concern. "
+    "IMPORTANT — section names vs tile names: `expected_sections[].title` "
+    "values (e.g., 'Neighbourhood profile', 'Getting registered', "
+    "'Daily transit', 'Settling-in services', 'Everyday errands') are "
+    "GROUPINGS for the `sections` field ONLY. They MUST NOT appear in "
+    "the executive summary paragraph. In the summary, refer to each "
+    "signal by its real-world function using the tile `label` (e.g., "
+    "'nightlife density', 'Bürgeramt reach', 'S-Bahn access'), NOT the "
+    "section title that contains it. Writing 'The Neighbourhood profile "
+    "is dense nightlife' is WRONG — that conflates a section grouping "
+    "with a specific tile. Write 'Nightlife within 300 m is dense' "
+    "instead. "
     "No German words except proper names (Bezirk, Ortsteil, Bürgeramt, "
     "Kiez are fine as terminology). "
     "Rules for `sections`: return EXACTLY the sections listed in the "
@@ -165,8 +187,8 @@ _SYSTEM = (
     "(1) Only cite facts present in the payload. Never invent counts, "
     "distances, times, names, or dates. "
     "(2) Never promote a red or amber tile to green in `sections` or "
-    "in the summary — inverted tiles like `nightlife_density` carry no "
-    "verdict and must NOT be described as red or green. "
+    "in the summary — `nightlife_density` carries no verdict and must "
+    "NOT be described as red or green. "
     "(3) Do not editorialise about 'good' or 'bad' neighbourhoods. "
     "Describe, don't judge. "
     "(4) TONE DISCIPLINE per tier: green = clearly positive framing "
@@ -579,7 +601,7 @@ if __name__ == "__main__":
     assert "Never promote" in _sys or "never promote" in _sys.lower(), \
         "system must forbid tier promotion (anti-inversion)"
     assert "no verdict" in _sys.lower(), \
-        "system must handle `info`-only tiles (nightlife_density, gesix)"
+        "system must handle the info-only nightlife_density tile"
     assert "no code fences" in _sys.lower() or "no preamble" in _sys.lower(), \
         "system must forbid markdown wrapper prose"
     # Tone-discipline rule — amber must not be described in red-tier
@@ -588,6 +610,14 @@ if __name__ == "__main__":
         "system must carry per-tier tone discipline rule"
     assert "amber" in _sys.lower() and "middle ground" in _sys.lower(), \
         "system must explicitly frame amber as the middle ground"
+    # Anti-drift: section titles are groupings for the `sections` field
+    # only — they must never appear as terms in the executive summary
+    # paragraph (would conflate "Neighbourhood profile" section with
+    # the specific "nightlife_density" tile it contains).
+    assert "section names vs tile names" in _sys.lower(), \
+        "system must forbid section titles in the summary paragraph"
+    assert "info-only" in _sys.lower() or "info only" in _sys.lower(), \
+        "system must handle info-only tiles as neutral facts, not verdicts"
     # Exemplar assistant must be valid JSON matching the schema.
     _ex_asst = json.loads(msgs[2]["content"])
     assert isinstance(_ex_asst["executive_summary"], str)
@@ -770,7 +800,7 @@ if __name__ == "__main__":
             {"key": "packstation", "tier": "green"},
             {"key": "wochenmarkt", "tier": "amber"},
             {"key": "nightlife_density", "tier": "info"},
-            {"key": "gesix_newcomer", "tier": "info"},
+            {"key": "gesix_newcomer", "tier": "green"},
         ],
     }
     _out = run(_b, _input_ctx)
@@ -779,6 +809,11 @@ if __name__ == "__main__":
         "rollup should have overridden 'red' back to 'green' for buergeramt-only section"
     assert _out["lens_insight"]["sections"][2]["verdict"] == "red", \
         "Settling-in services rolls up to red because language_school is red"
+    # Neighbourhood profile [nightlife_density=info, gesix_newcomer=green]
+    # rolls up to green — gesix DOES carry a real tier (was previously
+    # miscategorised as info in the prompt).
+    assert _out["lens_insight"]["sections"][4]["verdict"] == "green", \
+        "Neighbourhood profile should roll up to green from gesix_newcomer's real tier"
 
     # -- run(): malformed JSON → retry once → raise on second failure.
     class _BadBackend:

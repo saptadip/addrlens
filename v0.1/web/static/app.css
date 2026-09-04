@@ -1288,6 +1288,28 @@ body.life-mode #panel-others{ display:none !important; }
 .lens-ai-gauge-needle { stroke: #FFFFFF; }
 .lens-ai-gauge-hub    { fill: #FFFFFF; }
 
+/* Close-report ✕ button — top-right of the panel, dismisses the rendered
+   report and restores the Generate CTA. Sized to not compete with the
+   3D score card visually. */
+.lens-ai-close-btn { position: absolute; top: 14px; right: 14px;
+                     width: 28px; height: 28px; border-radius: 50%;
+                     border: 1px solid rgba(79,70,229,.22);
+                     background: rgba(255,255,255,.85);
+                     color: var(--ink-2); cursor: pointer;
+                     font: 400 14px/1 'Inter', sans-serif;
+                     display: inline-flex; align-items: center; justify-content: center;
+                     box-shadow: 0 2px 6px rgba(79,70,229,.08);
+                     transition: transform .12s ease, color .12s ease,
+                                 background .12s ease, box-shadow .12s ease;
+                     z-index: 2; }
+.lens-ai-close-btn:hover  { color: var(--ink); background: #FFFFFF;
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 12px rgba(79,70,229,.16); }
+.lens-ai-close-btn:active { transform: translateY(0); }
+/* Never print / never appear in the PDF export clone. */
+.lens-ai-close-btn.print-hide { display: none; }
+body.pdf-export-mode .lens-ai-close-btn { display: none !important; }
+
 /* Footer row — Download-PDF button on the left, signature on the right.
    Replaces the previous top-right absolute button placement (which hid
    behind the score card at narrower widths). */
