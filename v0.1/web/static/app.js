@@ -3030,6 +3030,8 @@ function renderModalLegend(legend, currentTier, tile) {
 // as an inline span with a dotted underline; `_wireGlossaryPopups` binds
 // hover / focus / tap → popup. Returns '' when a tile has no glossary
 // keys (empty list or unknown tile key) so the section is fully hidden.
+// Tab placement: About tab (PR #25 moved this out of Readout so the
+// vocabulary lives with the tile explanation, thresholds, and sources).
 function renderModalGlossary(tile) {
   const keys = TILE_GLOSSARY_KEYS[tile.key];
   if (!Array.isArray(keys) || keys.length === 0) return '';
@@ -3421,13 +3423,13 @@ function renderLensModalBody(tile, lensSlug) {
     <div class="modal-rule">${escapeHtml(tile.rule || '')}</div>
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
     ${renderModalLegend(tile.legend, tier, tile)}
-    ${renderModalGlossary(tile)}
     ${caveat}
     ${explBlock}
     ${cardRichBlock}
     ${featuresHtml}
     ${treesHtml}
     ${sourcesHtml}
+    ${renderModalGlossary(tile)}
     ${insightBlock}
   `;
 }
@@ -3469,7 +3471,8 @@ function _injectModalTabs(modal) {
   const hasAbout = !!(
     modal.querySelector('.modal-explanation') ||
     modal.querySelector('.modal-caveat') ||
-    modal.querySelector('.modal-provenance')
+    modal.querySelector('.modal-provenance') ||
+    modal.querySelector('.modal-glossary')
   );
   const hasInsight = !!modal.querySelector('.card-insight-wrap');
 
