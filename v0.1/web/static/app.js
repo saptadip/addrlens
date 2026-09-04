@@ -3101,19 +3101,88 @@ function renderLensAISkeleton() {
     </div>`;
 }
 
-function renderLensAIBody(li, tileTierByKey) {
+// Fit score is computed by the backend template
+// (`inference/templates/lens_newcomer_insight.py::_compute_fit_score`)
+// AFTER the deterministic verdict rollup — that's the source of truth.
+// This client-side path is a fallback for responses served from cache
+// entries generated before the backend emitted `fit_score`, and for
+// dev environments running an older inference image. Weights match
+// backend `_FIT_WEIGHTS` byte-for-byte.
+function _computeFitScore(sections) {
+  const W = { green: 100, amber: 60, red: 20 };
+  let sum = 0, n = 0;
+  (sections || []).forEach(s => {
+    if (W[s.verdict] != null) { sum += W[s.verdict]; n++; }
+  });
+  if (!n) return null;
+  return Math.round(sum / n);
+}
+
+// Phosphor Duotone download-simple icon — matches the existing SVG
+// convention (opacity 0.2 fill + stroke overlay) used across the site.
+const _ICON_DOWNLOAD = '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M216,144v64a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V144a8,8,0,0,1,8-8H88l40,40,40-40h40A8,8,0,0,1,216,144Z" opacity="0.2"/><path d="M216,144v64a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V144" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="88 112 128 152 168 112" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="40" x2="128" y2="152" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>';
+
+function _fitBand(score) {
+  if (score == null) return 'neutral';
+  if (score >= 80) return 'strong';
+  if (score >= 60) return 'balanced';
+  if (score >= 40) return 'mixed';
+  return 'challenged';
+}
+
+// Semi-circular gauge — 4 coloured band arcs (challenged 0-40 = 72°,
+// mixed 40-60 = 36°, balanced 60-80 = 36°, strong 80-100 = 36°). Needle
+// rotates from -90° (score 0, pointing left) to +90° (score 100, right)
+// so score 50 points straight up. Renders inline SVG — no runtime math
+// besides the needle rotation.
+function _renderFitGauge(score) {
+  const s = (typeof score === 'number') ? Math.max(0, Math.min(100, score)) : 50;
+  const angle = -90 + (s / 100) * 180;             // -90 .. +90 degrees
+  const bandCls = 'band-' + _fitBand(s);
+  return `<svg class="lens-ai-gauge ${bandCls}" viewBox="0 0 100 60" role="img"
+               aria-label="Newcomer fit ${s} of 100 — ${_fitBand(s)}">
+    <!-- Band arcs: coordinates pre-computed on a radius-40 arc from 180° to 0° -->
+    <path class="lens-ai-gauge-band band-red"      d="M 10 50 A 40 40 0 0 1 37.64 12" fill="none" stroke-width="8" stroke-linecap="butt"/>
+    <path class="lens-ai-gauge-band band-amber"    d="M 37.64 12 A 40 40 0 0 1 62.36 12" fill="none" stroke-width="8" stroke-linecap="butt"/>
+    <path class="lens-ai-gauge-band band-lgreen"   d="M 62.36 12 A 40 40 0 0 1 82.36 26.48" fill="none" stroke-width="8" stroke-linecap="butt"/>
+    <path class="lens-ai-gauge-band band-dgreen"   d="M 82.36 26.48 A 40 40 0 0 1 90 50" fill="none" stroke-width="8" stroke-linecap="butt"/>
+    <!-- Needle -->
+    <line class="lens-ai-gauge-needle" x1="50" y1="50" x2="50" y2="15"
+          stroke-linecap="round" stroke-width="2.5"
+          transform="rotate(${angle} 50 50)"/>
+    <!-- Hub -->
+    <circle class="lens-ai-gauge-hub" cx="50" cy="50" r="4"/>
+  </svg>`;
+}
+
+function renderLensAIBody(li, tileTierByKey, ctx) {
   if (!li || typeof li !== 'object') return '';
+  ctx = ctx || {};
   const TIER_DOT = (v) => `<span class="tier-dot tier-${escapeHtml(v || 'unknown')}"></span>`;
   const SECTION_HEAD = { green: 'What works', amber: 'What to watch', red: "What won't", unknown: 'Neutral' };
   const tierOf = (k) => (tileTierByKey && tileTierByKey[k]) || 'unknown';
-  // Group sections by verdict for the 3-col layout.
+  const sections = li.sections || [];
+  // Prefer backend-computed fit_score; fall back to client-side derivation
+  // for cached/legacy responses that don't carry the field.
+  const fitScore = (typeof li.fit_score === 'number')
+    ? li.fit_score : _computeFitScore(sections);
+  const bezirk = (ctx.bezirk || '').trim();
+  const ortsteil = (ctx.ortsteil || '').trim();
+  // Prefer Ortsteil in the chip — Bezirk is admin/broad (e.g., "Lichtenberg"
+  // covers Rummelsburg AND Alt-Hohenschönhausen, very different neighbourhoods),
+  // Ortsteil is what Berliners identify with. Bezirk stays as fallback.
+  const chipLabel = ortsteil || bezirk;
+  const lensLabel = ctx.lensLabel || 'Newcomer';
+  const ts = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+
+  // Group sections by verdict for the verdict grid.
   const buckets = { green: [], amber: [], red: [], unknown: [] };
-  (li.sections || []).forEach(s => (buckets[s.verdict] || buckets.unknown).push(s));
+  sections.forEach(s => (buckets[s.verdict] || buckets.unknown).push(s));
   const col = (verdict) => {
     const list = buckets[verdict] || [];
     if (!list.length) return '';
     return `<div class="lens-ai-col lens-ai-col-${verdict}">
-      <div class="lens-ai-col-head">${SECTION_HEAD[verdict]}</div>
+      <div class="lens-ai-col-head">${SECTION_HEAD[verdict]} · ${list.length}</div>
       ${list.map(s => `
         <div class="lens-ai-sec">
           <div class="lens-ai-sec-title">${TIER_DOT(s.verdict)}${escapeHtml(s.title)}</div>
@@ -3131,15 +3200,60 @@ function renderLensAIBody(li, tileTierByKey) {
       arr.map(h => `<li>${TIER_DOT(tierOf(h.tile))}<span class="hl-tile">${escapeHtml(h.tile)}</span><span class="hl-line">${escapeHtml(h.one_line)}</span></li>`).join('')
     }</ul>`;
   };
+  const bezirkChip = chipLabel
+    ? `<span class="lens-ai-bezirk" title="${escapeHtml([ortsteil, bezirk].filter(Boolean).join(' · '))}">${escapeHtml(chipLabel)}</span>` : '';
+  const bandLabel = _fitBand(fitScore).toUpperCase();
+  const scoreBlock = fitScore != null
+    ? `<div class="lens-ai-fit" title="${escapeHtml(lensLabel)} fit — ${bandLabel.toLowerCase()}">
+         ${_renderFitGauge(fitScore)}
+         <div class="lens-ai-fit-nums">
+           <span class="lens-ai-fit-n">${fitScore}</span>
+           <span class="lens-ai-fit-cap">${escapeHtml(bandLabel)} · ${escapeHtml(lensLabel)} fit</span>
+         </div>
+       </div>` : '';
+  // Only render the score card when we actually have content to show —
+  // otherwise the aside becomes an empty gradient box. Cases: score
+  // present (always renders), score absent but chip present (chip-only
+  // card), both absent (skip entirely, hero collapses to summary-only).
+  const scoreCardBlock = scoreBlock
+    ? `<aside class="lens-ai-score-card">${bezirkChip}${scoreBlock}</aside>`
+    : (chipLabel
+       ? `<aside class="lens-ai-score-card lens-ai-score-empty">${bezirkChip}</aside>`
+       : '');
+  // Drop-cap on the summary paragraph: CSS `::first-letter` matches the
+  // first typographic letter INCLUDING leading punctuation (Chromium /
+  // Firefox agree here). A German-quoted opener like `„Ein neuer Anfang…"`
+  // would paint the 42px opening-quote glyph instead of the letter.
+  // Strip a leading opening quote so the drop-cap always lands on an
+  // actual letter.
+  const summaryText = (li.executive_summary || '')
+    .replace(/^\s*["'‘“„«‹„"''‚‹]+\s*/, '');
   return `
-    <div class="lens-ai-summary">${escapeHtml(li.executive_summary || '')}</div>
+    <div class="lens-ai-hero${scoreCardBlock ? '' : ' lens-ai-hero-solo'}">
+      <div class="lens-ai-hero-copy">
+        <div class="lens-ai-hero-rule"></div>
+        <p class="lens-ai-summary">${escapeHtml(summaryText)}</p>
+      </div>
+      ${scoreCardBlock}
+    </div>
     <div class="lens-ai-grid">${col('green')}${col('amber')}${col('red')}${col('unknown')}</div>
     ${(li.highlights_green && li.highlights_green.length) || (li.highlights_red && li.highlights_red.length)
        ? `<div class="lens-ai-hilights-wrap">
             ${highlights(li.highlights_green, 'green')}
             ${highlights(li.highlights_red, 'red')}
           </div>` : ''}
-    <div class="lens-ai-footer">Generated by Cloudflare Workers AI · Interpretation only — verify facts against the tile cards.</div>`;
+    <div class="lens-ai-footer-row">
+      <button type="button" class="lens-ai-dl-btn" data-action="download-pdf"
+              aria-label="Download insight as PDF" title="Download as PDF">
+        <span class="lens-ai-dl-icon" aria-hidden="true">${_ICON_DOWNLOAD}</span>
+        <span class="lens-ai-dl-label">Download PDF</span>
+      </button>
+      <div class="lens-ai-signature">
+        <span class="lens-ai-signature-brand">AddrLens</span>
+        <span class="lens-ai-signature-dot">·</span>
+        <span class="lens-ai-signature-meta">Berlin · generated ${escapeHtml(ts)}</span>
+      </div>
+    </div>`;
 }
 
 // Bind the Generate button click. Called once per lens render — the
@@ -3184,8 +3298,13 @@ function hydrateLensAIPanel(addr) {
       // scoring pipeline, not from the tone bucket. Amber-in-red-list
       // is legitimate under the tone filter but must not render as red.
       const tierByKey = Object.fromEntries(lens.tiles.map(t => [t.key, t.tier || 'unknown']));
-      panel.innerHTML = renderLensAIBody(data.lens_insight, tierByKey);
+      const bezirk = a.raw?.bez_name || a.raw?.bezirk || '';
+      const ortsteil = a.raw?.ort_name || a.raw?.ortsteil || '';
+      panel.innerHTML = renderLensAIBody(data.lens_insight, tierByKey, {
+        bezirk: bezirk, ortsteil: ortsteil, lensLabel: lens.label || active,
+      });
       panel.classList.remove('lens-ai-loading');
+      _bindLensAIDownload(panel, addr, lens, active);
     } catch (e) {
       // Restore the idle state with an inline retry-friendly note so the
       // user can try again. Keep it terse — the tile grid is the fallback.
@@ -3195,6 +3314,87 @@ function hydrateLensAIPanel(addr) {
       hydrateLensAIPanel(addr);   // rebind the click listener on the new button
     }
   }, { once: true });
+}
+
+// Bind Download-PDF click on the panel's action button.
+//
+// Strategy: clone the panel to `document.body` as a direct child, wrap
+// in `#lens-ai-print-root`, add a body class the print CSS keys off,
+// then `window.print()`. Cloning bypasses any ancestor `display:none`
+// cascade a naive @media print block would fight — the panel lives
+// deep inside `#lens-view > .lens-body-alike > ...` and hiding those
+// ancestors takes the panel with them. As a direct body child, the
+// clone is trivially isolated.
+//
+// Filename lands via `document.title` — Chromium's Save-as-PDF dialog
+// uses that value. Restored on `afterprint`.
+function _bindLensAIDownload(panel, addr, lens, active) {
+  const btn = panel.querySelector('.lens-ai-dl-btn[data-action="download-pdf"]');
+  if (!btn) return;
+  // Guard against re-entry: if a previous print flow is mid-cleanup or
+  // the user double-clicks, we want to reset state, not accumulate
+  // stacked clones and body classes.
+  let _pdfBusy = false;
+  btn.addEventListener('click', () => {
+    if (_pdfBusy) return;
+    _pdfBusy = true;
+    // Clear any orphaned state from a previous flow (e.g., dialog
+    // cancelled twice, afterprint didn't fire, or a hot-reload dev
+    // scenario). Idempotent.
+    document.querySelectorAll('#lens-ai-print-root').forEach(n => n.remove());
+    document.body.classList.remove('pdf-export-mode');
+
+    const a = addr.address || {};
+    const bezirk = a.raw?.bez_name || a.raw?.bezirk || 'Berlin';
+    const ortsteil = a.raw?.ort_name || a.raw?.ortsteil || '';
+    // NFKD splits characters like `ö` into `o` + combining-diaeresis
+    // (U+0308); the regex strips the diacritic range (U+0300–U+036F).
+    // Escape form is used deliberately — inline combining chars in the
+    // source are invisible in most editors and get silently mangled by
+    // copy/paste or IDE normalisation.
+    const slug = (s) => String(s || '').toLowerCase()
+      .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const ortsteilSlug = slug(ortsteil) || slug(bezirk) || 'berlin';
+    const date = new Date().toISOString().slice(0, 10);
+    const originalTitle = document.title;
+
+    // Clone the live panel node — carries the fully-rendered SVG gauge,
+    // gradient text, and signature. Wrap so the print CSS has a single
+    // stable id to target, regardless of what's inside.
+    const root = document.createElement('div');
+    root.id = 'lens-ai-print-root';
+    root.dataset.exportAddress = [a.street, a.hnr, a.plz].filter(Boolean).join(' ');
+    // Prefer Ortsteil in the print header (matches the on-screen chip);
+    // fall back to Bezirk if Ortsteil is missing.
+    root.dataset.exportBezirk  = ortsteil || bezirk;
+    root.dataset.exportLens    = lens.label || active;
+    const clone = panel.cloneNode(true);
+    // Strip the clone's `id="lens-ai-panel"` so it doesn't duplicate the
+    // live panel's id — a stray `getElementById('lens-ai-panel')` in a
+    // race with a Generate retry would otherwise grab the wrong node.
+    clone.removeAttribute('id');
+    // Kill the download button in the clone — no self-download button in the PDF.
+    const cloneBtn = clone.querySelector('.lens-ai-dl-btn');
+    if (cloneBtn) cloneBtn.remove();
+    root.appendChild(clone);
+    document.body.appendChild(root);
+
+    document.title = `AddrLens-${active}-${ortsteilSlug}-${date}`;
+    document.body.classList.add('pdf-export-mode');
+
+    const cleanup = () => {
+      document.body.classList.remove('pdf-export-mode');
+      document.title = originalTitle;
+      const stray = document.getElementById('lens-ai-print-root');
+      if (stray) stray.remove();
+      window.removeEventListener('afterprint', cleanup);
+      _pdfBusy = false;
+    };
+    window.addEventListener('afterprint', cleanup);
+    // One frame for the DOM to apply the class + insert the clone.
+    requestAnimationFrame(() => window.print());
+  });
 }
 
 function renderLensSingle(addr) {
