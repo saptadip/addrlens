@@ -3211,18 +3211,30 @@ function renderLensAIBody(li, tileTierByKey, ctx) {
            <span class="lens-ai-fit-cap">${escapeHtml(bandLabel)} · ${escapeHtml(lensLabel)} fit</span>
          </div>
        </div>` : '';
+  // Only render the score card when we actually have content to show —
+  // otherwise the aside becomes an empty gradient box. Cases: score
+  // present (always renders), score absent but chip present (chip-only
+  // card), both absent (skip entirely, hero collapses to summary-only).
+  const scoreCardBlock = scoreBlock
+    ? `<aside class="lens-ai-score-card">${bezirkChip}${scoreBlock}</aside>`
+    : (chipLabel
+       ? `<aside class="lens-ai-score-card lens-ai-score-empty">${bezirkChip}</aside>`
+       : '');
+  // Drop-cap on the summary paragraph: CSS `::first-letter` matches the
+  // first typographic letter INCLUDING leading punctuation (Chromium /
+  // Firefox agree here). A German-quoted opener like `„Ein neuer Anfang…"`
+  // would paint the 42px opening-quote glyph instead of the letter.
+  // Strip a leading opening quote so the drop-cap always lands on an
+  // actual letter.
+  const summaryText = (li.executive_summary || '')
+    .replace(/^\s*["'‘“„«‹„"''‚‹]+\s*/, '');
   return `
-    <div class="lens-ai-hero">
+    <div class="lens-ai-hero${scoreCardBlock ? '' : ' lens-ai-hero-solo'}">
       <div class="lens-ai-hero-copy">
         <div class="lens-ai-hero-rule"></div>
-        <p class="lens-ai-summary">${escapeHtml(li.executive_summary || '')}</p>
+        <p class="lens-ai-summary">${escapeHtml(summaryText)}</p>
       </div>
-      ${scoreBlock ? `<aside class="lens-ai-score-card">
-        ${bezirkChip}
-        ${scoreBlock}
-      </aside>` : `<aside class="lens-ai-score-card lens-ai-score-empty">
-        ${bezirkChip}
-      </aside>`}
+      ${scoreCardBlock}
     </div>
     <div class="lens-ai-grid">${col('green')}${col('amber')}${col('red')}${col('unknown')}</div>
     ${(li.highlights_green && li.highlights_green.length) || (li.highlights_red && li.highlights_red.length)
@@ -3319,12 +3331,31 @@ function hydrateLensAIPanel(addr) {
 function _bindLensAIDownload(panel, addr, lens, active) {
   const btn = panel.querySelector('.lens-ai-dl-btn[data-action="download-pdf"]');
   if (!btn) return;
+  // Guard against re-entry: if a previous print flow is mid-cleanup or
+  // the user double-clicks, we want to reset state, not accumulate
+  // stacked clones and body classes.
+  let _pdfBusy = false;
   btn.addEventListener('click', () => {
+    if (_pdfBusy) return;
+    _pdfBusy = true;
+    // Clear any orphaned state from a previous flow (e.g., dialog
+    // cancelled twice, afterprint didn't fire, or a hot-reload dev
+    // scenario). Idempotent.
+    document.querySelectorAll('#lens-ai-print-root').forEach(n => n.remove());
+    document.body.classList.remove('pdf-export-mode');
+
     const a = addr.address || {};
     const bezirk = a.raw?.bez_name || a.raw?.bezirk || 'Berlin';
-    const bezirkSlug = String(bezirk).toLowerCase()
-      .normalize('NFKD').replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'berlin';
+    const ortsteil = a.raw?.ort_name || a.raw?.ortsteil || '';
+    // NFKD splits characters like `ö` into `o` + combining-diaeresis
+    // (U+0308); the regex strips the diacritic range (U+0300–U+036F).
+    // Escape form is used deliberately — inline combining chars in the
+    // source are invisible in most editors and get silently mangled by
+    // copy/paste or IDE normalisation.
+    const slug = (s) => String(s || '').toLowerCase()
+      .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const ortsteilSlug = slug(ortsteil) || slug(bezirk) || 'berlin';
     const date = new Date().toISOString().slice(0, 10);
     const originalTitle = document.title;
 
@@ -3333,20 +3364,23 @@ function _bindLensAIDownload(panel, addr, lens, active) {
     // stable id to target, regardless of what's inside.
     const root = document.createElement('div');
     root.id = 'lens-ai-print-root';
-    const ortsteil = a.raw?.ort_name || a.raw?.ortsteil || '';
     root.dataset.exportAddress = [a.street, a.hnr, a.plz].filter(Boolean).join(' ');
     // Prefer Ortsteil in the print header (matches the on-screen chip);
     // fall back to Bezirk if Ortsteil is missing.
     root.dataset.exportBezirk  = ortsteil || bezirk;
     root.dataset.exportLens    = lens.label || active;
     const clone = panel.cloneNode(true);
+    // Strip the clone's `id="lens-ai-panel"` so it doesn't duplicate the
+    // live panel's id — a stray `getElementById('lens-ai-panel')` in a
+    // race with a Generate retry would otherwise grab the wrong node.
+    clone.removeAttribute('id');
     // Kill the download button in the clone — no self-download button in the PDF.
     const cloneBtn = clone.querySelector('.lens-ai-dl-btn');
     if (cloneBtn) cloneBtn.remove();
     root.appendChild(clone);
     document.body.appendChild(root);
 
-    document.title = `AddrLens-${active}-${bezirkSlug}-${date}`;
+    document.title = `AddrLens-${active}-${ortsteilSlug}-${date}`;
     document.body.classList.add('pdf-export-mode');
 
     const cleanup = () => {
@@ -3355,6 +3389,7 @@ function _bindLensAIDownload(panel, addr, lens, active) {
       const stray = document.getElementById('lens-ai-print-root');
       if (stray) stray.remove();
       window.removeEventListener('afterprint', cleanup);
+      _pdfBusy = false;
     };
     window.addEventListener('afterprint', cleanup);
     // One frame for the DOM to apply the class + insert the clone.

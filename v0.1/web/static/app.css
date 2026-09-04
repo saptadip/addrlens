@@ -1217,6 +1217,10 @@ body.life-mode #panel-others{ display:none !important; }
    the panel's headline, not another paragraph. */
 .lens-ai-hero { display: grid; grid-template-columns: 1fr auto;
                 gap: 28px; align-items: flex-start; margin-bottom: 18px; }
+/* When no score card / chip renders, hero collapses to a single column
+   so the summary paragraph spans the full width instead of leaving a
+   phantom right-rail gap. */
+.lens-ai-hero.lens-ai-hero-solo { grid-template-columns: 1fr; }
 @media (max-width: 700px) {
   .lens-ai-hero { grid-template-columns: 1fr; gap: 14px; }
 }
