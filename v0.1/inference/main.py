@@ -75,6 +75,7 @@ from inference.templates import impression as impression_tpl
 from inference.templates import intl_food_insight as intl_food_insight_tpl
 from inference.templates import kita_insight as kita_insight_tpl
 from inference.templates import language_school_insight as language_school_insight_tpl
+from inference.templates import lens_newcomer_insight as lens_newcomer_insight_tpl
 from inference.templates import library_insight as library_insight_tpl
 from inference.templates import noise_insight as noise_insight_tpl
 from inference.templates import packstation_insight as packstation_insight_tpl
@@ -171,9 +172,16 @@ INFERENCE_GENERATION_TIMEOUT_S = max(1.0, _env_float(
 # names that will be served by the remote backend (Cloudflare Workers AI)
 # when CF_ACCOUNT_ID and CF_WORKERS_AI_TOKEN are set. Any other template
 # stays on the local backend. Any remote failure falls through to local.
+# NOTE — ops rollout: any existing prod deploy that pinned
+# `INFERENCE_REMOTE_TEMPLATES` to `"history"` MUST append
+# `lens_newcomer_insight` when rolling this out, or the lens template
+# routes to local Qwen 1.5B which cannot reliably produce the strict
+# JSON schema (result: 400 loop and SPA shows "Insight generation
+# failed. Please try again."). Unpinned deploys pick up the new
+# default below automatically.
 REMOTE_TEMPLATES = {
     t.strip()
-    for t in os.environ.get("INFERENCE_REMOTE_TEMPLATES", "history").split(",")
+    for t in os.environ.get("INFERENCE_REMOTE_TEMPLATES", "history,lens_newcomer_insight").split(",")
     if t.strip()
 }
 
@@ -207,6 +215,10 @@ TEMPLATES = {
     "library_insight":           library_insight_tpl.run,
     "packstation_insight":       packstation_insight_tpl.run,
     "wochenmarkt_insight":       wochenmarkt_insight_tpl.run,
+    # Per-lens executive-summary templates (one call replaces per-tile
+    # insight fan-out; remote-only in practice — local Qwen 1.5B does
+    # not reliably produce the strict JSON schema this template requires).
+    "lens_newcomer_insight":     lens_newcomer_insight_tpl.run,
     # Quiet Living lens templates:
     "quiet_zone_insight":         quiet_zone_insight_tpl.run,
     "street_trees_insight":       street_trees_insight_tpl.run,
