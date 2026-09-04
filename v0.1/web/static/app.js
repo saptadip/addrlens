@@ -3432,7 +3432,8 @@ function renderLensSingle(addr) {
   }
   const tilesHtml = lens.tiles.map(t => renderLensTile(t, active)).join('');
   const audience  = escapeHtml(lens.audience || '');
-  const aiPanel = (_isAiLensFlagOn() && _hasLensAI(active))
+  const showAiPanel = _isAiLensFlagOn() && _hasLensAI(active);
+  const aiPanel = showAiPanel
     ? `<section class="lens-ai-panel" id="lens-ai-panel"
                 data-lens="${escapeHtml(active)}"
                 aria-label="AI Insight for the ${escapeHtml(lens.label || active)} lens">
@@ -3441,10 +3442,13 @@ function renderLensSingle(addr) {
   // Lens-level provenance intentionally not rendered here — dataset-level
   // attribution already appears once in the site footer's "Attribution &
   // licences" modal, so surfacing the same string twice is noise.
+  // Picker-row audience hidden when the AI panel is showing — its idle
+  // title already carries the audience_hint, so keeping the picker-row
+  // copy would duplicate the same line twice on one screen.
   return `
     <div class="lens-picker-row">
       ${renderLensPicker(active)}
-      ${audience ? `<p class="lens-audience">${audience}</p>` : ''}
+      ${(audience && !showAiPanel) ? `<p class="lens-audience">${audience}</p>` : ''}
     </div>
     ${aiPanel}
     <div class="lens-body">
