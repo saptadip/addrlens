@@ -3101,10 +3101,11 @@ function renderLensAISkeleton() {
     </div>`;
 }
 
-function renderLensAIBody(li) {
+function renderLensAIBody(li, tileTierByKey) {
   if (!li || typeof li !== 'object') return '';
   const TIER_DOT = (v) => `<span class="tier-dot tier-${escapeHtml(v || 'unknown')}"></span>`;
   const SECTION_HEAD = { green: 'What works', amber: 'What to watch', red: "What won't", unknown: 'Neutral' };
+  const tierOf = (k) => (tileTierByKey && tileTierByKey[k]) || 'unknown';
   // Group sections by verdict for the 3-col layout.
   const buckets = { green: [], amber: [], red: [], unknown: [] };
   (li.sections || []).forEach(s => (buckets[s.verdict] || buckets.unknown).push(s));
@@ -3120,10 +3121,14 @@ function renderLensAIBody(li) {
         </div>`).join('')}
     </div>`;
   };
+  // Highlight dot colour comes from the tile's ACTUAL tier, not the
+  // tone bucket — an amber tile (like buergeramt at 2.5 km) legitimately
+  // lands in the red-highlights list per the tone filter, but painting
+  // it with a red dot would contradict the tile card's amber verdict.
   const highlights = (arr, tone) => {
     if (!arr || !arr.length) return '';
     return `<ul class="lens-ai-hilights lens-ai-hilights-${tone}">${
-      arr.map(h => `<li>${TIER_DOT(tone === 'green' ? 'green' : 'red')}<span class="hl-tile">${escapeHtml(h.tile)}</span><span class="hl-line">${escapeHtml(h.one_line)}</span></li>`).join('')
+      arr.map(h => `<li>${TIER_DOT(tierOf(h.tile))}<span class="hl-tile">${escapeHtml(h.tile)}</span><span class="hl-line">${escapeHtml(h.one_line)}</span></li>`).join('')
     }</ul>`;
   };
   return `
@@ -3175,7 +3180,11 @@ function hydrateLensAIPanel(addr) {
       });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const data = await r.json();
-      panel.innerHTML = renderLensAIBody(data.lens_insight);
+      // Map tile key → actual tier so highlight dots colour from the
+      // scoring pipeline, not from the tone bucket. Amber-in-red-list
+      // is legitimate under the tone filter but must not render as red.
+      const tierByKey = Object.fromEntries(lens.tiles.map(t => [t.key, t.tier || 'unknown']));
+      panel.innerHTML = renderLensAIBody(data.lens_insight, tierByKey);
       panel.classList.remove('lens-ai-loading');
     } catch (e) {
       // Restore the idle state with an inline retry-friendly note so the
