@@ -256,8 +256,13 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .amen-modal .modal-head .icon-badge svg{width:22px;height:22px}
 .amen-modal .modal-head h3{margin:0;font-family:'Inter',sans-serif;font-weight:700;font-size:20px}
 .amen-modal .metric-big{margin:2px 0 14px;flex-shrink:0}
-.amen-modal .amen-body{display:flex !important;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden}
-.amen-modal .amen-list{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0;padding-right:6px}
+/* Body owns the scroll (not the list) — a short list that gets clipped
+   internally by an invisible macOS overlay scrollbar hides rows that are
+   scrollable in DOM but appear missing to the user. Body-level scroll
+   makes short lists render natural height (all rows visible inline) and
+   long lists scroll the whole body with caveat + provenance in view. */
+.amen-modal .amen-body{display:flex !important;flex-direction:column;flex:1 1 auto;min-height:0;overflow-y:auto}
+.amen-modal .amen-list{flex:0 0 auto;margin:0;padding-right:6px}
 .amen-modal .amen-more{font-size:12px;color:var(--muted);margin:8px 0 0;flex-shrink:0}
 .amen-modal .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);line-height:1.4;flex-shrink:0}
 .amen-modal .amen-list{margin:8px 0 0}
@@ -338,8 +343,15 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .stack.tiles-grid.two-per-row .amen-cell .amen-tag{display:inline-block;align-self:flex-start;
   max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;margin-top:4px;
+  padding:5px 12px;border-radius:99px;font-weight:600;font-size:12px;margin-top:0;
   background:#E0E7FF;color:#3730A3;transition:transform .15s cubic-bezier(.34,1.56,.64,1)}
+/* Amenities / Emergency / Connectivity: label + chip share a row so the
+   chip sits under the count number at the label's vertical level. */
+.stack.tiles-grid.two-per-row .amen-cell .cell-caption,
+.stack.tiles-grid.conn-tiles .conn-cell .cell-caption{display:flex;align-items:center;
+  justify-content:space-between;gap:12px;flex-wrap:wrap;row-gap:6px}
+.stack.tiles-grid.two-per-row .amen-cell .cell-caption .cell-label,
+.stack.tiles-grid.conn-tiles .conn-cell .cell-caption .cell-label{flex:0 1 auto}
 .stack.tiles-grid.two-per-row .amen-cell:hover .amen-tag{transform:translateY(-1px) scale(1.03)}
 @media(max-width:700px){.stack.two-per-row{grid-template-columns:1fr}}
 .b-sesb{background:linear-gradient(135deg,#FEF3C7,#FCE7F3);color:#9F1239;

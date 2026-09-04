@@ -1819,18 +1819,19 @@ function renderOthers(d){
   const cards = bur.tiles.map(t => {
     const icon = (ico && ico[t.icon]) || (ico && ico.compass) || '';
     const features = Array.isArray(t.features) ? t.features : [];
-    const walkNearest = features.length && features[0].walk_min != null
-      ? features[0].walk_min : null;
-    const bigNum = features.length || 0;
-    const tag = walkNearest != null
-      ? `~${walkNearest} min walk` : (bigNum ? 'in range' : 'none nearby');
+    // `_shape_office` always emits `distance_m` on shaped features, so the
+    // only null-state is an empty tile (e.g. Standesamt outside Berlin).
+    // Render that as a muted "—" mirroring the Connectivity empty state at
+    // line 2013 — the brand-gradient hero style would read as an alarm.
+    const bigHtml = features.length
+      ? `<span class="n">${esc(fmtDistance(features[0].distance_m))}</span>`
+      : `<span class="n" style="font-size:20px;color:var(--muted)">—</span>`;
     return `<div class="cell amen-cell others-cell" data-cat="${esc(t.key)}">
       <div class="amen-tile-top">
         <div class="icon-badge">${icon}</div>
-        <div class="metric-big"><span class="n">${bigNum}</span></div>
+        <div class="metric-big">${bigHtml}</div>
       </div>
       <span class="cell-label">${labelWithGlossHtml(t.label)}</span>
-      <span class="amen-tag">${esc(tag)}</span>
     </div>`;
   }).join('');
   const map = `<div class="map-cell amen-map-cell">
@@ -1915,7 +1916,7 @@ function selectOthersCategory(cat){
     items.forEach((it, i) => {
       const m = L.marker([it.lat, it.lon], {icon: iconPin(ico[tile.icon] || ico.compass, '#4F46E5')})
         .bindPopup(`<b>${esc(it.name || '')}</b>${it.address ? '<br>' + esc(it.address) : ''}${
-                    it.walk_min != null ? '<br>~' + it.walk_min + ' min walk' : ''}`);
+                    it.distance_m != null ? '<br>' + fmtDistance(it.distance_m) : ''}`);
       grp.addLayer(m);
       othersState.markers.push(m);
     });
@@ -1939,7 +1940,7 @@ function _othersItemDetailHtml(f){
   const rows = [];
   const push = (l, v) => v && rows.push([l, v]);
   if(f.address)               push('Address', esc(f.address));
-  if(f.walk_min != null)      push('Walk time', `~${f.walk_min} min`);
+  if(f.distance_m != null)    push('Distance', fmtDistance(f.distance_m));
   const webUrl  = (typeof f.website === 'string') ? f.website.trim() : '';
   const webSafe = /^https?:\/\//i.test(webUrl) ? webUrl : '';
   if(webSafe)                 push('Website',
@@ -1958,9 +1959,7 @@ function openOthersModal(cat){
     const details = _othersItemDetailHtml(f);
     const tip = details
       ? `<details class="info-tip"><summary aria-label="More info">${ico.info}</summary><div class="info-body details-block">${details}</div></details>` : '';
-    const dist = f.distance_m != null && f.walk_min != null
-      ? `${f.distance_m} m · ~${f.walk_min} min walk`
-      : (f.distance_m != null ? `${f.distance_m} m` : '');
+    const dist = f.distance_m != null ? fmtDistance(f.distance_m) : '';
     return `<li data-idx="${i}" data-cat="${esc(cat)}" title="Highlight on map">
       <span class="nm">${esc(f.name || '')}</span>
       <span class="dist">${dist}</span>
@@ -2015,8 +2014,10 @@ function renderConn(c, prov, addr){
           <div class="icon-badge">${ico.transit}</div>
           <div class="metric-big"><span class="n" style="font-size:20px;color:var(--muted)">—</span></div>
         </div>
-        <span class="cell-label">${meta.label}</span>
-        <span class="conn-stop">Not available</span>
+        <div class="cell-caption">
+          <span class="cell-label">${meta.label}</span>
+          <span class="conn-stop">Not available</span>
+        </div>
       </div>`;
     }
     const captionName = val.iata && !val.name.includes(val.iata) ? `${esc(val.name)} (${esc(val.iata)})` : esc(val.name);
@@ -2025,8 +2026,10 @@ function renderConn(c, prov, addr){
         <div class="icon-badge">${ico.transit}</div>
         <div class="metric-big"><span class="n">${fmtDistance(val.distance_m)}</span></div>
       </div>
-      <span class="cell-label">${meta.label}</span>
-      <span class="conn-stop" title="${captionName}">${captionName}</span>
+      <div class="cell-caption">
+        <span class="cell-label">${meta.label}</span>
+        <span class="conn-stop" title="${captionName}">${captionName}</span>
+      </div>
     </div>`;
   }).join('');
   const map = `<div class="map-cell"><div class="map-hint" id="connHint">Click a card to plot its location</div><div id="map-conn"></div></div>`;
@@ -2492,8 +2495,10 @@ function _amenCardHtml(entry){
       <div class="icon-badge">${icon}</div>
       <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span></div>
     </div>
-    <span class="cell-label">${label}</span>
-    <span class="amen-tag">${rangeCap}</span>
+    <div class="cell-caption">
+      <span class="cell-label">${label}</span>
+      <span class="amen-tag">${rangeCap}</span>
+    </div>
     <div class="amen-body">
       <ul class="amen-list">${items}</ul>${more}
       <div class="prov">${esc(b.provenance || '© OpenStreetMap contributors (ODbL)')}</div>

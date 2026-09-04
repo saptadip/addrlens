@@ -353,9 +353,12 @@ def run_live_selfcheck() -> None:
     # LEA: exactly 1 feature (from cfg.lea_office), name contains "LEA".
     assert len(_by_bur["lea"]["features"]) == 1
     assert "LEA" in _by_bur["lea"]["features"][0]["name"]
-    # Every buergeramt feature has walk_min as int.
+    # Every buergeramt feature has distance_m as int (walk_min pruned —
+    # frontend now renders km via fmtDistance, no per-feature walk time
+    # is emitted on the Others tab).
     for f in _by_bur["buergeramt"]["features"]:
-        assert isinstance(f.get("walk_min"), int), f
+        assert isinstance(f.get("distance_m"), int), f
+        assert "walk_min" not in f, f
     # Provenance non-empty; cites at minimum Bürgerämter.
     assert "Bürgerämter" in bundle["provenance"], bundle["provenance"]
     # Determinism guard — two calls must produce equal dicts.
@@ -374,9 +377,9 @@ def run_live_selfcheck() -> None:
         assert len(_by_b["standesamt"]["features"]) == 1
         assert "Friedrichshain-Kreuzberg" in _by_b["standesamt"]["features"][0]["name"], \
             _by_b["standesamt"]["features"][0]
-        # Kreuzberg is farther from Wedding (LEA) than Pankow is — LEA walk_min >= Pankow's.
-        lea_pnk = _by_bur["lea"]["features"][0]["walk_min"]
-        lea_kbg = _by_b["lea"]["features"][0]["walk_min"]
+        # Kreuzberg is farther from Wedding (LEA) than Pankow is — LEA distance_m >= Pankow's.
+        lea_pnk = _by_bur["lea"]["features"][0]["distance_m"]
+        lea_kbg = _by_b["lea"]["features"][0]["distance_m"]
         assert lea_kbg >= lea_pnk, \
             f"LEA from Kreuzberg ({lea_kbg}) should be ≥ from Pankow ({lea_pnk})"
 
