@@ -145,7 +145,17 @@ _SYSTEM = (
     "verdict and must NOT be described as red or green. "
     "(3) Do not editorialise about 'good' or 'bad' neighbourhoods. "
     "Describe, don't judge. "
-    "(4) Return ONLY the JSON object. No preamble, no code fences, no "
+    "(4) TONE DISCIPLINE per tier: green = clearly positive framing "
+    "('close', 'dense', 'walkable', 'strong'). amber = neutral, "
+    "situational framing ('walkable but not doorstep', 'a short walk', "
+    "'~15-minute walk', 'reachable'). red = clearly negative framing "
+    "('far', 'lacks', 'no ... nearby', 'plan a transit pass'). Do NOT "
+    "use red-tier language ('far', 'long distance', 'lacks') for amber "
+    "tiles — amber is the middle ground, not a failure. A Bürgeramt "
+    "2.5 km away is amber ('a 25-minute walk' or 'a short bike ride'), "
+    "NOT 'a long distance'. Reserve strong negative framing for tiles "
+    "the payload actually marks red. "
+    "(5) Return ONLY the JSON object. No preamble, no code fences, no "
     "trailing prose."
 )
 
@@ -541,6 +551,12 @@ if __name__ == "__main__":
         "system must handle `info`-only tiles (nightlife_density, gesix)"
     assert "no code fences" in _sys.lower() or "no preamble" in _sys.lower(), \
         "system must forbid markdown wrapper prose"
+    # Tone-discipline rule — amber must not be described in red-tier
+    # language. Anti-drift guard for the load-bearing calibration.
+    assert "tone discipline" in _sys.lower(), \
+        "system must carry per-tier tone discipline rule"
+    assert "amber" in _sys.lower() and "middle ground" in _sys.lower(), \
+        "system must explicitly frame amber as the middle ground"
     # Exemplar assistant must be valid JSON matching the schema.
     _ex_asst = json.loads(msgs[2]["content"])
     assert isinstance(_ex_asst["executive_summary"], str)

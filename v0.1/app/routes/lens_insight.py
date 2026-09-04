@@ -69,7 +69,9 @@ _CACHE_GRID = int(os.environ.get("LENS_INSIGHT_CACHE_GRID", 3))
 # prompt changes materially. 7-day cached entries under an old version
 # will simply miss and be regenerated, so stale summaries can't leak
 # across a template edit.
-_CACHE_VERSION = "v1"
+# v2: tone-discipline rule added — amber tiles now get neutral framing
+#     (was: sometimes framed with red-tier language like "long distance").
+_CACHE_VERSION = "v2"
 
 
 def _cache_key(city_slug: str, lens: str, lat: float, lon: float) -> tuple:
