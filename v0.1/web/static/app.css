@@ -2135,8 +2135,8 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
    1825 (`.lens-modal.has-tabs[data-tab="readout"] .modal-legend`), which
    sets `display: block` when the readout tab is active and otherwise
    would flatten our flex-row into vertical block flow. We match its
-   `.lens-modal.has-tabs[data-tab="readout"]` prefix (0,3,1) so
-   specificity beats the tab-hide rule at line 1818 (0,2,1) on Readout
+   `.lens-modal.has-tabs[data-tab="readout"]` prefix (0,4,0 — 3 classes +
+   1 attribute) so specificity beats the tab-hide rule at line 1818 (0,2,1) on Readout
    ONLY; on About / Insight, the hide rule wins and the legend panel
    stays hidden. `.lens-modal:not(.has-tabs)` covers flat-flow tiles
    (fewer than 2 tabs of content — no tab bar injected) so the flex
