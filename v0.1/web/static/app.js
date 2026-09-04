@@ -1783,6 +1783,7 @@ const CONN_META = {
   ubahn:         {label:'U-Bahn',        note:'Subway'},
   tram:          {label:'Tram',          note:'Straßenbahn'},
   regional_rail: {label:'Regional rail', note:'RE / RB — DB Regio'},
+  bus:           {label:'Bus',           note:'BVG bus stop'},
   airport:       {label:'Airport',       note:'International'},
 };
 function fmtDistance(m){
@@ -2303,6 +2304,7 @@ function renderCompare(){
     row('Nearest U-Bahn',        list.map(s=>cell(s.connectivity?.ubahn         ? `${esc(s.connectivity.ubahn.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.ubahn.distance_m)})</span>` : null)).join('')),
     row('Nearest tram',          list.map(s=>cell(s.connectivity?.tram          ? `${esc(s.connectivity.tram.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.tram.distance_m)})</span>` : null)).join('')),
     row('Nearest regional rail', list.map(s=>cell(s.connectivity?.regional_rail ? `${esc(s.connectivity.regional_rail.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.regional_rail.distance_m)})</span>` : null)).join('')),
+    row('Nearest bus',           list.map(s=>cell(s.connectivity?.bus           ? `${esc(s.connectivity.bus.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.bus.distance_m)})</span>` : null)).join('')),
     row('Airport (BER)',         list.map(s=>cell(s.connectivity?.airport       ? `${esc(s.connectivity.airport.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.airport.distance_m)})</span>` : null)).join('')),
   ].join('');
   $c.innerHTML=`${header}${printHeader}<div class="compare-wrap"><table class="compare-table">

@@ -102,16 +102,38 @@ def lookup(
     air          = air_quality_at(cfg, lon, lat)
     heat         = summer_heat_at(cfg, lon, lat)
 
-    # Connectivity — nearest S-Bahn / U-Bahn / Tram / Regional rail + Airport.
+    # Connectivity — nearest S-Bahn / U-Bahn / Tram / Regional rail + Bus + Airport.
     # Airport is a single point (per-city fixed landmark), so we compute its
-    # distance directly rather than "nearest".
+    # distance directly rather than "nearest". Bus stop comes from the OSM
+    # transit bucket (weekly Geofabrik snapshot); filtered to `highway=bus_stop`
+    # or `bus=yes` so tram / rail platforms don't leak into the bus card.
     conn = {
         "sbahn":         index.nearest_station(index.sbahn, lon, lat),
         "ubahn":         index.nearest_station(index.ubahn, lon, lat),
         "tram":          index.nearest_station(index.tram, lon, lat),
         "regional_rail": index.nearest_station(index.regional_rail, lon, lat),
+        "bus":           None,
         "airport":       None,
     }
+    # Wrapped in try/except per §14.7 — an additive computation must never
+    # 500 /api/lookup for consumers that don't use this field. Unnamed stops
+    # are skipped so raw-view Bus card can't disagree with the Commuter lens
+    # bus_transit tile, which drops unnamed items at commuter.py:88-91.
+    try:
+        if getattr(index, "osm_local", None):
+            for f in index.osm_local.near("transit", lon, lat, 800):
+                tags = f.get("tags") or {}
+                if tags.get("highway") != "bus_stop" and tags.get("bus") != "yes":
+                    continue
+                name = (f.get("name") or "").strip()
+                if not name or f.get("distance_m") is None:
+                    continue
+                conn["bus"] = {"name": name,
+                               "lat": f["lat"], "lon": f["lon"],
+                               "distance_m": round(f["distance_m"])}
+                break                             # near() returns sorted
+    except Exception:
+        pass                                       # keep conn["bus"] = None
     if cfg.airport:
         conn["airport"] = {
             **cfg.airport,
@@ -229,6 +251,7 @@ def lookup(
             "ubahn":         cfg.attribution.get("ubahn", ""),
             "tram":          cfg.attribution.get("tram", ""),
             "regional_rail": cfg.attribution.get("regional_rail", ""),
+            "bus":           "© OpenStreetMap contributors (ODbL) via Geofabrik",
             "airport":       cfg.attribution.get("airport", ""),
             "fire":          cfg.attribution.get("fire", ""),
             "trees":         cfg.attribution.get("trees", ""),
