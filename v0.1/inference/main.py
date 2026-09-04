@@ -172,6 +172,13 @@ INFERENCE_GENERATION_TIMEOUT_S = max(1.0, _env_float(
 # names that will be served by the remote backend (Cloudflare Workers AI)
 # when CF_ACCOUNT_ID and CF_WORKERS_AI_TOKEN are set. Any other template
 # stays on the local backend. Any remote failure falls through to local.
+# NOTE — ops rollout: any existing prod deploy that pinned
+# `INFERENCE_REMOTE_TEMPLATES` to `"history"` MUST append
+# `lens_newcomer_insight` when rolling this out, or the lens template
+# routes to local Qwen 1.5B which cannot reliably produce the strict
+# JSON schema (result: 400 loop and SPA shows "Insight generation
+# failed. Please try again."). Unpinned deploys pick up the new
+# default below automatically.
 REMOTE_TEMPLATES = {
     t.strip()
     for t in os.environ.get("INFERENCE_REMOTE_TEMPLATES", "history,lens_newcomer_insight").split(",")

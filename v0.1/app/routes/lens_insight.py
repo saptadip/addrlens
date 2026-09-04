@@ -65,19 +65,32 @@ _LENS_TEMPLATES = {
 # Same cache grid as history — ~100 m cells. Env-tunable.
 _CACHE_GRID = int(os.environ.get("LENS_INSIGHT_CACHE_GRID", 3))
 
+# Cache version — bump when LENS_SECTION_MAP or the template's system
+# prompt changes materially. 7-day cached entries under an old version
+# will simply miss and be regenerated, so stale summaries can't leak
+# across a template edit.
+_CACHE_VERSION = "v1"
+
 
 def _cache_key(city_slug: str, lens: str, lat: float, lon: float) -> tuple:
-    """`(namespace, city, lens, lat, lon)` — namespace prefix keeps this
-    disjoint from the shared HISTORY cache's history keys."""
-    return ("lens_insight", city_slug, lens,
+    """`(namespace, version, city, lens, lat, lon)` — namespace prefix
+    keeps this disjoint from the shared HISTORY cache's history keys;
+    version bumps invalidate stale entries after a template edit."""
+    return ("lens_insight", _CACHE_VERSION, city_slug, lens,
             round(lat, _CACHE_GRID), round(lon, _CACHE_GRID))
+
+
+_ALLOWED_TIERS = {"green", "amber", "red", "unknown", "info"}
 
 
 def _shape_tile_contexts(tiles: list) -> list:
     """Trim client-supplied tile payload to the schema the inference
     template consumes. Drops unknown fields; validates types minimally.
     A tile missing `key` is dropped — the summariser is keyed on
-    `LENS_SECTION_MAP` which enumerates the tile keys."""
+    `LENS_SECTION_MAP` which enumerates the tile keys. Unknown tier
+    values (a malicious or malformed client sending `tier:"zeus"`)
+    normalise to `"unknown"` so the deterministic rollup can't be
+    poisoned into always-`unknown` by lying about tiers."""
     out = []
     for t in tiles or []:
         if not isinstance(t, dict):
@@ -85,10 +98,13 @@ def _shape_tile_contexts(tiles: list) -> list:
         key = (t.get("key") or "").strip()
         if not key:
             continue
+        tier = t.get("tier")
+        if tier not in _ALLOWED_TIERS:
+            tier = "unknown"
         out.append({
             "key":     key,
             "label":   t.get("label") or key,
-            "tier":    t.get("tier"),
+            "tier":    tier,
             "rule":    t.get("rule"),
             "numeric": t.get("numeric"),
             "caveat":  t.get("caveat"),
@@ -139,9 +155,12 @@ async def lens_insight(
         },
     }
     try:
-        # Cloudflare call dominates wall time (~2-4 s p50). Bump the
-        # client timeout so a slow first-token pull doesn't 504.
-        timeout = max(30, INFERENCE_TIMEOUT_S)
+        # Cloudflare call dominates wall time (~2-4 s p50). Match the
+        # inference-service `INFERENCE_GENERATION_TIMEOUT_S` default
+        # (120 s) so a slow first-token pull the server is patiently
+        # waiting on doesn't 504 at the app boundary before the
+        # response can land.
+        timeout = max(120, INFERENCE_TIMEOUT_S)
         async with httpx.AsyncClient(timeout=timeout) as client:
             r = await client.post(f"{INFERENCE_URL}/summarize", json=payload)
     except httpx.RequestError as e:
@@ -172,10 +191,10 @@ async def lens_insight(
 if __name__ == "__main__":
     # -- Cache-key shape + namespace isolation -------------------------
     assert _cache_key("berlin", "newcomer", 52.48864, 13.39631) == \
-        ("lens_insight", "berlin", "newcomer", 52.489, 13.396)
+        ("lens_insight", _CACHE_VERSION, "berlin", "newcomer", 52.489, 13.396)
     # Adjacent addresses across a 3rd-decimal boundary → distinct cells.
     assert _cache_key("berlin", "newcomer", 52.48862, 13.39664) == \
-        ("lens_insight", "berlin", "newcomer", 52.489, 13.397)
+        ("lens_insight", _CACHE_VERSION, "berlin", "newcomer", 52.489, 13.397)
     # City-scoped: multi-city deployment mustn't cross-contaminate.
     assert _cache_key("hamburg", "newcomer", 52.489, 13.396) != \
         _cache_key("berlin", "newcomer", 52.489, 13.396)
@@ -185,6 +204,21 @@ if __name__ == "__main__":
         _cache_key("berlin", "quiet_living", 52.489, 13.396)
     # Namespace prefix keeps this disjoint from history keys.
     assert _cache_key("berlin", "newcomer", 52.489, 13.396)[0] == "lens_insight"
+    # Cache version threads through so a template edit invalidates entries.
+    assert _cache_key("berlin", "newcomer", 52.489, 13.396)[1] == _CACHE_VERSION
+
+    # -- Tier whitelist: unknown tier values normalise to "unknown" ---
+    _tainted = _shape_tile_contexts([
+        {"key": "buergeramt", "tier": "green"},
+        {"key": "rail_transit", "tier": "zeus"},        # malicious
+        {"key": "tram_transit", "tier": None},          # missing
+        {"key": "bus_transit", "tier": "info"},         # allowed alias
+    ])
+    _tiers = {t["key"]: t["tier"] for t in _tainted}
+    assert _tiers["buergeramt"]  == "green"
+    assert _tiers["rail_transit"] == "unknown", f"malicious tier not normalised: {_tiers['rail_transit']!r}"
+    assert _tiers["tram_transit"] == "unknown"
+    assert _tiers["bus_transit"]  == "info"
 
     # -- _LENS_TEMPLATES sanity: only newcomer wired today ------------
     assert "newcomer" in _LENS_TEMPLATES

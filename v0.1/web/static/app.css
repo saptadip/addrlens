@@ -631,6 +631,8 @@ footer a{color:var(--brand)}
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
   body { background:#fff }
   header, footer, #status, .hero, .tabs, .panel, .header-actions, .compare-header .compare-actions, .col-remove { display:none !important }
+  /* AI Insight panel is an on-demand generative surface — do not print. */
+  .lens-ai-panel { display:none !important }
   .page { max-width:none; padding:0 }
   .compare-view, #view-compare { margin-top:0 !important }
   .compare-wrap { border:0; box-shadow:none; padding:0; overflow:visible; border-radius:0 }

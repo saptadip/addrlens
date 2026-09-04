@@ -80,9 +80,13 @@ LENS_SECTION_MAP: list[dict] = [
      "tiles": ["nightlife_density", "gesix_newcomer"]},
 ]
 
-# Worst-tier-wins ordering. `unknown` and `info` (nightlife_density,
-# gesix_newcomer) don't participate — a section with only unknown tiles
-# rolls up to `unknown`.
+# Worst-tier-wins ordering. The scoring pipeline emits `green`,
+# `amber`, `red`, and `unknown` only (see `app/core/scoring/constants.py`).
+# `info` is accepted as an alias for `unknown` — some numeric-only tiles
+# (`nightlife_density`) or shape-only tiles (`gesix_newcomer` when data
+# is missing) may land here; the `.get(tier, -1)` default excludes any
+# non-ranked value from the rollup so a section of only unknown / info
+# tiles rolls up to `unknown`.
 _TIER_RANK = {"green": 0, "amber": 1, "red": 2, "unknown": -1}
 
 
