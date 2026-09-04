@@ -1819,14 +1819,17 @@ function renderOthers(d){
   const cards = bur.tiles.map(t => {
     const icon = (ico && ico[t.icon]) || (ico && ico.compass) || '';
     const features = Array.isArray(t.features) ? t.features : [];
-    const nearestDist = features.length && features[0].distance_m != null
-      ? features[0].distance_m : null;
-    const bigVal = nearestDist != null
-      ? fmtDistance(nearestDist) : (features.length ? 'in range' : 'none nearby');
+    // `_shape_office` always emits `distance_m` on shaped features, so the
+    // only null-state is an empty tile (e.g. Standesamt outside Berlin).
+    // Render that as a muted "—" mirroring the Connectivity empty state at
+    // line 2013 — the brand-gradient hero style would read as an alarm.
+    const bigHtml = features.length
+      ? `<span class="n">${esc(fmtDistance(features[0].distance_m))}</span>`
+      : `<span class="n" style="font-size:20px;color:var(--muted)">—</span>`;
     return `<div class="cell amen-cell others-cell" data-cat="${esc(t.key)}">
       <div class="amen-tile-top">
         <div class="icon-badge">${icon}</div>
-        <div class="metric-big"><span class="n">${esc(bigVal)}</span></div>
+        <div class="metric-big">${bigHtml}</div>
       </div>
       <span class="cell-label">${labelWithGlossHtml(t.label)}</span>
     </div>`;
