@@ -2135,16 +2135,20 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
    1825 (`.lens-modal.has-tabs[data-tab="readout"] .modal-legend`), which
    sets `display: block` when the readout tab is active and otherwise
    would flatten our flex-row into vertical block flow. We match its
-   `.lens-modal.has-tabs[data-tab="readout"]` prefix so specificity ties
-   and source order (this rule is later) wins. A second selector covers
-   the sidebar-layout-without-tabs case, and a third handles the bare
-   `.modal-legend` fallback used outside the sidebar shell. */
+   `.lens-modal.has-tabs[data-tab="readout"]` prefix (0,4,0 — 3 classes +
+   1 attribute) so specificity beats the tab-hide rule at line 1818 (0,2,1) on Readout
+   ONLY; on About / Insight, the hide rule wins and the legend panel
+   stays hidden. `.lens-modal:not(.has-tabs)` covers flat-flow tiles
+   (fewer than 2 tabs of content — no tab bar injected) so the flex
+   layout still applies. Do NOT re-add `.lens-modal.sidebar-layout
+   .modal-legend` or the bare `.modal-legend` here — either one leaks
+   the panel onto About / Insight tabs by winning specificity /
+   source order against the hide gate. */
 .lens-modal.has-tabs[data-tab="readout"] .modal-legend,
-.lens-modal.sidebar-layout .modal-legend,
-.modal-legend                     { display: flex;
-                                    flex-direction: row;
-                                    align-items: flex-start;
-                                    gap: 16px; }
+.lens-modal:not(.has-tabs) .modal-legend { display: flex;
+                                          flex-direction: row;
+                                          align-items: flex-start;
+                                          gap: 16px; }
 .modal-legend-body                { flex: 1;
                                     min-width: 0;
                                     display: flex;
