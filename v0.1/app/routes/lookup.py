@@ -102,16 +102,29 @@ def lookup(
     air          = air_quality_at(cfg, lon, lat)
     heat         = summer_heat_at(cfg, lon, lat)
 
-    # Connectivity — nearest S-Bahn / U-Bahn / Tram / Regional rail + Airport.
+    # Connectivity — nearest S-Bahn / U-Bahn / Tram / Regional rail + Bus + Airport.
     # Airport is a single point (per-city fixed landmark), so we compute its
-    # distance directly rather than "nearest".
+    # distance directly rather than "nearest". Bus stop comes from the OSM
+    # transit bucket (weekly Geofabrik snapshot); filtered to `highway=bus_stop`
+    # or `bus=yes` so tram / rail platforms don't leak into the bus card.
     conn = {
         "sbahn":         index.nearest_station(index.sbahn, lon, lat),
         "ubahn":         index.nearest_station(index.ubahn, lon, lat),
         "tram":          index.nearest_station(index.tram, lon, lat),
         "regional_rail": index.nearest_station(index.regional_rail, lon, lat),
+        "bus":           None,
         "airport":       None,
     }
+    if getattr(index, "osm_local", None):
+        _bus_items = [f for f in index.osm_local.near("transit", lon, lat, 800)
+                      if (f.get("tags") or {}).get("highway") == "bus_stop"
+                      or (f.get("tags") or {}).get("bus") == "yes"]
+        if _bus_items:
+            _bus_items.sort(key=lambda f: f.get("distance_m", 10**9))
+            b = _bus_items[0]
+            conn["bus"] = {"name": b.get("name") or "Bus stop",
+                           "lat": b["lat"], "lon": b["lon"],
+                           "distance_m": round(b["distance_m"])}
     if cfg.airport:
         conn["airport"] = {
             **cfg.airport,
@@ -229,6 +242,7 @@ def lookup(
             "ubahn":         cfg.attribution.get("ubahn", ""),
             "tram":          cfg.attribution.get("tram", ""),
             "regional_rail": cfg.attribution.get("regional_rail", ""),
+            "bus":           "© OpenStreetMap contributors (ODbL) via Geofabrik",
             "airport":       cfg.attribution.get("airport", ""),
             "fire":          cfg.attribution.get("fire", ""),
             "trees":         cfg.attribution.get("trees", ""),
