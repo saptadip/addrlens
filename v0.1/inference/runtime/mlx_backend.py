@@ -1,5 +1,5 @@
 """Apple Silicon dev backend (mlx-lm). Verbatim mechanics from
-phase3/server.py:{_load_llm, summarize_impressions, explain_card}."""
+phase3/server.py `_load_llm` loader."""
 from __future__ import annotations
 
 DEFAULT_MODEL_ID = "mlx-community/Qwen2.5-1.5B-Instruct-4bit"

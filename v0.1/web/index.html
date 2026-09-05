@@ -23,7 +23,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="/static/app.css?v=20260905-audience-dedupe">
+<link rel="stylesheet" href="/static/app.css?v=20260905-remove-vote-explain-impression">
 </head>
 <body>
 <div class="page">
@@ -57,7 +57,7 @@
       <ul id="q-suggest-list" class="suggest-list" role="listbox" hidden></ul>
     </div>
     <button class="btn" type="submit"><span>Look up →</span></button>
-    <button type="button" class="btn" id="reset-btn" title="Clear all saved votes, feedback, comparisons, and card order">Reset</button>
+    <button type="button" class="btn" id="reset-btn" title="Clear card order and saved comparisons">Reset</button>
   </form>
   <div class="chips">
     <span class="chip" data-q="Kastanienallee 12, 10435">Kastanienallee 12, 10435</span>
@@ -96,7 +96,6 @@
     Others
   </button>
 </div>
-<button class="impression-launch" id="impression-launch" hidden aria-label="Open AI impression"><span>Impression</span><span class="count" id="impression-count">0</span></button>
 </div>
 
 <section id="panel-edu" class="panel active" role="tabpanel" aria-labelledby="tab-edu" hidden>
@@ -183,6 +182,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="/static/app.js?v=20260905-audience-dedupe" defer></script>
+<script src="/static/app.js?v=20260905-remove-vote-explain-impression" defer></script>
 </body>
 </html>
