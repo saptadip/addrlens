@@ -265,17 +265,24 @@
     101 Townsend Street<br>
     San Francisco, CA 94107, USA
   </div>
-  <p>Für den Endpunkt <code>/api/history</code> (siehe Abschnitt 3.3)
-    wird der Dienst <em>Workers AI</em> von Cloudflare eingesetzt.
-    Übermittelt werden ausschließlich der Berliner Bezirk und Ortsteil
-    der abgefragten Adresse sowie eine strukturierte Liste öffentlicher
-    OpenStreetMap-Objekte (Gedenkstätten, Denkmäler, historische
-    Gebäude) im Umkreis von ca. 500 Metern. Es werden <strong>keine
-    IP-Adressen, Nutzer-Identifikatoren, Straßennamen oder
-    Hausnummern</strong> übermittelt.</p>
-  <p>Bei Nichterreichbarkeit des Dienstes wird die Anfrage automatisch
-    durch das lokal auf dem Ursprungs-Server betriebene Sprachmodell
-    beantwortet (siehe Abschnitt 3.3).</p>
+  <p>Für die Endpunkte <code>/api/history</code> und
+    <code>/api/lens_insight</code> (siehe Abschnitt 3.3) wird der Dienst
+    <em>Workers AI</em> von Cloudflare eingesetzt.</p>
+  <ul>
+    <li>Für <code>/api/history</code> werden ausschließlich der Berliner
+      Bezirk und Ortsteil der abgefragten Adresse sowie eine
+      strukturierte Liste öffentlicher OpenStreetMap-Objekte
+      (Gedenkstätten, Denkmäler, historische Gebäude) im Umkreis von
+      ca. 500 Metern übermittelt.</li>
+    <li>Für <code>/api/lens_insight</code> werden der Berliner Bezirk
+      und Ortsteil sowie eine strukturierte Liste von 9-13
+      aggregierten Datenpunkten (Kacheln) je Life-Lens-Ansicht
+      übermittelt: pro Kachel jeweils Signalklasse (grün / gelb / rot),
+      die Regel, ein Zahlenwert (z.&nbsp;B. Entfernung in Metern) und
+      ggf. ein Hinweistext. Es werden <strong>keine Straßennamen,
+      Hausnummern, IP-Adressen oder Nutzer-Identifikatoren</strong>
+      übermittelt.</li>
+  </ul>
   <p>Die Datenübermittlung an einen Anbieter mit Sitz außerhalb des
     EWR erfolgt auf Grundlage von EU-Standardvertragsklauseln gemäß
     Art. 46 Abs. 2 lit. c DSGVO in Verbindung mit einem
@@ -575,16 +582,22 @@
     101 Townsend Street<br>
     San Francisco, CA 94107, USA
   </div>
-  <p>For the <code>/api/history</code> endpoint (see section 3.3) we
-    use Cloudflare's <em>Workers AI</em> service. Transmitted are only
-    the Berlin borough and Ortsteil of the queried address plus a
-    structured list of public OpenStreetMap features (memorials,
-    monuments, historic buildings) within approximately 500 metres.
-    <strong>No IP addresses, user identifiers, street names, or house
-    numbers</strong> are transmitted.</p>
-  <p>If the service is unreachable, the request is automatically
-    served by the language model running locally on the origin server
-    (see section 3.3).</p>
+  <p>For the endpoints <code>/api/history</code> and
+    <code>/api/lens_insight</code> (see section 3.3) we use Cloudflare's
+    <em>Workers AI</em> service.</p>
+  <ul>
+    <li>For <code>/api/history</code>, transmitted are only the Berlin
+      borough and Ortsteil of the queried address plus a structured
+      list of public OpenStreetMap features (memorials, monuments,
+      historic buildings) within approximately 500 metres.</li>
+    <li>For <code>/api/lens_insight</code>, transmitted are the Berlin
+      borough and Ortsteil plus a structured list of 9-13 aggregated
+      data points (tiles) per Life Lens view: for each tile a
+      signal class (green / amber / red), the rule, a numeric value
+      (e.g. distance in metres) and, if present, a caveat note.
+      <strong>No street names, house numbers, IP addresses, or user
+      identifiers</strong> are transmitted.</li>
+  </ul>
   <p>Transfer to a provider based outside the EEA takes place on the
     basis of EU Standard Contractual Clauses pursuant to
     Art. 46 (2) (c) GDPR in combination with a data processing

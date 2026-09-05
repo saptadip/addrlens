@@ -3542,9 +3542,9 @@ function openLensModal(tileKey) {
   modal.hidden = false;
   lensLastTileKey = tileKey;
 
-  // Inject the three-tab bar (Readout / How this works / AI Insight)
-  // above the tile content. Fires every open — `innerHTML` was just
-  // replaced, so no risk of duplicate tab bars.
+  // Inject the two-tab bar (Readout / How this works) above the tile
+  // content. Fires every open — `innerHTML` was just replaced, so no
+  // risk of duplicate tab bars.
   _injectModalTabs(modal);
 
   // Wire glossary-word popups (hover / focus / tap). No-op when the tile

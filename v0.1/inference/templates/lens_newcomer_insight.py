@@ -31,11 +31,11 @@ Design notes
   makes the output validatable — reject responses whose section list
   drifts, whose keys don't match, or whose highlight tiles aren't in the
   input set.
-- Existing per-tile templates in `inference/templates/*_insight.py` stay
-  live. Their SYSTEM prompts are excerpted (first ~200 chars) into the
-  fan-in prompt as per-tile framing so the summariser inherits the same
-  interpretive lens as the tile-level templates — templates don't become
-  obsolete, they become the framing library.
+- Self-contained: reads only the tile payload (`label`, `tier`, `rule`,
+  `numeric`, `caveat`) passed by the caller. The per-tile
+  `*_insight.py` templates that this file used to import as a framing
+  library were deleted alongside the per-tile Get Insight surface;
+  don't re-add a runtime import of a sibling template.
 - Verdict rollup is deterministic: after the LLM responds, `run()`
   overwrites the `verdict` field on each section from the input tile
   tiers (`red > amber > green > unknown` — worst wins). This means the

@@ -1068,10 +1068,10 @@ body.life-mode #panel-others{ display:none !important; }
      0 0 0 3px rgba(99,102,241,.4);
 }
 
-/* --- Lens-level AI Insight panel (pilot, ?ai=lens) ---------------------- */
+/* --- Lens-level AI Insight panel ---------------------------------------- */
 /* Sits between .lens-picker-row and .lens-body — full-width above tiles.
-   One Cloudflare call per lens per address; replaces the per-tile Get
-   Insight button while the pilot is running behind the ?ai=lens flag. */
+   One Cloudflare Workers AI call per lens per address; rendered on all
+   four Life Lens hubs. Replaces the retired per-tile Get Insight surface. */
 .lens-ai-panel { position: relative; margin: 8px 0 14px; padding: 20px 22px 16px;
                  background: linear-gradient(135deg, #FFFFFF, #F5F3FF 60%, #EEF2FF);
                  border: 1px solid rgba(79,70,229,.18);
@@ -1801,12 +1801,13 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 /* =========================================================================
    TABBED MODAL DISCLOSURE (V3 shipped)
    =========================================================================
-   Life Lens tile modals render three tabs above the content:
+   Life Lens tile modals render two tabs above the content:
      Readout         — tier rule, numeric, colour scale, feature list,
                        gesix chart, trees summary.
      How this works  — data-source explanation, tile-scoped caveat,
                        sources footer.
-     AI Insight      — click-gated AI paragraph (Get Insight button).
+   (AI insight moved to a lens-level panel above the tile grid, so the
+   per-tile Insight tab was removed.)
    The tab bar is a JS-injected `<nav.modal-tabbar>` after `.modal-head`.
    CSS toggles visibility per section via `[data-tab]` on the modal root.
    Header (icon + label + tier badge + close X) stays fixed above the

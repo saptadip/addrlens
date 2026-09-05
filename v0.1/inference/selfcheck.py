@@ -41,8 +41,18 @@ def run_pure() -> None:
 def run_live() -> None:
     """Load the configured backend and generate one `history` paragraph.
     Confirms the local model warms + the /summarize round-trip works
-    end-to-end for at least one template."""
+    end-to-end for at least one template.
+
+    Skipped when INFERENCE_LOCAL_BACKEND=off (prod Cloudflare-only
+    mode) — no local model is loaded in that config, so a live test
+    that spins one up would defeat the purpose."""
     from inference.templates import history as history_tpl
+
+    local_enabled = os.environ.get(
+        "INFERENCE_LOCAL_BACKEND", "on").strip().lower() not in ("0", "false", "no", "off")
+    if not local_enabled:
+        print("→ skipping live phase (INFERENCE_LOCAL_BACKEND=off)", flush=True)
+        return
 
     backend_name = os.environ.get("INFERENCE_BACKEND", "mlx")
     print(f"→ loading backend={backend_name} …", flush=True)

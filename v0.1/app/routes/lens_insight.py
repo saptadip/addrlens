@@ -246,10 +246,19 @@ if __name__ == "__main__":
     assert _tiers["tram_transit"] == "unknown"
     assert _tiers["bus_transit"]  == "info"
 
-    # -- _LENS_TEMPLATES sanity: only newcomer wired today ------------
-    assert "newcomer" in _LENS_TEMPLATES
-    assert _LENS_TEMPLATES["newcomer"] == "lens_newcomer_insight", \
-        "template name must match the row in inference/main.py::TEMPLATES"
+    # -- _LENS_TEMPLATES sanity: all 4 Life Lenses wired --------------
+    # Each entry must map slug → matching template name registered in
+    # inference/main.py::TEMPLATES. Drift here means the proxy accepts
+    # a lens but the inference service has no matching row.
+    assert set(_LENS_TEMPLATES.keys()) == {
+        "young_family", "newcomer", "quiet_living", "commuter",
+    }, f"_LENS_TEMPLATES keys drifted: {set(_LENS_TEMPLATES.keys())}"
+    assert _LENS_TEMPLATES == {
+        "young_family": "lens_young_family_insight",
+        "newcomer":     "lens_newcomer_insight",
+        "quiet_living": "lens_quiet_living_insight",
+        "commuter":     "lens_commuter_insight",
+    }, "template names must match inference/main.py::TEMPLATES rows"
 
     # -- _shape_tile_contexts drops noise + keeps schema fields -------
     _tiles = [
