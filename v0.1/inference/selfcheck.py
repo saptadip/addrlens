@@ -1,7 +1,12 @@
 """Inference-service selfcheck. Run: `python -m inference.selfcheck`.
 
 Two phases:
-  1. Template selfchecks (pure, prompt-shape asserts).
+  1. Template selfchecks (pure, prompt-shape asserts). Anti-inversion
+     coverage that used to live in the removed `impression` template
+     now lives per-tile in each `*_insight.py` template's `__main__`
+     block, and at the lens level in `lens_newcomer_insight.py` (rollup
+     + highlight-tone filter). Run those modules directly to exercise
+     the inversion guards.
   2. Live backend load + one generation on the `history` template.
      Backend picked by INFERENCE_BACKEND env-var — must be `mlx` on
      dev, `llama` on prod.

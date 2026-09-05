@@ -87,7 +87,7 @@ python -m scripts.refresh_vbb --find "<station name>"     # look up coords for r
 
 ## Conventions particular to this tree
 
-- **Stdlib + shapely + FastAPI + httpx only in `app/`.** No ORM, no build step, no bundler. The SPA is `web/index.html` + `web/static/` served by `StaticFiles`; `html-to-image.min.js` is vendored on purpose.
+- **Stdlib + shapely + FastAPI + httpx only in `app/`.** No ORM, no build step, no bundler. The SPA is `web/index.html` + `web/static/` served by `StaticFiles`.
 - **`ponytail:` comments mark deliberate simplifications** with a named ceiling and upgrade path. Do not strip them; address one only with a real reason (a bug, a metric, a user complaint).
 - **BOD first, OSM as fallback/supplement.** Every feature carries `source: "bod" | "osm"`. Dedupe follows the `_merge_bod_and_osm` centroid pattern from phase2.
 - **Behavioural parity with `phase3/server.py` is a hard constraint** for modules ported in Ships A/B. If you touch `app/core/*` or a route, check the corresponding phase3 function and preserve response shape unless the plan explicitly authorises a change.
