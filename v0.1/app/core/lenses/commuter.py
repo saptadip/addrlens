@@ -210,9 +210,7 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
     metadata_map: dict = {
         "airport_reach": {"airport": airport},
         # Report bucket-missing state in metadata so the frontend can
-        # optionally hint at a stale snapshot; also lets card_insight
-        # skip the LLM call rather than paying for a "sorry, unknown"
-        # paragraph.
+        # optionally hint at a stale snapshot on the modal Readout.
         "cycling_network":   {"bucket_missing": _cycling_missing},
         "car_sharing_reach": {"bucket_missing": _carshare_missing},
     }

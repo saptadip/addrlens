@@ -2,11 +2,8 @@
 
 Two phases:
   1. Template selfchecks (pure, prompt-shape asserts). Anti-inversion
-     coverage that used to live in the removed `impression` template
-     now lives per-tile in each `*_insight.py` template's `__main__`
-     block, and at the lens level in `lens_newcomer_insight.py` (rollup
-     + highlight-tone filter). Run those modules directly to exercise
-     the inversion guards.
+     coverage lives inside each per-lens template's `__main__` block
+     (rollup + highlight-tone filter + section-vs-tile disambiguation).
   2. Live backend load + one generation on the `history` template.
      Backend picked by INFERENCE_BACKEND env-var — must be `mlx` on
      dev, `llama` on prod.
@@ -19,11 +16,10 @@ import sys
 
 TEMPLATE_MODULES = [
     "inference.templates.history",
-    # Shared scaffolding for 16 tier+features insight templates. Pinned
-    # here so a future edit to build_tier_messages / run_tier is caught
-    # before the tile-specific selfchecks run and mask the drift.
-    "inference.templates._insight_base",
+    "inference.templates.lens_young_family_insight",
     "inference.templates.lens_newcomer_insight",
+    "inference.templates.lens_quiet_living_insight",
+    "inference.templates.lens_commuter_insight",
 ]
 
 # Pure `__main__` blocks that exercise the inference service's async /
@@ -45,8 +41,18 @@ def run_pure() -> None:
 def run_live() -> None:
     """Load the configured backend and generate one `history` paragraph.
     Confirms the local model warms + the /summarize round-trip works
-    end-to-end for at least one template."""
+    end-to-end for at least one template.
+
+    Skipped when INFERENCE_LOCAL_BACKEND=off (prod Cloudflare-only
+    mode) — no local model is loaded in that config, so a live test
+    that spins one up would defeat the purpose."""
     from inference.templates import history as history_tpl
+
+    local_enabled = os.environ.get(
+        "INFERENCE_LOCAL_BACKEND", "on").strip().lower() not in ("0", "false", "no", "off")
+    if not local_enabled:
+        print("→ skipping live phase (INFERENCE_LOCAL_BACKEND=off)", flush=True)
+        return
 
     backend_name = os.environ.get("INFERENCE_BACKEND", "mlx")
     print(f"→ loading backend={backend_name} …", flush=True)

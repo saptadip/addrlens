@@ -277,12 +277,12 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
     """Shape-only GESIx tile. No numeric on face.
     Face renders label + one-line hint; modal renders the 5-segment
     quintile bar (frontend responsibility). Metadata carries the raw
-    GESIx attributes; the insight template consumes them via
-    _ctx_gesix in card_insight.py.
+    GESIx attributes; the per-lens AI summariser consumes the tile
+    tier + rule + numeric via /api/lens_insight.
 
-    Used by both the Young Family and Newcomer lenses — the caller
-    controls `card_key` and `label` so the insight-template dispatcher
-    can route by tile key.
+    Used by all four Life Lenses — the caller controls `card_key` and
+    `label` so the same helper serves gesix / gesix_newcomer /
+    gesix_quiet / gesix_commuter tile keys.
 
     `cfg` is required so that `sources` resolves to the full licence text
     string from cfg.attribution rather than the bare dataset key "gesix".
