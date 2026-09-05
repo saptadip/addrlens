@@ -75,7 +75,9 @@ python -m scripts.refresh_vbb --find "<station name>"     # look up coords for r
 
 - `/api/lookup` — the big one: geocode → catchment → assigned schools → intl school → kitas → connectivity → fire, quiet, protection, swim, trees, air, heat. Aggregating endpoint; per-category failure is tolerated behind the `_error` pattern.
 - `/api/amenities`, `/api/noise`, `/api/config` — supporting reads.
-- `/api/impression`, `/api/explain` — proxy to inference; apply `CityConfig.bilingual_glossary` via `app/core/gloss.py` after the model returns (small models leave German admin terms untranslated).
+- `/api/history` — proxy to inference `history` template; renders one-paragraph OSM Stolperstein narrative for the ~100 m grid cell.
+- `/api/card_insight` — dispatcher for per-tile Get Insight (Life Lens tile modals). Shapes tile context per card_key and forwards to inference `<card_key>_insight` template. Applies `CityConfig.bilingual_glossary` via `app/core/gloss.py` after the model returns.
+- `/api/lens_insight` — per-lens executive-summary AI panel (`?ai=lens` pilot). Fan-in reduce: one Cloudflare call per lens per address, replaces the per-tile fan-out. Cache-versioned so template edits invalidate stale entries.
 
 **Inference service is city-agnostic.** `POST /summarize` takes `{template, context, city}`; `city` is accepted but not routed on today. Backend picked by `INFERENCE_BACKEND=mlx|llama`; model loads in a background thread so uvicorn binds fast; `/ready` returns 503 until warm; `_lock` serialises generation because mlx/llama are not thread-safe. Never bake the model into per-city app images (plan §7.1). Templates in `inference/templates/` are versioned prompt builders whose pure selfchecks assert prompt shape and anti-inversion behaviour on negative-mode inputs — do not weaken those asserts.
 

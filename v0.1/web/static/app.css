@@ -1454,25 +1454,6 @@ html, body                     { background:var(--neumo-bg); }
                                             inset -2px -2px 5px var(--neumo-sh-light),
                                             0 0 0 3px rgba(79,70,229,.28); }
 
-/* --- Sad-flow (feedback) widgets -------------------------------------- */
-.sad-chip                      { background:var(--neumo-bg); border:none; color:var(--ink-2);
-                                 box-shadow:-3px -3px 8px var(--neumo-sh-light),
-                                            3px 3px 8px var(--neumo-sh-dark); }
-.sad-chip:hover                { color:var(--brand);
-                                 box-shadow:-4px -4px 10px var(--neumo-sh-light),
-                                            4px 4px 12px var(--neumo-sh-dark); }
-.sad-chip:active,
-.sad-chip[aria-pressed=true]   { box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
-                                            inset -2px -2px 5px var(--neumo-sh-light);
-                                 color:var(--brand); }
-.sad-text                      { background:var(--neumo-bg); border:none; color:var(--ink);
-                                 box-shadow:inset 3px 3px 6px var(--neumo-sh-dark),
-                                            inset -3px -3px 6px var(--neumo-sh-light); }
-.sad-text:focus                { outline:none;
-                                 box-shadow:inset 3px 3px 6px var(--neumo-sh-dark),
-                                            inset -3px -3px 6px var(--neumo-sh-light),
-                                            0 0 0 3px rgba(79,70,229,.28); }
-
 /* --- Amenities & Lens modals — soften shell to neumorphic ------------- */
 .amen-modal                    { background:var(--neumo-bg); backdrop-filter:blur(4px);
                                  box-shadow:-8px -8px 18px var(--neumo-sh-light),
