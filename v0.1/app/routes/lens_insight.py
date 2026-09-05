@@ -59,7 +59,10 @@ router = APIRouter()
 
 # Per-lens inference template lookup. Grow as new lenses ship.
 _LENS_TEMPLATES = {
-    "newcomer": "lens_newcomer_insight",
+    "young_family": "lens_young_family_insight",
+    "newcomer":     "lens_newcomer_insight",
+    "quiet_living": "lens_quiet_living_insight",
+    "commuter":     "lens_commuter_insight",
 }
 
 # Same cache grid as history — ~100 m cells. Env-tunable.
@@ -86,7 +89,13 @@ _CACHE_GRID = int(os.environ.get("LENS_INSIGHT_CACHE_GRID", 3))
 #     v4 summaries were skipping GESIx as a citable signal — bump forces
 #     regeneration so gesix-strong / gesix-weak addresses get the
 #     socioeconomic axis surfaced in the summary + highlights.
-_CACHE_VERSION = "v5"
+# v6: all four lenses now have per-lens AI summariser templates; Newcomer
+#     template dropped the `_load_tile_framings` dynamic-import mechanism
+#     alongside the deletion of the per-tile `*_insight.py` templates.
+#     v5 Newcomer entries carry framing excerpts in the prompt that are
+#     no longer produced — force regeneration so cached and live prompts
+#     match. YF / QL / Commuter have no prior cache and start fresh at v6.
+_CACHE_VERSION = "v6"
 
 
 def _cache_key(city_slug: str, lens: str, lat: float, lon: float) -> tuple:

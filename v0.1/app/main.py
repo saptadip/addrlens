@@ -22,7 +22,6 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from app.routes.amenities import router as amenities_router
 from app.routes.config import router as config_router
-from app.routes.card_insight import router as card_insight_router
 from app.routes.history import router as history_router
 from app.routes.lens_insight import router as lens_insight_router
 from app.routes.lookup import router as lookup_router
@@ -173,7 +172,6 @@ app.include_router(suggest_router)
 app.include_router(amenities_router)
 app.include_router(noise_router)
 app.include_router(history_router)
-app.include_router(card_insight_router)
 app.include_router(lens_insight_router)
 
 

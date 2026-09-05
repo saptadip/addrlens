@@ -2,11 +2,8 @@
 
 Two phases:
   1. Template selfchecks (pure, prompt-shape asserts). Anti-inversion
-     coverage that used to live in the removed `impression` template
-     now lives per-tile in each `*_insight.py` template's `__main__`
-     block, and at the lens level in `lens_newcomer_insight.py` (rollup
-     + highlight-tone filter). Run those modules directly to exercise
-     the inversion guards.
+     coverage lives inside each per-lens template's `__main__` block
+     (rollup + highlight-tone filter + section-vs-tile disambiguation).
   2. Live backend load + one generation on the `history` template.
      Backend picked by INFERENCE_BACKEND env-var — must be `mlx` on
      dev, `llama` on prod.
@@ -19,11 +16,10 @@ import sys
 
 TEMPLATE_MODULES = [
     "inference.templates.history",
-    # Shared scaffolding for 16 tier+features insight templates. Pinned
-    # here so a future edit to build_tier_messages / run_tier is caught
-    # before the tile-specific selfchecks run and mask the drift.
-    "inference.templates._insight_base",
+    "inference.templates.lens_young_family_insight",
     "inference.templates.lens_newcomer_insight",
+    "inference.templates.lens_quiet_living_insight",
+    "inference.templates.lens_commuter_insight",
 ]
 
 # Pure `__main__` blocks that exercise the inference service's async /

@@ -103,23 +103,16 @@
     haben) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
     an Betriebs- und Fehleranalyse).</p>
 
-  <h3>3.3 Bei Nutzung der KI-Erklärungen (<code>/api/card_insight</code>, <code>/api/history</code>)</h3>
-  <p>Beim Aufruf einer KI-generierten Erklärung zu einer Datenkarte
-    (<code>/api/card_insight</code>) oder einer historischen
-    Kurzbeschreibung zur Umgebung einer Adresse
+  <h3>3.3 Bei Nutzung der KI-Erklärungen (<code>/api/lens_insight</code>, <code>/api/history</code>)</h3>
+  <p>Beim Aufruf einer KI-generierten Zusammenfassung zu einer
+    Life-Lens-Ansicht (<code>/api/lens_insight</code>) oder einer
+    historischen Kurzbeschreibung zur Umgebung einer Adresse
     (<code>/api/history</code>) werden die zugehörigen Sachdaten
     (Zahlen, Kategorien, Distanzen, Bezirk und Ortsteil sowie eine
     kuratierte Liste öffentlicher OpenStreetMap-Objekte im Umkreis) an
-    einen Sprachmodell-Dienst übermittelt und dort verarbeitet.</p>
-  <ul>
-    <li>Für den Endpunkt <code>/api/card_insight</code> erfolgt die
-      Modellinferenz ausschließlich auf einem lokal betriebenen
-      Sprachmodell (llama.cpp) auf demselben Server bei Hetzner.</li>
-    <li>Für den Endpunkt <code>/api/history</code> wird der Dienst
-      Cloudflare Workers AI (siehe Abschnitt 5.5) genutzt. Bei
-      Nichterreichbarkeit dieses Dienstes greift automatisch das
-      lokal betriebene Sprachmodell.</li>
-  </ul>
+    einen Sprachmodell-Dienst übermittelt und dort verarbeitet. Für
+    beide Endpunkte wird der Dienst Cloudflare Workers AI (siehe
+    Abschnitt 5.5) genutzt.</p>
   <p>Es werden <strong>keine personenbezogenen Daten</strong> an den
     Sprachmodell-Dienst gesendet — insbesondere keine IP-Adresse,
     kein Nutzer-Identifier und keine Adresse in Freitextform
@@ -434,22 +427,15 @@
     (1) (f) GDPR (legitimate interest in operational and error
     analysis).</p>
 
-  <h3>3.3 When using the AI explanations (<code>/api/card_insight</code>, <code>/api/history</code>)</h3>
-  <p>When you request an AI-generated explanation for a data card
-    (<code>/api/card_insight</code>) or a short historical description
+  <h3>3.3 When using the AI explanations (<code>/api/lens_insight</code>, <code>/api/history</code>)</h3>
+  <p>When you request an AI-generated summary for a Life Lens view
+    (<code>/api/lens_insight</code>) or a short historical description
     of an address's surroundings (<code>/api/history</code>), the
     related factual data (numbers, categories, distances, borough and
     Ortsteil, and a curated list of public OpenStreetMap features
     within a short radius) is transmitted to a language-model service
-    and processed there.</p>
-  <ul>
-    <li>For the <code>/api/card_insight</code> endpoint, inference
-      runs exclusively on a locally-operated language model
-      (llama.cpp) on the same server at Hetzner.</li>
-    <li>For the <code>/api/history</code> endpoint, Cloudflare Workers
-      AI is used (see section 5.5). If that service is unreachable,
-      the locally-operated model automatically takes over.</li>
-  </ul>
+    and processed there. Both endpoints use Cloudflare Workers AI (see
+    section 5.5).</p>
   <p><strong>No personal data</strong> is sent to the language-model
     service — in particular, no IP address, no user identifier, and
     no free-text address (street name and house number are stripped
