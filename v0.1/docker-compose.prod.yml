@@ -38,11 +38,21 @@ services:
     ports: !reset []
     env_file:
       - /srv/addrlens/.env.production
-    # No models bind-mount — prod runs the `remote` Dockerfile target
-    # (Cloudflare Workers AI only). Re-add the mount + LLAMA_MODEL_PATH
-    # env only if you switch back to the `local` build target.
+    # Explicit build target — prod runs the `remote` stage (Cloudflare
+    # Workers AI only). Belt-and-suspenders alongside the Dockerfile's
+    # stage order: if a future edit reorders stages, this line pins
+    # prod to the correct target.
+    build:
+      context: .
+      dockerfile: ops/Dockerfile.inference
+      target: remote
+    # No models bind-mount — prod is remote-only. Re-add the mount +
+    # LLAMA_MODEL_PATH env only if you switch to `target: local`.
+    # mem_limit sized for FastAPI + httpx + sentry-sdk footprint
+    # (typically ~150-200 MB RSS). memswap_limit unlimited (-1) so a
+    # transient httpx buffer spike or Sentry event batch doesn't OOM.
     mem_limit: 512m
-    memswap_limit: 640m
+    memswap_limit: -1
     restart: unless-stopped
     networks:
       - addrlens_net
