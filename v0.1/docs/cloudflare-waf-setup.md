@@ -2,7 +2,7 @@
 
 Free-plan edge protection for the app. All rules are configured through the Cloudflare dashboard against the `addrlens.de` zone. This document reflects the Free-plan capabilities as documented at [developers.cloudflare.com/waf](https://developers.cloudflare.com/waf/) and confirmed against the dashboard during initial setup.
 
-The rules complement — they do not replace — the per-IP app-level rate limits enforced by `app/core/rate_limit.py` (10/minute on `/api/history`, 60/minute on `/api/lookup`, 30/minute on `/api/card_insight`).
+The rules complement — they do not replace — the per-IP app-level rate limits enforced by `app/core/rate_limit.py` (10/minute on `/api/history`, 60/minute on `/api/lookup`, 10/minute on `/api/lens_insight`).
 
 ## Free-plan quotas — what you get to work with
 
@@ -79,9 +79,9 @@ The target audience is people evaluating Berlin addresses. Most traffic will ori
 
 ### Rule 4 — Reserved slot (do NOT use Challenge actions on /api/*)
 
-Originally this slot held a Managed-Challenge rule against `/api/card_insight`. It broke every real user. The reason is general and worth internalising, not just avoiding a specific rule:
+Originally this slot held a Managed-Challenge rule against an AI-inference endpoint (the since-removed `/api/card_insight`). It broke every real user. The reason is general and worth internalising, not just avoiding a specific rule:
 
-**Managed Challenge, Interactive Challenge, and JS Challenge all work by returning an HTML captcha page.** For a top-level page navigation the browser renders it and the user (or the invisible JS check) solves it. For a `fetch()` / `XHR` call from the SPA — which is how `/api/card_insight`, `/api/history`, and every other `/api/*` endpoint is called — the JavaScript just receives the HTML response body and calls `.json()` on it. `<!DOCTYPE` is not JSON, so the client throws `Unexpected token '<'`. The user sees a stack trace, not a captcha.
+**Managed Challenge, Interactive Challenge, and JS Challenge all work by returning an HTML captcha page.** For a top-level page navigation the browser renders it and the user (or the invisible JS check) solves it. For a `fetch()` / `XHR` call from the SPA — which is how `/api/lens_insight`, `/api/history`, and every other `/api/*` endpoint is called — the JavaScript just receives the HTML response body and calls `.json()` on it. `<!DOCTYPE` is not JSON, so the client throws `Unexpected token '<'`. The user sees a stack trace, not a captcha.
 
 Rule of thumb: **on `/api/*` endpoints, the only safe actions are `Block` and `Skip`.** Save Challenge actions for full HTML page loads (`/`, `/impressum`, `/datenschutzerklaerung`).
 

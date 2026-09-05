@@ -2655,16 +2655,13 @@ function renderModalGlossary(tile) {
     </div>`;
 }
 
-// -- Lens-level AI Insight panel (pilot, ?ai=lens flag) ---------------------
+// -- Lens-level AI Insight panel --------------------------------------------
 // One Cloudflare Workers AI call per lens per address, replacing the
 // per-tile Get Insight button. Panel lives above `.lens-body`; SPA fires
 // `hydrateLensAIPanel` after `renderLensSingle` returns.
-const _LENS_WITH_AI = new Set(['newcomer']);   // pilot allow-list
-
-function _isAiLensFlagOn() {
-  try { return new URLSearchParams(location.search).get('ai') === 'lens'; }
-  catch (e) { return false; }
-}
+// All four lenses have per-lens AI panels. Panel renders on any Life
+// Lens hub — no flag gate.
+const _LENS_WITH_AI = new Set(['young_family', 'newcomer', 'quiet_living', 'commuter']);
 function _hasLensAI(slug) { return _LENS_WITH_AI.has(slug); }
 
 // Idle state — call-to-action button. Explicit click gates the
@@ -2864,7 +2861,6 @@ function renderLensAIBody(li, tileTierByKey, ctx) {
 // fetches, and swaps to the rendered body. On error, restores the idle
 // state with a small inline error line so the user can retry.
 function hydrateLensAIPanel(addr) {
-  if (!_isAiLensFlagOn()) return;
   const active = getActiveLens();
   if (!_hasLensAI(active)) return;
   const panel = document.getElementById('lens-ai-panel');
@@ -3028,8 +3024,7 @@ function renderLensSingle(addr) {
     `;
   }
   const tilesHtml = lens.tiles.map(t => renderLensTile(t, active)).join('');
-  const audience  = escapeHtml(lens.audience || '');
-  const showAiPanel = _isAiLensFlagOn() && _hasLensAI(active);
+  const showAiPanel = _hasLensAI(active);
   const aiPanel = showAiPanel
     ? `<section class="lens-ai-panel" id="lens-ai-panel"
                 data-lens="${escapeHtml(active)}"
@@ -3038,10 +3033,10 @@ function renderLensSingle(addr) {
        </section>` : '';
   // Lens-level provenance intentionally not rendered here — dataset-level
   // attribution already appears once in the site footer's "Attribution &
-  // licences" modal, so surfacing the same string twice is noise.
-  // Picker-row audience hidden when the AI panel is showing — its idle
-  // title already carries the audience_hint, so keeping the picker-row
-  // copy would duplicate the same line twice on one screen.
+  // licences" modal, so surfacing the same string twice is noise. Picker-
+  // row audience hidden when the AI panel is showing — its idle title
+  // already carries the audience_hint.
+  const audience = escapeHtml(lens.audience || '');
   return `
     <div class="lens-picker-row">
       ${renderLensPicker(active)}
@@ -3284,16 +3279,9 @@ function renderLensModalBody(tile, lensSlug) {
       }</div>`
     : '';
 
-  // Per-card AI-Insight block. Each card that ships an insight AI paragraph
-  // renders the same .card-insight-* markup with card-specific data-endpoint
-  // and data-vintage; a single handler in openLensModal wires the flow.
-  // Naming convention across app + inference: /api/<card_key>_insight →
-  // template <card_key>_insight. Add a new card = one modal block below +
-  // one route + one template.
-  // Card-specific rich block that lives near the TOP of the modal
-  // (charts, plr name, rank, etc). Kept separate from the insight
-  // affordance so the Get-AI-Insight button always anchors to the
-  // bottom-left of the modal.
+  // Card-specific rich block near the TOP of the modal (charts, plr
+  // name, rank, etc). Per-tile Get-Insight affordance was removed in
+  // favour of the lens-level AI panel — see `renderLensAIBody`.
   let cardRichBlock = '';
   if (tile.key === 'gesix' || tile.key === 'gesix_newcomer'
       || tile.key === 'gesix_quiet' || tile.key === 'gesix_commuter') {
@@ -3318,81 +3306,6 @@ function renderLensModalBody(tile, lensSlug) {
       </div>`;
   }
 
-  // Standard AI-Insight affordance — always rendered as the LAST block
-  // of the modal, aligned bottom-left. Data-endpoint keyed by card so a
-  // single handler covers every card. To add a new card's insight in
-  // the future, add one row to _INSIGHT_ENDPOINTS below and ship the
-  // matching backend route + inference template.
-  // Per-card vintage note appended to the AI-insight disclaimer. Card key
-  // must match an entry in the backend's _CARD_CONTEXT_BUILDERS.
-  const _INSIGHT_VINTAGE = {
-    kita:             'Kindertagesstätten (dl-de/by-2.0) — refreshed annually.',
-    playground:       'Grünanlagen — Spielplätze (dl-de/by-2.0) — refreshed annually.',
-    pediatrician:     'OpenStreetMap community-tagged — coverage varies by district.',
-    transit:          'VBB stations (CC-BY-4.0) + BVG Straßenbahn (dl-de/by-2.0) + OSM bus stops (ODbL).',
-    supermarket:      'OpenStreetMap community-tagged (ODbL).',
-    gesix:            'GESIx 2022 · refreshed by the Senate every 3–5 years.',
-    refuge:           'Ruhige Gebiete 2018 · Baumbestand refreshed annually by Berlin BOD.',
-    noise:            'Strategische Lärmkarten 2022 (dl-de/by-2.0) — refreshed every 5 years.',
-    heat:             'Umweltatlas Klimabewertungskarten 2022 (dl-de/zero-2.0).',
-    air:              'Umweltatlas Luftreinhalteplan 2018–2025 trend scenario (dl-de/zero-2.0).',
-    // Newcomer lens cards
-    buergeramt:       'BOD Bezirks-Services · 2026',
-    rail_transit:     'VBB · 2026',
-    tram_transit:     'VBB · 2026',
-    bus_transit:      'OSM Geofabrik weekly extract',
-    intl_food:        'OSM Geofabrik weekly extract',
-    coworking:        'OSM Geofabrik weekly extract',
-    english_clinic:   'OSM Geofabrik weekly extract',
-    language_school:  'OSM Geofabrik weekly extract',
-    library:          'OSM Geofabrik weekly extract',
-    packstation:      'OSM Geofabrik weekly extract',
-    wochenmarkt:      'OSM Geofabrik weekly extract',
-    gesix_newcomer:   'BOD GESIx · 2022',
-    // Quiet Living lens cards. Every non-numeric-only Quiet Living tile
-    // MUST have a row here — the "Get Insight" button is gated on
-    // presence in this map, so a missing row silently hides the button
-    // even after the backend `_CARD_CONTEXT_BUILDERS` row is wired.
-    // The `card_insight.py::__main__` guard covers the backend side; keep
-    // both lists in sync when adding a new tile.
-    quiet_zone:         'Ruhige Gebiete 2018 (dl-de/by-2.0) — §47d BImSchG designated zones.',
-    street_trees:       'Baumbestand Berlin — Straßenbäume (dl-de/zero-2.0) — refreshed annually.',
-    tempo30:            'Berlin Tempolimits WFS (dl-de/zero-2.0) — orders + time restrictions.',
-    arterial_road:      'Übergeordnetes Straßennetz — Bestand (dl-de/zero-2.0).',
-    rail_noise:         'S/U-Bahn coords from VBB (CC-BY-4.0) — station as track proxy.',
-    nightlife_inverted: 'OSM Geofabrik weekly extract (ODbL) — inverted framing (fewer = greener).',
-    gesix_quiet:        'BOD GESIx · 2022',
-    // Commuter lens cards. Same discipline as Quiet Living above — the
-    // Get-Insight button is gated on presence here, so every
-    // non-numeric-only Commuter tile MUST carry a row. Backend guard in
-    // `card_insight.py::__main__` iterates `commuter_lens.tiles` and
-    // catches drift.
-    commuter_rail_transit: 'VBB · 2026 — same S+U feed as the Newcomer rail tile.',
-    commuter_tram_transit: 'BVG Straßenbahn (dl-de/by-2.0) — same feed as the Newcomer tram tile.',
-    commuter_bus_transit:  'OSM Geofabrik weekly extract (ODbL) — bus stops.',
-    regional_rail_reach:   'Curated Berlin RE/RB station list — coords from VBB (CC-BY-4.0).',
-    cycling_network:       'OSM Geofabrik weekly extract (ODbL) — highway=cycleway only, painted lanes not included.',
-    car_sharing_reach:     'OSM Geofabrik weekly extract (ODbL) — amenity=car_sharing (fixed pickup points only).',
-    ev_charging_reach:     'OSM Geofabrik weekly extract (ODbL) — coverage varies by operator.',
-    airport_reach:         'Straight-line distance to BER — real door-to-gate time depends on S9 / RE7 timing.',
-    gesix_commuter:        'BOD GESIx · 2022',
-  };
-  // Pilot: when `?ai=lens` is on and the tile belongs to a lens that
-  // has a lens-level summariser wired, suppress the per-tile Get Insight
-  // button — the lens-level AI panel now covers the same audience.
-  const _suppressTileInsight = _isAiLensFlagOn() && _hasLensAI(lensSlug);
-  const insightBlock = (_INSIGHT_VINTAGE[tile.key] && !_suppressTileInsight) ? `
-    <div class="card-insight-wrap" data-card="${escapeHtml(tile.key)}"
-         data-vintage="${escapeHtml(_INSIGHT_VINTAGE[tile.key])}">
-      <button type="button" class="card-insight-btn">
-        <span class="btn-label">Get Insight</span>
-        <span class="btn-arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </span>
-      </button>
-      <div class="card-insight-body" hidden></div>
-    </div>` : '';
-
   return `
     <button class="lens-modal-close" aria-label="Close details" type="button">✕</button>
     <div class="modal-head">
@@ -3410,36 +3323,27 @@ function renderLensModalBody(tile, lensSlug) {
     ${treesHtml}
     ${sourcesHtml}
     ${renderModalGlossary(tile)}
-    ${insightBlock}
   `;
 }
 
 // -- Spec D Task 9: interaction handlers ------------------------------------
 
 // -- Tabbed modal disclosure -------------------------------------------------
-// The Life Lens tile modal renders three tabs above the tile content:
+// The Life Lens tile modal renders two tabs above the tile content:
 //   Readout          — the traffic-light readout: tier rule, numeric,
 //                      colour scale, feature list, gesix chart, trees.
 //   How this works   — data-source explanation, tile-scoped caveat,
-//                      sources footer.
-//   AI Insight       — click-gated AI paragraph (the Get Insight button).
-// The tab bar is injected client-side after `renderLensModalBody`; CSS
-// shows/hides sections based on `data-tab` on the modal root.
-// Header (icon + label + tier badge + close X) stays fixed above the tabs
-// so it's always visible regardless of which tab is active.
+//                      sources footer, German glossary.
+// AI Insight is now surfaced at the LENS level (see `.lens-ai-panel`),
+// not per-tile — the old per-tile "Get Insight" tab was removed alongside
+// the card_insight route and its 38 template files.
 function _injectModalTabs(modal) {
   if (modal.querySelector('.modal-tabbar')) return;   // idempotent
   const head = modal.querySelector('.modal-head');
   if (!head) return;
 
-  // Compute which tabs actually have content — a tile with no AI insight
-  // support (no `_INSIGHT_VINTAGE` entry) shouldn't render an empty
-  // Insight tab; a tile with no explanation shouldn't render an empty
-  // About tab. If fewer than two tabs have content, skip the tab bar
-  // entirely and let the modal flow flat. `hasReadout` in practice is
-  // always true (renderLensModalBody always emits `.modal-rule`) — the
-  // shortcut fires when a numeric-only tile has neither About nor
-  // Insight content.
+  // A tile with no About content (no explanation, no caveat, no
+  // provenance, no glossary) collapses to flat flow — no tab bar.
   const hasReadout = !!(
     modal.querySelector('.modal-rule') ||
     modal.querySelector('.modal-numeric') ||
@@ -3454,12 +3358,10 @@ function _injectModalTabs(modal) {
     modal.querySelector('.modal-provenance') ||
     modal.querySelector('.modal-glossary')
   );
-  const hasInsight = !!modal.querySelector('.card-insight-wrap');
 
   const available = [
     hasReadout && { id: 'readout', label: 'Readout' },
     hasAbout   && { id: 'about',   label: 'How this works' },
-    hasInsight && { id: 'insight', label: 'AI Insight' },
   ].filter(Boolean);
   if (available.length < 2) return;                 // no tabs needed
 
@@ -3468,7 +3370,6 @@ function _injectModalTabs(modal) {
   const TAB_ICONS = {
     readout: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M232,208H24V48H232Z" opacity="0.2"/><line x1="24" y1="128" x2="72" y2="80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="72" y1="80" x2="128" y2="136" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="136" x2="192" y2="72" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="152 72 192 72 192 112" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="24" y1="208" x2="232" y2="208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
     about:   '<svg viewBox="0 0 256 256" aria-hidden="true"><circle cx="128" cy="128" r="96" opacity="0.2"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="120 120 128 120 128 176 136 176" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="126" cy="84" r="10"/></svg>',
-    insight: '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M197.58,129.06,146.94,152l-22.88,50.64a8,8,0,0,1-14.12,0L87.06,152,36.42,129.06a8,8,0,0,1,0-14.12L87.06,92l22.88-50.64a8,8,0,0,1,14.12,0L146.94,92l50.64,22.88A8,8,0,0,1,197.58,129.06Z" opacity="0.2"/><path d="M197.58,129.06,146.94,152l-22.88,50.64a8,8,0,0,1-14.12,0L87.06,152,36.42,129.06a8,8,0,0,1,0-14.12L87.06,92l22.88-50.64a8,8,0,0,1,14.12,0L146.94,92l50.64,22.88A8,8,0,0,1,197.58,129.06Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="176" y1="16" x2="176" y2="56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="196" y1="36" x2="156" y2="36" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="224" y1="72" x2="224" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="240" y1="88" x2="208" y2="88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
   };
   const tabs = document.createElement('nav');
   tabs.className = 'modal-tabbar';
@@ -3641,9 +3542,9 @@ function openLensModal(tileKey) {
   modal.hidden = false;
   lensLastTileKey = tileKey;
 
-  // Inject the three-tab bar (Readout / How this works / AI Insight)
-  // above the tile content. Fires every open — `innerHTML` was just
-  // replaced, so no risk of duplicate tab bars.
+  // Inject the two-tab bar (Readout / How this works) above the tile
+  // content. Fires every open — `innerHTML` was just replaced, so no
+  // risk of duplicate tab bars.
   _injectModalTabs(modal);
 
   // Wire glossary-word popups (hover / focus / tap). No-op when the tile
@@ -3674,49 +3575,6 @@ function openLensModal(tileKey) {
     marker.on('click', () => _highlightLensRow(marker._lensFeatureIdx));
   });
 
-  // Generic per-card AI-Insight handler. One rule for every card that
-  // ships a .card-insight-wrap block in its modal — reads endpoint +
-  // vintage note from data-attrs. Adding a new card's insight = no JS
-  // change once the modal block is rendered by renderLensModalBody.
-  modal.querySelectorAll('.card-insight-btn').forEach(insightBtn => {
-    insightBtn.addEventListener('click', async () => {
-      const wrap    = insightBtn.closest('.card-insight-wrap');
-      const body    = wrap.querySelector('.card-insight-body');
-      const card    = wrap.dataset.card || '';
-      const vintage = wrap.dataset.vintage || '';
-      if (!card || !tile) {
-        body.innerHTML = `<div class="error" style="margin-top:8px">Missing card context.</div>`;
-        body.hidden = false; return;
-      }
-      _track('get_insight', { card: card });
-      insightBtn.disabled = true;
-      body.hidden = false;
-      body.innerHTML = `<div class="loading" style="margin-top:10px"><span class="spinner"></span> Composing insight…</div>`;
-      try {
-        const r = await fetch('/api/card_insight', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({card, tile, lens: active}),
-        });
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.detail || `HTTP ${r.status}`);
-        body.innerHTML = `
-          <button type="button" class="card-insight-close" aria-label="Close insight">✕</button>
-          <h4 class="card-insight-heading">What this means for you</h4>
-          <p class="card-insight-text">${escapeHtml(d.insight || '')}</p>
-          <p class="card-insight-foot"><span class="card-insight-foot-lbl">Disclaimer:</span> Generated by AI and may display incorrect information.${vintage ? ' ' + escapeHtml(vintage) : ''}</p>`;
-        insightBtn.hidden = true;
-        const closeBtn = body.querySelector('.card-insight-close');
-        if (closeBtn) closeBtn.addEventListener('click', () => {
-          body.hidden = true; body.innerHTML = ''; insightBtn.hidden = false;
-        });
-      } catch (err) {
-        body.innerHTML = `<div class="error" style="margin-top:8px">${escapeHtml(String(err.message || err))}</div>`;
-      } finally {
-        insightBtn.disabled = false;
-      }
-    });
-  });
 }
 
 function closeLensModal() {
@@ -3830,8 +3688,8 @@ function renderAllPanels() {
     if (eduData && eduData.address && document.getElementById('lens-map')) {
       initLensMap(eduData.address);
     }
-    // Pilot: hydrate the lens-level AI Insight panel behind ?ai=lens.
-    // Fire-and-forget — panel silently hides on error so nothing else breaks.
+    // Hydrate the lens-level AI Insight panel — binds the Generate
+    // button click. Fire-and-forget; panel silently hides on error.
     if (eduData) { hydrateLensAIPanel(eduData); }
   } else {
     if (lensMap) {

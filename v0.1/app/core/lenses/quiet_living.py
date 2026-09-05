@@ -137,9 +137,9 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
     }
     metadata_map["air"] = {"no2_ugm3": (air or {}).get("no2_ugm3")}
 
-    # New single-anchor / aggregate tiles — the card_insight route reads
-    # these keys via `_ctx_tempo30 / _ctx_arterial_road / _ctx_rail_noise`.
-    # None inputs are stored as `None` so downstream builders can guard.
+    # Single-anchor / aggregate tiles — metadata carried on the tile
+    # for the modal's Readout view. None inputs are stored as `None` so
+    # downstream builders can guard.
     metadata_map["tempo30"] = {"tempolimit": tempo}
     metadata_map["arterial_road"] = {"arterial": arterial}
     metadata_map["rail_noise"] = {"rail": rail}

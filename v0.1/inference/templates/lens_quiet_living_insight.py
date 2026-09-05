@@ -1,104 +1,78 @@
-"""`lens_newcomer_insight` — one-call lens-level executive summary for the
-Newcomer lens.
+"""`lens_quiet_living_insight` — one-call lens-level executive summary
+for the Quiet Living lens.
 
-Consumes ALL 13 Newcomer tile scoring outputs at once and returns a strict-
-JSON response the SPA renders as the "AI Insight" panel above the Newcomer
-tile grid. Replaces the per-tile `Get Insight` buttons (one call per tile,
-one Cloudflare hop per tile) with a single fan-in call per lens.
+Mirrors the Newcomer summariser architecture (schema, deterministic
+rollup, highlight-tone filter, fit_score, two-attempt retry) with three
+Quiet-Living-specific adaptations:
+- Audience framing: people prioritising a calm, low-noise home.
+- Nine tiles grouped into four sections by user concern.
+- Inverted-signal handling: `arterial_road`, `rail_noise`,
+  `nightlife_inverted` all read "further / fewer is better" — the
+  summary must not frame the raw number as "far / lacking".
 
-Response schema:
+DOES NOT dynamically import sibling `*_insight.py` templates for
+framing. Those per-tile templates are being retired in the same cleanup
+that promotes the per-lens AI panel to default. This template consumes
+only the tile payload fields the app proxy already sends: `label`,
+`tier`, `rule`, `numeric`, `caveat`.
+
+Response schema (identical to Newcomer):
 
     {
-      "executive_summary": "<2-3 sentences of plain-English framing>",
+      "executive_summary": "<2-3 sentences>",
       "sections": [
-        {"title": "Getting registered",
-         "tiles": ["buergeramt"],
+        {"title": "Ambient noise & air",
+         "tiles": ["noise", "air"],
          "verdict": "green|amber|red|unknown",
          "note": "<1 sentence>"},
         ...
       ],
-      "highlights_green": [{"tile": "intl_food",
-                            "one_line": "6 restaurants within 1 km"}, ...],
-      "highlights_red":   [{"tile": "language_school",
-                            "one_line": "Nearest German course 3.4 km"}, ...]
+      "highlights_green": [{"tile": "quiet_zone",
+                            "one_line": "620 m to nearest Ruhige Gebiete zone."}, ...],
+      "highlights_red":   [{"tile": "arterial_road",
+                            "one_line": "Arterial 40 m away — traffic pressure daily."}, ...],
+      "fit_score": 0-100    # deterministic rollup, omitted when all-unknown
     }
-
-Design notes
-------------
-- Sections are HARDCODED here in `LENS_SECTION_MAP`, not LLM-chosen. The
-  LLM only fills `verdict` (rolled up over the section's tiles — worst
-  wins), `note` (one sentence), and the highlight `one_line` fields. This
-  makes the output validatable — reject responses whose section list
-  drifts, whose keys don't match, or whose highlight tiles aren't in the
-  input set.
-- Self-contained: reads only the tile payload (`label`, `tier`, `rule`,
-  `numeric`, `caveat`) passed by the caller. The per-tile
-  `*_insight.py` templates that this file used to import as a framing
-  library were deleted alongside the per-tile Get Insight surface;
-  don't re-add a runtime import of a sibling template.
-- Verdict rollup is deterministic: after the LLM responds, `run()`
-  overwrites the `verdict` field on each section from the input tile
-  tiers (`red > amber > green > unknown` — worst wins). This means the
-  model can't accidentally promote an amber section to green.
-- No invention. System forbids citing facts absent from the payload.
-- No inversion. Inverted tiles (e.g., `nightlife_density`) carry no
-  tier — system must NOT treat a high nightlife density as red without
-  audience framing.
 """
 from __future__ import annotations
 
 import json
 
-# Lower temp than tile insights — this is structured JSON output, not
-# flowing prose. max_tokens is generous to fit 5 sections + up to 4
-# highlights each side without truncation.
 SAMPLER = {
     "temp":               0.35,
     "top_p":              0.9,
     "repetition_penalty": 1.1,
-    # 1400 tokens covers a 13-tile lens payload with 5 sections + up to
-    # 6 highlights without truncation; on Cloudflare Llama-3.1-8B this
-    # is comfortably inside the response budget, and on local Qwen 1.5B
-    # (dev fallback) it prevents the mid-string cut-off that raised
-    # JSONDecodeError on the first end-to-end pass.
+    # 1400 tokens covers a 9-tile lens payload with 4 sections + up to
+    # 6 highlights without truncation on Cloudflare Llama-3.1-8B-fast.
     "max_tokens":         1400,
 }
 
-# Newcomer lens tile groupings. Keys must match `LensTileConfig.key` in
-# `app/cities/berlin.py::NEWCOMER_LENS`. Every tile must appear in exactly
-# one section — the __main__ selfcheck enforces this.
+# Quiet Living tile groupings. Every key must match a tile emitted by
+# `quiet_living_lens` in app/core/lenses/quiet_living.py. The __main__
+# selfcheck's completeness assert enforces coverage.
 LENS_SECTION_MAP: list[dict] = [
-    {"title": "Getting registered",
-     "tiles": ["buergeramt"]},
-    {"title": "Daily transit",
-     "tiles": ["rail_transit", "tram_transit", "bus_transit"]},
-    {"title": "Settling-in services",
-     "tiles": ["intl_food", "coworking", "english_clinic", "language_school"]},
-    {"title": "Everyday errands",
-     "tiles": ["library", "packstation", "wochenmarkt"]},
+    {"title": "Ambient noise & air",
+     "tiles": ["noise", "air"]},
+    {"title": "Green refuge",
+     "tiles": ["quiet_zone", "street_trees"]},
+    {"title": "Traffic pressure",
+     "tiles": ["tempo30", "arterial_road", "rail_noise"]},
     {"title": "Neighbourhood profile",
-     "tiles": ["nightlife_density", "gesix_newcomer"]},
+     "tiles": ["nightlife_inverted", "gesix_quiet"]},
 ]
 
-# Worst-tier-wins ordering. The scoring pipeline emits `green`,
-# `amber`, `red`, and `unknown` only (see `app/core/scoring/constants.py`).
-# `info` is accepted as an alias for `unknown` — the numeric-only
-# `nightlife_density` tile carries no verdict (dense nightlife is a
-# positive for some newcomers and a negative for others; framing lives
-# in the tile caveat). `gesix_newcomer` DOES carry a real tier (Q1-2 →
-# green, Q3 → amber, Q4-5 → red via `_shape_gesix`); it only lands as
-# unknown when the address falls outside a Planungsraum with published
-# data. The `.get(tier, -1)` default excludes any non-ranked value from
-# the rollup so a section of only unknown / info tiles rolls up to
-# `unknown`.
+# Worst-tier-wins ordering. The Quiet Living scoring pipeline emits
+# `green`, `amber`, `red`, `unknown` only — no info-only tiles today.
+# `info` is accepted as an alias for `unknown` for parity with the
+# Newcomer template (a future numeric-only QL tile would land here).
+# The `.get(tier, -1)` default excludes any non-ranked value from
+# rollup so a section of only unknown/info tiles rolls up to `unknown`.
 _TIER_RANK = {"green": 0, "amber": 1, "red": 2, "unknown": -1}
 
-# Fit score weights — used by `_compute_fit_score` after section rollup.
-# green=100 (walkable/dense), amber=60 (walkable but not doorstep — full
-# middle of the range), red=20 (not zero because "no rail within 1.2 km"
-# still means SOME transit is reachable further). Unknown / info sections
-# are excluded from both numerator and denominator so they don't drag
-# the score toward zero when a lens has numeric-only tiles.
+# Fit score weights — parity with lens_newcomer_insight so scores are
+# comparable across lenses. green=100 (calm/buffered), amber=60 (moderate,
+# situational), red=20 (noisy/high pressure — not zero because even a
+# red-noise address usually has some quiet refuges within reach).
 _FIT_WEIGHTS = {"green": 100, "amber": 60, "red": 20}
 
 
@@ -133,41 +107,45 @@ def _rollup_verdict(tiles: list[dict]) -> str:
 
 
 _SYSTEM = (
-    "You are writing a per-lens executive summary for the Newcomer lens "
-    "of a Berlin address-intelligence tool. The user is an English-"
-    "speaking expat in their first 90 days in Berlin. You receive a JSON "
-    "payload with: (a) the address's Bezirk / Ortsteil hint, (b) a list "
-    "of 13 Newcomer tile results, each carrying `key`, `label`, `tier` "
-    "(green / amber / red / unknown / info), `rule`, `numeric`, "
-    "and `caveat`. "
+    "You are writing a per-lens executive summary for the Quiet Living "
+    "lens of a Berlin address-intelligence tool. The user is someone "
+    "who prioritises a calm, low-noise home — sleep quality, low "
+    "ambient noise, and access to quiet refuges matter more than "
+    "commute speed or nightlife. You receive a JSON payload with: "
+    "(a) the address's Bezirk / Ortsteil hint, (b) a list of 9 Quiet "
+    "Living tile results, each carrying `key`, `label`, `tier` "
+    "(green / amber / red / unknown), `rule`, `numeric`, and `caveat`. "
     "Return ONE JSON object with EXACTLY these top-level keys: "
     "`executive_summary` (string, 2-3 sentences), "
     "`sections` (array — see below), "
     "`highlights_green` (array of {tile, one_line}), "
     "`highlights_red` (array of {tile, one_line}). "
     "Rules for `executive_summary`: 2-3 sentences of plain English, "
-    "60-100 words total. Frame the address as a settling-in prospect. "
+    "60-100 words total. Frame the address as a calm-living prospect. "
     "Cite the strongest 1-2 positives and the sharpest 1-2 concerns "
-    "drawn from tiered tiles (green / amber / red). `gesix_newcomer` "
-    "is a real socioeconomic tier and IS eligible to be cited as a "
-    "positive or concern the same way transit or Bürgeramt tiles are. "
-    "`nightlife_density` is the ONLY info-only tile — it carries no "
-    "verdict (dense nightlife is a positive for some newcomers and a "
-    "negative for others); if you mention it, describe the raw fact "
-    "neutrally — do not frame it as a strength or concern. "
+    "drawn from tiered tiles (green / amber / red). "
     "IMPORTANT — section names vs tile names: `expected_sections[].title` "
-    "values (e.g., 'Neighbourhood profile', 'Getting registered', "
-    "'Daily transit', 'Settling-in services', 'Everyday errands') are "
-    "GROUPINGS for the `sections` field ONLY. They MUST NOT appear in "
-    "the executive summary paragraph. In the summary, refer to each "
-    "signal by its real-world function using the tile `label` (e.g., "
-    "'nightlife density', 'Bürgeramt reach', 'S-Bahn access'), NOT the "
-    "section title that contains it. Writing 'The Neighbourhood profile "
-    "is dense nightlife' is WRONG — that conflates a section grouping "
-    "with a specific tile. Write 'Nightlife within 300 m is dense' "
-    "instead. "
-    "No German words except proper names (Bezirk, Ortsteil, Bürgeramt, "
-    "Kiez are fine as terminology). "
+    "values ('Ambient noise & air', 'Green refuge', 'Traffic pressure', "
+    "'Neighbourhood profile') are GROUPINGS for the `sections` field "
+    "ONLY. They MUST NOT appear in the executive summary paragraph. "
+    "In the summary, refer to each signal by its real-world function "
+    "using the tile `label` (e.g., 'façade noise', 'nearest quiet "
+    "zone', 'street-tree canopy', 'arterial road'), NOT the section "
+    "title that contains it. Writing 'The Traffic pressure is high' "
+    "is WRONG — that conflates a section grouping with specific tiles. "
+    "Write 'The nearest arterial road is 40 m away' instead. "
+    "IMPORTANT — INVERTED signals: some tiles measure distance FROM a "
+    "noise source or COUNT of a nuisance — the green tier means far / "
+    "few of them, which is the desired state. `arterial_road`, "
+    "`rail_noise`, and `nightlife_inverted` are inverted (further / "
+    "fewer is better). If the tile's `caveat` mentions 'INVERTED' or "
+    "'further is better' or 'fewer is better', do NOT describe a green "
+    "reading as 'far / lacking' — describe it as 'buffered from', "
+    "'well set back from', or 'few venues nearby'. A green "
+    "`arterial_road` result should read 'buffered from arterial "
+    "traffic', NOT 'far from any major road'. "
+    "No German words except proper names (Bezirk, Ortsteil, Kiez, "
+    "Ruhige Gebiete, Straßenbäume are fine as terminology). "
     "Rules for `sections`: return EXACTLY the sections listed in the "
     "payload's `expected_sections` array, in the same order, with the "
     "same `title` and `tiles` values. Fill only the `verdict` field "
@@ -186,20 +164,20 @@ _SYSTEM = (
     "(1) Only cite facts present in the payload. Never invent counts, "
     "distances, times, names, or dates. "
     "(2) Never promote a red or amber tile to green in `sections` or "
-    "in the summary — `nightlife_density` carries no verdict and must "
-    "NOT be described as red or green. "
+    "in the summary. "
     "(3) Do not editorialise about 'good' or 'bad' neighbourhoods. "
     "Describe, don't judge. "
     "(4) TONE DISCIPLINE per tier: green = clearly positive framing "
-    "('close', 'dense', 'walkable', 'strong'). amber = neutral, "
-    "situational framing ('walkable but not doorstep', 'a short walk', "
-    "'~15-minute walk', 'reachable'). red = clearly negative framing "
-    "('far', 'lacks', 'no ... nearby', 'plan a transit pass'). Do NOT "
-    "use red-tier language ('far', 'long distance', 'lacks') for amber "
-    "tiles — amber is the middle ground, not a failure. A Bürgeramt "
-    "2.5 km away is amber ('a 25-minute walk' or 'a short bike ride'), "
-    "NOT 'a long distance'. Reserve strong negative framing for tiles "
-    "the payload actually marks red. "
+    "('quiet', 'calm', 'buffered', 'well set back'). amber = neutral, "
+    "situational framing ('moderate', 'occasional', 'some traffic "
+    "pressure', 'a short walk away'). red = clearly negative framing "
+    "('noisy', 'high traffic', 'immediately next to', 'lacks a quiet "
+    "zone within reach'). Do NOT use red-tier language ('noisy', "
+    "'high traffic') for amber tiles — amber is the middle ground, "
+    "not a failure. An arterial road 100 m away is amber ('some "
+    "traffic pressure nearby'), NOT 'immediately next to a highway'. "
+    "Reserve strong negative framing for tiles the payload actually "
+    "marks red. "
     "(5) Return ONLY the JSON object. No preamble, no code fences, no "
     "trailing prose."
 )
@@ -207,12 +185,10 @@ _SYSTEM = (
 
 def _build_tile_payload(tile_contexts: list[dict]) -> list[dict]:
     """Trim each tile_context to the fields the summariser needs. Drops
-    `features`, `sources`, `legend` — the summariser reads only the
-    verdict axis, not the tile drill-down. The per-tile `_load_tile_
-    framings()` dynamic import was removed alongside the deletion of the
-    sibling `*_insight.py` templates in Phase 3; the summariser now
-    relies solely on `label + tier + rule + numeric + caveat` from the
-    payload, matching the pattern used by the other 3 lens templates."""
+    `features`, `sources`, `legend`, `framing` — the summariser reads
+    only the verdict axis + caveat (used to spot INVERTED signals).
+    A tile missing `key` is dropped — the summariser is keyed on
+    `LENS_SECTION_MAP` which enumerates the tile keys."""
     out = []
     for tc in tile_contexts or []:
         if not isinstance(tc, dict):
@@ -221,12 +197,12 @@ def _build_tile_payload(tile_contexts: list[dict]) -> list[dict]:
         if not key:
             continue
         out.append({
-            "key":      key,
-            "label":    tc.get("label", key),
-            "tier":     tc.get("tier"),
-            "rule":     tc.get("rule"),
-            "numeric":  tc.get("numeric"),
-            "caveat":   tc.get("caveat"),
+            "key":     key,
+            "label":   tc.get("label", key),
+            "tier":    tc.get("tier"),
+            "rule":    tc.get("rule"),
+            "numeric": tc.get("numeric"),
+            "caveat":  tc.get("caveat"),
         })
     return out
 
@@ -239,10 +215,9 @@ def build_messages(context: dict) -> list[dict]:
       {
         "address_hint": {"bezirk": "...", "ortsteil": "..."},
         "tile_contexts": [
-          {"key": "buergeramt", "label": "Bürgeramt reach",
-           "tier": "green", "rule": "≥1 within 15 min walk",
-           "numeric": "1 within 15 min · nearest 14 min",
-           "caveat": None},
+          {"key": "noise", "label": "Façade noise",
+           "tier": "amber", "rule": "≤55 dB L_DEN green · ≤60 dB amber",
+           "numeric": "58 dB L_DEN", "caveat": None},
           ...
         ],
       }
@@ -263,65 +238,56 @@ def build_messages(context: dict) -> list[dict]:
     }
     facts_json = json.dumps(facts, ensure_ascii=False, indent=2)
 
-    # Compact one-shot exemplar. Full 13-tile listing dropped to keep
-    # the prompt small enough for local Qwen 1.5B (n_ctx=4096); the
-    # system prompt names the schema, the assistant reply demonstrates
-    # the fill-in pattern. Genericised placeholders — a real bezirk /
-    # ortsteil in the exemplar was being copied into the response by
-    # smaller models, corrupting the address hint.
+    # Compact placeholder exemplar_user — full 9-tile listing dropped to
+    # keep the prompt lean. Genericised bezirk / ortsteil so smaller
+    # models don't copy the exemplar's address into the response.
     exemplar_user = json.dumps({
         "address_hint": {"bezirk": "<Bezirk from payload>",
                           "ortsteil": "<Ortsteil from payload>"},
         "expected_sections": LENS_SECTION_MAP,
-        "tiles": "<13 Newcomer tiles with key/label/tier/rule/numeric/caveat>",
+        "tiles": "<9 Quiet Living tiles with key/tier/rule/numeric/caveat>",
     }, ensure_ascii=False)
 
     exemplar_assistant = json.dumps({
         "executive_summary": (
-            "This Ortsteil reads strong on the Newcomer axes that matter "
-            "most in the first 90 days: a Bürgeramt is a 15-minute walk, "
-            "S+U-Bahn are on your doorstep, and international food, "
-            "coworking and library are all within 1 km. The main gap is "
-            "German-class access — the nearest Sprachschule is 3.7 km "
-            "away, so factor a longer commute or a monthly transit pass "
-            "into your enrollment plan."
+            "This Ortsteil reads mixed on the Quiet Living axes: façade "
+            "noise sits at 58 dB L_DEN and the nearest arterial road is "
+            "80 m away, so the block carries some traffic pressure during "
+            "the day. On the calmer side, a designated Ruhige Gebiete "
+            "zone is a 10-minute walk and street-tree canopy is dense — "
+            "so the daily buffer is close even if the front door faces a "
+            "busier street."
         ),
         "sections": [
-            {"title": "Getting registered", "tiles": ["buergeramt"],
+            {"title": "Ambient noise & air", "tiles": ["noise", "air"],
+             "verdict": "amber",
+             "note": "Façade noise is moderate; air is within WHO daytime bounds."},
+            {"title": "Green refuge",
+             "tiles": ["quiet_zone", "street_trees"],
              "verdict": "green",
-             "note": "One Bürgeramt within a 15-minute walk keeps Anmeldung a same-day errand."},
-            {"title": "Daily transit",
-             "tiles": ["rail_transit", "tram_transit", "bus_transit"],
+             "note": "Designated quiet zone reachable on foot; canopy is dense on the block."},
+            {"title": "Traffic pressure",
+             "tiles": ["tempo30", "arterial_road", "rail_noise"],
              "verdict": "amber",
-             "note": "S+U-Bahn and bus are close; tram is 720 m — walkable but not doorstep."},
-            {"title": "Settling-in services",
-             "tiles": ["intl_food", "coworking", "english_clinic", "language_school"],
-             "verdict": "red",
-             "note": "International food, coworking are dense; German-class access is the drag at 3.7 km."},
-            {"title": "Everyday errands",
-             "tiles": ["library", "packstation", "wochenmarkt"],
-             "verdict": "amber",
-             "note": "Library and Packstation are steps away; Wochenmarkt is a 15-minute walk."},
+             "note": "30 km/h street; arterial buffered but present; rail is well set back."},
             {"title": "Neighbourhood profile",
-             "tiles": ["nightlife_density", "gesix_newcomer"],
-             "verdict": "unknown",
-             "note": "Fourteen venues within 300 m — dense nightlife may be a positive or a negative depending on sleep preferences."},
+             "tiles": ["nightlife_inverted", "gesix_quiet"],
+             "verdict": "green",
+             "note": "Few late-night venues within 300 m; socioeconomic profile stable."},
         ],
         "highlights_green": [
-            {"tile": "rail_transit",
-             "one_line": "U-Bahn 240 m and S-Bahn 620 m from the door."},
-            {"tile": "intl_food",
-             "one_line": "12 international restaurants within 1 km."},
-            {"tile": "buergeramt",
-             "one_line": "Nearest Bürgeramt a 14-minute walk."},
+            {"tile": "quiet_zone",
+             "one_line": "Ruhige Gebiete zone 620 m from the door."},
+            {"tile": "street_trees",
+             "one_line": "Street-tree canopy at 11% — tree-dense for a Straßenbäume signal."},
+            {"tile": "nightlife_inverted",
+             "one_line": "Only 2 late-night venues within 300 m — few sleep disruptions."},
         ],
         "highlights_red": [
-            {"tile": "language_school",
-             "one_line": "Nearest German course is 3.7 km — plan a monthly transit pass."},
-            {"tile": "english_clinic",
-             "one_line": "English-speaking clinic 1.8 km — walkable but not doorstep."},
-            {"tile": "wochenmarkt",
-             "one_line": "Nearest open market 1.1 km — a 15-minute walk."},
+            {"tile": "noise",
+             "one_line": "Façade noise at 58 dB L_DEN — moderate but audible."},
+            {"tile": "arterial_road",
+             "one_line": "Arterial road 80 m away — some traffic pressure on the block."},
         ],
     }, ensure_ascii=False)
 
@@ -361,7 +327,6 @@ def _validate_shape(obj: dict) -> None:
             )
         if not isinstance(sec.get("note"), str):
             raise ValueError(f"sections[{i}].note must be a string")
-    # highlights_* are optional but if present must be lists of {tile, one_line}
     for key in ("highlights_green", "highlights_red"):
         if key in obj:
             arr = obj[key]
@@ -383,13 +348,12 @@ def _apply_deterministic_rollup(obj: dict, tile_contexts: list[dict]) -> dict:
         input tile tiers — model can't accidentally promote red → green.
     (2) Filter `highlights_green` so only tiles with actual `tier="green"`
         survive; drop any highlight whose tile key isn't in the input.
-    (3) Filter `highlights_red` so only tiles with `tier="amber"` or
-        `tier="red"` survive; drop unknown / green / info tiles.
-    (4) Deduplicate: if the same tile lands in both green and red lists
-        (LLM confusion), keep the green entry and drop from red.
-
-    The LLM has to guess the verdict from prose, but we own the tier
-    data — so trust the data, not the guess."""
+    (3) Filter `highlights_red` so only tiles with `tier` in `{"amber",
+        "red"}` survive; drop unknown / green / info tiles.
+    (4) Dedup: if the same tile lands in both green and red lists (LLM
+        confusion), keep the green entry and drop from red.
+    (5) Emit `fit_score` (0-100) computed from the deterministic
+        verdicts. Omitted when all sections roll up to unknown."""
     by_key = {tc.get("key"): tc for tc in (tile_contexts or [])
               if isinstance(tc, dict) and tc.get("key")}
 
@@ -406,9 +370,9 @@ def _apply_deterministic_rollup(obj: dict, tile_contexts: list[dict]) -> dict:
             key = h.get("tile")
             tile = by_key.get(key)
             if tile is None:
-                continue                          # highlight tile not in input
+                continue
             if tile.get("tier") not in allowed_tiers:
-                continue                          # tone mismatch
+                continue
             keep.append(h)
         return keep
 
@@ -417,17 +381,11 @@ def _apply_deterministic_rollup(obj: dict, tile_contexts: list[dict]) -> dict:
     if "highlights_red" in obj:
         obj["highlights_red"] = _filter_hi(obj["highlights_red"], {"amber", "red"})
 
-    # Dedup — same tile can't be both green and red. Green wins (the tier
-    # data proves it's green, so a red claim there is definitionally
-    # wrong).
     if obj.get("highlights_green") and obj.get("highlights_red"):
         green_keys = {h.get("tile") for h in obj["highlights_green"]}
         obj["highlights_red"] = [h for h in obj["highlights_red"]
                                  if h.get("tile") not in green_keys]
 
-    # Fit score — computed AFTER rollup so it reflects deterministic
-    # verdicts, not the LLM's guesses. Skipped if all sections roll up
-    # to unknown (score field omitted → frontend hides the chip).
     _score = _compute_fit_score(obj.get("sections") or [])
     if _score is not None:
         obj["fit_score"] = _score
@@ -437,7 +395,7 @@ def _apply_deterministic_rollup(obj: dict, tile_contexts: list[dict]) -> dict:
 
 def run(backend, context: dict) -> dict:
     """Call the backend, parse + validate JSON, apply deterministic
-    verdict rollup, return `{"lens_insight": <obj>}`. Malformed JSON or
+    verdict rollup + highlight filter + fit_score. Malformed JSON or
     schema drift → one retry with the same prompt (LLMs often self-
     correct on the second sample). Second failure → raise ValueError so
     the caller can fall back to a degraded text-only summary."""
@@ -468,28 +426,27 @@ def run(backend, context: dict) -> dict:
         obj = _apply_deterministic_rollup(obj, tile_contexts)
         return {"lens_insight": obj}
     raise ValueError(
-        f"lens_newcomer_insight: model returned invalid JSON twice "
+        f"lens_quiet_living_insight: model returned invalid JSON twice "
         f"({type(last_err).__name__}: {last_err})"
     )
 
 
 if __name__ == "__main__":
-    # -- LENS_SECTION_MAP covers all 13 Newcomer tile keys, no orphans,
-    # no duplicates. If a new Newcomer tile lands in berlin.py without
-    # a section entry, this assert fails at boot.
-    _newcomer_tile_keys = {
-        "buergeramt", "rail_transit", "tram_transit", "bus_transit",
-        "intl_food", "coworking", "english_clinic", "language_school",
-        "library", "packstation", "wochenmarkt", "nightlife_density",
-        "gesix_newcomer",
+    # -- LENS_SECTION_MAP covers all 9 Quiet Living tile keys, no
+    # orphans, no duplicates. Guards against a new QL tile landing in
+    # berlin.py without a section entry.
+    _ql_tile_keys = {
+        "noise", "air", "quiet_zone", "street_trees",
+        "tempo30", "arterial_road", "rail_noise",
+        "nightlife_inverted", "gesix_quiet",
     }
     _mapped = []
     for sec in LENS_SECTION_MAP:
         _mapped.extend(sec["tiles"])
-    assert set(_mapped) == _newcomer_tile_keys, \
-        f"LENS_SECTION_MAP diverges from Newcomer tile keys — " \
-        f"missing: {_newcomer_tile_keys - set(_mapped)}, " \
-        f"extra: {set(_mapped) - _newcomer_tile_keys}"
+    assert set(_mapped) == _ql_tile_keys, \
+        f"LENS_SECTION_MAP diverges from Quiet Living tile keys — " \
+        f"missing: {_ql_tile_keys - set(_mapped)}, " \
+        f"extra: {set(_mapped) - _ql_tile_keys}"
     assert len(_mapped) == len(set(_mapped)), \
         "LENS_SECTION_MAP has a tile in more than one section"
 
@@ -504,24 +461,23 @@ if __name__ == "__main__":
     assert _rollup_verdict([{"tier": "info"}]) == "unknown"
 
     # -- build_messages: 4-role sequence, JSON-parsable exemplars, real
-    # user carries the address_hint and the full tile list.
+    # user carries the address_hint and the tile list.
     _ctx = {
         "address_hint": {"bezirk": "Pankow", "ortsteil": "Prenzlauer Berg"},
         "tile_contexts": [
-            {"key": "buergeramt", "label": "Bürgeramt reach",
-             "tier": "green", "rule": "≥1 within 15 min",
-             "numeric": "14 min walk"},
-            {"key": "language_school", "label": "German classes",
-             "tier": "red", "rule": "≤1.5 km green",
-             "numeric": "3.7 km"},
+            {"key": "noise", "label": "Façade noise",
+             "tier": "amber", "rule": "≤55 dB green",
+             "numeric": "58 dB L_DEN"},
+            {"key": "arterial_road", "label": "Distance to arterial road",
+             "tier": "red", "rule": "≥150 m green",
+             "numeric": "40 m", "caveat": "INVERTED signal — further is better"},
         ],
     }
     msgs = build_messages(_ctx)
     assert [m["role"] for m in msgs] == ["system", "user", "assistant", "user"], \
         [m["role"] for m in msgs]
-    # System prompt names the four JSON keys and the anti-invention/anti-
-    # inversion rules — these are the load-bearing constraints; a future
-    # edit that drops them silently degrades output quality.
+
+    # System prompt must name the four JSON keys + all guardrails.
     _sys = msgs[0]["content"]
     for _key in ("executive_summary", "sections", "highlights_green", "highlights_red"):
         assert _key in _sys, f"system prompt missing schema key: {_key}"
@@ -529,24 +485,20 @@ if __name__ == "__main__":
         "system must forbid invention"
     assert "Never promote" in _sys or "never promote" in _sys.lower(), \
         "system must forbid tier promotion (anti-inversion)"
-    assert "no verdict" in _sys.lower(), \
-        "system must handle the info-only nightlife_density tile"
     assert "no code fences" in _sys.lower() or "no preamble" in _sys.lower(), \
         "system must forbid markdown wrapper prose"
-    # Tone-discipline rule — amber must not be described in red-tier
-    # language. Anti-drift guard for the load-bearing calibration.
     assert "tone discipline" in _sys.lower(), \
         "system must carry per-tier tone discipline rule"
     assert "amber" in _sys.lower() and "middle ground" in _sys.lower(), \
         "system must explicitly frame amber as the middle ground"
-    # Anti-drift: section titles are groupings for the `sections` field
-    # only — they must never appear as terms in the executive summary
-    # paragraph (would conflate "Neighbourhood profile" section with
-    # the specific "nightlife_density" tile it contains).
     assert "section names vs tile names" in _sys.lower(), \
         "system must forbid section titles in the summary paragraph"
-    assert "info-only" in _sys.lower() or "info only" in _sys.lower(), \
-        "system must handle info-only tiles as neutral facts, not verdicts"
+    # Inverted-signal handling is the load-bearing QL-specific guardrail.
+    assert "inverted" in _sys.lower(), \
+        "system must handle INVERTED signals (arterial_road, rail_noise, nightlife_inverted)"
+    assert "buffered" in _sys.lower(), \
+        "system must model correct inverted-signal framing (e.g. 'buffered from')"
+
     # Exemplar assistant must be valid JSON matching the schema.
     _ex_asst = json.loads(msgs[2]["content"])
     assert isinstance(_ex_asst["executive_summary"], str)
@@ -558,19 +510,22 @@ if __name__ == "__main__":
             f"exemplar section[{i}] tiles drifted"
         assert sec["verdict"] in ("green", "amber", "red", "unknown"), \
             f"exemplar section[{i}] verdict invalid: {sec.get('verdict')}"
+
     # Real user carries the address hint and the tile list.
     _real_user = msgs[-1]["content"]
     assert "Pankow" in _real_user
     assert "Prenzlauer Berg" in _real_user
-    assert "language_school" in _real_user
+    assert "arterial_road" in _real_user
     assert '"expected_sections"' in _real_user, \
         "real user payload must include expected_sections (shape lock)"
+    # Caveat travels so INVERTED signals can be detected by the model.
+    assert "INVERTED" in _real_user, \
+        "caveat with INVERTED marker must round-trip in the payload"
 
     # -- _validate_shape happy path + failure modes.
     _good = json.loads(msgs[2]["content"])
-    _validate_shape(_good)                        # no raise
+    _validate_shape(_good)
 
-    # Bad: sections drift on title
     _bad_title = json.loads(msgs[2]["content"])
     _bad_title["sections"][0]["title"] = "Something else"
     try:
@@ -580,7 +535,6 @@ if __name__ == "__main__":
     else:
         raise AssertionError("expected ValueError on section title drift")
 
-    # Bad: sections drift on tile list
     _bad_tiles = json.loads(msgs[2]["content"])
     _bad_tiles["sections"][0]["tiles"] = ["something_else"]
     try:
@@ -590,7 +544,6 @@ if __name__ == "__main__":
     else:
         raise AssertionError("expected ValueError on section tile drift")
 
-    # Bad: wrong number of sections
     _bad_len = json.loads(msgs[2]["content"])
     _bad_len["sections"] = _bad_len["sections"][:2]
     try:
@@ -600,7 +553,6 @@ if __name__ == "__main__":
     else:
         raise AssertionError("expected ValueError on wrong sections length")
 
-    # Bad: missing executive_summary
     _bad_exec = json.loads(msgs[2]["content"])
     _bad_exec.pop("executive_summary")
     try:
@@ -610,7 +562,6 @@ if __name__ == "__main__":
     else:
         raise AssertionError("expected ValueError on missing executive_summary")
 
-    # Bad: highlight missing tile field
     _bad_hi = json.loads(msgs[2]["content"])
     _bad_hi["highlights_green"][0].pop("tile")
     try:
@@ -620,9 +571,8 @@ if __name__ == "__main__":
     else:
         raise AssertionError("expected ValueError on bad highlight shape")
 
-    # -- _apply_deterministic_rollup overrides model verdict with the
-    # rollup computed from tile_contexts — the source of truth is the
-    # scoring pipeline, not the LLM's guess.
+    # -- _apply_deterministic_rollup overrides section verdict from the
+    # input tile tiers.
     _obj = {"sections": [
         {"title": "T1", "tiles": ["a", "b"], "verdict": "green", "note": "..."},
     ]}
@@ -631,10 +581,7 @@ if __name__ == "__main__":
     assert _obj2["sections"][0]["verdict"] == "red", \
         f"rollup should have promoted section to red, got {_obj2['sections'][0]['verdict']!r}"
 
-    # -- Highlight tone filter: green list must contain only tiles whose
-    # actual tier is green; amber tiles land in the red list; drops any
-    # tile that isn't in the input at all; dedups tiles that appear in
-    # both lists (green wins).
+    # -- Highlight tone filter: same semantics as Newcomer.
     _obj3 = {
         "highlights_green": [
             {"tile": "a", "one_line": "genuinely green"},
@@ -667,13 +614,14 @@ if __name__ == "__main__":
     assert _compute_fit_score([{"verdict": "green"}]) == 100
     assert _compute_fit_score([{"verdict": "red"}]) == 20
     assert _compute_fit_score([{"verdict": "green"}, {"verdict": "red"}]) == 60
-    # Konrad-Wolf-Straße 44A scenario: amber, red, red, amber, unknown
-    # → (60+20+20+60)/4 = 40.
-    _kws = [{"verdict": "amber"}, {"verdict": "red"},
-            {"verdict": "red"}, {"verdict": "amber"},
-            {"verdict": "unknown"}]
-    assert _compute_fit_score(_kws) == 40, _compute_fit_score(_kws)
-    # Rollup output carries the score post-computation.
+    # QL scenario: 4 sections rolling up to amber, green, amber, green
+    # → (60+100+60+100)/4 = 80. This is a "balanced" fit — matches the
+    # exemplar_assistant story above.
+    _ql_sample = [{"verdict": "amber"}, {"verdict": "green"},
+                  {"verdict": "amber"}, {"verdict": "green"}]
+    assert _compute_fit_score(_ql_sample) == 80, _compute_fit_score(_ql_sample)
+
+    # Rollup output carries fit_score post-computation.
     _obj4 = {"sections": [
         {"title": "T1", "tiles": ["a"], "verdict": "wrong", "note": "..."},
         {"title": "T2", "tiles": ["b"], "verdict": "wrong", "note": "..."},
@@ -686,8 +634,7 @@ if __name__ == "__main__":
     _obj5b = _apply_deterministic_rollup(_obj5, [{"key": "a", "tier": "unknown"}])
     assert "fit_score" not in _obj5b, "all-unknown should omit fit_score"
 
-    # -- run(): empty tile_contexts returns the "no data" shortcut with
-    # a shaped skeleton — SPA can still render the panel structure.
+    # -- run(): empty tile_contexts returns the shortcut skeleton.
     _empty = run(None, {"tile_contexts": []})
     assert "lens_insight" in _empty
     assert _empty["lens_insight"]["executive_summary"].startswith("No tile scoring")
@@ -705,44 +652,41 @@ if __name__ == "__main__":
             self.calls += 1
             return self.payload
 
-    # Model returns an obj with the exemplar shape but wrong verdicts on
-    # some sections — rollup will fix them from the input tiers.
     _model_out = json.loads(msgs[2]["content"])
-    # Force a wrong verdict on Getting registered — rollup should reset
-    # to whatever the actual tier is in the ctx we pass.
-    _model_out["sections"][0]["verdict"] = "red"
+    _model_out["sections"][0]["verdict"] = "red"     # force wrong verdict
     _b = _GoodBackend(json.dumps(_model_out))
-    # Provide input tile_contexts matching the exemplar's ordering + tiers
-    # so the rollup produces a predictable per-section verdict.
     _input_ctx = {
         "address_hint": {"bezirk": "Pankow", "ortsteil": "Prenzlauer Berg"},
         "tile_contexts": [
-            {"key": "buergeramt", "tier": "green"},
-            {"key": "rail_transit", "tier": "green"},
-            {"key": "tram_transit", "tier": "amber"},
-            {"key": "bus_transit", "tier": "green"},
-            {"key": "intl_food", "tier": "green"},
-            {"key": "coworking", "tier": "green"},
-            {"key": "english_clinic", "tier": "amber"},
-            {"key": "language_school", "tier": "red"},
-            {"key": "library", "tier": "green"},
-            {"key": "packstation", "tier": "green"},
-            {"key": "wochenmarkt", "tier": "amber"},
-            {"key": "nightlife_density", "tier": "info"},
-            {"key": "gesix_newcomer", "tier": "green"},
+            {"key": "noise", "tier": "amber"},
+            {"key": "air", "tier": "green"},
+            {"key": "quiet_zone", "tier": "green"},
+            {"key": "street_trees", "tier": "green"},
+            {"key": "tempo30", "tier": "green"},
+            {"key": "arterial_road", "tier": "amber"},
+            {"key": "rail_noise", "tier": "green"},
+            {"key": "nightlife_inverted", "tier": "green"},
+            {"key": "gesix_quiet", "tier": "green"},
         ],
     }
     _out = run(_b, _input_ctx)
     assert _b.calls == 1, "valid response should not retry"
-    assert _out["lens_insight"]["sections"][0]["verdict"] == "green", \
-        "rollup should have overridden 'red' back to 'green' for buergeramt-only section"
-    assert _out["lens_insight"]["sections"][2]["verdict"] == "red", \
-        "Settling-in services rolls up to red because language_school is red"
-    # Neighbourhood profile [nightlife_density=info, gesix_newcomer=green]
-    # rolls up to green — gesix DOES carry a real tier (was previously
-    # miscategorised as info in the prompt).
-    assert _out["lens_insight"]["sections"][4]["verdict"] == "green", \
-        "Neighbourhood profile should roll up to green from gesix_newcomer's real tier"
+    # Section 0 (noise/air) → worst of amber/green = amber (model said red,
+    # rollup corrected).
+    assert _out["lens_insight"]["sections"][0]["verdict"] == "amber", \
+        f"rollup should have overridden model 'red' to 'amber', got " \
+        f"{_out['lens_insight']['sections'][0]['verdict']!r}"
+    # Section 2 (traffic pressure = tempo30 green + arterial amber + rail
+    # green) rolls up to amber.
+    assert _out["lens_insight"]["sections"][2]["verdict"] == "amber", \
+        "Traffic pressure rolls up to amber from arterial_road amber"
+    # Section 3 (neighbourhood profile = nightlife_inverted green + gesix
+    # green) rolls up to green.
+    assert _out["lens_insight"]["sections"][3]["verdict"] == "green", \
+        "Neighbourhood profile rolls up to green from both nightlife and gesix"
+    # Fit score = (amber, green, amber, green) → (60+100+60+100)/4 = 80.
+    assert _out["lens_insight"].get("fit_score") == 80, \
+        f"fit_score should be 80 for this scenario, got {_out['lens_insight'].get('fit_score')}"
 
     # -- run(): malformed JSON → retry once → raise on second failure.
     class _BadBackend:
@@ -767,4 +711,4 @@ if __name__ == "__main__":
     else:
         raise AssertionError("expected ValueError for non-dict ctx")
 
-    print("lens_newcomer_insight.py selfcheck OK")
+    print("lens_quiet_living_insight.py selfcheck OK")
