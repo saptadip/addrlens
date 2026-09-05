@@ -1,38 +1,86 @@
-# Shared inference image (plan §7.1.1). Linux → llama-cpp-python + GGUF.
-# One image, all cities. Model file is baked in for reproducible builds
-# (§7.4); switch to a mounted volume only if image push time hurts.
+# Shared inference image (plan §7.1.1). Two build targets:
 #
-# Build context = repo root (micro-service/). Build:
+#   - `remote` (DEFAULT) — Cloudflare Workers AI only. No local model
+#     backend, no llama-cpp-python, no CMake / build-essential system
+#     deps. ~150 MB smaller. Requires INFERENCE_LOCAL_BACKEND=off at
+#     runtime (defaults to `off` in this stage's ENV). This is what
+#     prod ships since Ship LLM-2.
+#
+#   - `local` — llama.cpp local backend (llama-cpp-python + CMake +
+#     build-essential + a bind-mounted GGUF model). Kept as an escape
+#     hatch for on-prem / air-gapped deployments and for local Linux
+#     dev when the Apple-Silicon mlx path is not available.
+#
+# Build (default remote):
 #   docker build -f ops/Dockerfile.inference -t addrlens-inference .
 #
-# Before building, download the GGUF into ./models/ (git-ignored):
+# Build the local-backend variant explicitly:
+#   docker build -f ops/Dockerfile.inference --target local -t addrlens-inference:local .
+#
+# For the `local` variant, download the GGUF into ./models/ first
+# (git-ignored):
 #   mkdir -p models
 #   hf download bartowski/Qwen2.5-1.5B-Instruct-GGUF \
 #     Qwen2.5-1.5B-Instruct-Q4_K_M.gguf --local-dir models/
-#
-# ponytail: llama-cpp-python wheels ship with pre-built CPU binaries — no
-# CMake / nvcc / build-essential needed in the image. If GPU is added later
-# (Ship LLM-3), rebuild with LLAMA_CUBLAS=1 and switch base to nvidia/cuda.
 
-FROM python:3.11-slim
+# ---- shared base ----------------------------------------------------
+FROM python:3.11-slim AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates tzdata \
-        build-essential cmake python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /srv
 
-# ---- deps layer ----
+# Deps layer manifest — copied once, installed differently per target.
 COPY inference/pyproject.toml ./pyproject.toml
-RUN uv pip install --system --no-cache ".[prod]"
-# Prod-only: Sentry SDK. Init in inference/main.py is env-guarded so local
-# dev (bare uvicorn on Apple Silicon) is unaffected.
+# Prod-only: Sentry SDK. Init in inference/main.py is env-guarded so
+# local dev (bare uvicorn on Apple Silicon) is unaffected.
 RUN uv pip install --system --no-cache "sentry-sdk[fastapi]>=2.0"
 
+
+# ---- remote (DEFAULT) — Cloudflare Workers AI only ------------------
+FROM base AS remote
+
+RUN uv pip install --system --no-cache ".[remote]"
+
 # ---- inference code ----
+COPY inference ./inference
+
+RUN useradd -u 10001 -m -s /sbin/nologin addrlens \
+    && chown -R addrlens:addrlens /srv
+USER addrlens
+
+# INFERENCE_LOCAL_BACKEND=off skips the (non-existent, in this image)
+# local loader entirely; every template must be in
+# INFERENCE_REMOTE_TEMPLATES or /summarize returns 503 with a clear
+# message. See v0.1/inference/main.py.
+ENV INFERENCE_LOCAL_BACKEND=off \
+    PORT=8080 \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8080
+# Remote-only image warms instantly (no model load), so start_period
+# can be short.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=5)" || exit 1
+
+CMD ["uvicorn", "inference.main:app", "--host", "0.0.0.0", "--port", "8080"]
+
+
+# ---- local — llama-cpp-python + GGUF -------------------------------
+# Escape hatch: on-prem / air-gapped / Linux-only dev. Adds ~150 MB
+# for the compiled llama-cpp-python wheel + the build-essential deps
+# it needs to install cleanly on ARM64 (x86_64 has pre-built wheels).
+FROM base AS local
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN uv pip install --system --no-cache ".[prod]"
+
 COPY inference ./inference
 # Model file is bind-mounted at runtime from /srv/addrlens/models/ into
 # /models/:ro (see docker-compose.prod.yml). The mountpoint must exist.
@@ -48,9 +96,9 @@ ENV INFERENCE_BACKEND=llama \
     PYTHONUNBUFFERED=1
 
 EXPOSE 8080
-# Longer start_period than the app: llama.cpp CPU model load is 10–20 s on
-# a modest x86 core (plan §7.6). App-side /ready in Ship D gates traffic
-# until this reports ready.
+# Longer start_period than remote: llama.cpp CPU model load is 10-20 s
+# on a modest x86 core. App-side /ready in Ship D gates traffic until
+# this reports ready.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=5)" || exit 1
 

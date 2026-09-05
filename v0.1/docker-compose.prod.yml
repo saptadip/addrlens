@@ -38,12 +38,11 @@ services:
     ports: !reset []
     env_file:
       - /srv/addrlens/.env.production
-    volumes:
-      - /srv/addrlens/models:/models:ro
-    environment:
-      LLAMA_MODEL_PATH: /models/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf
-    mem_limit: 2800m
-    memswap_limit: 3600m
+    # No models bind-mount — prod runs the `remote` Dockerfile target
+    # (Cloudflare Workers AI only). Re-add the mount + LLAMA_MODEL_PATH
+    # env only if you switch back to the `local` build target.
+    mem_limit: 512m
+    memswap_limit: 640m
     restart: unless-stopped
     networks:
       - addrlens_net

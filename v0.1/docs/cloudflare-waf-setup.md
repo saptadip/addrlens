@@ -2,7 +2,7 @@
 
 Free-plan edge protection for the app. All rules are configured through the Cloudflare dashboard against the `addrlens.de` zone. This document reflects the Free-plan capabilities as documented at [developers.cloudflare.com/waf](https://developers.cloudflare.com/waf/) and confirmed against the dashboard during initial setup.
 
-The rules complement — they do not replace — the per-IP app-level rate limits enforced by `app/core/rate_limit.py` (10/minute on `/api/history`, 60/minute on `/api/lookup`, 10/minute on `/api/lens_insight`).
+The rules complement — they do not replace — the per-IP app-level rate limits enforced by `app/core/rate_limit.py` (10/minute on `/api/history`, 60/minute on `/api/lookup`, 30/minute on `/api/lens_insight`).
 
 ## Free-plan quotas — what you get to work with
 
