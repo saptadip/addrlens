@@ -29,14 +29,14 @@ Both rule types now live under the modern **Security rules** page:
 
 If your dashboard sidebar reorganises again, search for "Security rules" from the top-right search bar in the zone.
 
-## Rate Limiting Rule (1 free, on /api/history)
+## Rate Limiting Rule (1 free — covers both AI endpoints via OR)
 
-Only one rule is possible on the Free plan and only Block is available as an action. Deploy it against the endpoint that costs the most per abuse call — `/api/history`, since every uncached hit consumes one Cloudflare Workers AI neuron (or, on remote failure, ~35 s of local llama-cpp CPU on the box).
+The Free plan allows one rule and only `Block` as an action. Both AI-inference endpoints hit Cloudflare Workers AI on cache miss, so both need edge protection — the rule uses an OR condition on the URI path to cover both under the single free-tier slot.
 
 Configuration:
 
-- **Rule name:** `history rate limit — 5 in 10s`
-- **When incoming requests match:** `(http.request.uri.path eq "/api/history")`
+- **Rule name:** `AI endpoints rate limit — 5 in 10s`
+- **When incoming requests match:** `(http.request.uri.path eq "/api/history") or (http.request.uri.path eq "/api/lens_insight")`
 - **Rate:** 5 requests per 10 seconds
 - **With the same characteristics:** IP address
 - **Then take action:** Block
@@ -44,9 +44,17 @@ Configuration:
 
 Rationale for the numbers:
 
-- 5 requests per 10 seconds equals a sustained ceiling of ~30 requests per minute per IP. That is 3× the app-level slowapi cap (10/minute), so legitimate browser traffic never trips this edge rule — it exists to catch clients that bypass the app-level limiter (rotating headers, edge-only clients, distributed abuse).
+- 5 requests per 10 seconds equals a sustained ceiling of ~30 requests per minute per IP. That is 3× the app-level slowapi cap (10/minute on each endpoint), so legitimate browser traffic never trips this edge rule — it exists to catch clients that bypass the app-level limiter (rotating headers, edge-only clients, distributed abuse).
 - Because the CF Free plan caps the mitigation timeout at 10 seconds, an offender is automatically released after 10 seconds. A human hitting Refresh backs off and continues; a scripted client that keeps hammering re-trips every 10 seconds and effectively caps at ~30/minute regardless of intent.
-- Block returns HTTP 403 at the edge — the request never reaches the origin, so it also does not consume neurons or box CPU.
+- Block returns HTTP 403 at the edge — the request never reaches the origin, so it also does not consume Cloudflare Workers AI neurons or Hetzner CPU.
+
+Endpoint cost profile at a glance:
+| Endpoint | LLM tokens per uncached call | Cache TTL | Volume shape |
+|---|---|---|---|
+| `/api/history` | ~260 max_tokens | 7 days per ~100 m grid | Low — one click per address, cached |
+| `/api/lens_insight` | ~1400 max_tokens | 7 days per (lens, ~100 m grid) | 4× per address (one per lens), higher scrape multiplier |
+
+Both under the same rule means an IP burning through addresses via either endpoint hits the same 5-in-10s cap.
 
 ## Custom Rules (5 free)
 
