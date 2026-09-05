@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import json
 
-# Lower than explain: factual, no invention allowed. History-around-a-flat
-# is not a place for creative language.
+# Low temp: factual, no invention allowed. History-around-a-flat is
+# not a place for creative language.
 SAMPLER = {
     "temp": 0.4,
     "top_p": 0.9,
@@ -106,7 +106,7 @@ def run(backend, context: dict) -> dict:
 
 
 if __name__ == "__main__":
-    # Prompt shape asserts — matches explain.py style. Runs offline, no model.
+    # Prompt shape asserts. Runs offline, no model.
     msgs = build_messages({
         "bezirk":   "Lichtenberg",
         "ortsteil": "Alt-Hohenschönhausen",

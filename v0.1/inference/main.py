@@ -2,7 +2,8 @@
 
 Plan §7.3 contract:
   POST /summarize
-    { "template": "impression" | "explain", "context": {...}, "city": "berlin" }
+    { "template": "history" | "<tile>_insight" | "lens_<slug>_insight",
+      "context": {...}, "city": "berlin" }
   ->
     { "summary": {...}, "model": "<model_id>", "trace_id": "<uuid>" }
 
@@ -66,12 +67,10 @@ from inference.templates import air_insight as air_insight_tpl
 from inference.templates import buergeramt_insight as buergeramt_insight_tpl
 from inference.templates import coworking_insight as coworking_insight_tpl
 from inference.templates import english_clinic_insight as english_clinic_insight_tpl
-from inference.templates import explain as explain_tpl
 from inference.templates import gesix_insight as gesix_insight_tpl
 from inference.templates import gesix_newcomer_insight as gesix_newcomer_insight_tpl
 from inference.templates import heat_insight as heat_insight_tpl
 from inference.templates import history as history_tpl
-from inference.templates import impression as impression_tpl
 from inference.templates import intl_food_insight as intl_food_insight_tpl
 from inference.templates import kita_insight as kita_insight_tpl
 from inference.templates import language_school_insight as language_school_insight_tpl
@@ -186,8 +185,6 @@ REMOTE_TEMPLATES = {
 }
 
 TEMPLATES = {
-    "impression":     impression_tpl.run,
-    "explain":        explain_tpl.run,
     "history":        history_tpl.run,
     # Per-card AI-insight templates. Naming convention: <card_key>_insight.
     # Adding a new insight card = new template file + one row here.

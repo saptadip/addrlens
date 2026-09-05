@@ -6,7 +6,7 @@ Two phases:
   2. The live-Index / live-WFS asserts that need a real network — ported
      from phase3/server.py:_selfcheck. Berlin-specific known-good addresses.
 
-LLM asserts (`_build_impression_messages`, model output shape) live in
+LLM template asserts (prompt shape, anti-inversion, schema) live in
 `inference/selfcheck.py`.
 """
 import subprocess
