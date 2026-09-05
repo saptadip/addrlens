@@ -13,9 +13,14 @@ dependencies = [
 
 # Backends are optional so the dev machine (Apple Silicon) installs mlx-lm
 # and the prod image (Linux) installs llama-cpp-python. Never both.
+# `remote` installs neither — used by the prod inference image when
+# INFERENCE_LOCAL_BACKEND=off (Cloudflare Workers AI is the sole backend).
+# Skips ~150 MB of llama-cpp-python plus the CMake / build-essential
+# system deps required to compile it.
 [project.optional-dependencies]
-dev = ["mlx-lm>=0.19"]
-prod = ["llama-cpp-python>=0.3"]
+dev    = ["mlx-lm>=0.19"]
+prod   = ["llama-cpp-python>=0.3"]
+remote = []
 
 [tool.uv]
 package = false
