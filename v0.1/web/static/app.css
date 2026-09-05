@@ -362,28 +362,6 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .b-sesb::before{content:"✦ ";color:#DB2777}
 
 .metric-big{display:flex;align-items:baseline;gap:12px;margin:8px 0 0}
-.metric-big .vote{margin-left:auto;display:flex;gap:8px;align-self:center}
-.vote-btn{width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;background:var(--result-bg);
-  display:grid;place-items:center;padding:0;color:var(--muted);
-  box-shadow:-3px -3px 6px rgba(255,255,255,.9),3px 3px 6px rgba(90,102,145,.35);
-  transition:transform .15s cubic-bezier(.34,1.56,.64,1),color .15s,box-shadow .2s,background .2s}
-.vote-btn svg{width:18px;height:18px}
-.vote-btn.happy:hover{color:#16A34A;transform:scale(1.12)}
-.vote-btn.sad:hover{color:#DC2626;transform:scale(1.12)}
-.vote-btn.active{box-shadow:inset 3px 3px 6px rgba(90,102,145,.35),inset -3px -3px 6px rgba(255,255,255,.9)}
-.vote-btn.active.happy{background:#DCFCE7;color:#16A34A}
-.vote-btn.active.sad{background:#FEE2E2;color:#DC2626}
-
-/* Tile background reflects the vote so the impression is visible at a glance
-   across all tiles without opening the modal. Compound selectors chained with
-   :hover and .active beat the base .cell:hover and .cell.active rules that
-   also paint the background. */
-.amen-cell[data-vote="happy"],
-.amen-cell[data-vote="happy"]:hover,
-.amen-cell.active[data-vote="happy"]{background:#DCFCE7}
-.amen-cell[data-vote="sad"],
-.amen-cell[data-vote="sad"]:hover,
-.amen-cell.active[data-vote="sad"]{background:#FEE2E2}
 .metric-big .n{font-family:'Inter',sans-serif;font-weight:800;font-size:52px;line-height:.95;
   background:linear-gradient(135deg,#4F46E5,#EC4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .metric-big .cap{color:var(--ink-2);font-size:14px;font-weight:500;line-height:1.35}
@@ -490,7 +468,6 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .cell.active::before{transform:scaleY(1)}
 .cell.active .icon-badge{background:linear-gradient(135deg,#818CF8,#4F46E5);color:#fff;transform:rotate(-6deg) scale(1.08)}
 .cell-head .chev{margin-left:auto;color:var(--muted);transition:transform .2s ease,color .2s}
-.cell-head .chev:has(+ .explain-btn){margin-left:0;margin-right:0}                          /* if explain follows chev, chev tucks by label so explain takes the far-right slot */
 .cell-head .chev svg{width:16px;height:16px;display:block}
 .cell.active .cell-head .chev{transform:rotate(180deg);color:var(--brand)}
 .amen-body{display:none}
@@ -507,110 +484,6 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .amen-list li.none{color:var(--muted);font-style:italic;border-bottom:0;grid-column:1 / -1}
 .amen-more{margin:8px 0 0;font-size:12px;color:var(--muted);font-weight:500}
 
-/* Explain — small AI pill button + centered modal overlay. Reused across
-   Education/Environment cards and inside the Amenity/Medical tile modals. */
-.explain-btn{margin-left:auto;padding:4px 10px 4px 8px;border-radius:99px;border:1px solid rgba(99,102,241,.28);
-  background:rgba(255,255,255,.7);color:#4F46E5;font:inherit;font-weight:700;font-size:11px;letter-spacing:.02em;
-  cursor:pointer;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
-  transition:background .18s,transform .15s,box-shadow .2s}
-.explain-btn:hover{background:#EEF2FF;transform:translateY(-1px);box-shadow:0 3px 8px rgba(99,102,241,.2)}
-.explain-btn::before{content:"✨";font-size:10px}
-.amen-modal .explain-btn{position:absolute;top:14px;right:60px}   /* left of ✕ */
-
-.explain-overlay{position:fixed;inset:0;background:rgba(17,24,39,.42);backdrop-filter:blur(4px);
-  z-index:10001;display:flex;align-items:center;justify-content:center;padding:24px;
-  animation:explainFadeIn .2s ease-out}
-.explain-overlay[hidden]{display:none}
-@keyframes explainFadeIn{from{opacity:0}to{opacity:1}}
-.explain-panel{position:relative;max-width:540px;width:100%;padding:30px 32px 26px;border-radius:22px;background:var(--result-bg);
-  box-shadow:-14px -14px 32px rgba(255,255,255,1),14px 14px 32px rgba(90,102,145,.55),
-             4px 4px 10px rgba(90,102,145,.25),inset 1px 1px 2px rgba(255,255,255,.7);
-  animation:modalIn .3s cubic-bezier(.34,1.56,.64,1)}
-.explain-panel .explain-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;
-  border:none;background:var(--result-bg);color:var(--ink-2);font-size:16px;cursor:pointer;display:grid;place-items:center;
-  box-shadow:-3px -3px 6px rgba(255,255,255,.9),3px 3px 8px rgba(90,102,145,.35)}
-.explain-panel .explain-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.explain-panel .ai-chip{display:inline-flex;align-items:center;gap:6px;
-  background:linear-gradient(135deg,#6366F1,#4F46E5);color:#fff;padding:4px 10px;
-  border-radius:99px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  box-shadow:0 4px 12px rgba(99,102,241,.35)}
-.explain-panel h3{margin:0;font-family:'Inter',sans-serif;font-weight:700;font-size:16px;color:var(--ink)}
-.explain-panel .explain-body{font-size:15px;line-height:1.65;color:var(--ink);font-weight:500;min-height:60px}
-.explain-panel .explain-body::first-letter{font-size:22px;font-weight:700;color:#4F46E5;padding-right:2px}
-.explain-panel .prov{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
-.explain-panel .prov::before{content:"✨ ";opacity:.6}
-
-/* Sad-feedback modal — reuses .explain-overlay/.explain-panel base */
-.sad-panel{max-width:460px}
-.sad-hint{margin:0 0 14px;font-size:12px;color:var(--muted)}
-.sad-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
-.sad-chip{padding:7px 14px;border-radius:99px;border:1.5px solid var(--border);background:#fff;color:var(--ink-2);
-  font:inherit;font-weight:600;font-size:13px;cursor:pointer;transition:all .15s}
-.sad-chip:hover{border-color:#DC2626;color:#DC2626;background:#FEF2F2}
-.sad-chip.active{background:#DC2626;color:#fff;border-color:#DC2626}
-.sad-text{width:100%;padding:10px 12px;border-radius:12px;border:1.5px solid var(--border);background:#fff;
-  font:inherit;font-size:13px;resize:vertical;min-height:44px;margin-bottom:14px;box-sizing:border-box;font-family:inherit}
-.sad-text:focus{outline:none;border-color:var(--brand)}
-.sad-actions{display:flex;gap:10px;justify-content:flex-end}
-
-/* AI Impression — neumorphic launch button + modal with per-tab sections.
-   Launch pill sits right-aligned in the tabs row, opens a modal that shows
-   all tab summaries under sub-headings (no per-tab cards). */
-.tabs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:22px 0 0;flex-wrap:wrap}
-.tabs-row .tabs{margin:0}
-.impression-launch{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:none;border-radius:14px;
-  background:var(--neumo-bg);color:var(--brand);font:inherit;font-weight:700;font-size:13px;letter-spacing:.02em;
-  cursor:pointer;
-  box-shadow:-4px -4px 10px var(--neumo-sh-light),4px 4px 12px var(--neumo-sh-dark);
-  transition:transform .12s,box-shadow .2s}
-.impression-launch::before{content:"✨";font-size:14px;filter:drop-shadow(0 1px 2px rgba(99,102,241,.4))}
-.impression-launch:hover{transform:translateY(-1px);
-  box-shadow:-6px -6px 14px var(--neumo-sh-light),6px 6px 16px var(--neumo-sh-dark)}
-.impression-launch:active{transform:translateY(0);
-  box-shadow:inset 2px 2px 6px var(--neumo-sh-dark),inset -2px -2px 6px var(--neumo-sh-light)}
-.impression-launch .count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 7px;
-  border-radius:99px;background:var(--brand);color:#fff;font-size:11px;font-weight:800;letter-spacing:0}
-
-/* Impression modal — reuses .explain-overlay/.explain-panel base */
-.impression-panel{max-width:640px;width:fit-content;min-width:340px;max-height:80vh;overflow-y:auto}
-.impression-panel .explain-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;row-gap:8px}
-.impression-panel .explain-head .ai-chip{grid-column:1;grid-row:1;justify-self:start;line-height:1;align-self:center}
-.impression-panel .explain-head .addr-chip{grid-column:2;grid-row:1;justify-self:center;line-height:1;align-self:center;min-width:0;max-width:100%}
-.impression-panel .section .votes .up,
-.impression-panel .section .votes .dn{white-space:nowrap}
-.impression-panel .addr-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:99px;
-  background:var(--neumo-bg);color:var(--ink);font-family:'Inter',sans-serif;
-  font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  box-shadow:inset 2px 2px 4px var(--neumo-sh-dark),inset -2px -2px 4px var(--neumo-sh-light)}
-.impression-panel .addr-chip svg{width:11px;height:11px;color:var(--brand);flex-shrink:0}
-.impression-panel .impression-modal-body{margin-top:4px}
-/* Hide non-content chrome while html2canvas captures the panel */
-.impression-panel.capturing .explain-close,
-.impression-panel.capturing .gen-cta .actions{display:none}
-.impression-panel .section{margin-top:18px;padding:16px 18px;border-radius:14px;background:var(--neumo-bg);
-  box-shadow:-3px -3px 8px var(--neumo-sh-light),3px 3px 10px var(--neumo-sh-dark)}
-.impression-panel .section:first-child{margin-top:6px}
-.impression-panel .section h4{margin:0 0 10px;display:flex;align-items:center;gap:10px;
-  font-family:'Inter',sans-serif;font-weight:800;font-size:11px;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted)}
-.impression-panel .section h4::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;
-  background:currentColor;opacity:.7}
-.impression-panel .section p{margin:0;font-size:14px;line-height:1.65;color:var(--ink);font-weight:500}
-.impression-panel .section p::first-letter{font-size:20px;font-weight:700;color:var(--brand);padding-right:2px}
-.impression-panel .section .votes{margin-top:10px;padding-top:8px;border-top:1px solid rgba(107,114,128,.15);
-  display:flex;gap:12px;font-size:11px;font-weight:600;color:var(--muted)}
-.impression-panel .section .votes .up{color:#16A34A}
-.impression-panel .section .votes .dn{color:#DC2626}
-.impression-panel .empty{padding:22px;border-radius:14px;background:var(--neumo-bg);text-align:center;
-  color:var(--muted);font-size:13px;
-  box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
-.impression-panel .empty b{color:var(--ink)}
-.impression-panel .gen-cta{margin-top:14px;display:flex;align-items:center;justify-content:flex-end;gap:14px}
-.impression-panel .gen-cta .prov{font-size:11px;color:var(--muted);flex:1;text-align:left}
-.impression-panel .gen-cta .prov::before{content:"✨ ";opacity:.6}
-.impression-panel .impression-loading{padding:26px;display:flex;align-items:center;justify-content:center;gap:12px;
-  color:var(--ink-2);font-size:14px;font-weight:500;border-radius:14px;background:var(--neumo-bg);
-  box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
 
 .toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
   padding:10px 20px;border-radius:99px;font-weight:600;font-size:13px;box-shadow:var(--sh-2);opacity:0;pointer-events:none;
@@ -1600,18 +1473,6 @@ html, body                     { background:var(--neumo-bg); }
                                             inset -3px -3px 6px var(--neumo-sh-light),
                                             0 0 0 3px rgba(79,70,229,.28); }
 
-/* --- Explain button ----------------------------------------------------*/
-.explain-btn                   { background:var(--neumo-bg); border:none; color:var(--brand);
-                                 box-shadow:-3px -3px 7px var(--neumo-sh-light),
-                                            3px 3px 7px var(--neumo-sh-dark); }
-.explain-btn:hover             { background:var(--neumo-bg); color:var(--brand);
-                                 transform:translateY(-1px);
-                                 box-shadow:-4px -4px 9px var(--neumo-sh-light),
-                                            4px 4px 11px var(--neumo-sh-dark); }
-.explain-btn:active            { transform:translateY(0);
-                                 box-shadow:inset 2px 2px 5px var(--neumo-sh-dark),
-                                            inset -2px -2px 5px var(--neumo-sh-light); }
-
 /* --- Amenities & Lens modals — soften shell to neumorphic ------------- */
 .amen-modal                    { background:var(--neumo-bg); backdrop-filter:blur(4px);
                                  box-shadow:-8px -8px 18px var(--neumo-sh-light),
@@ -1970,8 +1831,8 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
    panel and restores the Address card to its previous size.            */
 .badges                          { display:flex; flex-wrap:wrap; align-items:center;
                                     gap:8px; }
-/* Mirror .explain-btn shape/tone so both AI affordances read the same:
-   small purple pill on the neumorphic base with a sparkle prefix. */
+/* Small purple pill on the neumorphic base with a sparkle prefix — the
+   "Get History" AI affordance on the Address card. */
 .pill-btn.addr-history-btn       { padding:4px 10px 4px 8px; font-size:11px;
                                     font-weight:700; letter-spacing:.02em;
                                     display:inline-flex; align-items:center; gap:4px;

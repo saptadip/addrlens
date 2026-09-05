@@ -8,8 +8,6 @@ const ico={
   cart:'<svg viewBox="0 0 256 256"><path d="M70.55,144H196.1a16,16,0,0,0,15.74-13.14L224,64H56Z" opacity="0.2"/><path d="M188,184H91.17a16,16,0,0,1-15.74-13.14L48.73,24H24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="92" cy="204" r="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="188" cy="204" r="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M70.55,144H196.1a16,16,0,0,0,15.74-13.14L224,64H56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
   gp:'<svg viewBox="0 0 256 256"><circle cx="208" cy="160" r="32" opacity="0.2"/><circle cx="208" cy="160" r="12"/><circle cx="208" cy="160" r="32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M104,144v48a40,40,0,0,0,40,40h24a40,40,0,0,0,40-40h0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M136,40h24V87.17c0,30.77-24.48,56.43-55.26,56.83A56,56,0,0,1,48,88V40H72" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
   hospital:'<svg viewBox="0 0 256 256"><path d="M152,40H56a8,8,0,0,0-8,8V216H80V160h48v56h32V48A8,8,0,0,0,152,40Z" opacity="0.2"/><line x1="32" y1="216" x2="248" y2="216" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M48,216V48a8,8,0,0,1,8-8h96a8,8,0,0,1,8,8V216" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M160,120h64a8,8,0,0,1,8,8v88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="104" y1="72" x2="104" y2="120" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="80" y1="96" x2="128" y2="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="128 216 128 160 80 160 80 216" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
-  thumbup:'<svg viewBox="0 0 256 256"><path d="M32,104H80a0,0,0,0,1,0,0V208a0,0,0,0,1,0,0H32a8,8,0,0,1-8-8V112A8,8,0,0,1,32,104Z" opacity="0.2"/><path d="M32,104H80a0,0,0,0,1,0,0V208a0,0,0,0,1,0,0H32a8,8,0,0,1-8-8V112A8,8,0,0,1,32,104Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M80,104l40-80a32,32,0,0,1,32,32V80h64a16,16,0,0,1,15.87,18l-12,96A16,16,0,0,1,204,208H80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
-  thumbdn:'<svg viewBox="0 0 256 256"><path d="M32,48H80a0,0,0,0,1,0,0V152a0,0,0,0,1,0,0H32a8,8,0,0,1-8-8V56a8,8,0,0,1,8-8Z" opacity="0.2"/><path d="M32,48H80a0,0,0,0,1,0,0V152a0,0,0,0,1,0,0H32a8,8,0,0,1-8-8V56a8,8,0,0,1,8-8Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M80,152l40,80a32,32,0,0,0,32-32V176h64a16,16,0,0,0,15.87-18l-12-96A16,16,0,0,0,204,48H80" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
   fountain:'<svg viewBox="0 0 256 256"><path d="M208,144c0-72-80-128-80-128S48,72,48,144a80,80,0,0,0,160,0Z" opacity="0.2"/><path d="M208,144c0-72-80-128-80-128S48,72,48,144a80,80,0,0,0,160,0Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M136,192c20-3.37,36.61-20,40-40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
   transit:'<svg viewBox="0 0 256 256"><path d="M88,184v24a8,8,0,0,1-8,8H56a8,8,0,0,1-8-8V184Z" opacity="0.2"/><path d="M208,184v24a8,8,0,0,1-8,8H176a8,8,0,0,1-8-8V184Z" opacity="0.2"/><rect x="48" y="72" width="160" height="40" opacity="0.2"/><line x1="48" y1="72" x2="208" y2="72" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="48" y1="112" x2="208" y2="112" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M208,184H48V64A24,24,0,0,1,72,40H184a24,24,0,0,1,24,24Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M208,184v24a8,8,0,0,1-8,8H176a8,8,0,0,1-8-8V184" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M88,184v24a8,8,0,0,1-8,8H56a8,8,0,0,1-8-8V184" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="92" cy="148" r="12"/><circle cx="164" cy="148" r="12"/><line x1="240" y1="80" x2="240" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="16" y1="80" x2="16" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
   tree:'<svg viewBox="0 0 256 256"><path d="M128,177.94a63.72,63.72,0,0,0,41.66,14c33.93-.86,62.43-30.22,62.34-64.16a64,64,0,0,0-40.13-59.2,68,68,0,0,0-127.74,0A64,64,0,0,0,24,127.82c-.09,33.94,28.42,63.3,62.35,64.16A63.71,63.71,0,0,0,128,177.94Z" opacity="0.2"/><line x1="128" y1="232" x2="128" y2="88" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="152" x2="80" y2="128" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="128" x2="176" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M128,177.94a63.72,63.72,0,0,0,41.66,14c33.93-.86,62.43-30.22,62.34-64.16a64,64,0,0,0-40.13-59.2,68,68,0,0,0-127.74,0A64,64,0,0,0,24,127.82c-.09,33.94,28.42,63.3,62.35,64.16A63.71,63.71,0,0,0,128,177.94Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>',
@@ -352,8 +350,8 @@ document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{$q
 // Reset button — clear ALL user-recorded state (localStorage + in-memory) and
 // reload so the UI drops back to the empty landing view. Confirms before wiping.
 document.getElementById('reset-btn')?.addEventListener('click', () => {
-  if(!confirm('Clear all saved votes, feedback, card order, and comparisons? This cannot be undone.')) return;
-  ['impressions.v1', 'addrlens.cardOrder.v1', 'berlin-lens-compare-v1'].forEach(k => localStorage.removeItem(k));
+  if(!confirm('Clear card order and saved comparisons? This cannot be undone.')) return;
+  ['addrlens.cardOrder.v1', 'berlin-lens-compare-v1'].forEach(k => localStorage.removeItem(k));
   location.reload();          // simplest correct refresh — no in-memory state to reconcile
 });
 $f.addEventListener('submit',async ev=>{ev.preventDefault();const q=$q.value.trim();if(!q)return;
@@ -613,396 +611,6 @@ function isAnyLensAvailable(addr) {
   return LIFE_MODE_LENSES.some(l => lens[l.slug] && !lens[l.slug].error);
 }
 
-// -- Card impressions (happy / sad vote per card, per address) --------------
-// Persisted in localStorage as { [addressId]: { [cardKey]: 'happy'|'sad' } }.
-// Mutual exclusion: clicking the opposite button switches, clicking the same
-// clears (toggle-off). Delegated click handler covers tiles + modal + edu.
-const IMPR_KEY='impressions.v1';
-function loadImpressions(){ try{ return JSON.parse(localStorage.getItem(IMPR_KEY)||'{}'); }catch(e){ return {}; } }
-function currentAddressId(){ return (eduData && eduData.address) ? snapshotId(eduData.address) : null; }
-function getImpression(key){ const a=currentAddressId(); return a ? (loadImpressions()[a]||{})[key] || null : null; }
-function setImpression(key, val){
-  const a=currentAddressId(); if(!a) return;
-  const all=loadImpressions(); if(!all[a]) all[a]={};
-  if(val) all[a][key]=val; else delete all[a][key];
-  localStorage.setItem(IMPR_KEY, JSON.stringify(all));
-}
-function voteHtml(key){
-  const cur=getImpression(key);
-  return `<div class="vote" data-key="${esc(key)}">`
-    + `<button class="vote-btn happy${cur==='happy'?' active':''}" data-vote="happy" title="Positive impression" aria-label="Positive">${ico.thumbup}</button>`
-    + `<button class="vote-btn sad${cur==='sad'?' active':''}"   data-vote="sad"   title="Negative impression" aria-label="Negative">${ico.thumbdn}</button>`
-    + `</div>`;
-}
-document.addEventListener('click', e => {
-  const btn=e.target.closest('.vote-btn'); if(!btn) return;
-  e.stopPropagation();
-  const group=btn.closest('.vote'), key=group.dataset.key, vote=btn.dataset.vote;
-  const cur=getImpression(key);
-  const next = cur===vote ? null : vote;
-  setImpression(key, next);
-  // Reflect in every rendered instance of this key (tile + modal).
-  document.querySelectorAll(`.vote[data-key="${CSS.escape(key)}"] .vote-btn`).forEach(b =>
-    b.classList.toggle('active', next===b.dataset.vote));
-  // Tint the tile background so the impression is visible after modal closes.
-  const tile=document.querySelector(`.amen-cell[data-cat="${CSS.escape(key)}"]`);
-  if(tile){ if(next) tile.dataset.vote=next; else delete tile.dataset.vote; }
-  // Un-voted or flipped-to-happy → drop any prior sad-feedback for this key.
-  if(next !== 'sad' && sadDetails[key]) delete sadDetails[key];
-  refreshImpressionLaunch();      // vote changed → update launch pill; cached summary auto-invalidates via sig
-  if(next === 'sad') openSadModal(key);
-});
-
-// -- Sad-feedback modal (opens when a category gets a 👎) -------------------
-// Session-scoped: chips + free text live in this JS var, NOT localStorage.
-// Votes themselves persist across reloads; reasons intentionally do not.
-const SAD_CHIPS = {
-  playgrounds: ['Too few', 'Too far', 'Poor condition'],
-  parks:       ['Too small', 'Too far', 'Feels unsafe'],
-  pharmacies:  ['Too far', 'Limited hours'],
-  supermarkets:['Too far', 'Limited choice', 'Discount-only'],
-  gps:         ['Not accepting patients', 'No English', 'Too far'],
-  hospitals:   ['Too far', 'No pediatrics'],
-  fountains:   ['Too few', 'Too far'],
-  transit:     ['Infrequent', 'No night service', 'Long walk'],
-};
-const sadDetails = {};   // { catKey: {chips:[str], text:str} }
-
-function openSadModal(catKey){
-  const chips = SAD_CHIPS[catKey] || [];
-  if(!chips.length) return;
-  const meta = AMEN.find(a => a[0] === catKey);
-  const label = meta ? meta[1] : catKey;
-  const cur = sadDetails[catKey] || {chips:[], text:''};
-  let overlay = document.getElementById('sad-overlay');
-  if(!overlay){
-    overlay = document.createElement('div');
-    overlay.id = 'sad-overlay';
-    overlay.className = 'explain-overlay';
-    document.body.appendChild(overlay);
-    overlay.addEventListener('click', e => {
-      if(e.target === overlay || e.target.closest('.sad-skip')) closeSadModal();
-    });
-  }
-  overlay.hidden = false;
-  overlay.innerHTML = `<div class="explain-panel sad-panel">
-    <button class="explain-close sad-skip" aria-label="Close">✕</button>
-    <div class="explain-head"><span class="ai-chip" style="background:linear-gradient(135deg,#F87171,#DC2626)">👎 Feedback</span>
-      <h3>What's the issue with ${esc(label)}?</h3></div>
-    <p class="sad-hint">Optional — helps the on-device model write a sharper read of your Kiez.</p>
-    <div class="sad-chips">${chips.map(c =>
-      `<button type="button" class="sad-chip${cur.chips.includes(c) ? ' active':''}" data-chip="${esc(c)}">${esc(c)}</button>`
-    ).join('')}</div>
-    <textarea class="sad-text" id="sad-text" rows="2" placeholder="Anything else? (optional)" maxlength="200">${esc(cur.text)}</textarea>
-    <div class="sad-actions">
-      <button type="button" class="pill-btn sad-skip">Skip</button>
-      <button type="button" class="pill-btn pill-btn-brand" id="sad-save">Save</button>
-    </div>
-  </div>`;
-  overlay.querySelectorAll('.sad-chip').forEach(b =>
-    b.addEventListener('click', () => b.classList.toggle('active')));
-  overlay.querySelector('#sad-save').addEventListener('click', () => {
-    const picked = [...overlay.querySelectorAll('.sad-chip.active')].map(b => b.dataset.chip);
-    const txt = (overlay.querySelector('#sad-text').value || '').trim().slice(0,200);
-    if(picked.length || txt) sadDetails[catKey] = {chips: picked, text: txt};
-    else delete sadDetails[catKey];
-    refreshImpressionLaunch();       // updated count/state; cached summary auto-invalidates via sig
-    closeSadModal();
-  });
-}
-function closeSadModal(){
-  const o = document.getElementById('sad-overlay');
-  if(o) o.hidden = true;
-}
-document.addEventListener('keydown', e => {
-  if(e.key !== 'Escape') return;
-  const o = document.getElementById('sad-overlay');
-  if(o && !o.hidden) closeSadModal();
-});
-
-// -- Explain modal (any card → plain-English + German-term glosses) --------
-// Delegated click handler catches any [data-explain] button; the button's
-// data-* attributes carry the card_type, title, and fields payload.
-const explainCache = new Map();
-function explainBtn(cardType, title, fields){
-  return `<button class="explain-btn" data-explain="${esc(cardType)}" data-title="${esc(title)}"`
-       + ` data-fields='${esc(JSON.stringify(fields||{}))}' title="Explain in plain English">Explain</button>`;
-}
-function ensureExplainModal(){
-  if(document.getElementById('explain-overlay')) return;
-  const o = document.createElement('div');
-  o.id = 'explain-overlay'; o.className = 'explain-overlay'; o.hidden = true;
-  o.innerHTML = `<div class="explain-panel">
-    <button class="explain-close" aria-label="Close">✕</button>
-    <div class="explain-head"><span class="ai-chip">✨ Explain</span><h3 id="explain-title">Card</h3></div>
-    <div class="explain-body" id="explain-body"></div>
-    <div class="prov" id="explain-prov"></div>
-  </div>`;
-  document.body.appendChild(o);
-  o.addEventListener('click', e => {
-    if(e.target===o || e.target.closest('.explain-close')) closeExplain();
-  });
-}
-document.addEventListener('keydown', e => {
-  if(e.key !== 'Escape') return;
-  const o = document.getElementById('explain-overlay');
-  if(o && !o.hidden) closeExplain();
-});
-document.addEventListener('click', e => {
-  const btn = e.target.closest('[data-explain]');
-  if(!btn) return;
-  e.stopPropagation();
-  const cardType = btn.dataset.explain;
-  const title    = btn.dataset.title || cardType;
-  let fields = {};
-  try{ fields = JSON.parse(btn.dataset.fields || '{}'); }catch(_){}
-  openExplain(title, cardType, fields);
-});
-function openExplain(title, cardType, fields){
-  _track('explain_open', { card: cardType });
-  ensureExplainModal();
-  const overlay = document.getElementById('explain-overlay');
-  const titleEl = document.getElementById('explain-title');
-  const bodyEl  = document.getElementById('explain-body');
-  const provEl  = document.getElementById('explain-prov');
-  titleEl.textContent = title;
-  overlay.hidden = false;
-  const key = cardType + ':' + JSON.stringify(fields);
-  if(explainCache.has(key)){
-    const d = explainCache.get(key);
-    bodyEl.textContent = d.explanation;
-    provEl.textContent = `Composed on-device by ${d.model} — nothing left this server.`;
-    return;
-  }
-  bodyEl.innerHTML = `<div class="impression-loading"><span class="spinner"></span> Composing plain-English explanation…</div>`;
-  provEl.textContent = '';
-  fetch('/api/explain', {method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({card_type: cardType, fields})}).then(async r => {
-      const d = await r.json();
-      if(!r.ok){ bodyEl.innerHTML = `<div class="error">${esc(d.error||'Failed to generate explanation.')}</div>`; return; }
-      explainCache.set(key, d);
-      bodyEl.textContent = d.explanation;
-      provEl.textContent = `Composed on-device by ${d.model} — nothing left this server.`;
-    }).catch(e => { bodyEl.innerHTML = `<div class="error">Network error: ${esc(e.message)}</div>`; });
-}
-function closeExplain(){
-  const o = document.getElementById('explain-overlay');
-  if(o) o.hidden = true;
-}
-
-// -- AI Impression panel (embedded Qwen2.5-0.5B via /api/impression) -------
-// Groups the user's per-card votes by tab and asks the local LLM for a
-// two-sentence summary per tab. Panel appears only when there is at least
-// one vote for the currently-loaded address. User clicks Generate to (re)fetch.
-const $imprLaunch = document.getElementById('impression-launch');
-const $imprCount  = document.getElementById('impression-count');
-const IMPR_TAB_META = {
-  amenities: {label:'Amenities', color:'#10B981'},
-  medical:   {label:'Medical',   color:'#DC2626'},
-};
-const IMPR_CAT_TAB = {
-  playgrounds:'amenities', parks:'amenities', supermarkets:'amenities',
-  fountains:'amenities',   transit:'amenities',
-  pharmacies:'medical',    gps:'medical',     hospitals:'medical',
-};
-function currentVotes(){
-  const addr = currentAddressId(); if(!addr) return null;
-  return (loadImpressions()[addr] || {});
-}
-function votesByTab(){
-  const v = currentVotes(); if(!v) return {};
-  const out = {};
-  for(const [key, choice] of Object.entries(v)){
-    const tab = IMPR_CAT_TAB[key]; if(!tab) continue;
-    if(!out[tab]) out[tab] = {happy:[], sad:[], sad_details:{}};
-    const meta = AMEN.find(a=>a[0]===key);
-    const label = meta ? meta[1] : key;
-    out[tab][choice].push(label);
-    if(choice === 'sad' && sadDetails[key]){
-      const d = sadDetails[key];
-      const bits = [...d.chips];
-      if(d.text) bits.push(`"${d.text}"`);
-      if(bits.length) out[tab].sad_details[label] = bits.join(', ');
-    }
-  }
-  return out;
-}
-
-// Modal-based impression: launch pill in tabs-row → popup with per-tab sections.
-// Cache keyed on grouped-votes signature — vote changes auto-invalidate.
-let imprSummaryCache = null;   // {sig, summary, model}
-
-function refreshImpressionLaunch(){
-  const grouped = votesByTab();
-  const total = Object.values(grouped).reduce((s,t)=>s+t.happy.length+t.sad.length, 0);
-  if(!$imprLaunch) return;
-  if(total === 0){ $imprLaunch.hidden = true; return; }
-  $imprLaunch.hidden = false;
-  $imprCount.textContent = total;
-}
-function ensureImpressionModal(){
-  if(document.getElementById('impression-overlay')) return;
-  const o = document.createElement('div');
-  o.id = 'impression-overlay'; o.className = 'explain-overlay'; o.hidden = true;
-  o.innerHTML = `<div class="explain-panel impression-panel">
-    <button class="explain-close" aria-label="Close">✕</button>
-    <div class="explain-head">
-      <span class="ai-chip"><svg viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px;flex-shrink:0"><path d="M12 2l1.8 5.4L19 9l-5.4 1.8L12 16l-1.8-5.2L5 9l5.2-1.6z"/></svg><span>Impression</span></span>
-      <span class="addr-chip" id="impression-addr" hidden></span>
-    </div>
-    <div class="impression-modal-body" id="impression-modal-body"></div>
-  </div>`;
-  document.body.appendChild(o);
-  o.addEventListener('click', e => {
-    if(e.target === o || e.target.closest('.explain-close')) closeImpressionModal();
-  });
-}
-document.addEventListener('keydown', e => {
-  if(e.key !== 'Escape') return;
-  const o = document.getElementById('impression-overlay');
-  if(o && !o.hidden) closeImpressionModal();
-});
-function currentAddressLabel(){
-  const a = eduData && eduData.address;
-  return a ? `${a.street} ${a.hnr}, ${a.plz} ${a.district||''}`.trim() : '';
-}
-const ICO_PIN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
-
-function setImpressionAddrChip(){
-  const el = document.getElementById('impression-addr');
-  const addr = currentAddressLabel();
-  if(!el) return;
-  if(!addr){ el.hidden = true; el.innerHTML = ''; return; }
-  el.hidden = false;
-  el.innerHTML = `${ICO_PIN}<span>${esc(addr)}</span>`;
-}
-
-function openImpressionModal(){
-  ensureImpressionModal();
-  setImpressionAddrChip();
-  const grouped = votesByTab();
-  const sig = JSON.stringify(grouped);
-  const overlay = document.getElementById('impression-overlay');
-  const body = document.getElementById('impression-modal-body');
-  overlay.hidden = false;
-  const fresh = imprSummaryCache && imprSummaryCache.sig === sig;
-  if(fresh){
-    body.innerHTML = renderImpressionSections(grouped, imprSummaryCache.summary)
-      + renderImpressionActions(imprSummaryCache.model, /*hasSummary=*/true);
-  } else {
-    const total = Object.values(grouped).reduce((s,t)=>s+t.happy.length+t.sad.length, 0);
-    body.innerHTML = `<div class="empty">
-        Based on <b>${total}</b> vote${total>1?'s':''}.
-        Tap <b>Generate</b> for a warm local read on this Kiez, written by the on-device model.
-      </div>
-      ${renderImpressionActions(null, /*hasSummary=*/false)}`;
-  }
-  wireImpressionActions();
-}
-function renderImpressionActions(model, hasSummary){
-  const gen = hasSummary
-    ? `<button class="pill-btn" id="impression-gen">Regenerate ✨</button>`
-    : `<button class="pill-btn pill-btn-brand" id="impression-gen">Generate ✨</button>`;
-  const save = hasSummary
-    ? `<button class="pill-btn" id="impression-save" title="Save this impression card as PNG">Save PNG ⬇</button>`
-    : '';
-  const prov = hasSummary
-    ? `<span class="prov">Composed on-device by ${esc(model||'the local model')} — nothing left this server.</span>`
-    : `<span class="prov"></span>`;
-  return `<div class="gen-cta">${prov}<div class="actions">${save}${gen}</div></div>`;
-}
-function wireImpressionActions(){
-  document.getElementById('impression-gen')?.addEventListener('click', fetchImpressionForModal);
-  document.getElementById('impression-save')?.addEventListener('click', saveImpressionAsImage);
-}
-function closeImpressionModal(){
-  const o = document.getElementById('impression-overlay');
-  if(o) o.hidden = true;
-}
-function renderImpressionSections(grouped, summary){
-  return Object.entries(grouped).map(([tab, c]) => {
-    const meta = IMPR_TAB_META[tab] || {label:tab, color:'#4F46E5'};
-    const text = (summary || {})[tab];
-    if(!text) return '';
-    const upN = c.happy.length, dnN = c.sad.length;
-    const upBits = upN ? `<span class="up">👍 ${upN} liked</span>` : '';
-    const dnBits = dnN ? `<span class="dn">👎 ${dnN} concern${dnN>1?'s':''}</span>` : '';
-    return `<div class="section">
-      <h4 style="color:${meta.color}">${esc(meta.label)}</h4>
-      <p>${esc(text)}</p>
-      <div class="votes">${upBits}${dnBits}</div>
-    </div>`;
-  }).join('');
-}
-async function fetchImpressionForModal(){
-  const grouped = votesByTab();
-  if(!Object.keys(grouped).length) return;
-  const a = eduData && eduData.address;
-  const addressStr = a ? `${a.street} ${a.hnr}, ${a.plz} ${a.district||''}`.trim() : 'this address';
-  const body = document.getElementById('impression-modal-body');
-  body.innerHTML = `<div class="impression-loading"><span class="spinner"></span> Local model composing your verdict…</div>`;
-  try {
-    const r = await fetch('/api/impression', {method:'POST', headers:{'Content-Type':'application/json'},
-                          body: JSON.stringify({address: addressStr, votes: grouped})});
-    const d = await r.json();
-    if(!r.ok){ body.innerHTML = `<div class="error">${esc(d.error||'Failed to generate summary.')}</div>`; return; }
-    imprSummaryCache = {sig: JSON.stringify(grouped), summary: d.summary, model: d.model};
-    body.innerHTML = renderImpressionSections(grouped, d.summary)
-      + renderImpressionActions(d.model, /*hasSummary=*/true);
-    wireImpressionActions();
-  } catch(e){
-    body.innerHTML = `<div class="error">Network error: ${esc(e.message)}</div>`;
-  }
-}
-$imprLaunch?.addEventListener('click', openImpressionModal);
-
-// Save the impression card as PNG. html-to-image is lazy-loaded on first use
-// (~20 KB, uses SVG foreignObject so it handles emoji surrogate pairs like
-// 👍/👎/✨ that html2canvas trips over). Try the vendored copy first so prod
-// stays self-contained; fall back to CDN if the local file is missing (e.g.
-// mid-deploy or static mount stripped). The .capturing class hides the close
-// ✕ and actions row so the snapshot shows only content + prov.
-function _loadHtmlToImage(){
-  if(window.htmlToImage) return Promise.resolve();
-  const load = (src) => new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = src; s.onload = res; s.onerror = () => rej(new Error(src));
-    document.head.appendChild(s);
-  });
-  return load('/static/html-to-image.min.js').catch(() =>
-    load('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js')
-  );
-}
-async function saveImpressionAsImage(){
-  const panel = document.querySelector('.impression-panel');
-  const btn = document.getElementById('impression-save');
-  if(!panel) return;
-  const orig = btn ? btn.textContent : '';
-  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  try {
-    await _loadHtmlToImage();
-    panel.classList.add('capturing');
-    // A short paint tick so the hide-chrome CSS lands before capture.
-    await new Promise(r => requestAnimationFrame(r));
-    const bg = getComputedStyle(document.body).getPropertyValue('--result-bg').trim() || '#EEF2FF';
-    const dataUrl = await htmlToImage.toPng(panel, {
-      backgroundColor: bg,
-      pixelRatio: 2,
-      cacheBust: true,
-    });
-    panel.classList.remove('capturing');
-    const addr = (currentAddressLabel() || 'address').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `impression-${addr || 'address'}.png`;
-    a.click();
-  } catch(e){
-    panel.classList.remove('capturing');
-    alert('Could not save image: ' + e.message);
-  } finally {
-    if(btn){ btn.disabled = false; btn.textContent = orig || 'Save PNG ⬇'; }
-  }
-}
 
 // -- Card drag-reorder ------------------------------------------------------
 // Native HTML5 DnD on .stack > .cell. Order persists per tab in localStorage
@@ -1344,7 +952,7 @@ function render(d){
     bezirk: c.district || '',
     ortsteil: ((a.raw || {}).ort_name) || '',
   };
-  const addr=`<div class="cell edu-cell addr-cell gesix-tier-${_gTier}" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span>${explainBtn('edu-address','Address',addrFields)}</div>
+  const addr=`<div class="cell edu-cell addr-cell gesix-tier-${_gTier}" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
     <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin</p>
     <div class="badges">${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}<button type="button" class="pill-btn addr-history-btn" data-hist='${esc(JSON.stringify(_histCtx))}' title="Get history in plain English">Get History</button>${_localityPill}</div>
     <div class="addr-history-body" hidden></div>
@@ -1382,7 +990,7 @@ function render(d){
       : (multi ? 'Same catchment (ESB), one of several options'
                : 'Assigned by Einschulbereich');
     return `<div class="cell edu-cell" data-edu-cat="school-${idx}">
-    <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">${esc(cellLabel)}</span>${explainBtn('edu-school',groupLabel,sf)}</div>
+    <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">${esc(cellLabel)}</span></div>
     <h3>${esc(s.name)}</h3><p class="sub">${esc((s.street||'')+' '+(s.hnr||''))}, ${esc(s.plz||'')}${distTxt}${s.website?` · <a href="${esc(s.website)}" target="_blank" rel="noopener">website</a>`:''}</p>
     <div class="badges"><span class="badge b-public">Public · öffentlich</span>${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${s.sesb_strand?`<span class="badge b-sesb">SESB · ${esc(s.sesb_strand)}</span>`:''}</div>
     <div class="prov">${rowProv} · Schuljahr ${esc(s.school_year||'')}</div>
@@ -1405,14 +1013,14 @@ function render(d){
       'Total places (capacity, not availability)': (kitaSample.props||{}).e_platz,
     } : null};
   const kita=k.count==null?'':`<div class="cell edu-cell" data-edu-cat="kita">
-    <div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span>${k.count>0?`<span class="chev">${ico.chev}</span>`:''}${explainBtn('edu-kita','Kitas · 10-min walk',kitaFields)}</div>
+    <div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Kitas · 10-min walk</span>${k.count>0?`<span class="chev">${ico.chev}</span>`:''}</div>
     <div class="metric-big"><span class="n" id="kitaN">0</span><span class="cap">registered within ~800 m</span></div>
     <div class="amen-body">
       <ul class="amen-list" style="margin-top:12px">${kitaItems}</ul>${kitaMore}
       <div class="prov">${kitaProv}Availability isn't in any open dataset — call to check spots.</div>
     </div></div>`;
   const intlFields = i ? {'Name':i.name, 'Distance':i.distance_m+' m', 'Type':'International or bilingual Grundschule'} : {};
-  const intl=i?`<div class="cell edu-cell" data-edu-cat="intl"><div class="cell-head"><div class="icon-badge">${ico.globe}</div><span class="cell-label">Nearest international / bilingual</span>${explainBtn('edu-intl','Nearest international / bilingual',intlFields)}</div>
+  const intl=i?`<div class="cell edu-cell" data-edu-cat="intl"><div class="cell-head"><div class="icon-badge">${ico.globe}</div><span class="cell-label">Nearest international / bilingual</span></div>
     <h3>${esc(i.name)}</h3><p class="sub">${(i.distance_m/1000).toFixed(1)} km · ~${walkMin(i.distance_m)} min walk${i.website?` · <a href="${esc(i.website)}" target="_blank" rel="noopener">website</a>`:''}</p></div>`:'';
   const map=`<div class="map-cell"><div class="map-hint" id="eduHint">Click a card to plot its location</div><div id="map"></div></div>`;
   $out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
@@ -1422,7 +1030,6 @@ function render(d){
   $out.querySelectorAll('.edu-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
     if(e.target.closest('.info-tip')) return;                       // tooltip toggles its own state
     if(e.target.closest('.amen-list li[data-idx]')) return;         // per-item click handled below
-    if(e.target.closest('.vote-btn')) return;                       // vote handled separately
     if(e.target.closest('.addr-history-btn')) return;               // v0.1: Get History flow
     if(e.target.closest('.addr-history-body')) return;               // v0.1: inside history panel
     selectEduCategory(cell.dataset.eduCat);
@@ -1496,7 +1103,6 @@ function render(d){
   refreshSaveBtn();            // will show "Loading data…" until amen + noise land
   fetchAmenities(a.lat,a.lon); // eager: loads in parallel with user reading Education panel
   fetchNoise(a.lat,a.lon);     // eager: single WFS call, small payload
-  refreshImpressionLaunch();   // show ✨ Impression pill if this address already has saved votes
   renderAllPanels();           // Life Mode: refresh lens view for new address data
 }
 
@@ -1528,7 +1134,7 @@ function strollerCardHtml(){
     'Inputs':'floor, lift availability, Kinderwagenraum, nearest playground distance'};
   return `<div class="cell tier-unknown" id="stroller-card" data-env-cat="stroller">
     <div class="cell-head"><div class="icon-badge">${ico.baby}</div><span class="cell-label">Stroller access</span>
-      <span class="stroller-badge tier-badge tier-unknown">Fill inputs</span>${explainBtn('env-stroller','Stroller access',strollerFields)}</div>
+      <span class="stroller-badge tier-badge tier-unknown">Fill inputs</span></div>
     <div class="stroller-form">
       <label>Floor <input id="stroller-floor" type="number" min="0" max="20" placeholder="e.g. 3"></label>
       <label>Lift? <select id="stroller-lift"><option value="">—</option><option value="yes">Yes</option><option value="no">No</option></select></label>
@@ -1565,11 +1171,11 @@ function noiseCardsHtml(n){
     'Aircraft':(n.l_den.air!=null?n.l_den.air+' dB day':'—')+' / '+(n.l_night.air!=null?n.l_night.air+' dB night':'—'),
     'Nearest façade measurement':n.distance_m+' m from your address'};
   return `
-    <div class="cell tier-${tDen}" data-env-cat="noise-den"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span>${explainBtn('env-noise-den','L_DEN · 24 h weighted',denFields)}</div>
+    <div class="cell tier-${tDen}" data-env-cat="noise-den"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">L<sub>DEN</sub> · 24 h weighted</span></div>
       <div class="metric-big"><span class="n">${den!=null?den.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tDen]}<br>WHO recommends &lt; 55 dB</span></div></div>
-    <div class="cell tier-${tNgt}" data-env-cat="noise-night"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span>${explainBtn('env-noise-night','L_Night · 22:00–06:00',ngtFields)}</div>
+    <div class="cell tier-${tNgt}" data-env-cat="noise-night"><div class="cell-head"><div class="icon-badge">${ico.moon}</div><span class="cell-label">L<sub>Night</sub> · 22:00–06:00</span></div>
       <div class="metric-big"><span class="n">${ngt!=null?ngt.toFixed(0):'—'}</span><span class="cap">dB · ${NOISE_TIER_LABEL[tNgt]}<br>WHO recommends &lt; 45 dB</span></div></div>
-    <div class="cell" data-env-cat="noise-sources"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Dominant sources at this façade</span>${explainBtn('env-noise-sources','Dominant noise sources',srcFields)}</div>
+    <div class="cell" data-env-cat="noise-sources"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Dominant sources at this façade</span></div>
       <ul class="amen-list">${srcRows}</ul>
       <p class="amen-more">Nearest façade measurement: ${n.distance_m} m from your address.</p>
       <div class="prov">${esc(n.provenance)}</div></div>`;
@@ -1592,7 +1198,7 @@ function quietZoneCardHtml(qz){
     'Distance': inside ? '0 m (inside the zone)' : `${qz.distance_m} m to nearest boundary`,
   };
   return `<div class="cell" data-env-cat="quietzone">
-    <div class="cell-head"><div class="icon-badge">${ico.quiet}</div><span class="cell-label">Quiet zone (nearest)</span>${explainBtn('env-quietzone','Quiet zone',fields)}</div>
+    <div class="cell-head"><div class="icon-badge">${ico.quiet}</div><span class="cell-label">Quiet zone (nearest)</span></div>
     <h3 style="margin:6px 0 2px">${esc(qz.name || 'Unnamed zone')}</h3>
     <p class="sub">${esc(dLabel)} · ${sizeHa} · <span style="color:var(--muted)">${esc(kind)}</span></p>
     <div class="prov">Berlin BOD · §47d BImSchG (2018 designation).</div>
@@ -1619,7 +1225,7 @@ function protectionCardHtml(pr){
       : 'Standard Berlin tenancy law applies. Neither rent-cap nor conversion protection zones cover this address.',
   };
   return `<div class="cell" data-env-cat="protection">
-    <div class="cell-head"><div class="icon-badge">${shieldSvg}</div><span class="cell-label">Neighborhood protection</span>${explainBtn('env-protection','Neighborhood protection (§172 BauGB)',fields)}</div>
+    <div class="cell-head"><div class="icon-badge">${shieldSvg}</div><span class="cell-label">Neighborhood protection</span></div>
     <div class="protect-badges">
       ${badge(m.inside, 'protect', 'Milieuschutz · Protected', 'Milieuschutz · Not in zone', m.area_name)}
       ${badge(h.inside, 'heritage', 'Heritage · Protected', 'Heritage · Not in zone', h.area_name)}
@@ -1657,7 +1263,7 @@ function streetTreesCardHtml(t){
     'Top species': topN,
   };
   return `<div class="cell" data-env-cat="trees">
-    <div class="cell-head"><div class="icon-badge">${ico.tree}</div><span class="cell-label">Street trees · ${t.radius_m} m</span>${explainBtn('env-trees','Street trees',fields)}</div>
+    <div class="cell-head"><div class="icon-badge">${ico.tree}</div><span class="cell-label">Street trees · ${t.radius_m} m</span></div>
     <div class="metric-big"><span class="n">${t.count}</span><span class="cap">trees within ${t.radius_m} m</span></div>
     <ul class="amen-list" style="margin-top:8px">
       <li><span class="nm">Age mix</span><span class="dist">${esc(fmtBands.replace(/&lt;/g,'<').replace(/&gt;/g,'>'))}</span></li>
@@ -1713,7 +1319,7 @@ function airQualityCardHtml(a){
     'Distance to segment': `${a.distance_m} m`,
   };
   return `<div class="cell tier-${tier}" data-env-cat="air">
-    <div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Air quality (NO₂ · 2020)</span>${explainBtn('env-air','Air quality (NO₂)',fields)}</div>
+    <div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Air quality (NO₂ · 2020)</span></div>
     <div class="metric-big"><span class="n">${no2}</span><span class="cap">µg/m³ · EU limit &lt; 40<br>${esc(a.street || 'nearest street')} · ${a.distance_m} m</span></div>
     <p class="amen-more" style="margin:6px 0 0">Traffic: ${traffic} vehicles/day · combined index ${idx}</p>
     <div class="prov">${esc(a.provenance)}</div>
@@ -1741,7 +1347,7 @@ function summerHeatCardHtml(h){
     'Source':      'Berlin Umweltatlas Klimabewertung 2022',
   };
   return `<div class="cell tier-${tier}" data-env-cat="heat">
-    <div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">Summer heat · PET day</span>${explainBtn('env-heat','Summer heat (PET)',fields)}</div>
+    <div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">Summer heat · PET day</span></div>
     <div class="metric-big"><span class="n" style="font-size:20px">${esc(level || '—')}</span><span class="cap">${esc(range)}<br>PET at 14:00 · residential block</span></div>
     <div class="prov">${esc(h.provenance)}</div>
   </div>`;
@@ -2487,12 +2093,10 @@ function _amenCardHtml(entry){
     return `<li data-idx="${i}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${dist}</span>${tip}</li>`;
   }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
   const more=(b.count||0)>6 && typeof b.count === 'number' ?`<p class="amen-more">+${b.count-6} more within ${rangeShort}</p>`:'';
-  const cur=getImpression(k);
-  const voteAttr=cur?` data-vote="${cur}"`:'';
   // Tile face: icon top-left, count top-right, label + range pill bottom-left
   // (mirrors Connectivity's .conn-cell shape per user request). Modal body
   // stays as .amen-body (hidden on tile face via CSS, shown in the modal).
-  return `<div class="cell amen-cell" data-cat="${k}"${voteAttr}>
+  return `<div class="cell amen-cell" data-cat="${k}">
     <div class="amen-tile-top">
       <div class="icon-badge">${icon}</div>
       <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span></div>
@@ -2528,9 +2132,8 @@ function _renderAmenPanel(tab){
   p.$el.querySelectorAll('.amen-cell').forEach(cell=>cell.addEventListener('click',(e)=>{
     if(e.target.closest('.info-tip')) return;
     if(e.target.closest('.amen-list li[data-idx]')) return;
-    if(e.target.closest('.vote-btn')) return;         // vote handled separately
     const cat=cell.dataset.cat, b=amenData[cat];
-    if(!b) return;                                  // no data yet; zero-count is OK — user still needs to vote
+    if(!b) return;                                  // no data yet; zero-count is OK
     openAmenModal(tab, cat);
     selectAmenCategory(cat);
   }));
@@ -2619,16 +2222,10 @@ function openAmenModal(tab, cat){
     return `<li data-idx="${i}" data-cat="${k}" title="Highlight on map"><span class="nm">${esc(it.name)}</span><span class="dist">${dist}</span>${tip}</li>`;
   }).join('') || `<li class="none">None within ${rangeShort}.</li>`;
   const more=(b.count||0)>25 && typeof b.count === 'number' ?`<p class="amen-more">+${b.count-25} more within ${rangeShort}</p>`:'';
-  // Compact fields payload for /api/explain — category label, count, radius,
-  // one exemplar item so the model has real names + German props to gloss.
-  const sampleItem = (b.items || [])[0];
-  const explainFields = {category: label, count: b.count, radius: rangeShort,
-    sample: sampleItem ? {name:sampleItem.name, info:sampleItem.info||null, props:sampleItem.props||null} : null};
   modal.innerHTML=`
     <button class="amen-modal-close" aria-label="Close">✕</button>
-    ${explainBtn('amen-category', label, explainFields)}
     <div class="modal-head"><div class="icon-badge">${icon}</div><h3>${label}</h3></div>
-    <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span>${voteHtml(k)}</div>
+    <div class="metric-big"><span class="n">${b.count==null?'—':b.count}</span><span class="cap">${rangeCap}</span></div>
     <div class="amen-body"><ul class="amen-list">${items}</ul>${more}
       <div class="prov">${esc(b.provenance||'© OpenStreetMap contributors (ODbL)')}</div>
     </div>`;

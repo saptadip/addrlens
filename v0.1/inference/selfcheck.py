@@ -2,11 +2,9 @@
 
 Two phases:
   1. Template selfchecks (pure, prompt-shape asserts).
-  2. Live backend load + one generation per template. Backend picked by
-     INFERENCE_BACKEND env-var — must be `mlx` on dev, `llama` on prod.
-
-Exit criterion (plan §7.8): the anti-inversion asserts on the impression
-prompt must pass under BOTH backends before Ship D prod cutover.
+  2. Live backend load + one generation on the `history` template.
+     Backend picked by INFERENCE_BACKEND env-var — must be `mlx` on
+     dev, `llama` on prod.
 """
 from __future__ import annotations
 
@@ -15,12 +13,12 @@ import subprocess
 import sys
 
 TEMPLATE_MODULES = [
-    "inference.templates.impression",
-    "inference.templates.explain",
+    "inference.templates.history",
     # Shared scaffolding for 16 tier+features insight templates. Pinned
     # here so a future edit to build_tier_messages / run_tier is caught
     # before the tile-specific selfchecks run and mask the drift.
     "inference.templates._insight_base",
+    "inference.templates.lens_newcomer_insight",
 ]
 
 # Pure `__main__` blocks that exercise the inference service's async /
@@ -40,10 +38,10 @@ def run_pure() -> None:
 
 
 def run_live() -> None:
-    """Load the configured backend and generate one impression + one explain.
-    Anti-inversion is verified on the negative-mode generation."""
-    from inference.templates import explain as explain_tpl
-    from inference.templates import impression as impression_tpl
+    """Load the configured backend and generate one `history` paragraph.
+    Confirms the local model warms + the /summarize round-trip works
+    end-to-end for at least one template."""
+    from inference.templates import history as history_tpl
 
     backend_name = os.environ.get("INFERENCE_BACKEND", "mlx")
     print(f"→ loading backend={backend_name} …", flush=True)
@@ -57,37 +55,18 @@ def run_live() -> None:
         raise SystemExit(f"unknown INFERENCE_BACKEND={backend_name!r}")
     print(f"  model={backend.model_id}")
 
-    # -- impression: negative mode, anti-inversion check ---------------------
-    print("→ impression / negative …", flush=True)
-    summary = impression_tpl.run(backend, {
-        "address": "Kastanienallee 12, 10435",
-        "votes": {
-            "amenities": {
-                "happy": [],
-                "sad": ["Supermarkets"],
-                "sad_details": {"Supermarkets": "no Rewe nearby"},
-            }
-        },
+    print("→ history / synthetic Stolperstein …", flush=True)
+    got = history_tpl.run(backend, {
+        "bezirk":   "Pankow",
+        "ortsteil": "Prenzlauer Berg",
+        "features": [
+            {"distance_m": 40, "historic": "memorial", "name": "Anna Winter",
+             "inscription": "Hier wohnte Anna Winter, Jg. 1889, deportiert 1942"},
+        ],
     })
-    text = (summary.get("amenities") or "").lower()
-    print(f"  → {summary['amenities']!r}")
-    # Anti-inversion: user said "no Rewe nearby"; model must NOT invert to
-    # "one Rewe nearby" / "Rewe is close" / similar positive spin.
-    assert "no rewe" in text or "no supermarket" in text or "no " in text, \
-        "negative-mode output should preserve the user's negation"
-    assert not any(bad in text for bad in ["rewe is close", "rewe nearby is", "one rewe"]), \
-        f"anti-inversion regression detected — text spun a complaint into a positive: {summary['amenities']!r}"
-
-    # -- explain: sentiment-neutral generation on a synthetic Kita ----------
-    print("→ explain / kita …", flush=True)
-    got = explain_tpl.run(backend, {
-        "card_type": "edu-kita",
-        "fields": {"name": "Kita Sonnenschein", "t_art": "freier Träger",
-                   "ang_1": "Situationsansatz", "e_platz": "65"},
-    })
-    print(f"  → {got['explanation']!r}")
-    assert "explanation" in got
-    assert len(got["explanation"]) > 20, "explanation should be non-trivial"
+    print(f"  → {got['history']!r}")
+    assert "history" in got
+    assert len(got["history"]) > 20, "history should be non-trivial"
 
     print("→ live selfcheck OK")
 
