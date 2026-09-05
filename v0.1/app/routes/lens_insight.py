@@ -138,14 +138,8 @@ def _shape_tile_contexts(tiles: list) -> list:
     return out
 
 
-# Rate limit sized for users hopping across all 4 lenses in a single
-# session: a full sweep is 4 generations + occasional regenerates.
-# 30/minute per IP allows a user to comfortably visit every lens and
-# still have headroom for retries; abuse is still bounded (bulk-scrape
-# a lens across 100 addresses hits the cap fast). The Cloudflare cost
-# per call is ~$0.00003 so the cap protects wall-clock, not budget.
 @router.post("/api/lens_insight")
-@limiter.limit("30/minute")
+@limiter.limit("10/minute")
 async def lens_insight(
     request: Request,
     cfg: CityConfig = Depends(get_city),
