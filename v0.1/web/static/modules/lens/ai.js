@@ -1,6 +1,6 @@
 import { _LENS_WITH_AI, _ICON_DOWNLOAD } from '../constants.js';
 import { escapeHtml } from '../dom.js';
-import { getActiveLens } from './index.js';
+import { getActiveLens } from './state.js';
 
 export function _hasLensAI(slug) { return _LENS_WITH_AI.has(slug); }
 

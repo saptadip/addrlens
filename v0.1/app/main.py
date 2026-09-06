@@ -154,6 +154,19 @@ def datenschutzerklaerung():
     return FileResponse(WEB_DIR / "datenschutzerklaerung.html", media_type="text/html; charset=utf-8")
 
 
+# ES module files under /static/modules/ must revalidate on every load.
+# Chromium's module registry keys on URL, so bumping ?v= on the app.js entry
+# does NOT force a refetch of child module imports (which are unversioned
+# relative paths). Without this header, users with a cached module from an
+# older deploy would keep it even after the entry is refetched.
+@app.middleware("http")
+async def _module_cache_headers(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/modules/") and path.endswith(".js"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
 # Static assets (app.css, app.js, future vendored bundles). Kept as a plain
 # StaticFiles mount — zero build step, browser caches these once per revision.
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")

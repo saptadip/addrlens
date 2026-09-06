@@ -1,20 +1,14 @@
 import { ico } from '../icons.js';
-import { LM_STATE_KEY, LM_ACTIVE_KEY, LIFE_MODE_LENSES,
-         LENS_TILE_EXPLANATIONS, GLOSSARY, TILE_GLOSSARY_KEYS } from '../constants.js';
+import { LM_STATE_KEY, LM_ACTIVE_KEY, LM_PULSE_MS, LM_SEEN_KEY,
+         LIFE_MODE_LENSES, LENS_TILE_EXPLANATIONS, GLOSSARY,
+         TILE_GLOSSARY_KEYS } from '../constants.js';
 import { S } from '../state.js';
 import { esc, escapeHtml, labelWithGlossHtml, toTitleCase,
          dropOrphanTooltips, _track } from '../dom.js';
 import { initLensMap, _updateLensMapPins } from '../maps.js';
 import { _hasLensAI, renderLensAIIdle, hydrateLensAIPanel } from './ai.js';
-
-export function getActiveLens() {
-  const known = new Set(LIFE_MODE_LENSES.map(l => l.slug));
-  try {
-    const saved = localStorage.getItem(LM_ACTIVE_KEY);
-    if (saved && known.has(saved)) return saved;
-  } catch (e) {}
-  return (LIFE_MODE_LENSES[0] && LIFE_MODE_LENSES[0].slug) || 'young_family';
-}
+import { getActiveLens } from './state.js';
+export { getActiveLens };
 
 export function setActiveLens(slug) {
   const known = new Set(LIFE_MODE_LENSES.map(l => l.slug));
@@ -713,10 +707,6 @@ export function setLifeMode(on) {
   }
 }
 
-// LM_PULSE_MS: auto-stop first-visit pulse after 30 s.
-const LM_PULSE_MS = 30000;
-const LM_SEEN_KEY = 'berlin-lens-mode-seen-v1';
-
 export function initLifeMode() {
   const btn = document.getElementById('life-mode-toggle');
   if (!btn) return;
@@ -748,6 +738,8 @@ export function initLifeMode() {
 }
 
 // -- Delegated lens modal handlers (idempotency-guarded) --------------------
+// ES-module dedupe already prevents double-install under normal loading; this
+// guard is belt-and-braces for a URL-diverged double-load (e.g. mismatched ?v=).
 if (!window.__lensListenersInstalled) {
   window.__lensListenersInstalled = true;
   document.addEventListener('click', (e) => {

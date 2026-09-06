@@ -27,20 +27,6 @@ export function render(d){
   const _gPlr      = (_gesix && _gesix.plr_name) || '';
   const _gRank     = (_gesix && _gesix.rang != null) ? _gesix.rang : null;
   const _gTotal    = (_gesix && _gesix.total)         ? _gesix.total : null;
-  const _gTooltip = (() => {
-    if (!_gq) return '';
-    const parts = [];
-    if (_gRank != null && _gTotal) {
-      parts.push(
-        `Rank ${_gRank} of ${_gTotal} Planungsräume citywide as per Berlin's 2022 GESIx socioeconomic band.`
-      );
-    } else {
-      parts.push(`Berlin 2022 GESIx socioeconomic band — quintile ${_gq} of 5.`);
-    }
-    if (_gPlr)   parts.push(`Planungsraum: ${_gPlr}`);
-    if (_gLabel) parts.push(`Band: ${_gLabel}`);
-    return parts.join('\n');
-  })();
   const _gRankVal = (_gRank != null && _gTotal)
     ? `${_gRank} of ${_gTotal} Planungsräume`
     : `Quintile ${_gq} of 5`;

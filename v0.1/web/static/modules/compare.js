@@ -4,6 +4,7 @@ import { S } from './state.js';
 import { esc, haversineM, toast, _track } from './dom.js';
 import { fmtDistance } from './panels/connectivity.js';
 import { noiseTierFromDen } from './panels/environment.js';
+import { amenHasErrors } from './panels/amenities.js';
 import { renderLensCompare } from './lens/index.js';
 
 export function compareLoad(){ try{ return JSON.parse(localStorage.getItem(COMPARE_KEY)||'[]'); } catch(e){ return []; } }
@@ -15,11 +16,6 @@ export function compareRefreshPill(){
   pill.hidden = list.length===0;
 }
 export function snapshotId(a){ return `${a.street}-${a.hnr}-${a.plz}`.toLowerCase().replace(/\s+/g,'-'); }
-
-function amenHasErrors(){
-  if(!S.amenData) return true;
-  return Object.values(S.amenData).some(b => b && b.error);
-}
 
 export function buildSnapshot(){
   if(!S.eduData||!S.eduData.address) return null;
