@@ -3783,7 +3783,9 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
   const dn = cfg.display_name || 'Berlin';
   document.title = 'AddrLens';
   const $bn = document.getElementById('brand-name');
-  if ($bn) $bn.textContent = 'AddrLens';
+  // Only overwrite text-content when the brand element is a text label,
+  // not when it wraps an <img> logo — otherwise this nukes the logo.
+  if ($bn && !$bn.querySelector('img')) $bn.textContent = 'AddrLens';
   const $pill = document.getElementById('open-data-pill');
   if ($pill) $pill.textContent = `Open Data · ${dn}`;
   // Modal body is now curated + grouped in index.html and covers more

@@ -44,11 +44,14 @@ a:hover::after{transform:scaleX(1);transform-origin:left}
 .page{max-width:1240px;margin:0 auto;padding:26px 22px 60px}
 header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
 .brand{display:flex;align-items:center;gap:14px}
-.logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#818CF8,#4F46E5);
-  display:grid;place-items:center;box-shadow:var(--sh-1);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
-.logo:hover{transform:rotate(-6deg) scale(1.05)}
-.logo svg{width:20px;height:20px;stroke:#fff}
-.brand-name{font-family:'Inter',sans-serif;font-weight:800;font-size:19px}
+/* AddrLens brand logo — the PNG has its own pin + "addrLens" wordmark
+   baked in, so the header shows it standalone at a size that keeps the
+   wordmark legible (~14 px cap height on the red band). */
+.logo{display:inline-flex;align-items:center;text-decoration:none;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.logo:hover{transform:rotate(-3deg) scale(1.04)}
+.logo img{height:88px;width:auto;display:block}
+.brand-name{font-family:'Inter',sans-serif;font-weight:800;font-size:19px;line-height:1.05}
 .brand-name small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
 .style-pill{padding:8px 14px;border-radius:99px;background:#EEF2FF;color:var(--brand);
   font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
