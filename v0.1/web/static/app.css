@@ -51,8 +51,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
 .logo:hover{transform:rotate(-3deg) scale(1.04)}
 .logo img{height:88px;width:auto;display:block}
-.brand-name{font-family:'Inter',sans-serif;font-weight:800;font-size:19px;line-height:1.05}
-.brand-name small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+/* Mobile: shrink the logo so it stops competing with the header pills
+   for horizontal space on narrow viewports. */
+@media (max-width:600px){.logo img{height:56px}}
 .style-pill{padding:8px 14px;border-radius:99px;background:#EEF2FF;color:var(--brand);
   font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase}
 .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
