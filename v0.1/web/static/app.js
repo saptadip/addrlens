@@ -3820,3 +3820,4 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
     });
   }
 }).catch(()=>{ /* keep Berlin defaults; harmless */ });
+
