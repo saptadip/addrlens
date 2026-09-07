@@ -163,7 +163,8 @@ def datenschutzerklaerung():
 async def _module_cache_headers(request, call_next):
     response = await call_next(request)
     path = request.url.path
-    if path.startswith("/static/modules/") and path.endswith(".js"):
+    if (path.startswith("/static/modules/") and path.endswith(".js")) \
+       or path in ("/static/app.css", "/static/app.js"):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
