@@ -1,0 +1,43 @@
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        working-directory: v0.1
+        run: uv pip install --system -e ".[dev]"
+      - name: Collect (fail-fast on import errors)
+        working-directory: v0.1
+        env:
+          CITY: berlin
+          INFERENCE_URL: http://localhost:9999
+        run: pytest --collect-only -q
+      - name: Test
+        working-directory: v0.1
+        env:
+          CITY: berlin
+          INFERENCE_URL: http://localhost:9999
+        run: pytest -v --cov=app --cov-report=term-missing --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-xml
+          path: v0.1/coverage.xml

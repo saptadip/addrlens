@@ -16,3 +16,9 @@ v0.1/logs/
 # too big for git (pbf ~95 MB) and the JSON derives deterministically.
 v0.1/data/osm/*.pbf
 v0.1/data/osm/*.json
+
+# Pytest + coverage artefacts (any subdirectory).
+.coverage
+coverage.xml
+.pytest_cache/
+htmlcov/
