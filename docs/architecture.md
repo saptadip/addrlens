@@ -6,7 +6,7 @@ The active tree is [`v0.1/`](../v0.1/). Historical prototypes at the repo root (
 
 ## Design philosophy
 
-Three constraints shape almost every architectural choice:
+The three constraints shape almost every architectural choice:
 
 1. **Free to run at Berlin-scale traffic.** ~350k Berliner addresses × ~1000 queries/day fits inside €12/month of Hetzner + a Cloudflare Free plan + a Cloudflare Workers AI free-tier quota. Nothing depends on a paid API.
 2. **Every user-visible fact must carry its licence.** Berlin Senate, VBB, BVG, OpenStreetMap — each has its own attribution rules. Provenance is not an afterthought; it's a first-class field on every JSON response.
