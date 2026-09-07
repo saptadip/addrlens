@@ -17,8 +17,8 @@ v0.1/logs/
 v0.1/data/osm/*.pbf
 v0.1/data/osm/*.json
 
-# Pytest + coverage artefacts (CI regenerates coverage.xml each run).
-v0.1/.coverage
-v0.1/coverage.xml
-v0.1/.pytest_cache/
-v0.1/htmlcov/
+# Pytest + coverage artefacts (any subdirectory).
+.coverage
+coverage.xml
+.pytest_cache/
+htmlcov/

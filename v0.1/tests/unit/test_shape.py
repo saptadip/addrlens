@@ -92,12 +92,20 @@ def test_shape_kita_shapes_bod_row():
         },
     }
     r = _shape_kita(raw, fm)
-    assert r == {
-        "name": "Kita Sonnenschein",
-        "lat": 52.5388, "lon": 13.3948, "distance_m": 180,
-        "capacity": 65, "operator_type": "freie Träger",
-        "approach": "Situationsansatz",
-    }
+    # Per-key asserts (not `assert r == {...}`) so a future additive
+    # field on _shape_kita doesn't turn this into a false-positive
+    # failure — every existing signal is still individually pinned.
+    assert r is not None
+    assert r["name"] == "Kita Sonnenschein"
+    assert r["lat"] == pytest.approx(52.5388)
+    assert r["lon"] == pytest.approx(13.3948)
+    assert r["distance_m"] == 180
+    assert r["capacity"] == 65               # stringified BOD "65" → int
+    assert r["operator_type"] == "freie Träger"
+    assert r["approach"] == "Situationsansatz"
+    # Schema-completeness spot-check: the required-field set stays present.
+    assert set(r.keys()) >= {"name", "lat", "lon", "distance_m",
+                             "capacity", "operator_type", "approach"}
 
 
 def test_shape_kita_rejects_missing_name():
@@ -120,19 +128,32 @@ def test_shape_playground_with_area_and_year():
     raw = {"name": "Marheinekeplatz, Spiel",
            "lat": 52.489, "lon": 13.396, "distance_m": 75,
            "props": {"katasterfl": 446, "sanierjahr": "2018"}}
-    assert _shape_playground(raw) == {
-        "name": "Marheinekeplatz, Spiel",
-        "lat": 52.489, "lon": 13.396, "distance_m": 75,
-        "area_m2": 446, "renovated_year": 2018,
-    }
+    r = _shape_playground(raw)
+    # Per-key asserts so an additive field on _shape_playground stays
+    # non-breaking; every existing signal is still individually pinned.
+    assert r is not None
+    assert r["name"] == "Marheinekeplatz, Spiel"
+    assert r["lat"] == pytest.approx(52.489)
+    assert r["lon"] == pytest.approx(13.396)
+    assert r["distance_m"] == 75
+    assert r["area_m2"] == 446
+    assert r["renovated_year"] == 2018       # stringified "2018" → int
+    assert set(r.keys()) >= {"name", "lat", "lon", "distance_m",
+                             "area_m2", "renovated_year"}
 
 
 def test_shape_playground_without_props_uses_bare_minimum():
     raw = {"name": "P2", "lat": 52.5, "lon": 13.4,
            "distance_m": 200, "props": {}}
-    assert _shape_playground(raw) == {
-        "name": "P2", "lat": 52.5, "lon": 13.4, "distance_m": 200,
-    }
+    r = _shape_playground(raw)
+    assert r is not None
+    assert r["name"] == "P2"
+    assert r["lat"] == pytest.approx(52.5)
+    assert r["lon"] == pytest.approx(13.4)
+    assert r["distance_m"] == 200
+    # Optional fields must be absent when the BOD props dict has neither.
+    assert "area_m2" not in r
+    assert "renovated_year" not in r
 
 
 # --- _shape_paediatric_gp -------------------------------------------
