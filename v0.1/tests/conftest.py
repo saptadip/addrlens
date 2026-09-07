@@ -18,6 +18,23 @@ os.environ.setdefault("INFERENCE_URL", "http://localhost:9999")
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Wipe slowapi's in-memory rate-limit storage between tests.
+
+    Without this, several `/api/suggest` tests in the same file bump
+    against the `5/second` per-IP limit (TestClient always uses
+    127.0.0.1). Production wants the limit; tests want deterministic
+    counts. Reset touches the module-level `limiter` object; no route
+    code path is patched.
+    """
+    from app.core.rate_limit import limiter
+    storage = getattr(limiter, "_storage", None)
+    if storage is not None and hasattr(storage, "reset"):
+        storage.reset()
+    yield
+
+
 @pytest.fixture(scope="session")
 def berlin_config():
     """Session-scoped Berlin CityConfig (frozen dataclass)."""

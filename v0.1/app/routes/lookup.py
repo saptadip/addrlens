@@ -17,6 +17,17 @@ from app.deps import get_city, get_index
 
 router = APIRouter()
 
+# Character allow-lists for public query params. Explicitly anchored
+# with ^ ... $ because Pydantic v2's `pattern` field uses the Rust
+# `regex` crate's `is_match` (substring match) — without anchors,
+# `"12<script>"` would validate on the `"12"` prefix. Empty strings
+# are accepted because the route itself decides whether missing pieces
+# are an error (see the `if addr and not (street and hnr and plz)`
+# branch below).
+_ADDR_CHARS = r"^[A-Za-zÄÖÜäöüß0-9 .,\-/]*$"
+_HNR_CHARS  = r"^[0-9A-Za-z\-/]*$"
+_PLZ_CHARS  = r"^\d*$"
+
 
 @router.get("/api/lookup")
 @limiter.limit("60/minute")
@@ -24,10 +35,11 @@ def lookup(
     request: Request,
     index: Index = Depends(get_index),
     cfg: CityConfig = Depends(get_city),
-    address: str = Query("", description="Free-text address; ignored if street/hnr/plz all given."),
-    street: str = Query(""),
-    hnr: str = Query(""),
-    plz: str = Query(""),
+    address: str = Query("", max_length=200, pattern=_ADDR_CHARS,
+                         description="Free-text address; ignored if street/hnr/plz all given."),
+    street:  str = Query("", max_length=100, pattern=_ADDR_CHARS),
+    hnr:     str = Query("", max_length=10,  pattern=_HNR_CHARS),
+    plz:     str = Query("", max_length=5,   pattern=_PLZ_CHARS),
 ):
     addr = address.strip()
     street = street.strip()

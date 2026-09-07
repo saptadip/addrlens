@@ -27,12 +27,18 @@ router = APIRouter()
 _MIN_QUERY_LEN = 2
 _MAX_LIMIT     = 10
 
+# Same allow-list as /api/lookup — Latin + German umlauts + digits +
+# address punctuation. ^ ... $ because Pydantic v2 pattern uses the
+# Rust `regex` crate's `is_match` (substring), not full match.
+_Q_CHARS = r"^[A-Za-zÄÖÜäöüß0-9 .,\-/]*$"
+
 
 @router.get("/api/suggest")
 @limiter.limit("5/second")
 def suggest(
     request: Request,
-    q: str = Query("", description="Partial address, at least 2 characters."),
+    q: str = Query("", max_length=100, pattern=_Q_CHARS,
+                   description="Partial address, at least 2 characters."),
     limit: int = Query(8, ge=1, le=_MAX_LIMIT),
     index=Depends(get_index),
 ):

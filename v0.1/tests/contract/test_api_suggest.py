@@ -77,3 +77,27 @@ def test_suggest_no_match_returns_empty_hits(client, fake_index):
     fake_index.address_index = _build_addr_index()
     body = client.get("/api/suggest", params={"q": "zzz"}).json()
     assert body == {"hits": []}
+
+
+# --- Input-validation contract (see app/routes/suggest.py Query pattern) ---
+
+
+def test_suggest_rejects_oversized_q(client, fake_index):
+    """`q` is capped at max_length=100."""
+    fake_index.address_index = _build_addr_index()
+    r = client.get("/api/suggest", params={"q": "K" * 200})
+    assert r.status_code == 422
+
+
+def test_suggest_rejects_disallowed_chars_in_q(client, fake_index):
+    """Allow-list bans < > and other XSS-y punctuation."""
+    fake_index.address_index = _build_addr_index()
+    r = client.get("/api/suggest", params={"q": "Kast<script>"})
+    assert r.status_code == 422
+
+
+def test_suggest_accepts_german_umlauts_and_eszett(client, fake_index):
+    """Bergmannstraße / Konrad-Wolf-Straße must not 422."""
+    fake_index.address_index = _build_addr_index()
+    r = client.get("/api/suggest", params={"q": "Bergmannstraße"})
+    assert r.status_code == 200
