@@ -1,5 +1,8 @@
 <!-- README.md — repo root. -->
 
+[![tests](https://github.com/saptadip/addrlens/actions/workflows/test.yml/badge.svg)](https://github.com/saptadip/addrlens/actions/workflows/test.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 <div align="center">
 
 # AddrLens
