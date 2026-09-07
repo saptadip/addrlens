@@ -27,10 +27,10 @@ router = APIRouter()
 _MIN_QUERY_LEN = 2
 _MAX_LIMIT     = 10
 
-# Same allow-list as /api/lookup — Latin + German umlauts + digits +
-# address punctuation. ^ ... $ because Pydantic v2 pattern uses the
-# Rust `regex` crate's `is_match` (substring), not full match.
-_Q_CHARS = r"^[A-Za-zÄÖÜäöüß0-9 .,\-/]*$"
+# Same allow-list as /api/lookup — see the long comment there for the
+# `\p{L}\p{M}` rationale (real Berlin street names contain é, è, á,
+# and Turkish / Polish diacritics from migrant-owned POIs).
+_Q_CHARS = r"^[\p{L}\p{M}0-9 .,\-/'()&]*$"
 
 
 @router.get("/api/suggest")

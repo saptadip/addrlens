@@ -27,11 +27,21 @@ def _reset_rate_limiter():
     127.0.0.1). Production wants the limit; tests want deterministic
     counts. Reset touches the module-level `limiter` object; no route
     code path is patched.
+
+    Guarded against a future prod switch to `RedisStorage` — the
+    assertion below turns the fixture into a loud failure rather than
+    silently wiping a live Redis if the test env is ever pointed at a
+    real backing store.
     """
+    from limits.storage.memory import MemoryStorage
     from app.core.rate_limit import limiter
     storage = getattr(limiter, "_storage", None)
-    if storage is not None and hasattr(storage, "reset"):
-        storage.reset()
+    assert isinstance(storage, MemoryStorage), (
+        "Rate-limit reset fixture is only safe against MemoryStorage. "
+        "If production has been switched to RedisStorage, this fixture "
+        "must be gated on an env var or removed."
+    )
+    storage.reset()
     yield
 
 

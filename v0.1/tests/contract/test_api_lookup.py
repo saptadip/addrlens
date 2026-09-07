@@ -71,6 +71,52 @@ def test_lookup_accepts_german_umlauts_and_eszett(client):
     assert r.status_code != 422, r.text
 
 
+def test_lookup_accepts_accented_place_names(client):
+    """Real Berlin streets carry French / Spanish / Portuguese diacritics.
+
+    Regression for the allow-list being too narrow: the initial version
+    of `_ADDR_CHARS` accepted only ÄÖÜäöüß and rejected e.g.
+    Renée-Sintenis-Platz (é), Courbièreplatz (è), Garbátyplatz (á),
+    Léon-Jouhaux-Straße. Verified in v0.1/data/osm/berlin-amenities.json.
+    """
+    for street in (
+        "Renée-Sintenis-Platz 1, 13187",
+        "Courbièreplatz 2, 10787",
+        "Léon-Jouhaux-Straße 5, 12681",
+    ):
+        r = client.get("/api/lookup", params={"address": street})
+        assert r.status_code != 422, f"{street} was rejected: {r.text}"
+
+
+def test_lookup_rejects_newline_and_null_injection(client):
+    """`\\n \\r \\0` must never reach the geocoder or the log line.
+
+    Rust regex `^…$` rejects trailing newlines out of the box — a
+    future rewrite that swaps to Python `re` in non-MULTILINE mode
+    would silently regress this because Python `$` also matches
+    immediately before a trailing `\\n`.
+    """
+    for suffix in ("\n", "\r", "\r\n", "\x00"):
+        r = client.get("/api/lookup",
+                       params={"address": "Kastanienallee 12" + suffix})
+        assert r.status_code == 422, f"suffix {suffix!r} slipped through"
+
+
+def test_lookup_accepts_hnr_with_space(client):
+    """BOD returns some house numbers as `12 A` (with space)."""
+    r = client.get("/api/lookup",
+                   params={"street": "Wilmersdorfer Straße",
+                           "hnr": "12 A", "plz": "10627"})
+    assert r.status_code != 422, r.text
+
+
+def test_lookup_rejects_short_plz(client):
+    """PLZ must be exactly 5 digits (or empty). `1043` → 422."""
+    r = client.get("/api/lookup",
+                   params={"street": "Kastanienallee", "hnr": "12", "plz": "1043"})
+    assert r.status_code == 422
+
+
 def test_lookup_rejects_hnr_over_10_chars(client):
     r = client.get("/api/lookup",
                    params={"street": "Kastanienallee", "hnr": "1" * 20, "plz": "10435"})

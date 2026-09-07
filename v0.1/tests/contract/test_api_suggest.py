@@ -101,3 +101,14 @@ def test_suggest_accepts_german_umlauts_and_eszett(client, fake_index):
     fake_index.address_index = _build_addr_index()
     r = client.get("/api/suggest", params={"q": "Bergmannstraße"})
     assert r.status_code == 200
+
+
+def test_suggest_accepts_accented_place_names(client, fake_index):
+    """Same allow-list as /api/lookup — must handle Renée / Courbière / Léon.
+
+    See the analogous test in test_api_lookup.py for context.
+    """
+    fake_index.address_index = _build_addr_index()
+    for prefix in ("Renée", "Courbière", "Léon", "Garbáty"):
+        r = client.get("/api/suggest", params={"q": prefix})
+        assert r.status_code == 200, f"{prefix!r} was rejected: {r.text}"
