@@ -13,7 +13,7 @@
   --neumo-bg:#DDE5F1; --neumo-sh-light:rgba(255,255,255,.9); --neumo-sh-dark:rgba(148,163,192,.55)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}   /* HTML spec intent — beats class-based display rules */
-html,body{margin:0;background:var(--bg);color:var(--ink);
+html,body{margin:0;background:var(--bg);color:var(--ink);overflow-x:hidden;
   font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh;
   /* Inter looks best with contextual alternates + case-sensitive forms.
      `cv11` unlocks the single-storey a which reads warmer at UI sizes. */
@@ -204,9 +204,15 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .chip:active{transform:translateY(0) scale(.95)}
 
 /* --- tabs (neumorphic segmented control — recessed groove, extruded active pill) */
+/* On narrow viewports the 6 category tabs exceed viewport width; contain the
+   overflow to the .tabs-row wrapper so users can swipe the row horizontally
+   without the whole page scrolling. */
+.tabs-row{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
+.tabs-row::-webkit-scrollbar{display:none}
 .tabs{display:inline-flex;gap:4px;padding:6px;background:var(--neumo-bg);border:none;
   border-radius:14px;margin:22px 0 0;
   box-shadow:inset 3px 3px 7px var(--neumo-sh-dark),inset -3px -3px 7px var(--neumo-sh-light)}
+@media(max-width:600px){.tab{padding:9px 12px;font-size:13px}.tab svg{width:14px;height:14px}}
 .tab{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:0;background:transparent;
   border-radius:10px;font:inherit;font-weight:600;font-size:14px;color:var(--ink-2);cursor:pointer;
   transition:box-shadow .2s,color .18s,transform .12s}
@@ -777,7 +783,14 @@ body.life-mode #panel-others{ display:none !important; }
   gap:16px;
   margin:22px 0 14px 0;
   flex-wrap:wrap;
+  min-width:0;
+  max-width:100%;
 }
+/* Contain lens-picker horizontal overflow on narrow viewports so users can
+   swipe the row without the whole page scrolling. Same pattern as .tabs-row. */
+.lens-picker-row > *:first-child{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;max-width:100%}
+.lens-picker-row > *:first-child::-webkit-scrollbar{display:none}
+@media(max-width:600px){.lens-picker .lens-tab{padding:9px 12px;font-size:13px}.lens-picker .lens-tab svg{width:14px;height:14px}}
 .lens-audience{
   margin:0;
   color:var(--muted, #667);
