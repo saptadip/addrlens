@@ -17,6 +17,29 @@ from app.deps import get_city, get_index
 
 router = APIRouter()
 
+# Character allow-lists for public query params. Explicitly anchored
+# with ^ ... $ because Pydantic v2's `pattern` field uses the Rust
+# `regex` crate's `is_match` (substring match) — without anchors,
+# `"12<script>"` would validate on the `"12"` prefix. Rust `$` matches
+# true end-of-input (unlike Python `re` in non-MULTILINE mode where it
+# also matches before a trailing `\n`), so `\n \r \0` injections are
+# rejected without any additional anchor.
+#
+# The letter class uses `\p{L}` + `\p{M}` (letter + combining mark)
+# rather than an enumerated ASCII range so Berlin street names
+# containing é (Renée-Sintenis-Platz), è (Courbièreplatz),
+# á (Garbátyplatz), Turkish Ş / İ, Polish Ś Ł Ć, and every other
+# real-world diacritic are all accepted. The XSS-adjacent chars
+# (`< > " \ | ; : @ #`) are still blocked because they are not letters,
+# not digits, and not in the small punctuation set below.
+#
+# Empty strings are accepted because the route itself decides whether
+# missing pieces are an error (see the `if addr and not (street and hnr
+# and plz)` branch below).
+_ADDR_CHARS = r"^[\p{L}\p{M}0-9 .,\-/'()&]*$"
+_HNR_CHARS  = r"^[0-9\p{L}\-/ ]*$"
+_PLZ_CHARS  = r"^(\d{5})?$"
+
 
 @router.get("/api/lookup")
 @limiter.limit("60/minute")
@@ -24,10 +47,11 @@ def lookup(
     request: Request,
     index: Index = Depends(get_index),
     cfg: CityConfig = Depends(get_city),
-    address: str = Query("", description="Free-text address; ignored if street/hnr/plz all given."),
-    street: str = Query(""),
-    hnr: str = Query(""),
-    plz: str = Query(""),
+    address: str = Query("", max_length=200, pattern=_ADDR_CHARS,
+                         description="Free-text address; ignored if street/hnr/plz all given."),
+    street:  str = Query("", max_length=100, pattern=_ADDR_CHARS),
+    hnr:     str = Query("", max_length=10,  pattern=_HNR_CHARS),
+    plz:     str = Query("", max_length=5,   pattern=_PLZ_CHARS),
 ):
     addr = address.strip()
     street = street.strip()

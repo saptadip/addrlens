@@ -27,12 +27,18 @@ router = APIRouter()
 _MIN_QUERY_LEN = 2
 _MAX_LIMIT     = 10
 
+# Same allow-list as /api/lookup — see the long comment there for the
+# `\p{L}\p{M}` rationale (real Berlin street names contain é, è, á,
+# and Turkish / Polish diacritics from migrant-owned POIs).
+_Q_CHARS = r"^[\p{L}\p{M}0-9 .,\-/'()&]*$"
+
 
 @router.get("/api/suggest")
 @limiter.limit("5/second")
 def suggest(
     request: Request,
-    q: str = Query("", description="Partial address, at least 2 characters."),
+    q: str = Query("", max_length=100, pattern=_Q_CHARS,
+                   description="Partial address, at least 2 characters."),
     limit: int = Query(8, ge=1, le=_MAX_LIMIT),
     index=Depends(get_index),
 ):
