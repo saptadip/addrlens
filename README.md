@@ -36,7 +36,23 @@ Each lens ships an **AI Insight** panel — the model turns per-lens determinist
 
 ## Screenshots
 
-*(Add screenshots at `docs/img/hero.png` and reference them here before the OSS launch. Placeholder while the images are being cut.)*
+![AddrLens hero — Berlin address, one search box, sweeping scanner](docs/img/hero.png)
+
+| Life Lens: Young Family | AI Insight |
+|---|---|
+| ![Young Family lens — 10-tile grid with tier chips + Leaflet map](docs/img/lens-young-family.png) | ![Per-lens AI panel — Cloudflare Workers AI summary + fit gauge](docs/img/lens-insight.png) |
+
+| Life Lens compare (tier chips) | Raw compare (full dataset) |
+|---|---|
+| ![Two addresses side-by-side with Young Family tier chips](docs/img/compare.png) | ![Full two-column dataset comparison — schools, transit, noise, medical, connectivity](docs/img/compare-raw.png) |
+
+![Mobile responsive view — Young Family lens on iPhone-size viewport](docs/img/mobile.png)
+
+<details>
+<summary>Full attribution — 20+ open datasets, per-dataset licence tags</summary>
+
+![Attribution & licences modal](docs/img/attribution.png)
+</details>
 
 ## Data sources & licences
 
