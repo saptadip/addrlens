@@ -2,7 +2,7 @@
 
 This document explains how AddrLens is put together at the level a reviewer, contributor, or new operator needs to onboard in twenty minutes. It's paired with the [Hetzner deploy playbook](../v0.1/docs/hetzner-deploy.md) — one reads at the *what/why* level, the other at the *what commands do I run* level.
 
-The active tree is [`v0.1/`](../v0.1/). Historical prototypes at the repo root (`phase0/`–`phase3/`, `micro-service/`) are preserved as-shipped; nothing new lands in them.
+The active tree is [`v0.1/`](../v0.1/). Historical prototypes (`phase0/`–`phase3/`) live under [`history/prototypes/`](history/prototypes/) for lineage; nothing new lands in them.
 
 ## Design philosophy
 
@@ -231,8 +231,8 @@ Belt-and-suspenders — three enforcement points:
 
 ## References
 
-- [Product doc §14 (engineering conventions)](../berlin-family-address-intelligence-product-doc.md) — coding standards
+- [Product doc §14 (engineering conventions)](product/product-brief.md) — coding standards
 - [Hetzner deploy playbook](../v0.1/docs/hetzner-deploy.md) — operator runbook
-- [Cloudflare WAF setup](../micro-service/docs/cloudflare-waf-setup.md) — free-tier edge rules
+- [Cloudflare WAF setup](../v0.1/docs/cloudflare-waf-setup.md) — free-tier edge rules
 - [Social embed image playbook](../v0.1/docs/social-embed-og-image.md) — post-launch polish
 - [Datenschutzerklärung](../legal/datenschutzerklaerung.md) — every third-party processor named + legal basis

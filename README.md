@@ -61,7 +61,7 @@ Every card in the product surfaces its dataset name and licence tag. The full at
 
 ## Repository layout
 
-The active tree is [`v0.1/`](v0.1/). Historical prototypes (`phase0/`, `phase1/`, `phase2/`, `phase3/`) and an earlier attempted micro-service refactor (`micro-service/`) are preserved as-shipped for reference but are no longer under development.
+The active tree is [`v0.1/`](v0.1/). Historical prototypes (`phase0/`–`phase3/`) are archived under [`docs/history/prototypes/`](docs/history/prototypes/) for lineage — many `v0.1/app/core/*` modules are ports of `phase3/server.py` and cite it in their comments.
 
 | Directory | Purpose |
 |---|---|
@@ -135,7 +135,7 @@ See [`v0.1/docs/hetzner-deploy.md`](v0.1/docs/hetzner-deploy.md) for the full pl
 Related runbooks:
 
 - [`v0.1/docs/social-embed-og-image.md`](v0.1/docs/social-embed-og-image.md) — social preview cards
-- [`micro-service/docs/cloudflare-waf-setup.md`](micro-service/docs/cloudflare-waf-setup.md) — free-tier WAF rules
+- [`v0.1/docs/cloudflare-waf-setup.md`](v0.1/docs/cloudflare-waf-setup.md) — free-tier WAF rules
 
 ## Roadmap
 

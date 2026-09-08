@@ -52,7 +52,7 @@ If the timeline slips, you will hear from me before the deadline passes.
 - Third-party services AddrLens depends on — Berlin Geoportal WFS endpoints, OpenStreetMap Overpass, Cloudflare (CDN, Tunnel, Workers AI), Hetzner, Sentry, Umami hosting infrastructure. Report those to the respective vendors.
 - Vulnerabilities that require compromised user devices, phishing, physical access, or social engineering of the maintainer.
 - Denial-of-service against the free public deployment. The per-IP rate limiter in `v0.1/app/core/rate_limit.py` is the intended protection layer; please do not run load tests against the live site without prior arrangement.
-- The frozen `micro-service/`, `phase0/`, `phase1/`, `phase2/`, `phase3/` trees — these are historical reference artefacts and do not run in production.
+- The archived prototype trees at [`docs/history/prototypes/`](docs/history/prototypes/) (`phase0/`–`phase3/`) — historical reference artefacts, not deployed.
 - Findings on `.local`, `localhost`, or personal fork deployments unless they are reproducible on `addrlens.de`.
 
 ## Safe harbour

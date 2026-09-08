@@ -1,8 +1,8 @@
 # Per-city app image. Target size ~200 MB (plan §7.1).
 # NO model weights, NO mlx-lm / llama.cpp — those live in ops/Dockerfile.inference.
 #
-# Build context = repo root (micro-service/). Build:
-#   docker build -f ops/Dockerfile.app -t addrlens-app .
+# Build context = v0.1/. Build from repo root:
+#   docker build -f v0.1/ops/Dockerfile.app -t addrlens-app v0.1
 
 FROM python:3.11-slim AS base
 
