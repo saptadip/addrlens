@@ -162,7 +162,7 @@ From Phase 3 on, the app carries a small locally-hosted LLM (baseline: Qwen2.5-1
 - The target audience is English-speaking expat families landing in a German administrative system. Their #1 pain point is *interpretation* — what "freier Träger" means, what an Einschulbereich implies for enrolment, how SESB really works — not data lookup. This is the friction a language model reduces natively and a rules engine cannot.
 - The interpretive layer sits **on top of** the rules engine, never as a substitute for it. Every prompt is grounded in facts the deterministic pipeline already computed. The LLM's job is prose over those facts; it never generates data. This bounds hallucination cost.
 - Inference runs on infrastructure we control (own hardware or an EU-based node). **No third-party AI provider is involved.** This preserves the app's data-minimisation posture (see §5.3 and §7 GDPR row) and matches the "open data only, no scraping" ethos — the AI story stays consistent with the data story.
-- Deployment shape is a **shared inference service** (see `microservice-refactor-plan.md` §7): one inference cluster serves every city instance over HTTP; the model is never baked into per-city app images.
+- Deployment shape is a **shared inference service** (see [`../history/microservice-refactor-plan.md`](../history/microservice-refactor-plan.md) §7): one inference cluster serves every city instance over HTTP; the model is never baked into per-city app images.
 
 Scope discipline: every LLM-backed feature must answer *"what would this look like without the LLM, and is that acceptable?"* If a templated version is 80% as good, the templated version ships. The LLM is reserved for the 20% where synthesis, translation, or narrative earns its keep. Concrete first candidates: kita / SESB / bureaucracy translator (§5.5 extended), comparison-board verdict (§5.1), and a per-address impression summary based on user votes.
 
@@ -501,7 +501,7 @@ Phase 3 introduces a locally-hosted LLM (§5.6) and formally evolves — not del
 - **Graceful degradation.** LLM endpoint failures (model not loaded, timeout, OOM) return `503` with a plain-English error. The rest of the app is completely unaffected. Never block the map on the LLM.
 - **Frontend-side.** No streaming UI for the current baseline model — call, wait ~1–2 s, render the result in one shot. Add streaming only if a real UX complaint surfaces.
 
-**Microservice topology (production shape).** From Phase 3's monolithic server, the LLM later factors out into a **shared inference service** — one inference cluster serving every city instance over HTTP. See `microservice-refactor-plan.md` §7. The model is never baked into per-city app images. Any future ship that proposes doing so must first revisit refactor-plan §7.1.
+**Microservice topology (production shape).** From Phase 3's monolithic server, the LLM later factors out into a **shared inference service** — one inference cluster serving every city instance over HTTP. See [`../history/microservice-refactor-plan.md`](../history/microservice-refactor-plan.md) §7. The model is never baked into per-city app images. Any future ship that proposes doing so must first revisit refactor-plan §7.1.
 
 **Scope test.** Every proposed LLM-backed feature must answer: *"what would this look like without the LLM, and is that acceptable?"* If a templated version is 80% as good, the templated version ships. Reserve the LLM for the 20% where synthesis, translation, or narrative genuinely earns its keep.
 

@@ -16,7 +16,7 @@ Please open an Issue and let's talk before writing the code, otherwise the PR ma
 
 - **New lenses** (a lens is a curated tile bundle for a specific life situation — Student, Senior, etc.). Adding one touches the scorer, city config, inference templates, frontend picker, and tests. Design first.
 - **New cities.** The architecture supports it (each city is a `CityConfig` in `app/cities/<slug>.py`) but each additional city needs data-source research, glossary translation, and boot-time WFS discovery.
-- **Any change to `provenance` payloads.** Every response carries dataset attributions; changes must keep licence tags visible per §14 of the [product doc](berlin-family-address-intelligence-product-doc.md).
+- **Any change to `provenance` payloads.** Every response carries dataset attributions; changes must keep licence tags visible per §14 of the [product doc](docs/product/product-brief.md).
 - **Breaking changes to the JSON API** at `/api/lookup`, `/api/history`, `/api/card_insight`.
 
 ## Development setup

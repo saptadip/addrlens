@@ -22,3 +22,4 @@ v0.1/data/osm/*.json
 coverage.xml
 .pytest_cache/
 htmlcov/
+micro-service/

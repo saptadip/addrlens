@@ -39,7 +39,7 @@ First public build. Everything below is what a Berlin address lookup gets on day
 ### Deploy + operations
 
 - **Deployed on Hetzner CX22** (Debian 13, Falkenstein DE) behind a **Cloudflare Tunnel** — origin never exposed to the public internet.
-- **Free-tier Cloudflare WAF** — 5 custom rules covering health-probe skip, empty-UA block, country-of-origin friction, and reserved incident slot. Playbook at [`micro-service/docs/cloudflare-waf-setup.md`](micro-service/docs/cloudflare-waf-setup.md).
+- **Free-tier Cloudflare WAF** — 5 custom rules covering health-probe skip, empty-UA block, country-of-origin friction, and reserved incident slot. Playbook at [`v0.1/docs/cloudflare-waf-setup.md`](v0.1/docs/cloudflare-waf-setup.md).
 - **Free-tier Cloudflare Rate Limiting Rule** on `/api/history` — 5 requests / 10 seconds per IP, Block action.
 - **Application-level rate limiting** via `slowapi`, keyed on `CF-Connecting-IP`: 60/min on `/api/lookup`, 10/min on `/api/history`, 30/min on `/api/card_insight`, 5/second on `/api/suggest`.
 - **Weekly OSM refresh** via systemd timer (Sunday 03:00) — one osmium pass writes both `berlin-amenities.json` and `berlin-addresses.json` atomically.
@@ -100,4 +100,4 @@ Prep work landed before the public launch — not tagged for release but relevan
 
 ## Notes on versioning
 
-The repo also carries `phase0/`, `phase1/`, `phase2/`, `phase3/`, and `micro-service/` directories from earlier design iterations. These are preserved as-shipped for reference; nothing new lands in them. All active development happens in [`v0.1/`](v0.1/).
+The four historical prototype iterations (`phase0/`–`phase3/`) live under [`docs/history/prototypes/`](docs/history/prototypes/) — preserved as-shipped for reference. All active development happens in [`v0.1/`](v0.1/). The earlier `micro-service/` refactor tree was removed once its behavioural ports into `v0.1/app/core/*` were verified.
