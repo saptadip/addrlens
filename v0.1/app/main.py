@@ -168,6 +168,102 @@ async def _module_cache_headers(request, call_next):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 
+
+# -- Security headers -------------------------------------------------------
+# CSP + baseline hardening on every response. HSTS is delegated to
+# Cloudflare (which fronts every request via the Tunnel); adding it here
+# would double-set the header at the edge.
+#
+# CSP allow-list rationale:
+# - script-src         : own origin + unpkg (Leaflet JS) + Umami origin if
+#                        UMAMI_SCRIPT_URL is set. Neither the SPA nor the
+#                        injected Umami tag uses inline scripts; no
+#                        `'unsafe-inline'`.
+# - style-src          : own origin + Google Fonts + unpkg (Leaflet CSS).
+#                        `'unsafe-inline'` is required by three surfaces
+#                        that legitimately produce inline styles:
+#                          (a) Leaflet writes `element.style.*` at runtime
+#                              for tile / marker positioning.
+#                          (b) v0.1/web/impressum.html + datenschutz-
+#                              erklaerung.html each carry a small
+#                              `<style>` block for legal-page layout.
+#                          (c) The SPA generates `style="..."` attributes
+#                              inside innerHTML strings in ~30 sites
+#                              across modules/panels/**.
+#                        CSP L3 `style-src-attr` alone would not cover
+#                        (b) or Safari's older CSP L2; a single
+#                        `'unsafe-inline'` on `style-src` is the
+#                        pragmatic covering set.
+# - font-src           : own origin + Google Fonts static (woff2).
+# - img-src            : own origin + `data:` (belt-and-braces for future
+#                        CSS `background-image: url(data:...)` or inline
+#                        SVG — SPA currently uses divIcon markers so
+#                        default Leaflet marker PNGs are not fetched)
+#                        + OSM tile servers. CARTO / other basemaps not in
+#                        use in v0.1.
+# - connect-src        : own origin + Umami collect endpoint if set.
+# - frame-ancestors    : `'none'` (anti-clickjack; supersedes
+#                        X-Frame-Options but we still set XFO below for
+#                        very old browsers).
+# - base-uri, form-action, object-src : tightened to defaults per
+#                        OWASP Secure Headers baseline.
+from urllib.parse import urlparse
+
+def _umami_origin() -> str:
+    """Extract scheme://host[:port] from UMAMI_SCRIPT_URL for CSP.
+
+    Preserves port because CSP source-list matching is port-sensitive:
+    `https://host` only matches port 443, and Umami on a non-default
+    port (e.g. self-hosted at :8443) would be blocked otherwise.
+    IPv6 hostnames are bracketed per RFC 3986.
+    """
+    if not _UMAMI_SCRIPT_URL:
+        return ""
+    p = urlparse(_UMAMI_SCRIPT_URL)
+    if not (p.scheme and p.hostname):
+        return ""
+    host = f"[{p.hostname}]" if ":" in p.hostname else p.hostname
+    port = f":{p.port}" if p.port else ""
+    return f"{p.scheme}://{host}{port}"
+
+_UMAMI_ORIGIN = _umami_origin()
+
+_SCRIPT_SRC  = " ".join(x for x in ["'self'", "https://unpkg.com", _UMAMI_ORIGIN] if x)
+_STYLE_SRC   = " ".join(["'self'", "'unsafe-inline'",
+                         "https://fonts.googleapis.com", "https://unpkg.com"])
+_FONT_SRC    = " ".join(["'self'", "https://fonts.gstatic.com"])
+_IMG_SRC     = " ".join(["'self'", "data:", "https://*.tile.openstreetmap.org"])
+_CONNECT_SRC = " ".join(x for x in ["'self'", _UMAMI_ORIGIN] if x)
+
+_CSP = "; ".join([
+    "default-src 'self'",
+    f"script-src {_SCRIPT_SRC}",
+    f"style-src {_STYLE_SRC}",
+    f"font-src {_FONT_SRC}",
+    f"img-src {_IMG_SRC}",
+    f"connect-src {_CONNECT_SRC}",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+])
+
+@app.middleware("http")
+async def _security_headers(request, call_next):
+    response = await call_next(request)
+    # Content-agnostic headers on every response.
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["X-Frame-Options"] = "DENY"
+    # CSP applies to browser-rendered HTML only. JSON API responses don't
+    # need it (browsers don't render them as documents) and adding it just
+    # bloats every /api/* response.
+    content_type = response.headers.get("content-type", "")
+    if content_type.startswith("text/html"):
+        response.headers["Content-Security-Policy"] = _CSP
+    return response
+
 # Static assets (app.css, app.js, future vendored bundles). Kept as a plain
 # StaticFiles mount — zero build step, browser caches these once per revision.
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
