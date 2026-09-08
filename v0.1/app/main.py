@@ -180,13 +180,25 @@ async def _module_cache_headers(request, call_next):
 #                        injected Umami tag uses inline scripts; no
 #                        `'unsafe-inline'`.
 # - style-src          : own origin + Google Fonts + unpkg (Leaflet CSS).
-#                        `'unsafe-inline'` is unavoidable because Leaflet
-#                        writes `element.style.*` at runtime for tile /
-#                        marker positioning; without it every map panel
-#                        breaks. The SPA itself has zero `<style>` blocks
-#                        and zero `style=""` attributes (verified).
+#                        `'unsafe-inline'` is required by three surfaces
+#                        that legitimately produce inline styles:
+#                          (a) Leaflet writes `element.style.*` at runtime
+#                              for tile / marker positioning.
+#                          (b) v0.1/web/impressum.html + datenschutz-
+#                              erklaerung.html each carry a small
+#                              `<style>` block for legal-page layout.
+#                          (c) The SPA generates `style="..."` attributes
+#                              inside innerHTML strings in ~30 sites
+#                              across modules/panels/**.
+#                        CSP L3 `style-src-attr` alone would not cover
+#                        (b) or Safari's older CSP L2; a single
+#                        `'unsafe-inline'` on `style-src` is the
+#                        pragmatic covering set.
 # - font-src           : own origin + Google Fonts static (woff2).
-# - img-src            : own origin + `data:` (Leaflet marker shadow SVGs)
+# - img-src            : own origin + `data:` (belt-and-braces for future
+#                        CSS `background-image: url(data:...)` or inline
+#                        SVG — SPA currently uses divIcon markers so
+#                        default Leaflet marker PNGs are not fetched)
 #                        + OSM tile servers. CARTO / other basemaps not in
 #                        use in v0.1.
 # - connect-src        : own origin + Umami collect endpoint if set.
@@ -198,12 +210,21 @@ async def _module_cache_headers(request, call_next):
 from urllib.parse import urlparse
 
 def _umami_origin() -> str:
+    """Extract scheme://host[:port] from UMAMI_SCRIPT_URL for CSP.
+
+    Preserves port because CSP source-list matching is port-sensitive:
+    `https://host` only matches port 443, and Umami on a non-default
+    port (e.g. self-hosted at :8443) would be blocked otherwise.
+    IPv6 hostnames are bracketed per RFC 3986.
+    """
     if not _UMAMI_SCRIPT_URL:
         return ""
     p = urlparse(_UMAMI_SCRIPT_URL)
     if not (p.scheme and p.hostname):
         return ""
-    return f"{p.scheme}://{p.hostname}"
+    host = f"[{p.hostname}]" if ":" in p.hostname else p.hostname
+    port = f":{p.port}" if p.port else ""
+    return f"{p.scheme}://{host}{port}"
 
 _UMAMI_ORIGIN = _umami_origin()
 

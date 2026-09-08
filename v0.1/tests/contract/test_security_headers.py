@@ -37,6 +37,20 @@ def test_api_lookup_has_baseline_headers(client):
     _assert_baseline_security_headers(r)
 
 
+def test_impressum_has_baseline_headers_and_csp(client):
+    """Legal page is served via FileResponse — must still get CSP."""
+    r = client.get("/impressum")
+    _assert_baseline_security_headers(r)
+    assert "Content-Security-Policy" in r.headers
+
+
+def test_datenschutz_has_baseline_headers_and_csp(client):
+    """Datenschutzerklärung is served via FileResponse — must still get CSP."""
+    r = client.get("/datenschutzerklaerung")
+    _assert_baseline_security_headers(r)
+    assert "Content-Security-Policy" in r.headers
+
+
 # --- CSP on HTML only ------------------------------------------------------
 
 def test_html_root_has_csp_header(client):
