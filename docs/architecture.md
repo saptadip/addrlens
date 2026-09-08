@@ -107,9 +107,9 @@ The core endpoint. What happens on the hot path:
 
 All eight preloaded layers plus the LLM live in-process. Boot cost: ~5-15 s (dominated by cold WFS calls to `gdi.berlin.de`). `/ready` returns 503 during that window so an orchestrator won't send traffic to a cold container.
 
-## Request flow: `/api/history` — the LLM path
+## Request flow: `/api/history` + `/api/lens_insight` — the LLM path
 
-`/api/history` is the only endpoint that routes to Cloudflare Workers AI. Every other LLM call (`/api/card_insight`, `/api/explain`, `/api/impression`) stays on the local llama.cpp inference.
+Both LLM routes call **Cloudflare Workers AI** in prod (`INFERENCE_LOCAL_BACKEND=off` on the prod inference container). Local dev falls back to `mlx-lm` (Apple Silicon) or `llama-cpp-python` (Linux) when a local backend is loaded via `INFERENCE_BACKEND`. The retired per-tile `/api/card_insight` was replaced by a single `/api/lens_insight` (one call per lens per address); `/api/explain` and `/api/impression` were removed.
 
 ```
 1. GET /api/history?lat=…&lon=…&street=…&hnr=…&plz=…
@@ -199,7 +199,7 @@ Belt-and-suspenders — three enforcement points:
 3. **`app/core/rate_limit.py` in-process (`slowapi`).** Per-IP + per-endpoint. Key function reads `CF-Connecting-IP` (never `request.client.host`, which is always the cloudflared bridge IP in prod). Current limits:
    - `/api/lookup` 60/min
    - `/api/history` 10/min
-   - `/api/card_insight` 30/min
+   - `/api/lens_insight` 10/min
    - `/api/suggest` 5/second
 
 `/health` and `/ready` are intentionally unlimited so uptime probes never trip.
@@ -222,8 +222,7 @@ Belt-and-suspenders — three enforcement points:
 | Failure | User-visible impact |
 |---|---|
 | `gdi.berlin.de` WFS returns HTML `Wartungsarbeiten` page | New app containers fail to boot; existing containers keep serving from the in-process `Index` until they restart. **Snapshot fallback is a roadmap item — this remains the single largest availability risk today.** |
-| Cloudflare Workers AI returns 5xx or a deprecated-model error | Inference service logs the error, falls through to local llama.cpp on the same box (~35 s wall time for history). No user-visible failure. |
-| Local llama.cpp fails to load | `/api/card_insight`, `/api/explain`, `/api/impression` return 503 with a "warming up" message. `/api/history` still works via Cloudflare Workers AI. `/api/lookup` unaffected. |
+| Cloudflare Workers AI returns 5xx, times out, or the token is missing | `/api/lens_insight` + `/api/history` return 503 / 504; the frontend renders the AI panel's error state. Core `/api/lookup` and all deterministic tiles unaffected. Local dev with a mlx/llama backend loaded still works. |
 | Cloudflare Tunnel disconnects | Every visitor sees CF's edge error page ("Origin is unreachable"). Restart `cloudflared` container — 5 s recovery. |
 | Umami container crashes | Analytics missing for the outage window; app itself unaffected. Errors reach Sentry as usual. |
 | OSM refresh timer fails to run | Amenity data goes stale (up to 7 days by design, longer if the failure is silent). `/api/suggest` still returns hits from the last snapshot. |
