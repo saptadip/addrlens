@@ -111,9 +111,26 @@ Open `http://localhost:8001/`.
 
 Neither path needs a Cloudflare Workers AI token — the app happily runs against the local llama.cpp fallback for every LLM call.
 
-## Selfchecks
+## Tests
 
-There is no pytest suite. Every module ships a pure `__main__` block that asserts its own contract; a single `app.selfcheck` orchestrator runs everything plus live-network checks against `gdi.berlin.de`.
+Two complementary test tiers:
+
+**pytest suite** — 211 tests under `v0.1/tests/` (unit + contract + opt-in integration). Runs in ~1 s. CI green on every push and PR via [`.github/workflows/test.yml`](.github/workflows/test.yml).
+
+```bash
+cd v0.1
+
+# One-time on a fresh clone
+python3.13 -m venv .venv
+uv pip install --python .venv/bin/python -e ".[dev]"
+
+# Every time
+.venv/bin/pytest                            # unit + contract, no network
+.venv/bin/pytest -m integration             # opt-in live Berlin Geoportal
+.venv/bin/pytest --cov=app                  # coverage report
+```
+
+**Selfchecks** — every module ships a pure `__main__` block that asserts its own contract; a single `app.selfcheck` orchestrator runs everything plus live-network checks against `gdi.berlin.de`. Kept alongside pytest for sub-second dev-loop feedback on a single module.
 
 ```bash
 cd v0.1

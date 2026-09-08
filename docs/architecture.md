@@ -214,7 +214,7 @@ Belt-and-suspenders — three enforcement points:
 
 - **No ORM.** Data reads are direct `httpx.get()` against WFS with an internal in-process cache (Shapely trees for point layers, bbox-keyed dicts for large layers). Introducing SQL would triple boot complexity for no query-shape benefit.
 - **No frontend framework.** Vanilla JS + CSS + Leaflet. Cache-busting via query string. Every asset is inline-servable from `web/static/`. Zero build step; a deploy is `git pull && update.sh`.
-- **No CI in-tree today.** `python -m app.selfcheck` and per-module `__main__` blocks are the current QA gate; a GitHub Actions workflow that runs them on PR is one of the roadmap items called out in the [README](../README.md#roadmap).
+- **CI runs pytest on every push and PR** via [`.github/workflows/test.yml`](../.github/workflows/test.yml) (211 tests, ~1 s, coverage report uploaded as artefact). Selfchecks (`python -m app.selfcheck` and per-module `__main__` blocks) remain the sub-second dev-loop feedback for single-module iteration.
 - **No user accounts.** No login, no sessions, no cookies. `localStorage` holds a lens preference and a small compare list; nothing leaves the browser.
 
 ## Failure modes and how they degrade
