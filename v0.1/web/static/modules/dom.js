@@ -9,6 +9,42 @@ export function shortUrl(u){ try{ return new URL(u).hostname.replace(/^www\./,''
 // escapeHtml — alias to existing esc(); brief requires this name.
 export function escapeHtml(s) { return esc(s == null ? '' : s); }
 
+// Normalise a FastAPI error body into a short user-readable string.
+// FastAPI serialises validation errors as `{ "detail": [ { "msg", "loc", ... }, ... ] }`
+// — passing that array straight into esc() renders `[object Object]`. Any
+// error-showing site that consumes JSON from /api/* should route through
+// this helper first. Returns a plain string; caller still escapes for HTML.
+//
+//   payload            → returned string
+//   ----------------------------------------------------------------
+//   { detail: "text" } → "text"
+//   { detail: [ { msg: "value_error", loc: ["query","address"] } ] }
+//                      → "value_error (address)"  (or fallback shape)
+//   { error: "text" }  → "text"
+//   {}                 → fallback ("Something went wrong.")
+export function formatApiError(payload, fallback){
+  const fb = fallback || 'Something went wrong.';
+  if (!payload || typeof payload !== 'object') return fb;
+  const d = payload.detail;
+  if (typeof d === 'string' && d) return d;
+  if (Array.isArray(d) && d.length) {
+    const first = d[0] || {};
+    const msg = typeof first.msg === 'string' && first.msg ? first.msg : '';
+    // loc is typically ["query", "<field>"] or ["body", "<field>", ...]
+    let field = '';
+    if (Array.isArray(first.loc) && first.loc.length) {
+      const last = first.loc[first.loc.length - 1];
+      if (typeof last === 'string') field = last;
+    }
+    if (msg && field) return `${msg} (${field})`;
+    if (msg) return msg;
+    if (field) return `Invalid input in ${field}.`;
+    return fb;
+  }
+  if (typeof payload.error === 'string' && payload.error) return payload.error;
+  return fb;
+}
+
 // Split a "Main (Gloss)" label so callers can style the parenthetical
 // separately (muted brand accent). Falls back to {main: label, gloss: ''}.
 export function splitLabelGloss(label){

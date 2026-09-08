@@ -3,7 +3,7 @@
 // so all DOM references made at import top-level are safe.
 
 import { dom, S, panels, othersState, strollerState } from './modules/state.js';
-import { _track } from './modules/dom.js';
+import { _track, formatApiError } from './modules/dom.js';
 import { showStatus, clearResultState } from './modules/status.js';
 import { fetchAmenities, fetchNoise } from './modules/api.js';
 import { render } from './modules/panels/education.js';
@@ -65,7 +65,7 @@ dom.$f.addEventListener('submit',async ev=>{ev.preventDefault();const q=dom.$q.v
   try{
     const r=await fetch('/api/lookup?address='+encodeURIComponent(q));
     const d=await r.json();
-    if(!r.ok){ clearResultState(); showStatus('error', d.detail || d.error || 'Something went wrong.'); return; }
+    if(!r.ok){ clearResultState(); showStatus('error', formatApiError(d)); return; }
     render(d);   // render() calls showResults() once the panels are populated
   }catch(e){ clearResultState(); showStatus('error', 'Network error: '+e.message); }
 });
