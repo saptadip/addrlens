@@ -85,6 +85,46 @@ window.addEventListener('hashchange', showView);
 // #compare).
 compareRefreshPill(); showView(); initLifeMode();
 
+// -- Attribution modal wiring ------------------------------------------------
+// Static DOM — wire synchronously so a #attribution hash arriving during a
+// slow /api/config cold-start still opens the modal (the config fetch below
+// is only for city-label injection, not for modal wiring).
+(() => {
+  const $attrOpen = document.getElementById('attribution-open');
+  const $attrModal = document.getElementById('attribution-modal');
+  const $attrClose = document.getElementById('attribution-close');
+  if (!$attrOpen || !$attrModal || $attrOpen.__wired) return;
+  $attrOpen.__wired = true;
+  const openAttr = () => { $attrModal.hidden = false; };
+  const closeAttr = () => {
+    $attrModal.hidden = true;
+    // Clear the #attribution hash on close so a refresh does not re-open the
+    // modal and back-button behavior stays sensible. replaceState keeps
+    // history clean.
+    if (location.hash === '#attribution') {
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  };
+  $attrOpen.addEventListener('click', (e) => {
+    e.preventDefault();          // the <a href="#attribution"> would otherwise scroll
+    openAttr();
+  });
+  $attrClose && $attrClose.addEventListener('click', closeAttr);
+  $attrModal.addEventListener('click', (e) => {
+    if (e.target === $attrModal) closeAttr();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$attrModal.hidden) closeAttr();
+  });
+  // Deep-link + hashchange: open on entering #attribution, close on leaving
+  // (prevents the modal sitting over #compare when the user navigates away).
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#attribution') openAttr();
+    else if (!$attrModal.hidden) $attrModal.hidden = true;
+  });
+  if (location.hash === '#attribution') openAttr();
+})();
+
 // -- Ship B: swap city-specific labels from /api/config ----------------------
 // Fire-and-forget — the SSR-shipped Berlin defaults are the fallback if the
 // fetch fails. Attribution list is composed from the server's per-dataset
@@ -105,29 +145,5 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
       seen.add(s); lines.push(s);
     }
     $attrPrint.textContent = `${dn} Open Data: ${lines.join(' · ')}.`;
-  }
-  const $attrOpen = document.getElementById('attribution-open');
-  const $attrModal = document.getElementById('attribution-modal');
-  const $attrClose = document.getElementById('attribution-close');
-  if ($attrOpen && $attrModal && !$attrOpen.__wired) {
-    $attrOpen.__wired = true;
-    const openAttr = () => { $attrModal.hidden = false; };
-    $attrOpen.addEventListener('click', (e) => {
-      e.preventDefault();        // the <a href="#attribution"> would otherwise scroll
-      openAttr();
-    });
-    $attrClose && $attrClose.addEventListener('click', () => { $attrModal.hidden = true; });
-    $attrModal.addEventListener('click', (e) => {
-      if (e.target === $attrModal) $attrModal.hidden = true;
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !$attrModal.hidden) $attrModal.hidden = true;
-    });
-    // Open on direct URL / hashchange too, so shared /#attribution links land
-    // on the modal and don't just no-op scroll.
-    window.addEventListener('hashchange', () => {
-      if (location.hash === '#attribution') openAttr();
-    });
-    if (location.hash === '#attribution') openAttr();
   }
 }).catch(()=>{ /* keep Berlin defaults; harmless */ });
