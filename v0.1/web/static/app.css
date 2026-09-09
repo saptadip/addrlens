@@ -1293,7 +1293,7 @@ body.pdf-export-mode .lens-ai-close-btn { display: none !important; }
 .lens-ai-dl-icon svg   { width: 15px; height: 15px; display: block; }
 
 /* Signature — bottom-right footer of the panel. Fading indigo→pink
-   hairline above, "AddrLens" wordmark with brand-gradient text-clip,
+   hairline above, brand logo image (same asset as header, 22px tall),
    then Berlin + generation timestamp muted. */
 .lens-ai-signature { display: flex; align-items: center; justify-content: flex-end;
                      gap: 6px; margin-top: 14px; padding-top: 10px;
