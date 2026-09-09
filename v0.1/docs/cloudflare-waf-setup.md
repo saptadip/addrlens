@@ -105,6 +105,7 @@ Leave the last slot empty. When you see a real abuse pattern in Cloudflare Analy
 
 - **Bot Fight Mode** — the free "block anything non-browser" toggle under Security → Bots. Blocks curl, UptimeRobot, and every SDK. Traded away in favour of the granular Custom Rules above.
 - **Super Bot Fight Mode** — paid.
+- **JavaScript Detections** — Security → Settings → *JavaScript detections* — MUST be OFF. When enabled, Cloudflare rewrites every HTML response to inject a per-request inline `<script>` (`/cdn-cgi/challenge-platform/scripts/jsd/main.js` bootstrapper). The bootstrap uses a fresh timestamp on every request, so its SHA-256 changes every load — no CSP hash allowlist can cover it. Against the strict `script-src 'self' https://unpkg.com https://umami.addrlens.de` shipped by `app/main.py`, the browser blocks the injection and prints a CSP violation on every page load. The site keeps working (JSD is a bot-signal, not a functional dependency) but the console noise pollutes DevTools and any browser-side Sentry SDK. If a future feature genuinely needs JSD, either downgrade CSP to include `'unsafe-inline'` (regresses XSS hardening) or move to a nonce-based CSP where Cloudflare and the origin both apply the same per-request nonce.
 - **Cloudflare AI Gateway** for the Workers AI calls — not needed at this scale; adds an extra hop for the origin, and the app already retries locally on remote failure. Revisit when the Workers AI monthly bill matters.
 
 ## Verifying the rules are live
