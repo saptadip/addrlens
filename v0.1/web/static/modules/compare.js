@@ -85,8 +85,20 @@ export function renderCompare(){
       <a class="pill-btn pill-btn-brand" href="#">← Back to lookup</a>
     </div></div>`;
   const printHeader = list.length ? `<div class="print-only print-header">
-    <h1>AddrLens — comparison of ${list.length} addresses</h1>
-    <p>Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · Berlin Open Data + OpenStreetMap</p>
+    <div class="print-header-row">
+      <div class="print-header-brand">
+        <img src="/static/img/logo.png" alt="AddrLens" class="print-header-logo">
+        <div class="print-header-title-group">
+          <h1 class="print-header-title">Comparison Report</h1>
+          <p class="print-header-subtitle">Berlin · Open Data + OpenStreetMap</p>
+        </div>
+      </div>
+      <div class="print-header-meta">
+        <span class="print-header-date">${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span>
+        <span class="print-header-site">addrlens.de</span>
+      </div>
+    </div>
+    <div class="print-header-rule" aria-hidden="true"></div>
   </div>` : '';
   if(!list.length){
     $c.innerHTML=`${header}<div class="compare-empty">
