@@ -42,9 +42,11 @@ Each lens ships an **AI Insight** panel — the model turns per-lens determinist
 |---|---|
 | ![Young Family lens — 10-tile grid with tier chips + Leaflet map](docs/img/lens-young-family.png) | ![Per-lens AI panel — Cloudflare Workers AI summary + fit gauge](docs/img/lens-insight.png) |
 
-| Life Lens compare (tier chips) | Raw compare (full dataset) |
+| Raw view (all datasets, full attribution) | Life Lens compare (tier chips) |
 |---|---|
-| ![Two addresses side-by-side with Young Family tier chips](docs/img/compare.png) | ![Full two-column dataset comparison — schools, transit, noise, medical, connectivity](docs/img/compare-raw.png) |
+| ![Raw view — every dataset browsable across Education / Amenities / Emergency / Environment / Connectivity / Others tabs, with source + licence tags](docs/img/raw.png) | ![Two addresses side-by-side with Young Family tier chips](docs/img/compare.png) |
+
+![Full two-column dataset comparison — schools, transit, noise, medical, connectivity](docs/img/compare-raw.png)
 
 ![Mobile responsive view — Young Family lens on iPhone-size viewport](docs/img/mobile.png)
 
