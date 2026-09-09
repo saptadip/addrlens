@@ -90,9 +90,6 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 .compare-table th,.compare-table td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid #F3F4F6}
 .compare-table thead th{background:var(--result-bg);position:sticky;top:0;z-index:1}
 .compare-table thead th.metric-col{width:180px;border-radius:12px 0 0 0}
-.compare-table thead th.metric-col-brand{display:flex;align-items:center;gap:8px;vertical-align:middle}
-.compare-table thead th.metric-col-brand .metric-col-logo{height:20px;width:auto;display:block;flex:0 0 auto}
-.compare-table thead th.metric-col-brand .metric-col-caption{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .compare-table thead th.addr-col{min-width:220px}
 .compare-table thead th.addr-col .addr-title{font-weight:700;color:var(--ink);font-size:14px;display:block}
 .compare-table thead th.addr-col .addr-sub{font-weight:500;color:var(--muted);font-size:12px;margin-top:2px;display:block}
@@ -583,10 +580,26 @@ footer a{color:var(--brand)}
     -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;
   }
   .print-only { display:block !important }
+  /* Corporate-style report header: brand on left, meta on right, brand rule beneath */
+  .print-header { margin: 0 0 14px; font-family: 'Inter', sans-serif; }
+  .print-header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .print-header-brand { display: flex; align-items: center; gap: 12px; }
+  .print-header-logo { height: 32px; width: auto; display: block; flex: 0 0 auto;
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .print-header-title-group { display: flex; flex-direction: column; }
+  .print-header-title { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 700;
+    color: #111827; margin: 0; letter-spacing: -0.01em; line-height: 1.15; }
+  .print-header-subtitle { font-family: 'Inter', sans-serif; font-size: 10px; color: #6B7280;
+    margin: 2px 0 0; letter-spacing: 0.02em; }
+  .print-header-meta { display: flex; flex-direction: column; align-items: flex-end;
+    font-family: 'Inter', sans-serif; font-size: 10px; color: #6B7280; text-align: right; }
+  .print-header-date { color: #111827; font-weight: 600; }
+  .print-header-site { color: #6B7280; margin-top: 2px; }
+  .print-header-rule { height: 2px; margin-top: 10px;
+    background: linear-gradient(90deg, #4F46E5 0%, #EC4899 100%);
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  /* Legacy .print-header h1/p rules kept as safety net if any other view still uses them */
   .print-header h1 { font-family:'Inter',sans-serif; font-size:18px; margin:0 0 4px; letter-spacing:-.01em }
-  .print-header-title { display:flex; align-items:center; gap:10px; }
-  .print-header-title .print-header-logo { height:24px; width:auto; display:block; flex:0 0 auto;
-    -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
   .print-header p  { font-family:'Inter',sans-serif; font-size:10px; color:#6B7280; margin:0 0 10px }
   .compare-header h2 { font-family:'Inter',sans-serif; font-size:0; margin:0 }   /* hide the on-screen H2, printHeader replaces it */
   /* Life Mode compare: reveal both lens slides in the PDF (tabs suppressed) */

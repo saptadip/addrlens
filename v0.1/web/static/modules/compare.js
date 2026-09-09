@@ -85,11 +85,20 @@ export function renderCompare(){
       <a class="pill-btn pill-btn-brand" href="#">← Back to lookup</a>
     </div></div>`;
   const printHeader = list.length ? `<div class="print-only print-header">
-    <h1 class="print-header-title">
-      <img src="/static/img/logo.png" alt="AddrLens" class="print-header-logo">
-      <span>Comparison Report</span>
-    </h1>
-    <p>Generated ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})} · Berlin Open Data + OpenStreetMap</p>
+    <div class="print-header-row">
+      <div class="print-header-brand">
+        <img src="/static/img/logo.png" alt="AddrLens" class="print-header-logo">
+        <div class="print-header-title-group">
+          <h1 class="print-header-title">Comparison Report</h1>
+          <p class="print-header-subtitle">Berlin · Open Data + OpenStreetMap</p>
+        </div>
+      </div>
+      <div class="print-header-meta">
+        <span class="print-header-date">${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span>
+        <span class="print-header-site">addrlens.de</span>
+      </div>
+    </div>
+    <div class="print-header-rule" aria-hidden="true"></div>
   </div>` : '';
   if(!list.length){
     $c.innerHTML=`${header}<div class="compare-empty">
@@ -164,12 +173,8 @@ export function renderCompare(){
     row('Nearest bus',           list.map(s=>cell(s.connectivity?.bus           ? `${esc(s.connectivity.bus.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.bus.distance_m)})</span>` : null)).join('')),
     row('Airport (BER)',         list.map(s=>cell(s.connectivity?.airport       ? `${esc(s.connectivity.airport.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.airport.distance_m)})</span>` : null)).join('')),
   ].join('');
-  const cornerCell = `<th class="metric-col metric-col-brand">
-    <img src="/static/img/logo.png" alt="AddrLens" class="metric-col-logo">
-    <span class="metric-col-caption">Report</span>
-  </th>`;
   $c.innerHTML=`${header}${printHeader}<div class="compare-wrap"><table class="compare-table">
-    <thead><tr>${cornerCell}${cols}</tr></thead>
+    <thead><tr><th class="metric-col"></th>${cols}</tr></thead>
     <tbody>${rows}</tbody></table></div>`;
   $c.querySelectorAll('.col-remove').forEach(b=>b.addEventListener('click',()=>{
     const list=compareLoad().filter(x=>x.id!==b.dataset.id);
