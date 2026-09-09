@@ -21,6 +21,10 @@ export function emptyEnv(){dom.$env.innerHTML=`<div class="empty" style="margin-
 export function showStatus(kind, msg){
   dom.$tabs.hidden = true;
   document.querySelectorAll('.panel').forEach(p => p.hidden = true);
+  // Life Lens view is a JS-created sibling of .panel — must be hidden too so
+  // the stale tile grid from a prior lookup does not linger under the error.
+  const $lens = document.getElementById('lens-view');
+  if ($lens) $lens.hidden = true;
   dom.$status.hidden = false;
   if(kind === 'loading') dom.$status.innerHTML = `<div class="loading"><span class="spinner"></span> ${esc(msg)}</div>`;
   else if(kind === 'error')   dom.$status.innerHTML = `<div class="error">${esc(msg)}</div>`;
@@ -30,5 +34,7 @@ export function showResults(){
   dom.$tabs.hidden = false;
   // Reveal only the currently-active panel; tab-switch handler manages the rest.
   document.querySelectorAll('.panel').forEach(p => p.hidden = !p.classList.contains('active'));
+  const $lens = document.getElementById('lens-view');
+  if ($lens) $lens.hidden = false;
 }
 export function clearResultState(){ S.eduData=null; S.amenData=null; S.envData=null; refreshSaveBtn(); }
