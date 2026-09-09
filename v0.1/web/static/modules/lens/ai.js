@@ -148,7 +148,8 @@ export function renderLensAIBody(li, tileTierByKey, ctx) {
         <span class="lens-ai-dl-label">Download PDF</span>
       </button>
       <div class="lens-ai-signature">
-        <span class="lens-ai-signature-brand">AddrLens</span>
+        <img class="lens-ai-signature-brand" src="/static/img/logo.png"
+             alt="AddrLens" width="500" height="500">
         <span class="lens-ai-signature-dot">·</span>
         <span class="lens-ai-signature-meta">Berlin · generated ${escapeHtml(ts)}</span>
       </div>
