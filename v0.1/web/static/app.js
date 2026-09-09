@@ -111,9 +111,10 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
   const $attrClose = document.getElementById('attribution-close');
   if ($attrOpen && $attrModal && !$attrOpen.__wired) {
     $attrOpen.__wired = true;
+    const openAttr = () => { $attrModal.hidden = false; };
     $attrOpen.addEventListener('click', (e) => {
       e.preventDefault();        // the <a href="#attribution"> would otherwise scroll
-      $attrModal.hidden = false;
+      openAttr();
     });
     $attrClose && $attrClose.addEventListener('click', () => { $attrModal.hidden = true; });
     $attrModal.addEventListener('click', (e) => {
@@ -122,5 +123,11 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !$attrModal.hidden) $attrModal.hidden = true;
     });
+    // Open on direct URL / hashchange too, so shared /#attribution links land
+    // on the modal and don't just no-op scroll.
+    window.addEventListener('hashchange', () => {
+      if (location.hash === '#attribution') openAttr();
+    });
+    if (location.hash === '#attribution') openAttr();
   }
 }).catch(()=>{ /* keep Berlin defaults; harmless */ });
