@@ -1293,20 +1293,17 @@ body.pdf-export-mode .lens-ai-close-btn { display: none !important; }
 .lens-ai-dl-icon svg   { width: 15px; height: 15px; display: block; }
 
 /* Signature — bottom-right footer of the panel. Fading indigo→pink
-   hairline above, "AddrLens" wordmark with brand-gradient text-clip,
+   hairline above, brand logo image (same asset as header, 22px tall),
    then Berlin + generation timestamp muted. */
-.lens-ai-signature { display: flex; align-items: baseline; justify-content: flex-end;
+.lens-ai-signature { display: flex; align-items: center; justify-content: flex-end;
                      gap: 6px; margin-top: 14px; padding-top: 10px;
                      border-top: 1px solid transparent;
                      border-image: linear-gradient(90deg,
                                     rgba(79,70,229,0), rgba(79,70,229,.35),
                                     rgba(236,72,153,.35), rgba(236,72,153,0)) 1;
                      font-family: 'Inter', sans-serif; }
-.lens-ai-signature-brand { font: 700 13px 'Space Grotesk', 'Inter', sans-serif;
-                           background: linear-gradient(135deg, #4F46E5, #EC4899);
-                           -webkit-background-clip: text; background-clip: text;
-                           -webkit-text-fill-color: transparent; color: transparent;
-                           letter-spacing: -0.01em; }
+img.lens-ai-signature-brand { height: 22px; width: auto; display: block;
+                              vertical-align: middle; }
 .lens-ai-signature-dot  { color: var(--muted); font-size: 12px; }
 .lens-ai-signature-meta { color: var(--muted); font-size: 11px; font-weight: 500; }
 .lens-ai-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

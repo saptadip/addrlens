@@ -120,6 +120,9 @@ compareRefreshPill(); showView(); initLifeMode();
   // (prevents the modal sitting over #compare when the user navigates away).
   window.addEventListener('hashchange', () => {
     if (location.hash === '#attribution') openAttr();
+    // Bypass closeAttr() here on purpose: the hash has already moved to the
+    // user's real navigation target (e.g. #compare) — running closeAttr's
+    // replaceState would clobber it.
     else if (!$attrModal.hidden) $attrModal.hidden = true;
   });
   if (location.hash === '#attribution') openAttr();
