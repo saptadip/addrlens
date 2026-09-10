@@ -191,7 +191,12 @@ Zero-to-live playbook for deploying addrlens to a fresh Hetzner box behind a Clo
 
   1. **Verify the running Umami is v3.3.0 or newer:**
      ```bash
-     docker exec v01-umami-1 sh -c 'grep -m1 "\"version\"" /app/package.json'
+     # Prefer the compose-based form (survives a compose-project-name change):
+     cd /srv/addrlens/repo/v0.1 && docker compose \
+         -f docker-compose.yml -f docker-compose.prod.yml \
+         exec umami sh -c 'grep -m1 "\"version\"" /app/package.json'
+     # Fallback if you know the container name:
+     # docker exec v01-umami-1 sh -c 'grep -m1 "\"version\"" /app/package.json'
      # Expect: "version": "3.3.x"
      ```
      If older, `docker compose pull umami && docker compose up -d --no-deps umami` first, then re-verify.
@@ -219,19 +224,24 @@ Zero-to-live playbook for deploying addrlens to a fresh Hetzner box behind a Clo
   5. **Create a break-glass second admin BEFORE enrolling your primary account.** This is the single most important lockout mitigation — if your only admin loses their phone and backup codes, the account is bricked with no recovery path.
      - Log in to `https://umami.addrlens.de/` as your primary admin.
      - `Settings → Users → Create User → role Admin`. Name it e.g. `admin-backup`. Set a strong unique password, store in password manager.
-     - Log out, log in as `admin-backup`, enable its own 2FA on a **physically separate device** (spouse's phone / iPad in a locked drawer / hardware TOTP token). Save its backup codes to the same off-server safe.
+     - Log out, log in as `admin-backup`, enable its own 2FA on a **physically separate device** (spouse's phone / iPad in a locked drawer / hardware TOTP token). Save its backup codes to the off-server safe.
      - Log out. From here on, either admin can reset the other via `Admin → Users → (user) → Clear 2FA`.
+
+     **Solo-operator caveat:** on a single-person install, both admins are the same human. `admin-backup` defends only against "lost or bricked primary device" — it does NOT defend against correlated failure (house fire, backpack theft with phone AND iPad, cloud-account compromise that wipes both authenticator apps). Your last-resort defence in that scenario is the printed backup codes (10 total, single-use) stored in a physical safe: a single backup code lets you into either admin account and clears the other's 2FA. Treat the printed codes as the real disaster-recovery mechanism, not the second admin account.
 
   6. **Enrol your primary admin — with belt-and-suspenders:**
      - Log in as primary admin. `Settings → Security → Enable two-factor authentication`.
      - **Scan the QR code into TWO authenticator apps simultaneously**, on separate devices (TOTP secrets are stateless — the same secret works forever on any device that scanned it). Recommended: phone (primary) + iPad or hardware token on your laptop.
      - Enter the 6-digit code to confirm.
-     - **Copy the 10 backup codes immediately — they are shown once.** Store in password manager (primary) and printed sealed copy in the same safe as the encryption key.
+     - **Copy the 10 backup codes immediately — they are shown once.** Store in password manager (primary) AND printed sealed copy in a **physically separate location from the encryption-key printed copy** — different room, safe-deposit box, or trusted third party. A single incident (fire, theft, flood) should not compromise both the ability to reset 2FA (encryption key) and the codes that let you in without a reset (backup codes).
      - Log out and log back in with TOTP to confirm the setup works end-to-end BEFORE closing the tab.
 
   Notes:
   - Five failed TOTP attempts locks further attempts for 15 minutes (Umami built-in).
   - `TWO_FACTOR_ENCRYPTION_KEY` is separate from `APP_SECRET` and `UMAMI_DB_PASSWORD` — do not reuse one for another. Different rotation cadence, different blast radius.
+  - **Losing OR rotating** `TWO_FACTOR_ENCRYPTION_KEY` invalidates every stored 2FA secret. Rotation is not a routine operation — it requires a coordinated re-enrolment sweep of every user via admin reset. Plan accordingly.
+  - **This playbook assumes your password manager has an independent recovery path** (1Password Emergency Kit, Bitwarden export, etc.) printed and stored off-device. Otherwise the "password manager copy" of the encryption key and backup codes is not actually independent of your primary laptop.
+  - The `umami` service reads env vars via compose-time `${...}` interpolation, not `env_file`. **Every `docker compose` invocation touching `umami` MUST include `--env-file /srv/addrlens/.env.production`** — otherwise `TWO_FACTOR_ENCRYPTION_KEY` interpolates to an empty string, and every enrolled user's 2FA will appear broken until the correct restart command is used again.
   - `docker-compose.prod.yml` pins Umami to `3.3.1` (not `postgresql-latest`) so a `docker compose pull` never silently upgrades across a breaking 2FA schema change. Bump the pin deliberately after checking release notes; verify the new tag's manifest digest matches the mysql-vs-postgres variant you expect with `docker manifest inspect ghcr.io/umami-software/umami:<new-tag>`.
 
 ## Updates

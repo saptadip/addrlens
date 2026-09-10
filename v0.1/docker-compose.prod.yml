@@ -110,9 +110,12 @@ services:
       DATABASE_TYPE: postgresql
       APP_SECRET: ${UMAMI_APP_SECRET}
       # 64-char hex key (openssl rand -hex 32) that encrypts each user's TOTP
-      # secret + backup codes at rest. Losing it invalidates every stored 2FA
-      # secret — store off-server (password manager + printed sealed copy)
-      # BEFORE any admin enrols. See docs/hetzner-deploy.md → "Two-Factor Auth".
+      # secret + backup codes at rest. Losing OR rotating it invalidates every
+      # stored 2FA secret — store off-server (password manager + printed sealed
+      # copy) BEFORE any admin enrols. See docs/hetzner-deploy.md → "Two-Factor
+      # Auth". Also: every `docker compose` invocation touching this service
+      # MUST include `--env-file /srv/addrlens/.env.production` (this service
+      # uses compose-time ${...} interpolation, not env_file).
       TWO_FACTOR_ENCRYPTION_KEY: ${UMAMI_TWO_FACTOR_ENCRYPTION_KEY}
     mem_limit: 350m
     memswap_limit: 600m
