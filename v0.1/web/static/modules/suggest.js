@@ -1,5 +1,6 @@
 import { dom } from './state.js';
 import { escapeHtml, _track } from './dom.js';
+import { readJson } from './api.js';
 
 // /api/suggest typeahead — combobox pattern (WAI-ARIA 1.2).
 // Debounces to 130 ms so a fast typist emits ~7-8 requests per address rather
@@ -75,7 +76,7 @@ export function wireSuggest(){
       const r = await fetch(`/api/suggest?q=${encodeURIComponent(q)}&limit=${MAX_HITS}`,
                             {signal: inflight.signal});
       if(!r.ok) throw new Error('http '+r.status);
-      const d = await r.json();
+      const d = await readJson(r);
       if($q.value.trim() !== q) return;
       hits = Array.isArray(d.hits) ? d.hits : [];
       activeIx = hits.length ? 0 : -1;

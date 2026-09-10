@@ -1,6 +1,7 @@
 import { ico } from '../icons.js';
 import { EDU_STYLE } from '../constants.js';
 import { dom, S, strollerState } from '../state.js';
+import { readJson } from '../api.js';
 import { esc, walkMin, escapeHtml, countUp, haversineM, dropOrphanTooltips, _track, formatApiError } from '../dom.js';
 import { showResults } from '../status.js';
 import { kitaDetailHtml } from '../details.js';
@@ -157,7 +158,7 @@ export function render(d){
     try {
       const qs = new URLSearchParams(ctx).toString();
       const r = await fetch(`/api/history?${qs}`);
-      const d = await r.json();
+      const d = await readJson(r);
       if (!r.ok) throw new Error(formatApiError(d, `HTTP ${r.status}`));
       body.innerHTML = `
         <button type="button" class="addr-history-close" aria-label="Close history">✕</button>

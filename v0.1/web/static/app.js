@@ -5,7 +5,7 @@
 import { dom, S, panels, othersState, strollerState } from './modules/state.js';
 import { _track, formatApiError } from './modules/dom.js';
 import { showStatus, clearResultState } from './modules/status.js';
-import { fetchAmenities, fetchNoise } from './modules/api.js';
+import { fetchAmenities, fetchNoise, readJson, isNonJsonError } from './modules/api.js';
 import { render } from './modules/panels/education.js';
 import { drawAmenMap, drawOthersMap } from './modules/maps.js';
 import { wireSuggest } from './modules/suggest.js';
@@ -64,10 +64,20 @@ dom.$f.addEventListener('submit',async ev=>{ev.preventDefault();const q=dom.$q.v
   showStatus('loading', "Reading Berlin's open data…");
   try{
     const r=await fetch('/api/lookup?address='+encodeURIComponent(q));
-    const d=await r.json();
+    const d=await readJson(r);
     if(!r.ok){ clearResultState(); showStatus('error', formatApiError(d)); return; }
     render(d);   // render() calls showResults() once the panels are populated
-  }catch(e){ clearResultState(); showStatus('error', 'Network error: '+e.message); }
+  }catch(e){
+    clearResultState();
+    if(isNonJsonError(e)){
+      // Upstream network layer (CF challenge, corporate proxy interstitial,
+      // ISP MITM) served HTML where the app expected JSON. A page reload
+      // usually clears it — the challenge cookie is set on the interstitial.
+      showStatus('error', 'Your network provider intercepted the request. Please refresh the page and try again — if it keeps happening, try a different network.');
+    } else {
+      showStatus('error', 'Network error: '+e.message);
+    }
+  }
 });
 
 // -- Save-to-compare button --------------------------------------------------
@@ -132,7 +142,7 @@ compareRefreshPill(); showView(); initLifeMode();
 // Fire-and-forget — the SSR-shipped Berlin defaults are the fallback if the
 // fetch fails. Attribution list is composed from the server's per-dataset
 // strings so each city gets legally-correct provenance without a rebuild.
-fetch('/api/config').then(r=>r.ok?r.json():null).then(cfg=>{
+fetch('/api/config').then(r=>r.ok?readJson(r).catch(()=>null):null).then(cfg=>{
   if(!cfg) return;
   const dn = cfg.display_name || 'Berlin';
   document.title = 'AddrLens';

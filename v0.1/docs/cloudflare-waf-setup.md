@@ -77,13 +77,20 @@ Every real browser and every legitimate SDK sends a User-Agent string. An empty 
 - **Expression:** `(starts_with(http.request.uri.path, "/api/")) and (len(http.user_agent) lt 5)`
 - **Action:** **Block**
 
-### Rule 3 — Country friction for API endpoints
+### Rule 3 — DISABLED (was: country friction for API endpoints)
 
-The target audience is people evaluating Berlin addresses. Most traffic will originate from EU countries plus a handful of English-speaking ones. Anything outside this set gets a Managed Challenge — annoying for one lookup, invisible after solving. Adjust the allow-list as your audience takes shape.
+Originally this slot held a Managed-Challenge rule against `/api/*` for any IP outside a small EU-plus allowlist (`DE AT CH FR NL PL US GB`). The intent was defense-in-depth against non-target-audience abuse of the LLM-backed endpoints. The intent was wrong for this app, and the implementation broke real users.
 
-- **Name:** `api — challenge unusual countries`
-- **Expression:** `(starts_with(http.request.uri.path, "/api/")) and not (ip.geoip.country in {"DE" "AT" "CH" "FR" "NL" "PL" "US" "GB"})`
-- **Action:** **Managed Challenge**
+**Why disabled (2026-09-10):**
+
+- **Target audience is inherently global.** People evaluating Berlin addresses include incoming expats researching before they move, tourists deciding on neighbourhoods, family abroad checking on new arrivals, journalists, researchers, and every subscriber to any newsletter that mentions the site. An allowlist model is fundamentally wrong for a public open-data portal.
+- **False positives silently break the app.** Legitimate visitors on corporate proxies, Cloudflare Warp, iCloud Private Relay, mobile roaming, or VPNs with non-EU exits routinely present a non-DE IP to Cloudflare. Every one of them tripped a Managed Challenge on the first `/api/lookup` call. The challenge returns an HTML captcha page as the response body; the SPA's `fetch().then(r => r.json())` chokes on `<!DOCTYPE` and throws `Unexpected token '<'`. The user sees a red error banner and leaves. This is the general failure mode Rule 4 (below) warns about — Rule 3 was quietly hitting it.
+- **What it was actually protecting is already covered elsewhere.** Cloudflare Workers AI cost on `/api/lens_insight` is bounded by the Rate Limiting Rule (5 req/10s per IP) plus a 7-day server-side cache. Berlin Geoportal WFS quota is bounded by server-side caching + the weekly OSM refresh. Rule 3 protected against an abstract "unusual traffic" that never manifested as real abuse.
+- **A determined abuser routes through Germany anyway.** Free VPNs with DE exits are 30 seconds away. The rule filtered unlucky legitimate users, not attackers.
+
+**Client-side belt-and-suspenders (also shipped):** `web/static/modules/api.js` exports a `readJson()` helper that verifies `Content-Type: application/json` before parsing. If any upstream network layer — future WAF rule, corporate captive portal, ISP MITM interstitial — serves HTML where the app expects JSON, users see "Your network provider intercepted the request. Please refresh the page and try again — if it keeps happening, try a different network." instead of a stack trace. Symptom containment, not root cause.
+
+The slot is free for a concrete abuse pattern (specific ASN, User-Agent, JA3 fingerprint) once one surfaces in Cloudflare Security → Events.
 
 ### Rule 4 — Reserved slot (do NOT use Challenge actions on /api/*)
 
