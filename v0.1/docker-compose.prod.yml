@@ -98,11 +98,25 @@ services:
       - addrlens_net
 
   umami:
-    image: ghcr.io/umami-software/umami:postgresql-latest
+    # Pinned to a specific tag (not postgresql-latest) so an unattended
+    # `docker compose pull` never silently upgrades across a breaking change.
+    # 2FA data is encrypted with TWO_FACTOR_ENCRYPTION_KEY below — a mid-week
+    # schema or crypto-scheme change on a floating tag would be a bad day.
+    # Verify + bump this tag deliberately (compare digests: `docker manifest
+    # inspect ghcr.io/umami-software/umami:<new-tag>`).
+    image: ghcr.io/umami-software/umami:3.3.1
     environment:
       DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
       DATABASE_TYPE: postgresql
       APP_SECRET: ${UMAMI_APP_SECRET}
+      # 64-char hex key (openssl rand -hex 32) that encrypts each user's TOTP
+      # secret + backup codes at rest. Losing OR rotating it invalidates every
+      # stored 2FA secret — store off-server (password manager + printed sealed
+      # copy) BEFORE any admin enrols. See docs/hetzner-deploy.md → "Two-Factor
+      # Auth". Also: every `docker compose` invocation touching this service
+      # MUST include `--env-file /srv/addrlens/.env.production` (this service
+      # uses compose-time ${...} interpolation, not env_file).
+      TWO_FACTOR_ENCRYPTION_KEY: ${UMAMI_TWO_FACTOR_ENCRYPTION_KEY}
     mem_limit: 350m
     memswap_limit: 600m
     restart: unless-stopped
