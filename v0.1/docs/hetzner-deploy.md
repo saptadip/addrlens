@@ -187,6 +187,53 @@ Zero-to-live playbook for deploying addrlens to a fresh Hetzner box behind a Clo
   - Umami is a Next.js app; memory footprint under a small site's traffic is ~100–200 MB. The 350 MB `mem_limit` in the compose file leaves headroom without competing with the inference container.
   - Nothing about Umami touches the app-side rate limits or Cloudflare WAF rules — the tracker script loads from `umami.addrlens.de`, not `addrlens.de/api/*`.
 
+- **Two-Factor Auth for the Umami admin.** Umami v3.3.0+ supports TOTP (Google Authenticator / Authy / 1Password) with 10 single-use backup codes. Only another admin can reset a locked-out user — there is no CLI or env-var override. The steps below make lockout survivable.
+
+  1. **Verify the running Umami is v3.3.0 or newer:**
+     ```bash
+     docker exec v01-umami-1 sh -c 'grep -m1 "\"version\"" /app/package.json'
+     # Expect: "version": "3.3.x"
+     ```
+     If older, `docker compose pull umami && docker compose up -d --no-deps umami` first, then re-verify.
+
+  2. **Generate the 2FA encryption key — and store it OFF-SERVER before pasting it anywhere on the box:**
+     ```bash
+     openssl rand -hex 32
+     ```
+     **Immediately copy the output into your password manager (1Password / Bitwarden vault, sealed field) AND onto a printed sealed copy stored in a physical safe.** This key encrypts every user's TOTP secret + backup codes at rest. If it is ever lost, every stored 2FA secret becomes unrecoverable ciphertext and every user must re-enrol from an admin reset. `umami-db` backups alone are NOT enough — the key must survive independently of the disk.
+
+  3. **Add the key to `/srv/addrlens/.env.production`:**
+     ```bash
+     sudo bash -c 'echo "UMAMI_TWO_FACTOR_ENCRYPTION_KEY=<paste-the-hex-here>" >> /srv/addrlens/.env.production'
+     sudo chmod 600 /srv/addrlens/.env.production   # confirm perms are still tight
+     ```
+
+  4. **Restart only the Umami service** (leave `umami-db` running — no DB churn needed):
+     ```bash
+     cd /srv/addrlens/repo/v0.1
+     docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+         --env-file /srv/addrlens/.env.production up -d --no-deps umami
+     docker compose logs -f umami   # confirm clean boot, no missing-key error
+     ```
+
+  5. **Create a break-glass second admin BEFORE enrolling your primary account.** This is the single most important lockout mitigation — if your only admin loses their phone and backup codes, the account is bricked with no recovery path.
+     - Log in to `https://umami.addrlens.de/` as your primary admin.
+     - `Settings → Users → Create User → role Admin`. Name it e.g. `admin-backup`. Set a strong unique password, store in password manager.
+     - Log out, log in as `admin-backup`, enable its own 2FA on a **physically separate device** (spouse's phone / iPad in a locked drawer / hardware TOTP token). Save its backup codes to the same off-server safe.
+     - Log out. From here on, either admin can reset the other via `Admin → Users → (user) → Clear 2FA`.
+
+  6. **Enrol your primary admin — with belt-and-suspenders:**
+     - Log in as primary admin. `Settings → Security → Enable two-factor authentication`.
+     - **Scan the QR code into TWO authenticator apps simultaneously**, on separate devices (TOTP secrets are stateless — the same secret works forever on any device that scanned it). Recommended: phone (primary) + iPad or hardware token on your laptop.
+     - Enter the 6-digit code to confirm.
+     - **Copy the 10 backup codes immediately — they are shown once.** Store in password manager (primary) and printed sealed copy in the same safe as the encryption key.
+     - Log out and log back in with TOTP to confirm the setup works end-to-end BEFORE closing the tab.
+
+  Notes:
+  - Five failed TOTP attempts locks further attempts for 15 minutes (Umami built-in).
+  - `TWO_FACTOR_ENCRYPTION_KEY` is separate from `APP_SECRET` and `UMAMI_DB_PASSWORD` — do not reuse one for another. Different rotation cadence, different blast radius.
+  - `docker-compose.prod.yml` pins Umami to `3.3.1` (not `postgresql-latest`) so a `docker compose pull` never silently upgrades across a breaking 2FA schema change. Bump the pin deliberately after checking release notes; verify the new tag's manifest digest matches the mysql-vs-postgres variant you expect with `docker manifest inspect ghcr.io/umami-software/umami:<new-tag>`.
+
 ## Updates
 
 Run from the box after `git push origin main` has landed the new code:
