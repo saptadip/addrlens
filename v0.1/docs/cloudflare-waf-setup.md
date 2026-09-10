@@ -58,6 +58,8 @@ Both under the same rule means an IP burning through addresses via either endpoi
 
 ## Custom Rules (5 free)
 
+Currently 2 of 5 slots active (Rules 1 and 2). Rules 3-5 are documented but not deployed — see each section for why the slot is empty.
+
 Custom Rules are evaluated in the order shown in the dashboard. Reorder from within the Security rules page after saving.
 
 ### Rule 1 — Exempt health probes from all downstream rules
@@ -132,10 +134,10 @@ done
 curl -sS -o /dev/null -w "%{http_code}\n" -A "" https://addrlens.de/api/lookup?address=Test
 ```
 
-For Rule 3 (country challenge) and Rule 4 (bot challenge), test with a browser from a country in and outside your allow-list, or use a VPN. Cloudflare **Security → Events** shows every request that matched a rule, with the exact rule name and IP.
+Rules 3 and 4 are currently disabled/reserved (see above). If you re-enable a challenge-style rule in the future, verify it from a VPN exit outside your allowlist. Cloudflare **Security → Events** shows every request that matched a rule, with the exact rule name and IP — start there before adding a new rule.
 
 ## When to revisit
 
 - **You upgrade to Cloudflare Pro** — Rate Limiting Rule quota goes up, additional actions (Managed Challenge, JS Challenge) become available, longer counting periods become available. Rewrite the Rate Limiting Rule to use Managed Challenge instead of Block for a softer user experience.
 - **Workers AI cost gets noticeable** — a bad actor may be bypassing rate limits via distributed source IPs. Rotate the /api/history rule to use `Verified Bot` as an additional counting characteristic or add a Custom Rule that requires a fingerprint on the endpoint (e.g., an app-controlled header the frontend sends).
-- **Real users complain about friction** — Cloudflare **Security → Events** shows challenge/block hit counts per rule. If a rule bites more legitimate users than bots, loosen the expression or remove it. Rule 4 is the most likely culprit — remove it first.
+- **Real users complain about friction** — Cloudflare **Security → Events** shows challenge/block hit counts per rule. If a rule bites more legitimate users than bots, loosen the expression or remove it. Rule 3-style geo/challenge rules on `/api/*` are the most likely culprits — see the Rule 3 post-mortem above before adding a new one.

@@ -73,7 +73,8 @@ dom.$f.addEventListener('submit',async ev=>{ev.preventDefault();const q=dom.$q.v
       // Upstream network layer (CF challenge, corporate proxy interstitial,
       // ISP MITM) served HTML where the app expected JSON. A page reload
       // usually clears it — the challenge cookie is set on the interstitial.
-      showStatus('error', 'Your network provider intercepted the request. Please refresh the page and try again — if it keeps happening, try a different network.');
+      // Neutral wording: could be our WAF, could be theirs; the advice holds.
+      showStatus('error', 'The request was blocked before reaching our servers. Please refresh the page — if it keeps happening, try a different network.');
     } else {
       showStatus('error', 'Network error: '+e.message);
     }
