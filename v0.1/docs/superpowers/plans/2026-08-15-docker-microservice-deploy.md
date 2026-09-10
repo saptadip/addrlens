@@ -8,7 +8,7 @@
 
 **Tech Stack:** Docker Engine + Compose plugin, Cloudflare Tunnel (`cloudflared`), Ubuntu 24.04 (x86_64), Python 3.11 (FastAPI, uvicorn, llama-cpp-python, osmium, sentry-sdk), systemd, ufw, fail2ban.
 
-**Spec:** `/Users/sapta/Documents/personal/myStage/claude-personal/berlin-address-intelligence/v0.1/docs/superpowers/specs/2026-08-15-docker-microservice-deploy-design.md`
+**Spec:** [`../specs/2026-08-15-docker-microservice-deploy-design.md`](../specs/2026-08-15-docker-microservice-deploy-design.md)
 
 ## Global Constraints
 
@@ -76,7 +76,7 @@ Off-repo actions (Cloudflare dashboard, Hetzner box):
 | Rate limit synthetic verification | 30 |
 | Update project CLAUDE.md with prod commands | 31 |
 
-Working directory unless otherwise noted: `/Users/sapta/Documents/personal/myStage/claude-personal/berlin-address-intelligence/v0.1/`
+Working directory unless otherwise noted: repo root `v0.1/`.
 
 ---
 
@@ -2260,7 +2260,7 @@ systemctl list-timers refresh-osm-amenities.timer
 Use whatever payload the `/api/card_insight` endpoint expects. Check the code:
 
 ```bash
-grep -n "card_insight" /Users/sapta/Documents/personal/myStage/claude-personal/berlin-address-intelligence/v0.1/app/routes/*.py
+grep -n "card_insight" app/routes/*.py
 ```
 
 Craft a valid POST body (or a GET if that's the actual method). Save to `/tmp/insight-body.json`.

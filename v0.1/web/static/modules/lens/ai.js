@@ -1,5 +1,5 @@
 import { _LENS_WITH_AI, _ICON_DOWNLOAD } from '../constants.js';
-import { escapeHtml } from '../dom.js';
+import { escapeHtml, _track } from '../dom.js';
 import { getActiveLens } from './state.js';
 import { readJson } from '../api.js';
 
@@ -169,6 +169,7 @@ export function hydrateLensAIPanel(addr) {
   const btn = panel.querySelector('.lens-ai-btn[data-action="generate"]');
   if (!btn) return;
   btn.addEventListener('click', async () => {
+    _track('lens_insight_click', { lens: active });
     panel.innerHTML = renderLensAISkeleton();
     panel.classList.add('lens-ai-loading');
     const a = addr.address || {};
