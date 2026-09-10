@@ -1,6 +1,7 @@
 import { _LENS_WITH_AI, _ICON_DOWNLOAD } from '../constants.js';
 import { escapeHtml } from '../dom.js';
 import { getActiveLens } from './state.js';
+import { readJson } from '../api.js';
 
 export function _hasLensAI(slug) { return _LENS_WITH_AI.has(slug); }
 
@@ -188,7 +189,7 @@ export function hydrateLensAIPanel(addr) {
         body: JSON.stringify(payload),
       });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      const data = await r.json();
+      const data = await readJson(r);
       const tierByKey = Object.fromEntries(lens.tiles.map(t => [t.key, t.tier || 'unknown']));
       const bezirk = a.raw?.bez_name || a.raw?.bezirk || '';
       const ortsteil = a.raw?.ort_name || a.raw?.ortsteil || '';

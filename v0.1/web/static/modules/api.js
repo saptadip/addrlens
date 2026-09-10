@@ -4,6 +4,25 @@ import { renderNoise } from './panels/environment.js';
 import { renderAmenities, amenHasErrors } from './panels/amenities.js';
 import { refreshSaveBtn } from './compare.js';
 
+// Read a fetch Response as JSON, but first verify the server actually sent JSON.
+// Some upstream layers on a visitor's path (Cloudflare challenge pages, corporate
+// proxy captive portals, ISP MITM interstitials, misconfigured WAF rules) reply
+// with HTML while the browser still sees HTTP 200. Calling r.json() on that
+// throws a cryptic 'Unexpected token <' — this helper turns it into a typed
+// error every caller can recognise and translate into a helpful UI message.
+export async function readJson(r) {
+  const ct = (r.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('application/json')) {
+    const err = new Error('Server returned non-JSON response');
+    err.code = 'NON_JSON_RESPONSE';
+    err.status = r.status;
+    err.contentType = ct;
+    throw err;
+  }
+  return r.json();
+}
+export function isNonJsonError(e) { return e && e.code === 'NON_JSON_RESPONSE'; }
+
 // -- Noise (Environment panel) ---------------------------------------------
 export async function fetchNoise(lat,lon){
   if(S.noiseFetching) return;
@@ -11,7 +30,7 @@ export async function fetchNoise(lat,lon){
   dom.$env.innerHTML=`<div class="loading"><span class="spinner"></span> Reading Berlin's 2022 façade noise map…</div>`;
   try{
     const r=await fetch(`/api/noise?lat=${lat}&lon=${lon}`);
-    const d=await r.json();
+    const d=await readJson(r);
     if(!r.ok){dom.$env.innerHTML=`<div class="error">${esc(d.error||'Failed to load noise data.')}</div>`;return}
     renderNoise(d.noise); dom.$env.dataset.loaded='1';
   }catch(e){dom.$env.innerHTML=`<div class="error">Network error: ${esc(e.message)}</div>`}
@@ -28,7 +47,7 @@ export async function fetchAmenities(lat,lon,isRetry){
   dom.$amen.innerHTML=loading; dom.$med.innerHTML=loading;
   try{
     const r=await fetch(`/api/amenities?lat=${lat}&lon=${lon}`);
-    const d=await r.json();
+    const d=await readJson(r);
     if(!r.ok){
       const err=`<div class="error">${esc(d.error||'Failed to load amenities.')}</div>`;
       dom.$amen.innerHTML=err; dom.$med.innerHTML=err; return;
