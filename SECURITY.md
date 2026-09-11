@@ -18,7 +18,7 @@ Only the current `main` branch is maintained. The live deployment at [addrlens.d
 Two channels, in order of preference:
 
 1. **GitHub Private Vulnerability Reporting** — on the repository, use *Security → Report a vulnerability*. This creates a private advisory only the maintainer can see.
-2. **Email** — `informsapta@gmail.com` with subject line `[SECURITY] <short summary>`.
+2. **Email** — `sapta@addrlens.de` with subject line `[SECURITY] <short summary>`.
 
 Whichever channel you use, please include:
 
