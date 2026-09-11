@@ -244,6 +244,83 @@ Zero-to-live playbook for deploying addrlens to a fresh Hetzner box behind a Clo
   - The `umami` service reads env vars via compose-time `${...}` interpolation, not `env_file`. **Every `docker compose` invocation touching `umami` MUST include `--env-file /srv/addrlens/.env.production`** — otherwise `TWO_FACTOR_ENCRYPTION_KEY` interpolates to an empty string, and every enrolled user's 2FA will appear broken until the correct restart command is used again.
   - `docker-compose.prod.yml` pins Umami to `3.3.1` (not `postgresql-latest`) so a `docker compose pull` never silently upgrades across a breaking 2FA schema change. Bump the pin deliberately after checking release notes; verify the new tag's manifest digest matches the mysql-vs-postgres variant you expect with `docker manifest inspect ghcr.io/umami-software/umami:<new-tag>`.
 
+- **Outbound email — sending as `sapta@addrlens.de` with green DKIM.** Inbound already works via Cloudflare Email Routing (forwards to personal Gmail; see step above or the Email → Email Routing tab in the Cloudflare dashboard). This section wires the *outbound* leg so replies leave from `sapta@addrlens.de` with SPF + DKIM + DMARC alignment — not from your personal Gmail with an ugly `on behalf of` header that some MTAs (including senatskanzlei.berlin.de) mark down for spam.
+
+  Zero cost, zero infrastructure to run. Setup is 100 % off-repo (Resend account + Cloudflare DNS + Gmail Send-As); this playbook is the reference so future-you can re-derive the setup after a laptop swap or a Resend key rotation.
+
+  1. **Choose the SMTP relay: Resend (recommended).**
+     - **Resend** — free tier 3 000 emails/mo, 100/day; modern dashboard; EU region (Frankfurt) available which keeps mail in the EU for GDPR framing; 10-min setup. Recommended.
+     - **SendGrid** — free tier 100 emails/day forever; older UI; longer domain verification loop. Fallback if Resend is unreachable.
+     - **Amazon SES** — cheapest at scale ($0.10 / 1 000 emails) but needs sandbox-exit request; sensible only if you already run AWS infra.
+
+     For solo civic-tech volume (< 100 emails/year initially), Resend's free tier is effectively unlimited.
+
+  2. **Register `addrlens.de` on Resend:**
+     - `resend.com` → sign up (free) → **Domains → Add domain** → enter `addrlens.de` → region `eu-west-1` (Ireland) or Frankfurt if listed.
+     - Resend shows 3 DNS records to add:
+       - `MX` for bounces (typically `send.addrlens.de` MX)
+       - `TXT` for DKIM (typically `resend._domainkey`)
+       - `TXT` for DMARC (recommended, optional)
+
+  3. **Add the DNS records in Cloudflare** (`addrlens.de` zone → DNS → Records):
+
+     **Important — SPF merge, not overwrite.** Cloudflare Email Routing already added a `TXT` SPF record at the apex: `v=spf1 include:_spf.mx.cloudflare.net ~all`. A domain can only have ONE SPF record. When adding Resend's SPF include, **merge into the existing record**, don't create a second:
+
+     ```
+     v=spf1 include:_spf.mx.cloudflare.net include:amazonses.com ~all
+     ```
+
+     (Resend uses Amazon SES under the hood — verify the exact `include:` string from Resend's dashboard, which will show the value tailored to your account/region.)
+
+     For the DKIM record: name `resend._domainkey`, type `TXT`, value straight from Resend's dashboard (a long base64 public key). **Do not enable Cloudflare's DNSSEC / proxy on this record** — it must remain a plain TXT.
+
+     For the MX-bounce record: name `send`, type `MX`, priority 10, value from Resend. This creates a subdomain (`send.addrlens.de`) — does NOT conflict with the existing apex Email-Routing MX records because they're on different names.
+
+  4. **Verify Resend's DNS check turns green:**
+     - Wait ~5 min for DNS propagation → click **Verify** in Resend's dashboard.
+     - All three records should turn green. If any FAIL: click the failing row for the exact expected value → compare against your Cloudflare DNS record → fix any typo (usually a trailing space or wrong hostname).
+
+  5. **Create Resend API key for Gmail's SMTP:**
+     - Resend → **API Keys → Create** → name `gmail-smtp-addrlens` → copy the key (starts with `re_...`).
+     - **Immediately store in your password manager** — the key is shown only once. Store in the same vault entry as the CF Email Routing setup so future-you finds both in one place.
+     - Resend SMTP endpoint:
+       - Host: `smtp.resend.com`
+       - Port: `465` (SSL) or `587` (STARTTLS)
+       - Username: `resend`
+       - Password: the API key you copied
+
+  6. **Configure Gmail "Send Mail As":**
+     - Personal Gmail → **Settings** (gear) → **See all settings** → **Accounts and Import** → **Send mail as** → **Add another email address**.
+     - Fill: Name = `Saptadip Sarkar`, Email = `sapta@addrlens.de`, **uncheck** *Treat as an alias* (so replies always come from `sapta@addrlens.de`, not auto-routed back to personal Gmail).
+     - Next → SMTP config: host `smtp.resend.com`, port `465`, username `resend`, password = your Resend API key, SSL.
+     - Gmail sends a verification code to `sapta@addrlens.de` — which forwards to your personal inbox via CF Email Routing → paste the code back.
+
+  7. **Deliverability verification** (before using in real correspondence):
+     - Compose a new Gmail message, click the **From:** dropdown → select `sapta@addrlens.de`.
+     - Send to: `check-auth@verifier.port25.com` (free automated deliverability checker).
+     - Automated reply arrives in ~1 min. Look for:
+       - `SPF check: pass`
+       - `DKIM check: pass`
+       - `DKIM-signature: signed`
+     - If any FAIL: quote the specific line, work backwards to the failing DNS record. Common causes: SPF collision (two records at apex), DKIM value truncated during paste, wrong hostname on the DKIM record.
+
+  8. **Add DMARC policy** (recommended, after ~1 week of clean sending):
+
+     Cloudflare DNS → Add TXT record:
+     - Name: `_dmarc`
+     - Value: `v=DMARC1; p=none; rua=mailto:sapta@addrlens.de; adkim=r; aspf=r`
+
+     `p=none` means "monitor only, don't reject anything" — safe starting posture. After 2-4 weeks of clean aggregate reports (Resend + occasional Gmail sends both aligning), upgrade to `p=quarantine` for medium-strict, then `p=reject` for maximum inbox trust. Big recipients like Google / Microsoft / Berlin Senate mail infra bias inbox-placement scores upward when DMARC is at `p=reject`.
+
+  Notes:
+  - **Never commit the Resend API key** to git — same discipline as `UMAMI_TWO_FACTOR_ENCRYPTION_KEY`. Storage is password manager + off-server encrypted backup. It's not in `.env.production` because outbound sending is initiated by Gmail (not the app), so the app never needs to know the key.
+  - **If AddrLens ever adds transactional email** (contact form, saved-address alerts, grant-application inbound webhook), the same Resend account is the natural sending path — add `RESEND_API_KEY` to `.env.production` at that time and wire from the FastAPI app. Not needed until then.
+  - **Rate limits — CF Email Routing:** 400 forwarded/minute, 200 addresses per zone. **Rate limits — Resend free tier:** 3 000 sent/month, 100/day. Solo civic-tech volume won't approach either.
+  - **DMARC `p=reject` blast radius** — once at `p=reject`, any legitimate email from `@addrlens.de` that lacks SPF or DKIM alignment will be *rejected outright* by strict receivers. Do not upgrade to `p=reject` on the same day you add a new sending source (e.g. a webhook provider). Add the new source, verify a week of clean aggregate reports at `p=quarantine`, then upgrade.
+  - **Aggregate reports (`rua=`)** land in your inbox as small daily XML files from big receivers (Google, Yahoo, Microsoft). Skim once, otherwise ignore. Any spike in "policy applied: reject" is the signal that something upstream is misconfigured.
+  - **Rotating the Resend API key:** Resend dashboard → API Keys → revoke old → create new → update Gmail Send-As SMTP password. ~2 min. No DNS changes needed.
+  - **If Cloudflare Email Routing was disabled** (currently enabled per the Umami setup step, which uses the same Email tab), the inbound `sapta@addrlens.de` → Gmail forward stops working, so the Gmail Send-As verification code won't arrive. Confirm Email Routing is enabled before starting step 6.
+
 ## Updates
 
 Run from the box after `git push origin main` has landed the new code:
