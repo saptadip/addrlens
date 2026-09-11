@@ -106,7 +106,7 @@ Please answer these in the PR description:
 
 ## Reporting security issues
 
-Please **do not open a public Issue** for security vulnerabilities. Email `informsapta@gmail.com` with:
+Please **do not open a public Issue** for security vulnerabilities. Email `sapta@addrlens.de` with:
 
 - A clear description of the vulnerability
 - Steps to reproduce

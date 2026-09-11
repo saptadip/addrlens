@@ -11,7 +11,7 @@ Deutschland
 
 ## Kontakt
 
-E-Mail: informsapta@gmail.com
+E-Mail: sapta@addrlens.de
 Website: https://addrlens.de
 
 ## Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV
@@ -110,7 +110,7 @@ Germany
 
 ## Contact
 
-E-Mail: informsapta@gmail.com
+E-Mail: sapta@addrlens.de
 Website: https://addrlens.de
 
 ## Responsible for content under § 18 (2) MStV

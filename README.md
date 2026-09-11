@@ -205,5 +205,5 @@ MIT — see [`LICENSE`](LICENSE). Data sources retain their own licences (see th
 ## Contact
 
 - Product: <https://addrlens.de/>
-- Feedback: `informsapta@gmail.com`
+- Feedback: `sapta@addrlens.de`
 - Issues + feature requests: [GitHub Issues](https://github.com/saptadip/addrlens/issues)

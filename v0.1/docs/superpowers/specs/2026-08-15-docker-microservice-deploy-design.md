@@ -31,7 +31,7 @@ Locked during the brainstorming session:
 | Hetzner box | **Existing** Falkenstein VM: 2 vCPU / 4 GB RAM / 40 GB NVMe / Ubuntu 24.04 x86_64. Bare (docker not installed, no other services), user `sapta` with sudo. | Given constraint. RAM is tight but workable with per-container `mem_limit` + 4 GB swap. |
 | Domain scheme | **Apex only** (`addrlens.de`). `www.addrlens.de` 301-redirects to apex. Multi-city subdomains (per plan §0) deferred until real city #2 lands. | Cleanest onboarding URL for Berlin-only v1. |
 | Deploy tree | **`v0.1/`**, not `micro-service/` | Per user confirmation. `v0.1/` has the local OSM snapshot (`data/osm/berlin-amenities.json`) + refresh script; `micro-service/` uses live Overpass without a snapshot. |
-| Alert email | `informsapta@gmail.com` | For UptimeRobot + Sentry notifications. |
+| Alert email | `sapta@addrlens.de` | For UptimeRobot + Sentry notifications. |
 | Sentry region | **EU (Frankfurt)** | Matches "no cross-border data transfer" from `microservice-refactor-plan.md` §0. |
 
 ## 3. Topology
@@ -575,8 +575,8 @@ External probes; configured via UptimeRobot UI (not repo).
 
 | Probe | URL | Expected | Alert to |
 |---|---|---|---|
-| App liveness | `https://addrlens.de/health` | 200, body `{"status":"ok"}` | `informsapta@gmail.com` |
-| App readiness | `https://addrlens.de/ready` | 200, body includes `"city":"berlin"` | `informsapta@gmail.com` |
+| App liveness | `https://addrlens.de/health` | 200, body `{"status":"ok"}` | `sapta@addrlens.de` |
+| App readiness | `https://addrlens.de/ready` | 200, body includes `"city":"berlin"` | `sapta@addrlens.de` |
 
 Cadence: 5 min each (free tier limit). Detection window: ~10 min worst case.
 

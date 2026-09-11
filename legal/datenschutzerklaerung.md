@@ -13,7 +13,7 @@ Hanns-Eisler-Platz 3
 39128, Magdeburg
 Deutschland
 
-E-Mail: informsapta@gmail.com
+E-Mail: sapta@addrlens.de
 Website: https://addrlens.de
 
 ## 2. Zweck und Charakter der Website
@@ -295,7 +295,7 @@ Sofern wir personenbezogene Daten auf Grundlage berechtigter Interessen
 gemäß Art. 6 Abs. 1 lit. f DSGVO verarbeiten, haben Sie das Recht, aus
 Gründen, die sich aus Ihrer besonderen Situation ergeben, jederzeit
 Widerspruch gegen die Verarbeitung Ihrer personenbezogenen Daten
-einzulegen. Der Widerspruch kann formfrei per E-Mail an informsapta@gmail.com
+einzulegen. Der Widerspruch kann formfrei per E-Mail an sapta@addrlens.de
 erfolgen.
 
 ## 9. Datensicherheit
@@ -346,7 +346,7 @@ Hanns-Eisler-Platz 3
 39128, Magdeburg
 Deutschland
 
-E-Mail: informsapta@gmail.com
+E-Mail: sapta@addrlens.de
 Website: https://addrlens.de
 
 ## 2. Purpose and character of the website
@@ -613,7 +613,7 @@ Insofar as we process personal data on the basis of legitimate
 interests pursuant to Art. 6 (1) (f) GDPR, you have the right, for
 reasons arising from your particular situation, to object at any time
 to the processing of your personal data. The objection can be made
-informally by email to informsapta@gmail.com.
+informally by email to sapta@addrlens.de.
 
 ## 9. Data security
 

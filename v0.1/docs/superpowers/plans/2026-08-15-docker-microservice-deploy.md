@@ -22,7 +22,7 @@
 - **Order-sensitive gates:**
   - DNS migration (delete `www` AAAA, change `www` A → CNAME) MUST happen BEFORE the tunnel wizard's Public Hostname step.
   - First OSM snapshot (`docker compose run --rm` refresh script) MUST run BEFORE `docker compose up -d` — the app's `Index` build reads `data/osm/berlin-amenities.json` at boot.
-- **Alert email:** `informsapta@gmail.com` for Sentry + UptimeRobot.
+- **Alert email:** `sapta@addrlens.de` for Sentry + UptimeRobot.
 - **Sentry region:** EU (Frankfurt).
 - **Ubuntu 24.04 x86_64.** Docker Compose plugin ≥ 2.24 required for `!reset []` YAML tag.
 - **Docker containers run as uid 10001** (from Dockerfile `useradd`). Host bind-mount directory ownership must permit read by uid 10001 — plan uses `chown sapta:sapta` with dir mode 0755, which is world-readable.
@@ -1470,7 +1470,7 @@ Check the DNS records page — these must still be present:
 
 If ANY of these is missing, restore from CF's audit log before proceeding.
 
-- [ ] **Step 6: Send yourself a test email to `informsapta@addrlens.de` (or whatever mailbox you use)**
+- [ ] **Step 6: Send yourself a test email to `sapta@addrlens.de` (or whatever mailbox you use)**
 
 Verify mail still delivers. If mail is broken, restore mail records before touching the tunnel wizard.
 
@@ -1734,9 +1734,9 @@ Same flow.
 
 Copy its DSN, store as `SENTRY_DSN_INFERENCE`.
 
-- [ ] **Step 4: Configure alerts to `informsapta@gmail.com`**
+- [ ] **Step 4: Configure alerts to `sapta@addrlens.de`**
 
-For each project → **Settings** → **Alerts** → **Alert Rules**. Ensure the default rule (new issue → send email) points at `informsapta@gmail.com`.
+For each project → **Settings** → **Alerts** → **Alert Rules**. Ensure the default rule (new issue → send email) points at `sapta@addrlens.de`.
 
 - [ ] **Step 5: Note the environment tag** — the code uses `SENTRY_ENV=production` (Task 24 sets this). All events on the box will land under `environment: production` in Sentry.
 
@@ -2162,7 +2162,7 @@ Do NOT proceed to Task 28 until steps 3-7 all pass.
 
 **Interfaces:**
 - Consumes: live URLs from Task 27.
-- Produces: two HTTP monitors alerting `informsapta@gmail.com` on failure.
+- Produces: two HTTP monitors alerting `sapta@addrlens.de` on failure.
 
 - [ ] **Step 1: Sign up / log in at `https://uptimerobot.com/`**
 
@@ -2175,7 +2175,7 @@ Free tier: 50 monitors, 5-min interval.
 - URL: `https://addrlens.de/health`
 - Interval: **5 minutes**
 - Keyword monitoring: **Keyword exists** → keyword `"ok"`
-- Alert contact: `informsapta@gmail.com` (add if not already)
+- Alert contact: `sapta@addrlens.de` (add if not already)
 - Create.
 
 - [ ] **Step 3: Add monitor "addrlens.de /ready"**
@@ -2370,7 +2370,7 @@ curl -sSf https://addrlens.de/ready    # readiness (includes city)
 ```
 
 Monitoring:
-- Sentry EU: `addrlens-app` + `addrlens-inference` projects, alerts to `informsapta@gmail.com`.
+- Sentry EU: `addrlens-app` + `addrlens-inference` projects, alerts to `sapta@addrlens.de`.
 - UptimeRobot: two 5-min HTTP probes on `/health` and `/ready`, alerts to same.
 - Cloudflare Analytics + WAF events (Free plan, 24 h retention).
 ```
