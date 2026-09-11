@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Sitemap for search + LLM answer-engine crawlers.
+Sitemap: https://addrlens.de/sitemap.xml

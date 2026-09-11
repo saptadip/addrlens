@@ -154,6 +154,18 @@ def datenschutzerklaerung():
     return FileResponse(WEB_DIR / "datenschutzerklaerung.html", media_type="text/html; charset=utf-8")
 
 
+@app.get("/robots.txt", include_in_schema=False)
+def robots():
+    """Serve robots.txt — allowlist everything except /api/*, point at sitemap."""
+    return FileResponse(WEB_DIR / "robots.txt", media_type="text/plain; charset=utf-8")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap():
+    """Serve sitemap.xml — landing + legal pages. Update when public routes change."""
+    return FileResponse(WEB_DIR / "sitemap.xml", media_type="application/xml; charset=utf-8")
+
+
 # ES module files under /static/modules/ must revalidate on every load.
 # Chromium's module registry keys on URL, so bumping ?v= on the app.js entry
 # does NOT force a refetch of child module imports (which are unversioned
