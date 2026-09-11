@@ -20,12 +20,23 @@
 <meta property="og:description" content="Moving to Berlin? Know your neighbourhood first. Schools, transit, noise, and more: see what life around any Berlin address is really like — in 30 seconds.">
 <meta property="og:site_name" content="AddrLens">
 <meta property="og:locale" content="en_GB">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Moving to Berlin? Know your neighbourhood first. · AddrLens">
 <meta name="twitter:description" content="Moving to Berlin? Know your neighbourhood first. Schools, transit, noise, and more: see what life around any Berlin address is really like — in 30 seconds.">
-<!-- og:image + twitter:image intentionally deferred. See
-     docs/social-embed-og-image.md for the exact snippet + how to
-     generate the 1200×630 PNG when ready. -->
+<!-- 1200×630 hero screenshot (regenerated whenever hero copy or layout changes;
+     see docs/social-embed-og-image.md for the capture command). -->
+<meta property="og:image" content="https://addrlens.de/static/img/og-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AddrLens hero — Moving to Berlin? Know your neighbourhood first. Search box for any Berlin address, Berlin map on the right.">
+<meta name="twitter:image" content="https://addrlens.de/static/img/og-image.jpg">
+<meta name="twitter:image:alt" content="AddrLens hero — Moving to Berlin? Know your neighbourhood first. Search box for any Berlin address, Berlin map on the right.">
+<!-- Canonical + hreflang: single English landing page on .de TLD. Legal pages
+     are DE-only; no English alternate exists for those. -->
+<link rel="canonical" href="https://addrlens.de/">
+<link rel="alternate" hreflang="en-GB" href="https://addrlens.de/">
+<link rel="alternate" hreflang="x-default" href="https://addrlens.de/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -33,6 +44,49 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <link rel="stylesheet" href="/static/app.css?v=20260907-mobile-scanner-pdf-fx115">
 <link rel="icon" type="image/png" href="/static/img/logo.png">
+<!-- Schema.org / JSON-LD structured data — WebApplication schema for LLM
+     answer engines (Perplexity, ChatGPT search, Gemini) + Google Rich Results.
+     application/ld+json is not a JavaScript MIME type, so CSP script-src does
+     not apply to this block. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "AddrLens",
+  "url": "https://addrlens.de/",
+  "description": "Moving to Berlin? Know your neighbourhood first. Schools, transit, noise, and more: see what life around any Berlin address is really like — in 30 seconds.",
+  "applicationCategory": "LifestyleApplication",
+  "operatingSystem": "Web",
+  "browserRequirements": "Requires JavaScript. Requires a modern browser.",
+  "inLanguage": "en-GB",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "EUR"
+  },
+  "license": "https://opensource.org/licenses/MIT",
+  "areaServed": {
+    "@type": "City",
+    "name": "Berlin",
+    "containedInPlace": {
+      "@type": "Country",
+      "name": "Germany"
+    }
+  },
+  "audience": {
+    "@type": "Audience",
+    "audienceType": "People moving to or evaluating flats in Berlin"
+  },
+  "creator": {
+    "@type": "Person",
+    "name": "Saptadip Sarkar"
+  },
+  "sameAs": [
+    "https://github.com/saptadip/addrlens"
+  ]
+}
+</script>
 </head>
 <body>
 <div class="page">
