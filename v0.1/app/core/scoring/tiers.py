@@ -86,7 +86,13 @@ def _tier_count_band(features: list, th: dict, *,
         rule = f"≥{th['green_count']} {rule_label} within {r}"
     elif n >= th["amber_count"]:
         tier = TIER_AMBER
-        rule = f"{th['amber_count']}–{th['green_count']-1} {rule_label} within {r}"
+        # Collapse the "N–(N-1)" range to just "N" when green - amber == 1
+        # (e.g. green=2/amber=1 → "exactly 1 X within Ykm" reads cleaner
+        # than the empty range "1–1 X within Ykm").
+        if th["green_count"] - th["amber_count"] == 1:
+            rule = f"exactly {th['amber_count']} {rule_label} within {r}"
+        else:
+            rule = f"{th['amber_count']}–{th['green_count']-1} {rule_label} within {r}"
     else:
         tier = TIER_RED
         rule = f"<{th['amber_count']} {rule_label} within {r}"
@@ -845,10 +851,12 @@ def _tier_wochenmarkt(features: list, th: dict) -> dict:
 def _tier_xmas_market(features: list, th: dict) -> dict:
     """Count-based tier for Berlin Christmas markets within radius_m.
     Seasonal feed — empty list in summer is honest, not unknown."""
+    def _num(n, r):
+        noun = "market" if n == 1 else "markets"
+        return f"{n} Christmas {noun} within {r} m"
     return _tier_count_band(features, th,
                              rule_label="Christmas markets",
-                             numeric_fmt=lambda n, r:
-                                f"{n} Christmas markets within {r} m")
+                             numeric_fmt=_num)
 
 
 if __name__ == "__main__":
@@ -914,6 +922,21 @@ if __name__ == "__main__":
         rule_label="intl food spots",
         numeric_fmt=lambda n, radius: f"{n} international spots within {radius} m walk")
     assert r["tier"] == "red" and "<2" in r["rule"]
+
+    # -- diff=1 degenerate case: green_count=2, amber_count=1 → "exactly 1"
+    # instead of the empty "1–1" range. Regression guard for the xmas_market
+    # tile's thresholds and any future tight count-band caller.
+    th_d1 = {"radius_m": 3000, "green_count": 2, "amber_count": 1}
+    r = _tier_count_band([{}], th_d1,
+        rule_label="X",
+        numeric_fmt=lambda n, radius: "")
+    assert r["tier"] == "amber", r
+    assert "exactly 1" in r["rule"], r
+    assert "1–1" not in r["rule"], r
+    # diff=2 stays as a range (guard against over-eager collapse).
+    r = _tier_count_band([{}], {"radius_m": 500, "green_count": 3, "amber_count": 1},
+        rule_label="X", numeric_fmt=lambda n, radius: "")
+    assert "1–2" in r["rule"], r
 
     # -- Thin wrappers preserve behaviour and produce identical output.
     #    (Exercised in full via scorer.py's regression selfcheck; here just

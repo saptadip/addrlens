@@ -58,7 +58,8 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
 
     Tile order (fixed): buergeramt, rail_transit, tram_transit,
     bus_transit, intl_food, coworking, english_clinic, language_school,
-    library, packstation, wochenmarkt, nightlife_density, gesix_newcomer.
+    library, packstation, wochenmarkt, xmas_market, nightlife_density,
+    gesix_newcomer.
 
     `amenities` is the OSM buckets dict from amenities_near() — only the
     "transit" bucket is consumed here (nearest bus-tagged stop for the

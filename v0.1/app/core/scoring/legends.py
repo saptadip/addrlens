@@ -26,9 +26,14 @@ def _legend_for(key: str, th: dict) -> list:
 
     def _count_legend(radius_m: int, green_c: int, amber_c: int) -> list:
         r = fd(radius_m)
+        # Collapse the "N–(N-1)" degenerate range to just "N" when green
+        # and amber are one apart (matches _tier_count_band rule text).
+        amber_text = (f"exactly {amber_c} within {r}"
+                      if green_c - amber_c == 1
+                      else f"{amber_c}–{green_c-1} within {r}")
         return [
             {"tier": TIER_GREEN, "text": f"≥{green_c} within {r}"},
-            {"tier": TIER_AMBER, "text": f"{amber_c}–{green_c-1} within {r}"},
+            {"tier": TIER_AMBER, "text": amber_text},
             {"tier": TIER_RED,   "text": f"<{amber_c} within {r}"},
         ]
 
@@ -196,6 +201,14 @@ if __name__ == "__main__":
     ccs = _legend_for("car_sharing_reach",
                       {"radius_m": 500, "green_count": 3, "amber_count": 1})
     assert ccs[0]["text"] == "≥3 within 500m"
+
+    # xmas_market count-band with diff=1 (green_count=2, amber_count=1)
+    # collapses the "1–1" degenerate range to "exactly 1".
+    xm = _legend_for("xmas_market",
+                     {"radius_m": 3000, "green_count": 2, "amber_count": 1})
+    assert xm[0]["text"] == "≥2 within 3km"
+    assert xm[1]["text"] == "exactly 1 within 3km", xm[1]
+    assert xm[2]["text"] == "<1 within 3km"
     cair = _legend_for("airport_reach", {"green_km": 20, "amber_km": 35})
     assert cair[0]["text"] == "≤20 km"
 

@@ -331,7 +331,10 @@ function _lensFeatureDetailHtml(tileKey, f) {
     if (f.organiser)             rows.push(row('Organiser',  escapeHtml(f.organiser)));
     if (f.email)                 rows.push(row('Email',
                                       `<a href="mailto:${escapeHtml(f.email)}">${escapeHtml(f.email)}</a>`));
-    if (f.barrier_free === 'ja') rows.push(row('Access',     'Barrier-free'));
+    if (typeof f.barrier_free === 'string'
+        && f.barrier_free.trim().toLowerCase().startsWith('ja')) {
+      rows.push(row('Access', escapeHtml(f.barrier_free)));
+    }
     if (f.description)           rows.push(row('About',      escapeHtml(f.description)));
     if (f.detail_url && /^https?:\/\//i.test(f.detail_url)) {
       rows.push(row('Details',
