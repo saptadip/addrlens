@@ -1,25 +1,69 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" width="120" height="140" role="img" aria-label="Berlin bear watermark">
-  <!-- Stylised standing bear silhouette — a nod to the Berliner Bär that
-       has been Berlin's civic mark since 1280, drawn intentionally as a
-       generic decorative bear (no shield, no crown) so it stays clear of
-       the official heraldic mark and reads as an archival flourish, not
-       an official emblem. Rendered at ~7% opacity by the .addr-history-body
-       CSS so it sits behind the History text without competing. -->
-  <g fill="#5A3F14" fill-opacity="0.08">
-    <!-- Head -->
-    <ellipse cx="60" cy="30" rx="18" ry="17"/>
-    <!-- Ears -->
-    <ellipse cx="43" cy="15" rx="7" ry="8"/>
-    <ellipse cx="77" cy="15" rx="7" ry="8"/>
-    <!-- Muzzle -->
-    <ellipse cx="60" cy="38" rx="8" ry="5"/>
-    <!-- Torso -->
-    <path d="M 40 46 Q 30 56 30 74 L 30 102 Q 30 116 42 118 L 78 118 Q 90 116 90 102 L 90 74 Q 90 56 80 46 Q 74 44 60 44 Q 46 44 40 46 Z"/>
-    <!-- Front arms raised outward -->
-    <path d="M 32 60 Q 18 58 12 70 Q 10 79 18 82 Q 26 83 32 76 Z"/>
-    <path d="M 88 60 Q 102 58 108 70 Q 110 79 102 82 Q 94 83 88 76 Z"/>
-    <!-- Rear legs / feet -->
-    <ellipse cx="43" cy="126" rx="10" ry="6"/>
-    <ellipse cx="77" cy="126" rx="10" ry="6"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" width="100" height="140" role="img" aria-label="Berlin bear watermark">
+  <!-- Rampant bear silhouette — the pose Berlin's civic mark has used
+       since 1280: upright on hind legs, left forepaw raised high, right
+       forepaw forward, head high with muzzle protruding. Drawn as a
+       simple silhouette (no shield, no crown, no colour detail) so it
+       reads as an archival decorative flourish, deliberately avoiding
+       the exact heraldic rendering that Berlin state law protects for
+       official use. Fill opacity is baked in at 8% for watermark use. -->
+  <g fill="#5A3F14" fill-opacity="0.08" stroke="none">
+    <!-- Torso: elongated upright body, slightly S-curved for lively pose -->
+    <path d="M 34 44
+             Q 26 58 28 82
+             Q 28 100 36 110
+             L 60 118
+             Q 74 118 78 108
+             Q 82 92 80 78
+             Q 84 60 74 46
+             Q 66 40 58 40
+             Q 44 40 34 44 Z"/>
+    <!-- Head: high above shoulders, muzzle protruding forward -->
+    <path d="M 60 40
+             Q 52 30 58 20
+             Q 66 12 76 15
+             Q 84 20 82 30
+             Q 88 32 90 36
+             Q 90 42 84 42
+             Q 78 40 74 36
+             Q 68 40 60 40 Z"/>
+    <!-- Ear: small pointed shape behind head -->
+    <path d="M 65 16 L 62 8 L 70 10 Z"/>
+    <!-- Tongue detail: tiny protrusion from muzzle (classic Berlin bear) -->
+    <path d="M 88 36 Q 93 38 92 42 Q 88 42 86 40 Z"/>
+    <!-- Left front paw raised HIGH: signature Berlin-bear silhouette element -->
+    <path d="M 34 48
+             Q 26 34 20 18
+             Q 16 8 22 6
+             Q 28 6 30 14
+             L 38 40
+             Q 40 46 38 50 Z"/>
+    <!-- Claws hint on the raised paw -->
+    <path d="M 18 8 L 20 3 L 22 6 Z"/>
+    <path d="M 22 6 L 24 2 L 26 5 Z"/>
+    <!-- Right front paw forward at chest -->
+    <path d="M 78 68
+             Q 92 72 96 80
+             Q 96 84 90 84
+             Q 82 82 76 76 Z"/>
+    <!-- Rear leg planted (main support) -->
+    <path d="M 32 108
+             Q 28 118 28 130
+             L 28 136
+             Q 28 138 30 138
+             L 44 138
+             Q 46 138 46 136
+             L 46 128
+             Q 46 118 44 112 Z"/>
+    <!-- Second rear leg (slightly behind, showing) -->
+    <path d="M 58 115
+             Q 58 125 60 132
+             L 60 136
+             Q 60 138 62 138
+             L 72 138
+             Q 74 138 74 136
+             L 74 130
+             Q 74 122 70 116 Z"/>
+    <!-- Small tail nub at rear -->
+    <path d="M 28 78 Q 22 80 22 86 Q 26 90 30 84 Z"/>
   </g>
 </svg>
