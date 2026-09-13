@@ -1869,10 +1869,32 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 .addr-history-body               { position:relative; margin-top:14px;
                                     padding:16px 20px 16px 20px;
                                     border-radius:14px;
-                                    background:linear-gradient(180deg,#F5EBCF 0%,#EDDFB0 100%);
+                                    /* Three stacked layers (top-to-bottom):
+                                       1) Stylised Berliner Bär watermark, bottom-right,
+                                          ~120px, no-repeat — a subtle nod to Berlin's
+                                          civic mark. Rendered at 7% opacity via the SVG's
+                                          own fill-opacity so it sits quietly behind text.
+                                       2) Parchment-grain noise, tiled across the whole
+                                          card — turns the flat gradient into an archival
+                                          document surface.
+                                       3) The pre-existing cream→beige gradient. */
+                                    background:
+                                      url("/static/img/berlin-bear.svg") no-repeat right 18px bottom 14px / 108px auto,
+                                      url("/static/img/parchment-noise.svg") repeat,
+                                      linear-gradient(180deg,#F5EBCF 0%,#EDDFB0 100%);
+                                    background-blend-mode: multiply, normal, normal;
                                     border:1px solid rgba(146,110,45,.18);
                                     box-shadow:inset 2px 2px 6px rgba(146,110,45,.14),
                                                inset -2px -2px 6px rgba(255,255,240,.55); }
+/* Bear opacity is baked into the SVG (7%). Keep it low enough that body
+   text still passes WCAG AA over the darker bottom-right region — verified
+   at the 108px scale used here. If the card ever gets narrower than ~380px
+   the bear can crowd the text — hide it on the smallest viewports. */
+@media (max-width: 480px) {
+  .addr-history-body             { background:
+                                     url("/static/img/parchment-noise.svg") repeat,
+                                     linear-gradient(180deg,#F5EBCF 0%,#EDDFB0 100%); }
+}
 .addr-history-close              { position:absolute; top:8px; right:10px;
                                     width:28px; height:28px; border-radius:50%;
                                     border:none; background:rgba(255,250,232,.7);
