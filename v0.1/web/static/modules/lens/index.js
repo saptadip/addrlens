@@ -345,6 +345,22 @@ function _lensFeatureDetailHtml(tileKey, f) {
   return rows.join('');
 }
 
+function _renderSourceFreshness(sourceDates) {
+  if (!Array.isArray(sourceDates) || sourceDates.length === 0) return '';
+  const rows = sourceDates
+    .filter(d => d && d.label && d.value)
+    .map(d => `<div class="modal-freshness-row">`
+      + `<span class="modal-freshness-label">${escapeHtml(d.label)}:</span> `
+      + `<span class="modal-freshness-value">${escapeHtml(d.value)}</span>`
+      + `</div>`)
+    .join('');
+  if (!rows) return '';
+  return `<div class="modal-freshness">`
+    + `<div class="modal-freshness-title">Last refreshed on</div>`
+    + rows
+    + `</div>`;
+}
+
 function renderLensTreesBlock(trees) {
   if (!trees) return '';
   const bits = [];
@@ -396,7 +412,7 @@ function renderLensModalBody(tile, lensSlug) {
   const sourcesHtml = Array.isArray(tile.sources) && tile.sources.length
     ? `<div class="modal-provenance">${
         tile.sources.map(escapeHtml).join(' · ')
-      }</div>`
+      }${_renderSourceFreshness(tile.source_dates)}</div>`
     : '';
 
   let cardRichBlock = '';
