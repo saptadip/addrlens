@@ -201,7 +201,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
             sources = ["© OpenStreetMap contributors (ODbL) via Geofabrik"]
         else:
             sources = _sources_for(cfg, key, res["tier"])
-        tiles.append({
+        tile = {
             "key":      key,
             "label":    label,
             "icon":     icon,
@@ -212,7 +212,22 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
             "features": feat_map.get(key, []),
             "sources":  sources,
             "legend":   _legend_for(key, th.get(key, {}) or {}),
-        })
+        }
+        # Per-source freshness metadata — currently emitted only for
+        # tiles whose upstream dataset self-publishes a refresh signal
+        # our loader can read (xmas_market → Senate ETag date). Falls
+        # back to boot-cache time when the upstream date is unknown.
+        # ponytail: generalise across all tiles once a broader
+        # attribution_dates map lands on CityConfig.
+        if key == "xmas_market" and sources:
+            upstream = getattr(index, "xmas_market_upstream_refreshed_on", "")
+            if upstream:
+                fresh = {"label": "Source refreshed", "value": upstream}
+            else:
+                fresh = {"label": "Cached at server boot",
+                         "value": getattr(index, "boot_time_utc", "")}
+            tile["source_dates"] = [{"source": sources[0], **fresh}]
+        tiles.append(tile)
 
     tiles.append(_shape_gesix(cfg, index, lat, lon, card_key="gesix_newcomer",
                               label=tile_meta["gesix_newcomer"][0]))

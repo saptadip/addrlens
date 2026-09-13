@@ -16,6 +16,7 @@ polygon `(props, geom)` and point `(props, coords)` shapes; the
 service.berlin.de Bürgeramt REST/HTML block moved out to its own
 module (`loaders.buergeramt_service_portal`).
 """
+import datetime
 import unicodedata
 
 from shapely.geometry import Point
@@ -102,6 +103,13 @@ class Index:
 
     def __init__(self, cfg: CityConfig):
         self.cfg = cfg
+        # Timestamp of this Index boot — surfaced on tiles whose data
+        # was fetched at boot (e.g. xmas_market Senate feed) so the
+        # frontend can label "Cached: <boot time>" honestly. Minute-
+        # precision UTC ISO is more than enough for a human-facing
+        # freshness label.
+        self.boot_time_utc = (datetime.datetime.utcnow()
+                              .strftime("%Y-%m-%d %H:%M UTC"))
         # Load order mirrors the pre-split monolith so the boot-time
         # stdout timeline is unchanged. Each `_load_*` writes its own
         # "loading X… N items" line via `log_load`.
@@ -417,14 +425,21 @@ class Index:
         """Berlin Senate live Weihnachtsmärkte GeoJSON — fetched once at
         boot. Seasonal feed: empty most of the year, ~45–50 markets in
         Nov–Dec. Fails soft: network / parse error → empty list, tile
-        reports honest 'no markets nearby' without breaking boot."""
+        reports honest 'no markets nearby' without breaking boot.
+
+        Also captures `self.xmas_market_upstream_refreshed_on` from the
+        ServicePortal ETag when available — the Senate's own dataset
+        regeneration date, more honest than our boot-cache time."""
         cfg = self.cfg
         self.xmas_markets = []
+        self.xmas_market_upstream_refreshed_on = ""
         if not getattr(cfg, "xmas_market_url", None):
             return
         log_load("Weihnachtsmärkte (Senate feed)")
         from app.core.loaders.weihnachtsmarkt import load as _load_xm
-        self.xmas_markets = _load_xm(cfg)
+        result = _load_xm(cfg)
+        self.xmas_markets = result["markets"]
+        self.xmas_market_upstream_refreshed_on = result["upstream_refreshed_on"]
         print(f"{len(self.xmas_markets)} markets")
 
     def _load_tempolimits(self) -> None:
