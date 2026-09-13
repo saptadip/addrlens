@@ -558,7 +558,10 @@ if __name__ == "__main__":
         ubahn = []
         tram  = []
         osm_local = None
+        xmas_markets = []
         def buergeramt_near(self, lon, lat, radius_m=5000):
+            return []
+        def xmas_market_near(self, lon, lat, radius_m=3000):
             return []
         def gesix_at(self, lon, lat):
             return {"plr_name": "X", "quintile_5": 3, "rang": 200, "total": 447}
@@ -567,12 +570,13 @@ if __name__ == "__main__":
     assert all(k in _out for k in ("slug", "label", "audience", "tiles", "provenance"))
     assert _out["slug"] == "newcomer"
     assert _out["label"] == "Newcomer"
-    assert len(_out["tiles"]) == 13
+    assert len(_out["tiles"]) == 14
     _keys_nl = [t["key"] for t in _out["tiles"]]
     assert _keys_nl == ["buergeramt",
                         "rail_transit", "tram_transit", "bus_transit",
                         "intl_food", "coworking", "english_clinic",
                         "language_school", "library", "packstation", "wochenmarkt",
+                        "xmas_market",
                         "nightlife_density",
                         "gesix_newcomer"], _keys_nl
     _nl_night = {t["key"]: t for t in _out["tiles"]}["nightlife_density"]

@@ -45,6 +45,7 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "library":         ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "packstation":     ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
         "wochenmarkt":     ["© OpenStreetMap contributors (ODbL) via Geofabrik"],
+        "xmas_market":     [attr.get("xmas_market")],
         "gesix_newcomer":  [attr.get("gesix")],
         # Ship D+ — Quiet Living lens
         # `noise`, `air`, and `gesix_quiet` reuse the Young Family tile

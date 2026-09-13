@@ -18,6 +18,7 @@ from app.core.scoring.tiers import (
     _tier_english_clinic, _tier_intl_food, _tier_language_school,
     _tier_library, _tier_nightlife_density, _tier_packstation,
     _tier_rail_transit, _tier_tram_transit, _tier_wochenmarkt,
+    _tier_xmas_market,
 )
 
 
@@ -57,7 +58,8 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
 
     Tile order (fixed): buergeramt, rail_transit, tram_transit,
     bus_transit, intl_food, coworking, english_clinic, language_school,
-    library, packstation, wochenmarkt, nightlife_density, gesix_newcomer.
+    library, packstation, wochenmarkt, xmas_market, nightlife_density,
+    gesix_newcomer.
 
     `amenities` is the OSM buckets dict from amenities_near() — only the
     "transit" bucket is consumed here (nearest bus-tagged stop for the
@@ -73,6 +75,10 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
     # -- Bürgeramt: BOD-first (preloaded via buergeramt_near) --------------
     buergeramt_raw   = index.buergeramt_near(lon, lat, 5000)
     buergeramt_feats = [f for f in (_shape_office(o) for o in buergeramt_raw) if f]
+
+    # -- Christmas markets: Senate live GeoJSON preloaded at boot ---------
+    xmas_market_feats = index.xmas_market_near(
+        lon, lat, th["xmas_market"]["radius_m"])
 
     # -- Rail (S+U) from preloaded VBB+BOD lists ---------------------------
     # ponytail: No vbb_query() method exists; access per-modality lists
@@ -153,6 +159,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
         ("library",          _tier_library(library_feats,                 th["library"])),
         ("packstation",      _tier_packstation(packstation_feats,         th["packstation"])),
         ("wochenmarkt",      _tier_wochenmarkt(wochenmarkt_feats,         th["wochenmarkt"])),
+        ("xmas_market",      _tier_xmas_market(xmas_market_feats,         th["xmas_market"])),
         ("nightlife_density", _tier_nightlife_density(nightlife_feats,    th["nightlife_density"])),
     ]
 
@@ -179,6 +186,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
         "library":           library_feats[:10],
         "packstation":       packstation_feats[:10],
         "wochenmarkt":       wochenmarkt_feats[:10],
+        "xmas_market":       xmas_market_feats[:10],
         "nightlife_density": nightlife_feats[:10],
     }
 

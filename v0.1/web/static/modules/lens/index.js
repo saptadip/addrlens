@@ -325,6 +325,21 @@ function _lensFeatureDetailHtml(tileKey, f) {
   } else if (tileKey === 'refuge') {
     if (f.size_ha != null)       rows.push(row('Size',       `${f.size_ha} ha`));
     if (f.kind)                  rows.push(row('Type',       escapeHtml(f.kind)));
+  } else if (tileKey === 'xmas_market') {
+    if (f.bezirk)                rows.push(row('Bezirk',     escapeHtml(f.bezirk)));
+    if (f.opening_hours)         rows.push(row('Opening',    escapeHtml(f.opening_hours).replace(/\n/g, '<br>')));
+    if (f.organiser)             rows.push(row('Organiser',  escapeHtml(f.organiser)));
+    if (f.email)                 rows.push(row('Email',
+                                      `<a href="mailto:${escapeHtml(f.email)}">${escapeHtml(f.email)}</a>`));
+    if (typeof f.barrier_free === 'string'
+        && f.barrier_free.trim().toLowerCase().startsWith('ja')) {
+      rows.push(row('Access', escapeHtml(f.barrier_free)));
+    }
+    if (f.description)           rows.push(row('About',      escapeHtml(f.description)));
+    if (f.detail_url && /^https?:\/\//i.test(f.detail_url)) {
+      rows.push(row('Details',
+        `<a href="${escapeHtml(f.detail_url)}" target="_blank" rel="noopener">Senate page ↗</a>`));
+    }
   }
 
   return rows.join('');
