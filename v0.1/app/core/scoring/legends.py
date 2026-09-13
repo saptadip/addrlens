@@ -104,6 +104,8 @@ def _legend_for(key: str, th: dict) -> list:
         return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
     if key == "coworking":
         return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
+    if key == "xmas_market":
+        return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
 
     # -- Quiet Living ---------------------------------------------------
     if key == "quiet_zone":

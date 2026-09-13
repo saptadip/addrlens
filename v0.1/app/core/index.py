@@ -121,6 +121,7 @@ class Index:
         self._load_bezirksgrenzen()
         self._load_gesix()
         self._load_buergeramts()
+        self._load_xmas_markets()
         self._load_tempolimits()
         self._load_arterial_roads()
 
@@ -411,6 +412,20 @@ class Index:
                     "lat": la, "lon": lo,
                 })
         print(f"{len(self.buergeramts)} Bürgerämter")
+
+    def _load_xmas_markets(self) -> None:
+        """Berlin Senate live Weihnachtsmärkte GeoJSON — fetched once at
+        boot. Seasonal feed: empty most of the year, ~45–50 markets in
+        Nov–Dec. Fails soft: network / parse error → empty list, tile
+        reports honest 'no markets nearby' without breaking boot."""
+        cfg = self.cfg
+        self.xmas_markets = []
+        if not getattr(cfg, "xmas_market_url", None):
+            return
+        log_load("Weihnachtsmärkte (Senate feed)")
+        from app.core.loaders.weihnachtsmarkt import load as _load_xm
+        self.xmas_markets = _load_xm(cfg)
+        print(f"{len(self.xmas_markets)} markets")
 
     def _load_tempolimits(self) -> None:
         """Berlin Tempolimits — road segments with speed exceptions to the
@@ -847,6 +862,18 @@ class Index:
         hits.sort(key=lambda x: x["distance_m"])
         return hits
 
+    def xmas_market_near(self, lon, lat, radius_m=3000):
+        """All Christmas markets within radius, sorted ascending by
+        distance. Each returned dict has `distance_m` added. Empty list
+        when the feed is empty (summer) or fetch failed at boot."""
+        hits = []
+        for o in self.xmas_markets:
+            d = haversine_m(lon, lat, o["lon"], o["lat"])
+            if d <= radius_m:
+                hits.append({**o, "distance_m": round(d)})
+        hits.sort(key=lambda x: x["distance_m"])
+        return hits
+
     def arbeitsagentur_near(self, lon, lat, radius_m=5000):
         """All curated Arbeitsagentur branches within radius, sorted asc."""
         hits = []
@@ -1023,6 +1050,7 @@ if __name__ == "__main__":
         "_load_fire", "_load_quiet_zones", "_load_protection",
         "_load_swim", "_load_bezirksgrenzen", "_load_gesix",
         "_load_buergeramts",
+        "_load_xmas_markets",
         "_load_tempolimits", "_load_arterial_roads",
     ]
     for name in _expected_loaders:

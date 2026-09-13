@@ -238,6 +238,13 @@ class CityConfig:
     # key retained for frontend compatibility; the concept is admin-cards).
     others_admin_cards:          tuple           # tuple[OthersAdminCardConfig, ...]
 
+    # -- Newcomer lens: Christmas markets (seasonal REST GeoJSON) ------
+    # Berlin Senate publishes the live Weihnachtsmärkte feed at
+    # berlin.de. Loaded once at boot (Nov–Dec has the population; the
+    # feed is empty the rest of the year). Optional per city — None
+    # disables the xmas_market tile without breaking boot.
+    xmas_market_url:             Optional[str] = None
+
 
 @dataclass(frozen=True)
 class LensTileConfig:

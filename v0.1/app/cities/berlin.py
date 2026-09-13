@@ -63,6 +63,10 @@ _WFS_STRNETZ       = "https://gdi.berlin.de/services/wfs/strnetz"              #
 # Spec B — Bureaucracy lens
 _WFS_BEZIRKE       = "https://gdi.berlin.de/services/wfs/alkis_bezirke"        # layer: alkis_bezirke:bezirksgrenzen (verified via GetCapabilities)
 _BUERGERAEMTER_URL = "https://service.berlin.de/standorte/geojson/buergeramt"  # service.berlin.de REST GeoJSON (no WFS published); sentinel layer "_geojson" triggers custom loader
+# Seasonal Weihnachtsmärkte feed — Berlin Senate publishes a live GeoJSON of
+# every registered Christmas market. Peaks Nov–Dec (~45–50 markets); the feed
+# thins to empty the rest of the year. Loaded at boot; no cron.
+_WEIHNACHTSMARKT_URL = "https://www.berlin.de/sen/web/service/maerkte-feste/weihnachtsmaerkte/index.php/index/all.gjson"
 
 # Base URLs (all under the Berlin Geoportal gdi.berlin.de)
 _WFS_SCHULEN = "https://gdi.berlin.de/services/wfs/schulen"
@@ -350,6 +354,14 @@ NEWCOMER_LENS: LensConfig = LensConfig(
             key="wochenmarkt", label="Open market", icon="wochenmarkt",
             thresholds={"green_m": 800, "amber_m": 2000},
             caveat="Only permitted weekly markets; closures may take a season to disappear from the feed.",
+        ),
+        LensTileConfig(
+            key="xmas_market", label="Christmas Market", icon="xmas_market",
+            thresholds={"radius_m": 3000, "green_count": 2, "amber_count": 1},
+            caveat=("Berlin Senate live GeoJSON of registered Weihnachtsmärkte. "
+                    "Seasonal — the feed is populated Nov–Dec (~45–50 markets) "
+                    "and thins to empty the rest of the year. Fetched once at "
+                    "boot; restart the server to refresh."),
         ),
         LensTileConfig(
             key="nightlife_density", label="Nightlife density", icon="nightlife",
@@ -768,6 +780,7 @@ BERLIN = CityConfig(
         "arterial_road":  "Geoportal Berlin / Übergeordnetes Straßennetz — Bestand (dl-de/zero-2.0)",
         "cycling":        "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=cycleway (weekly snapshot)",
         "car_sharing":    "© OpenStreetMap contributors (ODbL) via Geofabrik — amenity=car_sharing (weekly snapshot)",
+        "xmas_market":    "Berlin Senate / Weihnachtsmärkte-Verzeichnis (berlin.de, live GeoJSON)",
     },
     # Geofabrik weekly snapshot lives at data/osm/berlin-amenities.json.
     # Env override for prod: OSM_LOCAL_PATH=/mnt/osm/berlin-amenities.json.
@@ -799,6 +812,10 @@ BERLIN = CityConfig(
     arbeitsagenturs=_ARBEITSAGENTURS,
     lea_office=_LEA_OFFICE,
     others_admin_cards=OTHERS_ADMIN_CARDS,
+
+    # Berlin Senate live Weihnachtsmärkte feed — fetched at boot,
+    # cached in memory, no cron. Empty in summer, ~45–50 markets in Dec.
+    xmas_market_url=_WEIHNACHTSMARKT_URL,
 )
 
 if __name__ == "__main__":
@@ -811,6 +828,7 @@ if __name__ == "__main__":
                     "rail_transit", "tram_transit", "bus_transit",
                     "intl_food", "coworking", "english_clinic",
                     "language_school", "library", "packstation", "wochenmarkt",
+                    "xmas_market",
                     "nightlife_density",
                     "gesix_newcomer"], keys
     admin_keys = [c.key for c in BERLIN.others_admin_cards]

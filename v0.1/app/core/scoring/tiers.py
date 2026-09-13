@@ -842,6 +842,15 @@ def _tier_wochenmarkt(features: list, th: dict) -> dict:
                                   empty_label="Wochenmarkt")
 
 
+def _tier_xmas_market(features: list, th: dict) -> dict:
+    """Count-based tier for Berlin Christmas markets within radius_m.
+    Seasonal feed — empty list in summer is honest, not unknown."""
+    return _tier_count_band(features, th,
+                             rule_label="Christmas markets",
+                             numeric_fmt=lambda n, r:
+                                f"{n} Christmas markets within {r} m")
+
+
 if __name__ == "__main__":
     # noise_tier — thresholds copied verbatim from phase3.
     assert noise_tier(50) == "green"
