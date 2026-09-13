@@ -136,23 +136,31 @@ def load(cfg: CityConfig) -> dict:
     - `markets`: shaped market dicts (empty on any failure — honest
       'no markets' rather than a boot crash on a seasonal feed).
     - `upstream_refreshed_on`: dataset's real publication date, from
-      Berlin's CKAN registry (`metadata_modified`). Empty string when
-      the CKAN query fails or returns nothing. The frontend then falls
-      back to displaying the server boot-cache time so the modal never
-      hides freshness.
+      Berlin's CKAN registry (`metadata_modified`). Populated ONLY
+      when the Senate GeoJSON fetch itself succeeded — otherwise
+      empty, so the frontend falls back to boot-cache time. This
+      prevents the subtle freshness lie of shipping "Source refreshed:
+      2025-11-20" alongside "no markets nearby" when the actual fetch
+      broke; a fresh upstream date coupled with a broken cache would
+      overstate the tile's trustworthiness. Also empty when the CKAN
+      query itself fails.
     """
     url = getattr(cfg, "xmas_market_url", None)
     if not url:
         return {"markets": [], "upstream_refreshed_on": ""}
     try:
         markets = parse(_fetch(url))
+        fetch_ok = True
     except Exception:
         markets = []
-    # CKAN query is best-effort and completely independent of the main
-    # GeoJSON fetch — either can fail without dragging down the other.
+        fetch_ok = False
+    # CKAN query is best-effort and independent of the main GeoJSON
+    # fetch — but we suppress its answer when our own copy of the data
+    # is broken (see docstring for the freshness-lie rationale).
     return {
         "markets": markets,
-        "upstream_refreshed_on": _fetch_upstream_refreshed_on(),
+        "upstream_refreshed_on":
+            _fetch_upstream_refreshed_on() if fetch_ok else "",
     }
 
 
@@ -212,10 +220,52 @@ if __name__ == "__main__":
     assert load(_Cfg()) == {"markets": [], "upstream_refreshed_on": ""}
 
     # -- CKAN metadata slicing: keep just the ISO date prefix.
-    # (Pure asserts on the string-shaping logic inline in
-    # `_fetch_upstream_refreshed_on`; the HTTP path is exercised at
-    # boot, not here.)
     _mod = "2025-11-20T12:13:34.398616"
     assert _mod[:10] == "2025-11-20"
+
+    # -- Freshness-lie guard: when the main Senate fetch fails we must
+    # NOT report an upstream CKAN date, even if CKAN itself would
+    # succeed. Otherwise the tile ships "Source refreshed: 2025-11-20"
+    # alongside "no markets nearby" — overstating trustworthiness.
+    # Stub both fetchers so the selfcheck stays offline.
+    import sys as _sys
+    _mod_self = _sys.modules[__name__]
+
+    class _CfgLive:
+        xmas_market_url = "https://example.invalid/xmas.gjson"
+
+    def _boom(url, timeout_s=30.0):
+        raise OSError("simulated network failure")
+
+    def _ckan_ok(timeout_s=10.0):
+        return "2025-11-20"
+
+    _orig_fetch = _fetch
+    _orig_ckan  = _fetch_upstream_refreshed_on
+    _mod_self._fetch = _boom
+    _mod_self._fetch_upstream_refreshed_on = _ckan_ok
+    try:
+        r = load(_CfgLive())
+        assert r["markets"] == [], r
+        assert r["upstream_refreshed_on"] == "", (
+            "fetch failed but upstream date was still reported — "
+            "this is the freshness lie the guard is meant to prevent"
+        )
+    finally:
+        _mod_self._fetch = _orig_fetch
+        _mod_self._fetch_upstream_refreshed_on = _orig_ckan
+
+    # -- Happy path: fetch succeeds → CKAN date propagates.
+    def _fetch_ok(url, timeout_s=30.0):
+        return {"features": []}
+    _mod_self._fetch = _fetch_ok
+    _mod_self._fetch_upstream_refreshed_on = _ckan_ok
+    try:
+        r = load(_CfgLive())
+        assert r["markets"] == []
+        assert r["upstream_refreshed_on"] == "2025-11-20", r
+    finally:
+        _mod_self._fetch = _orig_fetch
+        _mod_self._fetch_upstream_refreshed_on = _orig_ckan
 
     print("loaders.weihnachtsmarkt selfcheck OK")

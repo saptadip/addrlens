@@ -226,7 +226,12 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
             else:
                 fresh = {"label": "Cached at server boot",
                          "value": getattr(index, "boot_time_utc", "")}
-            tile["source_dates"] = [{"source": sources[0], **fresh}]
+            # Skip the whole row when we have neither a real upstream
+            # date nor a boot timestamp (e.g. scorer stubs without
+            # `boot_time_utc`) — an empty value would render as
+            # "Cached at server boot: " with a trailing colon.
+            if fresh["value"]:
+                tile["source_dates"] = [{"source": sources[0], **fresh}]
         tiles.append(tile)
 
     tiles.append(_shape_gesix(cfg, index, lat, lon, card_key="gesix_newcomer",
