@@ -443,9 +443,15 @@ if __name__ == "__main__":
     assert _so["hours"] == "Mo-Su 08:00-20:00"
     assert isinstance(_so["walk_min"], int)
     assert _shape_osm_feature({"lon": 13.4, "distance_m": 100}) is None
+    # Unknown amenity + no name → dropped (was: leaked raw OSM slug to
+    # user text like "408 m to parcel_locker"; PR #70 fix).
     _osm_noname = {"lat": 52.5, "lon": 13.4, "distance_m": 200, "source": "osm",
                    "tags": {"amenity": "restaurant"}}
-    assert _shape_osm_feature(_osm_noname)["name"] == "restaurant"
+    assert _shape_osm_feature(_osm_noname) is None
+    # Known amenity + no name → label-map fallback keeps the row.
+    _osm_pl = {"lat": 52.5, "lon": 13.4, "distance_m": 200, "source": "osm",
+               "tags": {"amenity": "parcel_locker"}}
+    assert _shape_osm_feature(_osm_pl)["name"] == "Packstation"
 
     _TN = {t.key: t.thresholds for t in _CFG_YF.newcomer_lens.tiles}
 

@@ -212,8 +212,15 @@ def _shape_osm_feature(o: dict) -> Optional[dict]:
     upstream OSM feature is missing the `name` tag."""
     t = o.get("tags") or {}
     _AMENITY_LABEL = {
-        "parcel_locker": "Packstation",
-        "post_office":   "Deutsche Post branch",
+        "parcel_locker":    "Packstation",
+        "post_office":      "Deutsche Post branch",
+        # OSM community tags for car_sharing + charging_station regularly
+        # omit `name`; without a label-map fallback, count-based tier
+        # scoring for `car_sharing_reach` and `ev_charging_reach`
+        # (Commuter lens) silently drops rows. Labels below preserve the
+        # count-band intent for these OSM buckets.
+        "car_sharing":      "Car-sharing point",
+        "charging_station": "EV charger",
     }
     amenity = (t.get("amenity") or "").strip()
     name = (o.get("name") or t.get("name") or
