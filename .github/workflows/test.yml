@@ -41,3 +41,71 @@ jobs:
         with:
           name: coverage-xml
           path: v0.1/coverage.xml
+
+  # Per-module `if __name__ == "__main__":` selfchecks. pytest doesn't run
+  # these blocks, so shape-contract asserts encoded next to the code they
+  # pin (see e.g. `app/core/scorer.py::_shape_osm_feature` assertions) are
+  # invisible to CI without this job. PR #70's review surfaced exactly
+  # this gap: the scorer.py selfcheck crashed on `python -m app.core.scorer`
+  # while pytest reported 212 passed. Matrix keeps each module's failure
+  # isolated + parallelisable.
+  #
+  # Curated to offline-safe modules only. Live-network selfchecks (the
+  # top-level `app.selfcheck`, `inference.selfcheck`, `inference.stability_
+  # selfcheck`, and modules doing direct WFS/Overpass/Cloudflare calls at
+  # import time) are deliberately excluded — they need a live Berlin BOD +
+  # Cloudflare token and would flake on GitHub-hosted runners.
+  selfchecks:
+    runs-on: ubuntu-latest
+    needs: pytest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          # City config
+          - app.cities.base
+          - app.cities.berlin
+          # Core primitives
+          - app.core.addr
+          - app.core.address_index
+          - app.core.cache
+          - app.core.geo
+          - app.core.gloss
+          - app.core.index
+          - app.core.merge
+          - app.core.others_admin
+          - app.core.rate_limit
+          - app.core.scorer
+          # Loaders — bespoke non-WFS + shared WFS helper
+          - app.core.loaders.buergeramt_service_portal
+          - app.core.loaders.weihnachtsmarkt
+          - app.core.loaders.wfs_layer
+          # Scoring helpers
+          - app.core.scoring.constants
+          - app.core.scoring.legends
+          - app.core.scoring.provenance
+          - app.core.scoring.shape
+          - app.core.scoring.tiers
+          # Routes (pure asserts only — no live server)
+          - app.routes.lens_insight
+          # Inference templates — 4 per-lens + history
+          - inference.templates.history
+          - inference.templates.lens_commuter_insight
+          - inference.templates.lens_newcomer_insight
+          - inference.templates.lens_quiet_living_insight
+          - inference.templates.lens_young_family_insight
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        working-directory: v0.1
+        run: uv pip install --system -e ".[dev]"
+      - name: Run module selfcheck (${{ matrix.module }})
+        working-directory: v0.1
+        env:
+          CITY: berlin
+          INFERENCE_URL: http://localhost:9999
+        run: python -m ${{ matrix.module }}
