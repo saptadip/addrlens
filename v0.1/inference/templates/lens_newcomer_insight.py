@@ -203,7 +203,22 @@ _SYSTEM = (
     "NOT 'a long distance'. Reserve strong negative framing for tiles "
     "the payload actually marks red. "
     "(5) Return ONLY the JSON object. No preamble, no code fences, no "
-    "trailing prose."
+    "trailing prose. "
+    "(6) MUST-CITE tiles: some tile keys ALWAYS need to be named in "
+    "their section note even when they aren't the worst-tier signal "
+    "driving the verdict. Two such tiles: `parkzone` (Berlin-native "
+    "Anwohnerparken regime with Bewohnerparkausweis implication) and "
+    "`xmas_market` (seasonal signal that carries the neighbourhood's "
+    "December character). When either appears in a section's tile "
+    "list, the note MUST cite it. Adapt to tile rule: "
+    "parkzone green + 'inside a Parkzone' → 'inside a Parkzone "
+    "(Bewohnerparkausweis ~€10/yr worth it)'; parkzone green + 'no "
+    "paid regime' → 'no paid parking regime nearby'; parkzone amber → "
+    "'close to a paid zone edge — visitor overflow risk'. "
+    "xmas_market green → 'N Christmas markets within 3 km in December'; "
+    "xmas_market amber → 'one Christmas market within 3 km in December'; "
+    "xmas_market red → 'no Christmas markets within 3 km — travel to "
+    "central Berlin for Glühwein'."
 )
 
 
