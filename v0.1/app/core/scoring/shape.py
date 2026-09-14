@@ -204,11 +204,21 @@ def _shape_osm_feature(o: dict) -> Optional[dict]:
     """Shape an OSM local snapshot entry into the newcomer feature dict.
     Items from OsmLocalCache.near() carry: lat, lon, name (optional), tags
     (dict), distance_m (added by .near()), source='osm'.  Required: lat,
-    lon, distance_m — name falls back to the amenity tag."""
+    lon, distance_m — name falls back to a human-readable label for known
+    amenity types (parcel_locker→Packstation, post_office→Deutsche Post
+    branch); otherwise the raw shop/office tag as a last resort. The
+    packstation newcomer tile expects DHL Packstation lockers as the
+    primary hit, so a generic "Packstation" label is safe when the
+    upstream OSM feature is missing the `name` tag."""
     t = o.get("tags") or {}
+    _AMENITY_LABEL = {
+        "parcel_locker": "Packstation",
+        "post_office":   "Deutsche Post branch",
+    }
+    amenity = (t.get("amenity") or "").strip()
     name = (o.get("name") or t.get("name") or
-            t.get("amenity") or t.get("shop") or
-            t.get("office") or "").strip()
+            _AMENITY_LABEL.get(amenity) or
+            t.get("shop") or t.get("office") or "").strip()
     d = o.get("distance_m")
     street = (t.get("addr:street") or "").strip()
     hnr    = (t.get("addr:housenumber") or "").strip()

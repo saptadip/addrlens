@@ -1010,6 +1010,7 @@ if __name__ == "__main__":
     # negation ("no ...", "not ...") — those read as absence-of-good on
     # a green tile and produce the user-facing contradiction that took
     # three session cycles (PR #67 → #68 → #69) to fully resolve.
+    # Red rules CAN legitimately lead with 'no ...' (e.g. 'no cycleway within 300 m'). The guard here is scoped to GREEN only — red-tier negation is honest framing for feature-absent tiles.
     for tag, r_ in [
         ("inside", _tier_parkzone({"inside": True, "zone": "1",
                                     "bezirk": "Mitte", "gebuehr": "",
