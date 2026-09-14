@@ -50,17 +50,18 @@ from __future__ import annotations
 import json
 
 # Lower temp than tile insights — this is structured JSON output, not
-# flowing prose. max_tokens is generous to fit 5 sections + up to 4
+# flowing prose. max_tokens is generous to fit 5 sections + up to 6
 # highlights each side without truncation.
 SAMPLER = {
     "temp":               0.35,
     "top_p":              0.9,
     "repetition_penalty": 1.1,
-    # 1400 tokens covers a 13-tile lens payload with 5 sections + up to
-    # 6 highlights without truncation; on Cloudflare Llama-3.1-8B this
-    # is comfortably inside the response budget, and on local Qwen 1.5B
-    # (dev fallback) it prevents the mid-string cut-off that raised
-    # JSONDecodeError on the first end-to-end pass.
+    # 1400 tokens covers the current 15-tile Newcomer payload with 5
+    # sections + up to 6 highlights per side without truncation; on
+    # Cloudflare Llama-3.1-8B this is comfortably inside the response
+    # budget, and on local Qwen 1.5B (dev fallback) it prevents the
+    # mid-string cut-off that raised JSONDecodeError on the first
+    # end-to-end pass.
     "max_tokens":         1400,
 }
 
@@ -303,7 +304,7 @@ def build_messages(context: dict) -> list[dict]:
              "tiles": ["library", "packstation", "parkzone",
                        "wochenmarkt", "xmas_market"],
              "verdict": "amber",
-             "note": "Library + Packstation on your doorstep; Wochenmarkt is a 15-minute walk; Parkzone applies here so budget €10/yr for a Bewohnerparkausweis."},
+             "note": "Library + Packstation on the block; Wochenmarkt is a 15-min walk; Parkzone applies, budget ~€10/yr for a Bewohnerparkausweis; 4 Christmas markets within 3 km in December."},
             {"title": "Neighbourhood profile",
              "tiles": ["nightlife_density", "gesix_newcomer"],
              "verdict": "unknown",
@@ -317,7 +318,7 @@ def build_messages(context: dict) -> list[dict]:
             {"tile": "buergeramt",
              "one_line": "Nearest Bürgeramt a 14-minute walk."},
             {"tile": "parkzone",
-             "one_line": "Inside a Parkzone — Bewohnerparkausweis €10/yr covers on-street parking for residents."},
+             "one_line": "Inside a Parkzone — Bewohnerparkausweis ~€10/yr covers on-street parking for residents."},
             {"tile": "xmas_market",
              "one_line": "4 Christmas markets within 3 km — a Glühwein cluster forms every December."},
         ],
