@@ -196,10 +196,11 @@ _SYSTEM = (
     "dropped otherwise. When `parkzone` appears in a section's tile "
     "list, the section note MUST cite it. Adapt to the tile's rule; "
     "example phrasings (paraphrase to fit the sentence, do not copy "
-    "verbatim): (a) green + rule='inside a Parkzone "
-    "(Bewohnerparkausweis eligible)' → 'inside a Parkzone (residents "
-    "get a Bewohnerparkausweis for ~€10/yr)'; (b) green + rule "
-    "contains 'no paid regime' → 'no paid parking regime nearby'; "
+    "verbatim): (a) green + rule contains 'permit priority for "
+    "residents' → 'inside a Parkzone (residents get a "
+    "Bewohnerparkausweis for ~€10/yr)'; (b) green + rule contains "
+    "'free street parking' → 'street parking is unregulated here — no "
+    "Bewohnerparkausweis needed'; "
     "(c) amber → 'close to a paid zone edge'."
 )
 
@@ -295,7 +296,7 @@ def build_messages(context: dict) -> list[dict]:
              "tiles": ["cycling_network", "parkzone",
                        "car_sharing_reach", "ev_charging_reach"],
              "verdict": "green",
-             "note": "Cycleway on the doorstep; inside a Parkzone (Bewohnerparkausweis ~€10/yr worth it); 4 car-sharing points and 3 EV chargers within 500 m."},
+             "note": "Cycleway on the doorstep; inside a Parkzone (residents get a Bewohnerparkausweis for ~€10/yr); 4 car-sharing points and 3 EV chargers within 500 m."},
             {"title": "Long-haul travel",
              "tiles": ["airport_reach"],
              "verdict": "amber",
