@@ -240,7 +240,19 @@ def _umami_origin() -> str:
 
 _UMAMI_ORIGIN = _umami_origin()
 
-_SCRIPT_SRC  = " ".join(x for x in ["'self'", "https://unpkg.com", _UMAMI_ORIGIN] if x)
+# SHA-256 hash of the JSON-LD structured-data block in web/index.html
+# (<script type="application/ld+json">…</script>). Per CSP L3 spec, JSON-LD
+# data blocks are exempt from script-src, but some browsers (older Chrome,
+# some Safari versions, CSP validators) still flag them as inline-script
+# violations. Whitelisting the exact content hash silences the warning
+# without opening the door to `'unsafe-inline'`. If the JSON-LD content
+# changes, recompute with:
+#   python -c "import hashlib,base64,re; \
+#     html=open('web/index.html').read(); \
+#     m=re.search(r'<script type=\"application/ld\+json\">(.*?)</script>', html, re.DOTALL); \
+#     print('sha256-'+base64.b64encode(hashlib.sha256(m.group(1).encode()).digest()).decode())"
+_JSONLD_HASH = "'sha256-lDQ6ebdG88cQn3rjZolSlpxIE1He/+rKXD+SwHIf18E='"
+_SCRIPT_SRC  = " ".join(x for x in ["'self'", "https://unpkg.com", _UMAMI_ORIGIN, _JSONLD_HASH] if x)
 _STYLE_SRC   = " ".join(["'self'", "'unsafe-inline'",
                          "https://fonts.googleapis.com", "https://unpkg.com"])
 _FONT_SRC    = " ".join(["'self'", "https://fonts.gstatic.com"])

@@ -178,9 +178,12 @@ def _legend_for(key: str, th: dict) -> list:
         # "closer is better for reach" since that's what this tile
         # measures; frontend caveat clarifies the noise trade-off lives
         # in the Quiet Living lens.
+        # Amber band uses `green_km+1` lower bound (mirroring tempo30) so
+        # the legend correctly reads as "starts above the green ceiling"
+        # rather than overlapping the green boundary at exactly green_km.
         return [
             {"tier": TIER_GREEN, "text": f"≤{th['green_km']} km"},
-            {"tier": TIER_AMBER, "text": f"≤{th['amber_km']} km"},
+            {"tier": TIER_AMBER, "text": f"{th['green_km']+1}–{th['amber_km']} km"},
             {"tier": TIER_RED,   "text": f">{th['amber_km']} km"},
         ]
 
@@ -227,6 +230,8 @@ if __name__ == "__main__":
     assert xm[2]["text"] == "<1 within 3km"
     cair = _legend_for("airport_reach", {"green_km": 20, "amber_km": 35})
     assert cair[0]["text"] == "≤20 km"
+    assert cair[1]["text"] == "21–35 km", cair[1]
+    assert cair[2]["text"] == ">35 km"
 
     # Quiet Living legends — spot-check inverted-distance shape.
     qz = _legend_for("quiet_zone", {"green_m": 400, "amber_m": 1000})

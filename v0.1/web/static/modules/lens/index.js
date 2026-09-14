@@ -57,7 +57,7 @@ export function renderLensTile(tile, lensSlug) {
     : '';
   const gesixClass = '';
   return `
-    <button class="cell lens-tile lens-tile-yf${gesixClass} tier-${escapeHtml(tier)}"
+    <button class="cell lens-tile lens-tile-face${gesixClass} tier-${escapeHtml(tier)}"
             data-tile-key="${escapeHtml(tile.key)}"
             aria-label="${escapeHtml(aria)}"
             type="button">
@@ -471,7 +471,7 @@ function renderLensModalBody(tile, lensSlug) {
         ${plr}
         ${rank}
         <div class="gesix-bar gesix-bar-large" role="img" aria-label="Quintile ${q || 'unknown'} of 5">
-          <div class="gesix-track">${segs}</div>
+          <div class="gesix-track gesix-quintile-bar">${segs}</div>
           <div class="gesix-scale"><span>Top 20%</span><span>Bottom 20%</span></div>
         </div>
       </div>`;

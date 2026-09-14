@@ -87,7 +87,15 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "airport_reach":          ["Curated coordinate — Berlin Brandenburg Airport (BER, public)"],
         "gesix_commuter":         [attr.get("gesix")],
     }
-    return [s for s in (mapping.get(key) or []) if s]
+    # Dedupe while preserving insertion order — some tiles cite multiple
+    # attribution keys that resolve to the same string (e.g. rail_transit
+    # cites sbahn+ubahn which are identical VBB strings in berlin.py).
+    # Emitting the same line twice would render as "X · X" in the modal.
+    seen, out = set(), []
+    for s in (mapping.get(key) or []):
+        if s and s not in seen:
+            seen.add(s); out.append(s)
+    return out
 
 
 def _lens_provenance(cfg, tiles: list) -> str:

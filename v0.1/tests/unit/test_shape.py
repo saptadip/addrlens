@@ -219,11 +219,25 @@ def test_shape_transit_stop_shapes_full():
 # --- _shape_osm_feature ---------------------------------------------
 
 
-def test_shape_osm_feature_uses_amenity_when_no_name():
+def test_shape_osm_feature_uses_amenity_label_when_no_name():
+    # Known amenity slugs (parcel_locker / post_office) fall back to a
+    # human-readable label so the newcomer packstation tile doesn't leak
+    # the raw OSM slug into user-facing text.
+    raw_pl = {"lat": 52.5, "lon": 13.4, "distance_m": 200, "source": "osm",
+              "tags": {"amenity": "parcel_locker"}}
+    assert _shape_osm_feature(raw_pl)["name"] == "Packstation"
+
+    raw_po = {"lat": 52.5, "lon": 13.4, "distance_m": 200, "source": "osm",
+              "tags": {"amenity": "post_office"}}
+    assert _shape_osm_feature(raw_po)["name"] == "Deutsche Post branch"
+
+
+def test_shape_osm_feature_drops_unknown_amenity_with_no_name():
+    # Amenities not in the label map (e.g. bare `amenity=restaurant` with
+    # no `name` tag) are skipped rather than surfacing the raw OSM slug.
     raw = {"lat": 52.5, "lon": 13.4, "distance_m": 200, "source": "osm",
            "tags": {"amenity": "restaurant"}}
-    r = _shape_osm_feature(raw)
-    assert r["name"] == "restaurant"
+    assert _shape_osm_feature(raw) is None
 
 
 def test_shape_osm_feature_rejects_missing_latlon():
