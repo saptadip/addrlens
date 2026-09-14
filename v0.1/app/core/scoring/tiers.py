@@ -875,24 +875,24 @@ def _tier_parkzone(zone_info: dict, th: dict) -> dict:
         if bezirk: parts.append(bezirk)
         if fee:    parts.append(f"{fee}/hr for visitors")
         return {"tier": TIER_GREEN,
-                "rule": "inside a Parkzone (Bewohnerparkausweis eligible)",
+                "rule": "inside a Parkzone — permit priority for residents",
                 "numeric": " · ".join(parts)}
     edge = zone_info.get("nearest_edge_m")
     if edge is None:
         # No zone anywhere in Berlin near this point (shouldn't happen
         # given inner-Berlin coverage, but safe fallback).
         return {"tier": TIER_GREEN,
-                "rule": "no paid parking regime nearby",
+                "rule": "free street parking — no permit needed",
                 "numeric": "no Parkzone within search radius"}
     zone   = zone_info.get("nearest_zone") or "?"
     bezirk = (zone_info.get("nearest_bezirk") or "").strip()
     zone_label = f"Zone {zone}" + (f" ({bezirk})" if bezirk else "")
     if edge >= th["amber_edge_m"]:
         return {"tier": TIER_GREEN,
-                "rule": f"no paid regime within {th['amber_edge_m']} m",
+                "rule": f"free street parking — no permit needed (>{th['amber_edge_m']} m from any zone)",
                 "numeric": f"nearest {zone_label} · {int(edge)} m away"}
     return {"tier": TIER_AMBER,
-            "rule": f"within {th['amber_edge_m']} m of a Parkzone (no permit priority for you)",
+            "rule": f"paid zone edge within {th['amber_edge_m']} m — no permit priority for you",
             "numeric": f"nearest {zone_label} · {int(edge)} m away"}
 
 
@@ -980,16 +980,19 @@ if __name__ == "__main__":
                         "nearest_edge_m": None}, th_pz)
     assert r["tier"] == "green" and "Zone 14" in r["numeric"], r
     assert "Mitte" in r["numeric"]
-    # outside, far → green
+    assert "permit priority" in r["rule"], r
+    # outside, far → green with actively-positive "free parking" rule
     r = _tier_parkzone({"inside": False, "nearest_zone": "3",
                         "nearest_bezirk": "Mitte",
                         "nearest_edge_m": 800}, th_pz)
     assert r["tier"] == "green" and "800" in r["numeric"], r
+    assert "free street parking" in r["rule"], r
     # outside, close → amber
     r = _tier_parkzone({"inside": False, "nearest_zone": "3",
                         "nearest_bezirk": "Mitte",
                         "nearest_edge_m": 250}, th_pz)
     assert r["tier"] == "amber" and "250" in r["numeric"], r
+    assert "no permit priority" in r["rule"], r
     # exactly at threshold: 400 → green (boundary inclusive on greener side)
     r = _tier_parkzone({"inside": False, "nearest_zone": "3",
                         "nearest_bezirk": "Mitte",

@@ -114,7 +114,23 @@ _CACHE_GRID = int(os.environ.get("LENS_INSIGHT_CACHE_GRID", 3))
 #     cases) and xmas_market (Newcomer only, all 3 cases). Rules
 #     beat few-shot patterns for the model — this closes the drop.
 #     Bump forces regeneration under the new system prompt.
-_CACHE_VERSION = "v8"
+# v9: reader-clarity fix on parkzone rule strings + donut restoration.
+#     User feedback on Am Großen Wannsee 39: "why is Resident Parking
+#     green but the card says 'no paid regime within 400 m'?" — the
+#     negatively-framed 'no paid regime' rule text on a green tile
+#     read as a contradiction. Retuned the rules to actively-positive
+#     framing: 'free street parking — no permit needed' (green +
+#     outside), 'inside a Parkzone — permit priority for residents'
+#     (green + inside), 'paid zone edge within N m — no permit
+#     priority for you' (amber). Rule (6) match strings in both
+#     templates updated to the new rule text. Exemplar note in
+#     Commuter template dropped 'worth it' (editorial per PR #68
+#     review). Also restored the 3-arc tier donut for parkzone
+#     (visual consistency vs other cards; the 2-row legend below
+#     remains the semantic source of truth). Bump forces regeneration
+#     so v8 cache doesn't serve responses trained on the old rule
+#     strings.
+_CACHE_VERSION = "v9"
 
 
 def _cache_key(city_slug: str, lens: str, lat: float, lon: float) -> tuple:

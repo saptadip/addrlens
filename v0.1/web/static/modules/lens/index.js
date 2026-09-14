@@ -81,12 +81,12 @@ export function renderLensTile(tile, lensSlug) {
 export function renderTierDonut(tile) {
   const tier = tile && tile.tier;
   if (!['green', 'amber', 'red'].includes(tier)) return '';
-  // Two-tier tiles (e.g. parkzone) never emit a red tier — the legend
-  // is 2 rows only. Rendering the standard 3-arc donut would show a
-  // dim red arc that contradicts the legend. Skip the donut in that
-  // case; the icon-badge in the modal head still carries the tier
-  // colour, so users don't lose the tier signal.
-  if (Array.isArray(tile.legend) && tile.legend.length < 3) return '';
+  // Note: for 2-tier tiles (e.g. parkzone) the donut still renders
+  // its 3-arc spectrum with a dim red arc, matching the visual
+  // pattern of every other card. The 2-row legend below the donut
+  // is the semantic source of truth — users understand the donut as
+  // the tier-scale reference, not as a promise that all three tiers
+  // fire for this signal.
   const iconSVG = ico[tile.icon] || '';
   const activeIdx = { green: 0, amber: 1, red: 2 }[tier];
   const cx = 100, cy = 100, r = 74, sw = 22;
