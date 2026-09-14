@@ -81,6 +81,12 @@ export function renderLensTile(tile, lensSlug) {
 export function renderTierDonut(tile) {
   const tier = tile && tile.tier;
   if (!['green', 'amber', 'red'].includes(tier)) return '';
+  // Two-tier tiles (e.g. parkzone) never emit a red tier — the legend
+  // is 2 rows only. Rendering the standard 3-arc donut would show a
+  // dim red arc that contradicts the legend. Skip the donut in that
+  // case; the icon-badge in the modal head still carries the tier
+  // colour, so users don't lose the tier signal.
+  if (Array.isArray(tile.legend) && tile.legend.length < 3) return '';
   const iconSVG = ico[tile.icon] || '';
   const activeIdx = { green: 0, amber: 1, red: 2 }[tier];
   const cx = 100, cy = 100, r = 74, sw = 22;
@@ -445,7 +451,7 @@ function renderLensModalBody(tile, lensSlug) {
         }
       }
       if (rows) {
-        cardRichBlock = `<div class="parkzone-modal-block details-block">${rows}</div>`;
+        cardRichBlock = `<div class="parkzone-modal-block">${rows}</div>`;
       }
     }
   } else if (tile.key === 'gesix' || tile.key === 'gesix_newcomer'
@@ -502,7 +508,8 @@ function _injectModalTabs(modal) {
     modal.querySelector('.modal-legend') ||
     modal.querySelector('.modal-features-list') ||
     modal.querySelector('.modal-trees') ||
-    modal.querySelector('.gesix-modal-block')
+    modal.querySelector('.gesix-modal-block') ||
+    modal.querySelector('.parkzone-modal-block')
   );
   const hasAbout = !!(
     modal.querySelector('.modal-explanation') ||

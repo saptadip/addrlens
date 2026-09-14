@@ -303,7 +303,7 @@ def build_messages(context: dict) -> list[dict]:
              "tiles": ["library", "packstation", "parkzone",
                        "wochenmarkt", "xmas_market"],
              "verdict": "amber",
-             "note": "Library and Packstation steps away; inside Parkzone 14 (Bewohnerparkausweis worth it); Wochenmarkt 15-min walk; 4 Christmas markets within 3 km in December."},
+             "note": "Library + Packstation on your doorstep; Wochenmarkt is a 15-minute walk; Parkzone applies here so budget €10/yr for a Bewohnerparkausweis."},
             {"title": "Neighbourhood profile",
              "tiles": ["nightlife_density", "gesix_newcomer"],
              "verdict": "unknown",

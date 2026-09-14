@@ -458,8 +458,7 @@ class Index:
         boot."""
         cfg = self.cfg
         self.parking_zones = []
-        if not (getattr(cfg, "parking_zones_wfs_url", None)
-                and getattr(cfg, "parking_zones_layer", None)):
+        if not (cfg.parking_zones_wfs_url and cfg.parking_zones_layer):
             return
         log_load("Parkraumbewirtschaftungszonen")
         self.parking_zones = load_polygon_layer(

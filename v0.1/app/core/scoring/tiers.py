@@ -875,7 +875,7 @@ def _tier_parkzone(zone_info: dict, th: dict) -> dict:
         if bezirk: parts.append(bezirk)
         if fee:    parts.append(f"{fee}/hr for visitors")
         return {"tier": TIER_GREEN,
-                "rule": f"inside a Parkzone (Bewohnerparkausweis eligible)",
+                "rule": "inside a Parkzone (Bewohnerparkausweis eligible)",
                 "numeric": " · ".join(parts)}
     edge = zone_info.get("nearest_edge_m")
     if edge is None:
@@ -884,14 +884,16 @@ def _tier_parkzone(zone_info: dict, th: dict) -> dict:
         return {"tier": TIER_GREEN,
                 "rule": "no paid parking regime nearby",
                 "numeric": "no Parkzone within search radius"}
+    zone   = zone_info.get("nearest_zone") or "?"
+    bezirk = (zone_info.get("nearest_bezirk") or "").strip()
+    zone_label = f"Zone {zone}" + (f" ({bezirk})" if bezirk else "")
     if edge >= th["amber_edge_m"]:
         return {"tier": TIER_GREEN,
                 "rule": f"no paid regime within {th['amber_edge_m']} m",
-                "numeric": f"nearest Parkzone {int(edge)} m away"}
-    zone = zone_info.get("nearest_zone") or "?"
+                "numeric": f"nearest {zone_label} · {int(edge)} m away"}
     return {"tier": TIER_AMBER,
             "rule": f"within {th['amber_edge_m']} m of a Parkzone (no permit priority for you)",
-            "numeric": f"nearest Zone {zone} · {int(edge)} m away"}
+            "numeric": f"nearest {zone_label} · {int(edge)} m away"}
 
 
 def _tier_xmas_market(features: list, th: dict) -> dict:
