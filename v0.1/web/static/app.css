@@ -1475,6 +1475,32 @@ img.lens-ai-signature-brand { height: 22px; width: auto; display: block;
 .lens-modal .modal-provenance  { color:var(--muted); font-size:12px;
                                  padding-top:8px; border-top:1px solid var(--border); }
 
+/* Parkzone modal — inline metadata block (bezirk / zeiten / gebuehr /
+   bemerkung when inside, nearest-zone info when outside). Same
+   neumorphic surface as .gesix-modal-block; row layout mirrors the
+   .info-body.details-block det-row pattern without the flyout
+   positioning that .info-body carries. */
+.lens-modal .parkzone-modal-block  { margin:12px 0; padding:14px 16px;
+                                     border-radius:14px; background:var(--neumo-bg);
+                                     box-shadow:inset 3px 3px 8px var(--neumo-sh-dark),
+                                                inset -3px -3px 8px var(--neumo-sh-light);
+                                     font-size:13px; color:var(--ink-2); }
+.lens-modal .parkzone-modal-block .det-row
+                                   { display:grid;
+                                     grid-template-columns:110px 1fr;
+                                     gap:12px; padding:8px 0;
+                                     border-bottom:1px dashed rgba(107,114,128,.18); }
+.lens-modal .parkzone-modal-block .det-row:last-child
+                                   { border-bottom:0; }
+.lens-modal .parkzone-modal-block .det-label
+                                   { color:var(--muted); font-weight:700;
+                                     font-size:10.5px; text-transform:uppercase;
+                                     letter-spacing:.05em; line-height:1.5;
+                                     padding-top:2px; }
+.lens-modal .parkzone-modal-block .det-val
+                                   { color:var(--ink); font-weight:500;
+                                     overflow-wrap:anywhere; }
+
 /* Per-source freshness block — nested inside .modal-provenance so the
    "Data sources" header covers it too. Currently emitted only for the
    xmas_market tile (see newcomer composer + weihnachtsmarkt loader). */
@@ -1985,12 +2011,14 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 .lens-modal.has-tabs .modal-glossary,
 .lens-modal.has-tabs .modal-trees,
 .lens-modal.has-tabs .gesix-modal-block,
+.lens-modal.has-tabs .parkzone-modal-block,
 .lens-modal.has-tabs .modal-empty           { display:none; }
 .lens-modal.has-tabs[data-tab="readout"] .modal-rule,
 .lens-modal.has-tabs[data-tab="readout"] .modal-numeric,
 .lens-modal.has-tabs[data-tab="readout"] .modal-legend,
 .lens-modal.has-tabs[data-tab="readout"] .modal-trees,
 .lens-modal.has-tabs[data-tab="readout"] .gesix-modal-block,
+.lens-modal.has-tabs[data-tab="readout"] .parkzone-modal-block,
 .lens-modal.has-tabs[data-tab="readout"] .modal-empty { display:block; }
 
 /* Feature list defaults to `display:flex` on its column; restore it under

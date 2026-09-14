@@ -245,6 +245,17 @@ class CityConfig:
     # disables the xmas_market tile without breaking boot.
     xmas_market_url:             Optional[str] = None
 
+    # -- Newcomer + Commuter lenses: Parkraumbewirtschaftungszonen -----
+    # Berlin's paid-parking-zone polygons ("Anwohnerparken") — one
+    # MultiPolygon per zone (~103 zones city-wide, Bezirks-maintained,
+    # regularly updated). Point-in-polygon at query time answers "is my
+    # flat inside a paid zone (Ausweis + permit priority) or outside".
+    # Field map keys: name (zone code), bezirk, zeiten (enforcement
+    # hours), gebuehr (hourly fee), bemerkung (notes).
+    parking_zones_wfs_url:       Optional[str] = None
+    parking_zones_layer:         Optional[str] = None
+    parking_zones_field_map:     Optional[dict] = None
+
 
 @dataclass(frozen=True)
 class LensTileConfig:

@@ -66,7 +66,8 @@ LENS_SECTION_MAP: list[dict] = [
     {"title": "Short-hop transit",
      "tiles": ["commuter_tram_transit", "commuter_bus_transit"]},
     {"title": "Cycling & car",
-     "tiles": ["cycling_network", "car_sharing_reach", "ev_charging_reach"]},
+     "tiles": ["cycling_network", "parkzone",
+               "car_sharing_reach", "ev_charging_reach"]},
     {"title": "Long-haul travel",
      "tiles": ["airport_reach"]},
     {"title": "Neighbourhood profile",
@@ -256,7 +257,7 @@ def build_messages(context: dict) -> list[dict]:
         "address_hint": {"bezirk": "<Bezirk from payload>",
                           "ortsteil": "<Ortsteil from payload>"},
         "expected_sections": LENS_SECTION_MAP,
-        "tiles": "<9 Commuter tiles with key/tier/rule/numeric/caveat>",
+        "tiles": "<10 Commuter tiles with key/tier/rule/numeric/caveat>",
     }, ensure_ascii=False)
 
     exemplar_assistant = json.dumps({
@@ -279,7 +280,8 @@ def build_messages(context: dict) -> list[dict]:
              "verdict": "green",
              "note": "Tram 220 m and bus 140 m — both on the block."},
             {"title": "Cycling & car",
-             "tiles": ["cycling_network", "car_sharing_reach", "ev_charging_reach"],
+             "tiles": ["cycling_network", "parkzone",
+                       "car_sharing_reach", "ev_charging_reach"],
              "verdict": "green",
              "note": "Cycleway on the doorstep, 4 car-sharing points and 3 EV chargers within 500 m."},
             {"title": "Long-haul travel",
@@ -455,8 +457,9 @@ if __name__ == "__main__":
     # a section entry, this assert fails at boot.
     _commuter_tile_keys = {
         "commuter_rail_transit", "commuter_tram_transit", "commuter_bus_transit",
-        "regional_rail_reach", "cycling_network", "car_sharing_reach",
-        "ev_charging_reach", "airport_reach", "gesix_commuter",
+        "regional_rail_reach", "cycling_network", "parkzone",
+        "car_sharing_reach", "ev_charging_reach", "airport_reach",
+        "gesix_commuter",
     }
     _mapped = []
     for sec in LENS_SECTION_MAP:

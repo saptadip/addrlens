@@ -131,6 +131,7 @@ class Index:
         self._load_gesix()
         self._load_buergeramts()
         self._load_xmas_markets()
+        self._load_parking_zones()
         self._load_tempolimits()
         self._load_arterial_roads()
 
@@ -447,6 +448,22 @@ class Index:
         self.xmas_markets = result["markets"]
         self.xmas_market_upstream_refreshed_on = result["upstream_refreshed_on"]
         print(f"{len(self.xmas_markets)} markets")
+
+    def _load_parking_zones(self) -> None:
+        """Berlin Parkraumbewirtschaftungszonen — paid on-street parking
+        polygons for the Anwohnerparken tile (Newcomer + Commuter lens).
+        ~103 MultiPolygons city-wide, Bezirks-maintained; point-in-
+        polygon at query time (`parking_zone_at`). Fails soft when the
+        WFS isn't configured — tile reports `unknown` without breaking
+        boot."""
+        cfg = self.cfg
+        self.parking_zones = []
+        if not (cfg.parking_zones_wfs_url and cfg.parking_zones_layer):
+            return
+        log_load("Parkraumbewirtschaftungszonen")
+        self.parking_zones = load_polygon_layer(
+            cfg, cfg.parking_zones_wfs_url, cfg.parking_zones_layer, 500)
+        print(f"{len(self.parking_zones)} zones")
 
     def _load_tempolimits(self) -> None:
         """Berlin Tempolimits — road segments with speed exceptions to the
@@ -883,6 +900,54 @@ class Index:
         hits.sort(key=lambda x: x["distance_m"])
         return hits
 
+    def parking_zone_at(self, lon, lat):
+        """Point-in-polygon lookup over Berlin Parkraumbewirtschaftungs-
+        zonen. Returns
+          `{"inside": True,  "zone", "bezirk", "zeiten", "gebuehr",
+                              "bemerkung", "nearest_edge_m": None}`
+        when the address sits inside a paid zone, or
+          `{"inside": False, "nearest_zone", "nearest_edge_m": int,
+                              "nearest_bezirk"}`
+        when outside (nearest zone within the ~103 preloaded polygons).
+        Returns `None` when the zones layer isn't loaded (WFS absent)."""
+        if not self.parking_zones:
+            return None
+        fm = self.cfg.parking_zones_field_map or {}
+        pt = Point(lon, lat)
+        # Fast path: point-in-polygon over the ~103 preloaded zones.
+        for props, geom in self.parking_zones:
+            if geom.contains(pt):
+                return {
+                    "inside":         True,
+                    "zone":           (props.get(fm.get("name")) or "").strip(),
+                    "bezirk":         (props.get(fm.get("bezirk")) or "").strip(),
+                    "zeiten":         (props.get(fm.get("zeiten")) or "").strip(),
+                    "gebuehr":        (props.get(fm.get("gebuehr")) or "").strip(),
+                    "bemerkung":      (props.get(fm.get("bemerkung")) or "").strip(),
+                    "nearest_edge_m": None,
+                }
+        # Outside every zone: find nearest polygon by boundary distance
+        # (haversine on the nearest point of the polygon boundary).
+        # Same pattern as `nearest_quiet_zone`.
+        best_props, best_d = None, float("inf")
+        for props, geom in self.parking_zones:
+            try:
+                edge_pt = geom.boundary.interpolate(geom.boundary.project(pt))
+            except Exception:
+                continue
+            d = haversine_m(lon, lat, edge_pt.x, edge_pt.y)
+            if d < best_d:
+                best_props, best_d = props, d
+        if best_props is None:
+            return {"inside": False, "nearest_edge_m": None,
+                    "nearest_zone": None, "nearest_bezirk": None}
+        return {
+            "inside":         False,
+            "nearest_zone":   (best_props.get(fm.get("name")) or "").strip(),
+            "nearest_bezirk": (best_props.get(fm.get("bezirk")) or "").strip(),
+            "nearest_edge_m": round(best_d),
+        }
+
     def xmas_market_near(self, lon, lat, radius_m=3000):
         """All Christmas markets within radius, sorted ascending by
         distance. Each returned dict has `distance_m` added. Empty list
@@ -1072,6 +1137,7 @@ if __name__ == "__main__":
         "_load_swim", "_load_bezirksgrenzen", "_load_gesix",
         "_load_buergeramts",
         "_load_xmas_markets",
+        "_load_parking_zones",
         "_load_tempolimits", "_load_arterial_roads",
     ]
     for name in _expected_loaders:
