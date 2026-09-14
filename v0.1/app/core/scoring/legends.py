@@ -111,6 +111,16 @@ def _legend_for(key: str, th: dict) -> list:
         return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
     if key == "xmas_market":
         return _count_legend(th['radius_m'], th['green_count'], th['amber_count'])
+    if key == "parkzone":
+        # Two-tier signal — resident-friendly framing collapses to
+        # green (inside zone OR far from any zone) vs amber (edge
+        # overflow). No red case — see `_tier_parkzone` docstring.
+        return [
+            {"tier": TIER_GREEN,
+             "text": f"inside zone · or ≥{fd(th['amber_edge_m'])} away"},
+            {"tier": TIER_AMBER,
+             "text": f"<{fd(th['amber_edge_m'])} from a zone edge"},
+        ]
 
     # -- Quiet Living ---------------------------------------------------
     if key == "quiet_zone":
@@ -201,6 +211,12 @@ if __name__ == "__main__":
     ccs = _legend_for("car_sharing_reach",
                       {"radius_m": 500, "green_count": 3, "amber_count": 1})
     assert ccs[0]["text"] == "≥3 within 500m"
+
+    # parkzone: 2-tier legend, no red row.
+    pz = _legend_for("parkzone", {"amber_edge_m": 400})
+    assert len(pz) == 2, pz
+    assert pz[0]["tier"] == TIER_GREEN and "400m" in pz[0]["text"]
+    assert pz[1]["tier"] == TIER_AMBER and "400m" in pz[1]["text"]
 
     # xmas_market count-band with diff=1 (green_count=2, amber_count=1)
     # collapses the "1–1" degenerate range to "exactly 1".

@@ -37,8 +37,8 @@ from app.core.scoring.shape import _shape_gesix, _shape_osm_feature
 from app.core.scoring.tiers import (
     _tier_airport_reach, _tier_car_sharing_reach, _tier_commuter_bus_transit,
     _tier_commuter_tram_transit, _tier_cycling_network,
-    _tier_distance_ladder, _tier_ev_charging_reach, _tier_rail_transit,
-    _tier_regional_rail_reach,
+    _tier_distance_ladder, _tier_ev_charging_reach, _tier_parkzone,
+    _tier_rail_transit, _tier_regional_rail_reach,
 )
 
 
@@ -151,6 +151,9 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
     carshare_feats   = [f for f in (_shape_osm_feature(o) for o in _carshare_raw) if f]
     ev_feats         = [f for f in (_shape_osm_feature(o) for o in _ev_raw) if f]
 
+    # -- Parking zone: gdi.berlin.de WFS point-in-polygon -----------------
+    parkzone_info = index.parking_zone_at(lon, lat)
+
     # -- Airport reach (single-point distance) ----------------------------
     airport = None
     _cfg_airport = getattr(cfg, "airport", None)
@@ -175,6 +178,7 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
         ("regional_rail_reach",   _tier_regional_rail_reach(
                                     regional_feats, th["regional_rail_reach"])),
         ("cycling_network",       _tier_cycling_network(cycling_feats, _th_cycling)),
+        ("parkzone",              _tier_parkzone(parkzone_info, th["parkzone"])),
         ("car_sharing_reach",     _tier_car_sharing_reach(carshare_feats, _th_carshare)),
         ("ev_charging_reach",     _tier_ev_charging_reach(ev_feats,
                                                           th["ev_charging_reach"])),
@@ -203,6 +207,7 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
         } for f in bus_feats[:10]],
         "regional_rail_reach":  regional_feats,
         "cycling_network":      cycling_feats[:10],
+        "parkzone":             [],
         "car_sharing_reach":    carshare_feats[:10],
         "ev_charging_reach":    ev_feats[:10],
         "airport_reach":        [],
@@ -214,6 +219,8 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
         "cycling_network":   {"bucket_missing": _cycling_missing},
         "car_sharing_reach": {"bucket_missing": _carshare_missing},
     }
+    if parkzone_info is not None:
+        metadata_map["parkzone"] = {"parkzone": parkzone_info}
 
     tiles = []
     for key, res in results:

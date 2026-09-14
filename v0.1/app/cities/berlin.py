@@ -67,6 +67,12 @@ _BUERGERAEMTER_URL = "https://service.berlin.de/standorte/geojson/buergeramt"  #
 # every registered Christmas market. Peaks Nov–Dec (~45–50 markets); the feed
 # thins to empty the rest of the year. Loaded at boot; no cron.
 _WEIHNACHTSMARKT_URL = "https://www.berlin.de/sen/web/service/maerkte-feste/weihnachtsmaerkte/index.php/index/all.gjson"
+# Parkraumbewirtschaftungszonen — Berlin's paid on-street parking zones
+# (Anwohnerparken). Bezirks-maintained MultiPolygons published as one
+# citywide layer via gdi.berlin.de. Feature count as of Sep 2026: 103.
+# Attributes per zone: parkzone (code), bezirk, zeiten (enforcement
+# hours), gebuehr (visitor fee/hr), bemerkung (notes on exceptions).
+_WFS_PARKZONEN     = "https://gdi.berlin.de/services/wfs/parkraumbewirtschaftung"
 
 # Base URLs (all under the Berlin Geoportal gdi.berlin.de)
 _WFS_SCHULEN = "https://gdi.berlin.de/services/wfs/schulen"
@@ -351,6 +357,18 @@ NEWCOMER_LENS: LensConfig = LensConfig(
             caveat="DHL Packstation + Deutsche Post branches from OSM; DHL Packstation locker moves may take a few weeks to reflect.",
         ),
         LensTileConfig(
+            key="parkzone", label="Anwohnerparken", icon="parkzone",
+            thresholds={"amber_edge_m": 400},
+            caveat=("Berlin Parkraumbewirtschaftungszonen — Bezirks-"
+                    "maintained paid-parking polygons. Green means either "
+                    "inside a zone (residents get a Bewohnerparkausweis "
+                    "for ~€10/yr with permit priority) or ≥400 m from any "
+                    "zone (real free parking, typical in outer Berlin). "
+                    "Amber means outside but close to a zone edge, where "
+                    "visitor overflow floods your street without giving "
+                    "you any priority."),
+        ),
+        LensTileConfig(
             key="wochenmarkt", label="Open market", icon="wochenmarkt",
             thresholds={"green_m": 800, "amber_m": 2000},
             caveat="Only permitted weekly markets; closures may take a season to disappear from the feed.",
@@ -511,6 +529,15 @@ COMMUTER_LENS: LensConfig = LensConfig(
                     "snapshot. Painted bike lanes on shared roads "
                     "(cycleway=lane on a `highway=residential`) are NOT "
                     "in this signal — only dedicated infrastructure."),
+        ),
+        LensTileConfig(
+            key="parkzone", label="Anwohnerparken", icon="parkzone",
+            thresholds={"amber_edge_m": 400},
+            caveat=("Berlin Parkraumbewirtschaftungszonen — Bezirks-"
+                    "maintained paid-parking polygons. For car-owning "
+                    "commuters: green inside a zone (Bewohnerparkausweis "
+                    "priority) or well outside; amber at the edge of a "
+                    "paid zone where visitor overflow competes for spots."),
         ),
         LensTileConfig(
             key="car_sharing_reach", label="Car-sharing reach", icon="car_sharing",
@@ -781,6 +808,7 @@ BERLIN = CityConfig(
         "cycling":        "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=cycleway (weekly snapshot)",
         "car_sharing":    "© OpenStreetMap contributors (ODbL) via Geofabrik — amenity=car_sharing (weekly snapshot)",
         "xmas_market":    "Berlin Senate / Weihnachtsmärkte-Verzeichnis (berlin.de, live GeoJSON)",
+        "parkzone":       "Geoportal Berlin / Parkraumbewirtschaftung — Parkzonen (dl-de/by-2.0)",
     },
     # Geofabrik weekly snapshot lives at data/osm/berlin-amenities.json.
     # Env override for prod: OSM_LOCAL_PATH=/mnt/osm/berlin-amenities.json.
@@ -816,6 +844,18 @@ BERLIN = CityConfig(
     # Berlin Senate live Weihnachtsmärkte feed — fetched at boot,
     # cached in memory, no cron. Empty in summer, ~45–50 markets in Dec.
     xmas_market_url=_WEIHNACHTSMARKT_URL,
+
+    # Parkraumbewirtschaftungszonen — 103 paid-parking polygons for the
+    # Newcomer + Commuter Anwohnerparken tile.
+    parking_zones_wfs_url=_WFS_PARKZONEN,
+    parking_zones_layer="parkraumbewirtschaftung:parkzonen",
+    parking_zones_field_map={
+        "name":      "parkzone",
+        "bezirk":    "bezirk",
+        "zeiten":    "zeiten",
+        "gebuehr":   "gebuehr",
+        "bemerkung": "bemerkung",
+    },
 )
 
 if __name__ == "__main__":
@@ -827,10 +867,18 @@ if __name__ == "__main__":
     assert keys == ["buergeramt",
                     "rail_transit", "tram_transit", "bus_transit",
                     "intl_food", "coworking", "english_clinic",
-                    "language_school", "library", "packstation", "wochenmarkt",
-                    "xmas_market",
+                    "language_school", "library",
+                    "packstation", "parkzone",
+                    "wochenmarkt", "xmas_market",
                     "nightlife_density",
                     "gesix_newcomer"], keys
+    commuter_keys = [t.key for t in BERLIN.commuter_lens.tiles]
+    assert commuter_keys == [
+        "commuter_rail_transit", "commuter_tram_transit", "commuter_bus_transit",
+        "regional_rail_reach", "cycling_network",
+        "parkzone", "car_sharing_reach", "ev_charging_reach",
+        "airport_reach", "gesix_commuter",
+    ], commuter_keys
     admin_keys = [c.key for c in BERLIN.others_admin_cards]
     assert admin_keys == ["buergeramt", "finanzamt", "standesamt",
                           "lea", "arbeitsagentur"], admin_keys

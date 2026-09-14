@@ -325,6 +325,12 @@ function _lensFeatureDetailHtml(tileKey, f) {
   } else if (tileKey === 'refuge') {
     if (f.size_ha != null)       rows.push(row('Size',       `${f.size_ha} ha`));
     if (f.kind)                  rows.push(row('Type',       escapeHtml(f.kind)));
+  } else if (tileKey === 'parkzone') {
+    // parkzone renders no per-item feature rows (the "feature" here is
+    // the zone containing the address itself). All fields come from
+    // tile.metadata.parkzone — handled in the modal body below, not
+    // per-feature.
+    return '';
   } else if (tileKey === 'xmas_market') {
     if (f.bezirk)                rows.push(row('Bezirk',     escapeHtml(f.bezirk)));
     if (f.opening_hours)         rows.push(row('Opening',    escapeHtml(f.opening_hours).replace(/\n/g, '<br>')));
@@ -416,7 +422,33 @@ function renderLensModalBody(tile, lensSlug) {
     : '';
 
   let cardRichBlock = '';
-  if (tile.key === 'gesix' || tile.key === 'gesix_newcomer'
+  if (tile.key === 'parkzone') {
+    const pz = (tile.metadata && tile.metadata.parkzone) || null;
+    if (pz) {
+      const row = (label, val) => val
+        ? `<div class="det-row"><span class="det-label">${label}</span><span class="det-val">${escapeHtml(String(val))}</span></div>`
+        : '';
+      let rows = '';
+      if (pz.inside) {
+        rows += row('Zone',           pz.zone);
+        rows += row('Bezirk',         pz.bezirk);
+        rows += row('Enforcement',    pz.zeiten);
+        rows += row('Visitor fee',    pz.gebuehr ? `${pz.gebuehr} / hour` : '');
+        rows += row('Notes',          pz.bemerkung);
+      } else {
+        rows += row('Regime',           'outside all paid parking zones');
+        if (pz.nearest_zone) {
+          rows += row('Nearest zone',   `Zone ${pz.nearest_zone} (${pz.nearest_bezirk || ''})`.trim());
+        }
+        if (pz.nearest_edge_m != null) {
+          rows += row('Distance to edge', `${pz.nearest_edge_m} m`);
+        }
+      }
+      if (rows) {
+        cardRichBlock = `<div class="parkzone-modal-block details-block">${rows}</div>`;
+      }
+    }
+  } else if (tile.key === 'gesix' || tile.key === 'gesix_newcomer'
       || tile.key === 'gesix_quiet' || tile.key === 'gesix_commuter') {
     const g = (tile.metadata && tile.metadata.gesix) || null;
     const q = g && g.quintile_5;

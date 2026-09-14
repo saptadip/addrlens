@@ -75,7 +75,8 @@ LENS_SECTION_MAP: list[dict] = [
     {"title": "Settling-in services",
      "tiles": ["intl_food", "coworking", "english_clinic", "language_school"]},
     {"title": "Everyday errands",
-     "tiles": ["library", "packstation", "wochenmarkt"]},
+     "tiles": ["library", "packstation", "parkzone",
+               "wochenmarkt", "xmas_market"]},
     {"title": "Neighbourhood profile",
      "tiles": ["nightlife_density", "gesix_newcomer"]},
 ]
@@ -273,7 +274,7 @@ def build_messages(context: dict) -> list[dict]:
         "address_hint": {"bezirk": "<Bezirk from payload>",
                           "ortsteil": "<Ortsteil from payload>"},
         "expected_sections": LENS_SECTION_MAP,
-        "tiles": "<13 Newcomer tiles with key/label/tier/rule/numeric/caveat>",
+        "tiles": "<15 Newcomer tiles with key/label/tier/rule/numeric/caveat>",
     }, ensure_ascii=False)
 
     exemplar_assistant = json.dumps({
@@ -299,9 +300,10 @@ def build_messages(context: dict) -> list[dict]:
              "verdict": "red",
              "note": "International food, coworking are dense; German-class access is the drag at 3.7 km."},
             {"title": "Everyday errands",
-             "tiles": ["library", "packstation", "wochenmarkt"],
+             "tiles": ["library", "packstation", "parkzone",
+                       "wochenmarkt", "xmas_market"],
              "verdict": "amber",
-             "note": "Library and Packstation are steps away; Wochenmarkt is a 15-minute walk."},
+             "note": "Library and Packstation steps away; inside Parkzone 14 (Bewohnerparkausweis worth it); Wochenmarkt 15-min walk; 4 Christmas markets within 3 km in December."},
             {"title": "Neighbourhood profile",
              "tiles": ["nightlife_density", "gesix_newcomer"],
              "verdict": "unknown",
@@ -474,14 +476,15 @@ def run(backend, context: dict) -> dict:
 
 
 if __name__ == "__main__":
-    # -- LENS_SECTION_MAP covers all 13 Newcomer tile keys, no orphans,
+    # -- LENS_SECTION_MAP covers all 15 Newcomer tile keys, no orphans,
     # no duplicates. If a new Newcomer tile lands in berlin.py without
     # a section entry, this assert fails at boot.
     _newcomer_tile_keys = {
         "buergeramt", "rail_transit", "tram_transit", "bus_transit",
         "intl_food", "coworking", "english_clinic", "language_school",
-        "library", "packstation", "wochenmarkt", "nightlife_density",
-        "gesix_newcomer",
+        "library", "packstation", "parkzone",
+        "wochenmarkt", "xmas_market",
+        "nightlife_density", "gesix_newcomer",
     }
     _mapped = []
     for sec in LENS_SECTION_MAP:
