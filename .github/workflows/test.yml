@@ -15,9 +15,19 @@ concurrency:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
+        with:
+          # Cache the uv cache across runs — shaves ~15+ concurrent
+          # runner-minutes off the selfchecks matrix below once populated.
+          enable-cache: true
+          # Repo uses `uv pip install -e .` (not `uv sync`), so there's
+          # no uv.lock. Point the cache-key at pyproject.toml instead —
+          # the default `**/uv.lock` glob hard-errors when no lockfile
+          # is committed.
+          cache-dependency-glob: v0.1/pyproject.toml
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
@@ -41,3 +51,99 @@ jobs:
         with:
           name: coverage-xml
           path: v0.1/coverage.xml
+
+  # Per-module `if __name__ == "__main__":` selfchecks. pytest doesn't run
+  # these blocks, so shape-contract asserts encoded next to the code they
+  # pin (see e.g. `app/core/scorer.py::_shape_osm_feature` assertions) are
+  # invisible to CI without this job. PR #70's review surfaced exactly
+  # this gap: the scorer.py selfcheck crashed on `python -m app.core.scorer`
+  # while pytest reported 212 passed. Matrix keeps each module's failure
+  # isolated + parallelisable.
+  #
+  # Excluded (2 modules) — the ONLY ones whose __main__ blocks do live
+  # network I/O and need external services (Berlin BOD, Cloudflare):
+  #   - app.selfcheck             (top-level live Index-boot; needs WFS)
+  #   - inference.selfcheck       (live backend generation; needs CF token)
+  # Everything else with a `__main__` block is included below, even when
+  # it lives in a network-oriented file — because in-file docstrings +
+  # inspection confirm the selfcheck itself is pure (monkey-patches the
+  # network client, or asserts response-shape without touching the wire).
+  # Adding a new module: append below AND verify `python -m <mod>` runs
+  # offline locally in under a second before pushing.
+  #
+  # `needs: pytest` gate: if pytest fails on import, all selfchecks would
+  # too — skip the fan-out to save CI credits. If pytest fails for an
+  # unrelated reason (test regression), selfchecks won't run — that's
+  # an acceptable trade-off for a 26-way matrix; re-push after the pytest
+  # green triggers full coverage.
+  #
+  # `working-directory: v0.1` is required: `python -m app.core.scorer`
+  # needs `v0.1/` on sys.path. `[tool.uv] package = false` in
+  # v0.1/pyproject.toml installs deps but not the app itself, so we run
+  # from the source tree via the working-directory root.
+  selfchecks:
+    runs-on: ubuntu-latest
+    needs: pytest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          # City config
+          - app.cities.base
+          - app.cities.berlin
+          # Core primitives
+          - app.core.addr
+          - app.core.address_index
+          - app.core.amenities
+          - app.core.cache
+          - app.core.geo
+          - app.core.gloss
+          - app.core.index
+          - app.core.merge
+          - app.core.others_admin
+          - app.core.overpass
+          - app.core.rate_limit
+          - app.core.scorer
+          - app.core.wfs
+          # Loaders — bespoke non-WFS + shared WFS helper
+          - app.core.loaders.buergeramt_service_portal
+          - app.core.loaders.weihnachtsmarkt
+          - app.core.loaders.wfs_layer
+          # Scoring helpers
+          - app.core.scoring.constants
+          - app.core.scoring.legends
+          - app.core.scoring.provenance
+          - app.core.scoring.shape
+          - app.core.scoring.tiers
+          # Routes (pure asserts only — no live server)
+          - app.routes.history
+          - app.routes.lens_insight
+          # Inference — 4 per-lens templates + history + stability + CF parser
+          - inference.runtime.cloudflare_backend
+          - inference.stability_selfcheck
+          - inference.templates.history
+          - inference.templates.lens_commuter_insight
+          - inference.templates.lens_newcomer_insight
+          - inference.templates.lens_quiet_living_insight
+          - inference.templates.lens_young_family_insight
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          # Repo uses `uv pip install -e .` (not `uv sync`), so there's
+          # no uv.lock. Point the cache-key at pyproject.toml instead.
+          cache-dependency-glob: v0.1/pyproject.toml
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        working-directory: v0.1
+        run: uv pip install --system -e ".[dev]"
+      - name: Run module selfcheck (${{ matrix.module }})
+        working-directory: v0.1
+        env:
+          CITY: berlin
+          INFERENCE_URL: http://localhost:9999
+        run: python -m ${{ matrix.module }}
