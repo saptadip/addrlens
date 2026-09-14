@@ -95,7 +95,17 @@ _CACHE_GRID = int(os.environ.get("LENS_INSIGHT_CACHE_GRID", 3))
 #     v5 Newcomer entries carry framing excerpts in the prompt that are
 #     no longer produced — force regeneration so cached and live prompts
 #     match. YF / QL / Commuter have no prior cache and start fresh at v6.
-_CACHE_VERSION = "v6"
+# v7: Commuter + Newcomer exemplars extended so the LLM stops silently
+#     dropping `parkzone` (both lenses) and `xmas_market` (Newcomer)
+#     from section notes + highlights. Verified on production against
+#     Karl-Marx-Allee 1: the tile appeared in the Cycling & car section
+#     tile-list but the exemplar's note only cited cycleway + car-share
+#     + EV, so the model copied the 3-of-4 pattern and skipped parkzone
+#     entirely. Highlights_green likewise carried no parkzone/xmas
+#     exemplar entry, so those tiles never surfaced as callouts even
+#     when green. Bump forces regeneration under the extended
+#     exemplars.
+_CACHE_VERSION = "v7"
 
 
 def _cache_key(city_slug: str, lens: str, lat: float, lon: float) -> tuple:

@@ -316,6 +316,10 @@ def build_messages(context: dict) -> list[dict]:
              "one_line": "12 international restaurants within 1 km."},
             {"tile": "buergeramt",
              "one_line": "Nearest Bürgeramt a 14-minute walk."},
+            {"tile": "parkzone",
+             "one_line": "Inside a Parkzone — Bewohnerparkausweis €10/yr covers on-street parking for residents."},
+            {"tile": "xmas_market",
+             "one_line": "4 Christmas markets within 3 km — a Glühwein cluster forms every December."},
         ],
         "highlights_red": [
             {"tile": "language_school",
