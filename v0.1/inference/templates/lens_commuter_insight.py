@@ -199,7 +199,8 @@ _SYSTEM = (
     "verbatim): (a) green + rule contains 'permit priority for "
     "residents' → 'inside a Parkzone (residents get a "
     "Bewohnerparkausweis for ~€10/yr)'; (b) green + rule contains "
-    "'free street parking' → 'free street parking — no permit needed'; "
+    "'free street parking' → 'street parking is unregulated here — no "
+    "Bewohnerparkausweis needed'; "
     "(c) amber → 'close to a paid zone edge'."
 )
 
