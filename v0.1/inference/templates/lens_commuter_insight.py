@@ -188,7 +188,19 @@ _SYSTEM = (
     "NOT 'far'. Reserve strong negative framing for tiles the payload "
     "actually marks red. "
     "(5) Return ONLY the JSON object. No preamble, no code fences, no "
-    "trailing prose."
+    "trailing prose. "
+    "(6) MUST-CITE tiles: some tile keys ALWAYS need to be named in "
+    "their section note even when they aren't the worst-tier signal "
+    "driving the verdict. `parkzone` is one such tile — its narrative "
+    "value is high (Berlin-native permit regime) and it easily gets "
+    "dropped otherwise. When `parkzone` appears in a section's tile "
+    "list, the section note MUST cite it. Adapt to the tile's rule; "
+    "example phrasings (paraphrase to fit the sentence, do not copy "
+    "verbatim): (a) green + rule='inside a Parkzone "
+    "(Bewohnerparkausweis eligible)' → 'inside a Parkzone (residents "
+    "get a Bewohnerparkausweis for ~€10/yr)'; (b) green + rule "
+    "contains 'no paid regime' → 'no paid parking regime nearby'; "
+    "(c) amber → 'close to a paid zone edge'."
 )
 
 

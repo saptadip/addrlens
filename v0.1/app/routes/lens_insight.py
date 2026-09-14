@@ -105,7 +105,16 @@ _CACHE_GRID = int(os.environ.get("LENS_INSIGHT_CACHE_GRID", 3))
 #     exemplar entry, so those tiles never surfaced as callouts even
 #     when green. Bump forces regeneration under the extended
 #     exemplars.
-_CACHE_VERSION = "v7"
+# v8: exemplar-only fix in v7 covered the INSIDE-zone parkzone case
+#     but not the OUTSIDE-zone case — verified live on Florapromenade
+#     16 (534 m from nearest Parkzone): LLM still dropped parkzone
+#     from the section note because the exemplar only demonstrated
+#     the inside-zone narrative pattern. Added explicit MUST-CITE
+#     rule (6) in both system prompts covering parkzone (all 3 tier
+#     cases) and xmas_market (Newcomer only, all 3 cases). Rules
+#     beat few-shot patterns for the model — this closes the drop.
+#     Bump forces regeneration under the new system prompt.
+_CACHE_VERSION = "v8"
 
 
 def _cache_key(city_slug: str, lens: str, lat: float, lon: float) -> tuple:
