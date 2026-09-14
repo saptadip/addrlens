@@ -127,6 +127,9 @@ jobs:
       - uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+          # Repo uses `uv pip install -e .` (not `uv sync`), so there's
+          # no uv.lock. Point the cache-key at pyproject.toml instead.
+          cache-dependency-glob: v0.1/pyproject.toml
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
