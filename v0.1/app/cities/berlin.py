@@ -357,7 +357,7 @@ NEWCOMER_LENS: LensConfig = LensConfig(
             caveat="DHL Packstation + Deutsche Post branches from OSM; DHL Packstation locker moves may take a few weeks to reflect.",
         ),
         LensTileConfig(
-            key="parkzone", label="Anwohnerparken", icon="parkzone",
+            key="parkzone", label="Resident parking", icon="parkzone",
             thresholds={"amber_edge_m": 400},
             caveat=("Berlin Parkraumbewirtschaftungszonen — Bezirks-"
                     "maintained paid-parking polygons. Green means either "
@@ -531,7 +531,7 @@ COMMUTER_LENS: LensConfig = LensConfig(
                     "in this signal — only dedicated infrastructure."),
         ),
         LensTileConfig(
-            key="parkzone", label="Anwohnerparken", icon="parkzone",
+            key="parkzone", label="Resident parking", icon="parkzone",
             thresholds={"amber_edge_m": 400},
             caveat=("Berlin Parkraumbewirtschaftungszonen — Bezirks-"
                     "maintained paid-parking polygons. For car-owning "
