@@ -122,7 +122,7 @@ def test_history_503_when_snapshot_missing(client, fake_index):
     assert "local OSM snapshot" in r.json()["detail"]
 
 
-def test_history_transport_error_returns_503(client, fake_index):
+def test_history_transport_error_returns_503_degraded(client, fake_index):
     _clear_history_cache()
     fake_index.osm_local = _FakeOSMWithFeatures([
         {"name": "Stolperstein X", "distance_m": 80,
@@ -131,4 +131,41 @@ def test_history_transport_error_returns_503(client, fake_index):
     err = httpx.ConnectError("nope", request=httpx.Request("POST", "http://x/"))
     with patch("httpx.AsyncClient.post", new=AsyncMock(side_effect=err)):
         r = client.get("/api/history", params={"lat": 52.5, "lon": 13.4})
+    # Structured degraded response: same 503 status but SPA can now
+    # branch on error_code to show a specific message.
     assert r.status_code == 503
+    assert r.headers.get("Retry-After") == "60"
+    body = r.json()
+    assert body["degraded"] is True
+    assert body["error_code"] == "INFERENCE_UNREACHABLE"
+
+
+def test_history_timeout_returns_503_degraded(client, fake_index):
+    _clear_history_cache()
+    fake_index.osm_local = _FakeOSMWithFeatures([
+        {"name": "Stolperstein Y", "distance_m": 60,
+         "tags": {"historic": "memorial", "inscription": "..."}},
+    ])
+    err = httpx.ReadTimeout("slow", request=httpx.Request("POST", "http://x/"))
+    with patch("httpx.AsyncClient.post", new=AsyncMock(side_effect=err)):
+        r = client.get("/api/history", params={"lat": 52.5, "lon": 13.4})
+    assert r.status_code == 503
+    assert r.headers.get("Retry-After") == "30"
+    body = r.json()
+    assert body["degraded"] is True
+    assert body["error_code"] == "INFERENCE_TIMEOUT"
+
+
+def test_history_upstream_5xx_returns_504_degraded(client, fake_index):
+    _clear_history_cache()
+    fake_index.osm_local = _FakeOSMWithFeatures([
+        {"name": "Stolperstein Z", "distance_m": 40,
+         "tags": {"historic": "memorial", "inscription": "..."}},
+    ])
+    boom = _fake_response(500, {"detail": "model crashed"})
+    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=boom)):
+        r = client.get("/api/history", params={"lat": 52.5, "lon": 13.4})
+    assert r.status_code == 504
+    body = r.json()
+    assert body["degraded"] is True
+    assert body["error_code"] == "INFERENCE_UPSTREAM"

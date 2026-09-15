@@ -37,6 +37,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.cities.base import CityConfig
 from app.config import INFERENCE_TIMEOUT_S, INFERENCE_URL
 from app.core.cache import HISTORY as _cache
+from app.core.degraded import (
+    INFERENCE_BAD_OUTPUT, INFERENCE_TIMEOUT, INFERENCE_UNREACHABLE,
+    INFERENCE_UPSTREAM, degraded_ai_response,
+)
 from app.core.rate_limit import limiter
 from app.deps import get_city, get_index
 
@@ -130,13 +134,24 @@ async def history(
         timeout = max(60, INFERENCE_TIMEOUT_S)
         async with httpx.AsyncClient(timeout=timeout) as client:
             r = await client.post(f"{INFERENCE_URL}/summarize", json=payload)
+    except httpx.TimeoutException:
+        return degraded_ai_response(INFERENCE_TIMEOUT,
+            "History narrative timed out — the model is warming up or under load. Try again in a moment.",
+            retry_after_seconds=30)
     except httpx.RequestError as e:
-        raise HTTPException(503, f"inference-service unreachable: {e}")
+        return degraded_ai_response(INFERENCE_UNREACHABLE,
+            f"History narrative temporarily unavailable — inference layer not reachable ({type(e).__name__}).",
+            retry_after_seconds=60)
 
     if r.status_code >= 500:
-        raise HTTPException(504, f"inference-service {r.status_code}: {r.text[:200]}")
+        return degraded_ai_response(INFERENCE_UPSTREAM,
+            f"History narrative temporarily unavailable — inference service returned {r.status_code}.",
+            status_code=504,
+            retry_after_seconds=30)
     if r.status_code >= 400:
-        raise HTTPException(r.status_code, f"inference-service: {r.text[:200]}")
+        return degraded_ai_response(INFERENCE_BAD_OUTPUT,
+            "History narrative generation failed. This is usually transient — try again.",
+            retry_after_seconds=30)
 
     body = r.json()
     summary = body.get("summary") or {}

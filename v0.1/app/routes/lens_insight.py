@@ -51,6 +51,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.cities.base import CityConfig
 from app.config import INFERENCE_TIMEOUT_S, INFERENCE_URL
+from app.core.degraded import (
+    INFERENCE_BAD_OUTPUT, INFERENCE_EMPTY, INFERENCE_TIMEOUT,
+    INFERENCE_UNREACHABLE, INFERENCE_UPSTREAM, degraded_ai_response,
+)
 from app.core.cache import HISTORY as _cache
 from app.core.rate_limit import limiter
 from app.deps import get_city
@@ -224,22 +228,40 @@ async def lens_insight(
         timeout = max(120, INFERENCE_TIMEOUT_S)
         async with httpx.AsyncClient(timeout=timeout) as client:
             r = await client.post(f"{INFERENCE_URL}/summarize", json=payload)
+    except httpx.TimeoutException:
+        # Model warm-up or a slow generation; SPA can retry after a short
+        # wait. Distinguished from RequestError because "server not
+        # responding" and "server didn't reply within timeout" have
+        # different recovery odds.
+        return degraded_ai_response(INFERENCE_TIMEOUT,
+            "AI insight timed out — the model is warming up or under load. Try again in a moment.",
+            retry_after_seconds=30)
     except httpx.RequestError as e:
-        raise HTTPException(503, f"inference-service unreachable: {e}")
+        return degraded_ai_response(INFERENCE_UNREACHABLE,
+            f"AI insight temporarily unavailable — inference layer not reachable ({type(e).__name__}).",
+            retry_after_seconds=60)
 
     if r.status_code >= 500:
-        raise HTTPException(504, f"inference-service {r.status_code}: {r.text[:200]}")
+        return degraded_ai_response(INFERENCE_UPSTREAM,
+            f"AI insight temporarily unavailable — inference service returned {r.status_code}.",
+            status_code=504,
+            retry_after_seconds=30)
     if r.status_code >= 400:
         # 400 from inference = template contract violation OR schema
-        # validation failure after two Cloudflare attempts. Surface the
-        # detail so the SPA can degrade to hiding the panel.
-        raise HTTPException(r.status_code, f"inference-service: {r.text[:200]}")
+        # validation failure after two Cloudflare attempts. Surface as
+        # degraded so the SPA hides the panel gracefully.
+        return degraded_ai_response(INFERENCE_BAD_OUTPUT,
+            f"AI insight generation failed (template validation). This is usually transient — try again.",
+            retry_after_seconds=30)
 
     body_json = r.json()
     summary = body_json.get("summary") or {}
     lens_obj = summary.get("lens_insight") or {}
     if not lens_obj.get("executive_summary"):
-        raise HTTPException(502, "inference-service returned empty lens_insight")
+        return degraded_ai_response(INFERENCE_EMPTY,
+            "AI insight returned empty. Retrying often helps.",
+            status_code=502,
+            retry_after_seconds=15)
 
     result = {
         "lens_insight": lens_obj,
