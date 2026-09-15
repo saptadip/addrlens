@@ -2,6 +2,7 @@ import { _LENS_WITH_AI, _ICON_DOWNLOAD } from '../constants.js';
 import { escapeHtml, _track } from '../dom.js';
 import { getActiveLens } from './state.js';
 import { readJson } from '../api.js';
+import { formatApiError } from '../dom.js';
 
 export function _hasLensAI(slug) { return _LENS_WITH_AI.has(slug); }
 
@@ -189,7 +190,15 @@ export function hydrateLensAIPanel(addr) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (!r.ok) {
+        // Structured degraded response (see app/core/degraded.py) carries
+        // `degraded: true` + `error_code` + human-readable `error` message.
+        // formatApiError already reads the `error` field; fallback text
+        // covers non-degraded 4xx (validation errors) and unexpected 5xx
+        // without a JSON body.
+        const errBody = await readJson(r).catch(() => ({}));
+        throw new Error(formatApiError(errBody, `Insight generation failed (HTTP ${r.status}).`));
+      }
       const data = await readJson(r);
       const tierByKey = Object.fromEntries(lens.tiles.map(t => [t.key, t.tier || 'unknown']));
       const bezirk = a.raw?.bez_name || a.raw?.bezirk || '';
@@ -202,8 +211,13 @@ export function hydrateLensAIPanel(addr) {
       _bindLensAIClose(panel, addr, lens, active);
     } catch (e) {
       panel.classList.remove('lens-ai-loading');
+      // Show the specific server-provided message (or the fallback) so
+      // "AI unavailable — try in a moment" is distinguishable from a
+      // 400 "bad input" or a network error. Cap at 240 chars to avoid a
+      // wall of text if the server ever returns something verbose.
+      const msg = String(e.message || 'Insight generation failed. Please try again.').slice(0, 240);
       panel.innerHTML = renderLensAIIdle(lens.label || active, lens.audience) +
-        `<div class="lens-ai-err">Insight generation failed. Please try again.</div>`;
+        `<div class="lens-ai-err">${msg}</div>`;
       hydrateLensAIPanel(addr);
     }
   }, { once: true });

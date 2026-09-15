@@ -97,6 +97,7 @@ jobs:
           - app.core.address_index
           - app.core.amenities
           - app.core.cache
+          - app.core.degraded
           - app.core.geo
           - app.core.gloss
           - app.core.index
