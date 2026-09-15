@@ -254,7 +254,18 @@ async def lens_insight(
             f"AI insight generation failed (template validation). This is usually transient — try again.",
             retry_after_seconds=30)
 
-    body_json = r.json()
+    # Guard against inference returning 200 OK with a non-JSON body —
+    # Cloudflare captive portal HTML, corporate proxy interstitial, WAF
+    # error page, or an inference-side bug that returns `"OK"` as text.
+    # Without this guard, `.json()` raises `JSONDecodeError` → FastAPI
+    # converts to opaque HTTP 500, defeating the whole degradation layer.
+    try:
+        body_json = r.json()
+    except ValueError:
+        return degraded_ai_response(INFERENCE_BAD_OUTPUT,
+            "AI insight returned malformed response. Try again in a moment.",
+            status_code=502,
+            retry_after_seconds=30)
     summary = body_json.get("summary") or {}
     lens_obj = summary.get("lens_insight") or {}
     if not lens_obj.get("executive_summary"):

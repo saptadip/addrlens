@@ -179,6 +179,32 @@ def test_lens_insight_empty_lens_insight_returns_502_degraded(client):
     assert body["retry_after_seconds"] == 15
 
 
+def test_lens_insight_non_json_body_returns_502_degraded(client):
+    """Regression guard for the r.json() decode-failure path.
+
+    Cloudflare captive-portal HTML, corporate proxy interstitials, WAF
+    error pages, and inference-side bugs can return HTTP 200 with a
+    non-JSON body. Without the try/except around r.json(), FastAPI
+    converts the JSONDecodeError into an opaque HTTP 500 — defeating
+    the entire degradation layer this module exists for.
+    """
+    _clear_lens_cache()
+    # 200 OK with HTML body — the classic CF-captive / proxy failure mode.
+    html_resp = httpx.Response(
+        status_code=200,
+        content=b"<html><body>You are behind a firewall.</body></html>",
+        headers={"content-type": "text/html"},
+        request=httpx.Request("POST", "http://x/summarize"),
+    )
+    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=html_resp)):
+        r = client.post("/api/lens_insight", json=_valid_body())
+    assert r.status_code == 502
+    body = r.json()
+    assert body["degraded"] is True
+    assert body["error_code"] == "INFERENCE_BAD_OUTPUT"
+    assert "malformed" in body["error"].lower()
+
+
 def test_lens_insight_upstream_4xx_returns_503_degraded(client):
     _clear_lens_cache()
     # Inference 4xx = template contract violation / schema failure after

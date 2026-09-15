@@ -156,6 +156,29 @@ def test_history_timeout_returns_503_degraded(client, fake_index):
     assert body["error_code"] == "INFERENCE_TIMEOUT"
 
 
+def test_history_non_json_body_returns_502_degraded(client, fake_index):
+    """Regression guard for the r.json() decode-failure path — same class
+    of failure as the sibling lens_insight test, symmetric coverage."""
+    _clear_history_cache()
+    fake_index.osm_local = _FakeOSMWithFeatures([
+        {"name": "Stolperstein Q", "distance_m": 50,
+         "tags": {"historic": "memorial", "inscription": "..."}},
+    ])
+    html_resp = httpx.Response(
+        status_code=200,
+        content=b"<html><body>proxy interstitial</body></html>",
+        headers={"content-type": "text/html"},
+        request=httpx.Request("POST", "http://x/summarize"),
+    )
+    with patch("httpx.AsyncClient.post", new=AsyncMock(return_value=html_resp)):
+        r = client.get("/api/history", params={"lat": 52.5, "lon": 13.4})
+    assert r.status_code == 502
+    body = r.json()
+    assert body["degraded"] is True
+    assert body["error_code"] == "INFERENCE_BAD_OUTPUT"
+    assert "malformed" in body["error"].lower()
+
+
 def test_history_upstream_5xx_returns_504_degraded(client, fake_index):
     _clear_history_cache()
     fake_index.osm_local = _FakeOSMWithFeatures([
