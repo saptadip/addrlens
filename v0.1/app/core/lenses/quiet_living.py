@@ -5,10 +5,10 @@ from `/api/lookup` (air / noise / quiet_zone / trees) plus the OSM
 `nightlife` bucket which the composer resolves per-request from
 `index.osm_local` (matches the newcomer lens pattern).
 
-Nine tiles in fixed order:
+Ten tiles in fixed order:
 
     noise, air, quiet_zone, street_trees, tempo30, arterial_road,
-    rail_noise, nightlife_inverted, gesix_quiet
+    cobblestone_nearby, rail_noise, nightlife_inverted, gesix_quiet
 
 Reuse:
 - `noise` + `air` share the Young Family thresholds (WHO L_DEN 55/60 dB
@@ -29,9 +29,9 @@ from app.core.scoring.legends import _legend_for
 from app.core.scoring.provenance import _lens_provenance, _sources_for
 from app.core.scoring.shape import _shape_gesix, _shape_osm_feature
 from app.core.scoring.tiers import (
-    _tier_air, _tier_arterial_road, _tier_nightlife_inverted, _tier_noise,
-    _tier_quiet_zone_solo, _tier_rail_noise, _tier_street_trees,
-    _tier_tempo30,
+    _tier_air, _tier_arterial_road, _tier_cobblestone_nearby,
+    _tier_nightlife_inverted, _tier_noise, _tier_quiet_zone_solo,
+    _tier_rail_noise, _tier_street_trees, _tier_tempo30,
 )
 
 
@@ -73,6 +73,40 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
     nightlife_feats = [f for f in
                        (_shape_osm_feature(o) for o in nightlife_raw) if f]
 
+    # Cobblestone: nearest OSM way with a stone driving-surface tag on
+    # a trafficked highway class. Fetch out to (green_m + margin) so the
+    # tier func can classify at the edge; matches the cycling pattern of
+    # fetching amber_m + 200 in the Commuter composer.
+    _cob_green_m = th["cobblestone_nearby"]["green_m"]
+    _cob_fetch_radius = _cob_green_m + 100
+    _cob_missing = oc is None or "cobblestone" not in getattr(oc, "buckets", {})
+    if oc is None or _cob_missing:
+        _cob_raw = []
+    else:
+        _cob_raw = oc.near("cobblestone", lon, lat, _cob_fetch_radius) or []
+    # Inline shape — `_shape_osm_feature` drops rows without a name, but
+    # some OSM cobblestone ways may lack a `name` tag (short alley, private
+    # driveway that still counts as `highway=residential`). Keep the row
+    # so distance is honoured; synthesise a stable label at read time.
+    cobblestone_feats = []
+    for _o in _cob_raw:
+        _d = _o.get("distance_m")
+        _la = _o.get("lat")
+        _lo = _o.get("lon")
+        if _d is None or _la is None or _lo is None:
+            continue
+        cobblestone_feats.append({
+            "name":       (_o.get("name") or "Cobblestone street").strip(),
+            "lat":        _la, "lon": _lo,
+            "distance_m": _d,
+        })
+    cobblestone_feats.sort(key=lambda x: x["distance_m"])
+
+    # `bucket_missing` flag is threaded through the thresholds so a fresh
+    # code / stale snapshot cleanly resolves to 'unknown' rather than a
+    # false green (same pattern as cycling_network / car_sharing_reach).
+    _th_cobblestone = {**th["cobblestone_nearby"], "bucket_missing": _cob_missing}
+
     results = [
         ("noise",              _tier_noise(noise, th["noise"])),
         ("air",                _tier_air(air, th["air"])),
@@ -80,6 +114,7 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
         ("street_trees",       _tier_street_trees(trees, th["street_trees"])),
         ("tempo30",            _tier_tempo30(tempo, th["tempo30"])),
         ("arterial_road",      _tier_arterial_road(arterial, th["arterial_road"])),
+        ("cobblestone_nearby", _tier_cobblestone_nearby(cobblestone_feats, _th_cobblestone)),
         ("rail_noise",         _tier_rail_noise(rail, th["rail_noise"])),
         ("nightlife_inverted", _tier_nightlife_inverted(nightlife_feats, th["nightlife_inverted"])),
     ]
@@ -96,6 +131,7 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
         "street_trees":       [],
         "tempo30":            [],
         "arterial_road":      [],
+        "cobblestone_nearby": cobblestone_feats[:10],
         "rail_noise":         [],
         "nightlife_inverted": nightlife_feats[:10],
     }

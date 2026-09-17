@@ -56,6 +56,7 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "street_trees":       [attr.get("trees")],
         "tempo30":            [attr.get("tempolimits")],
         "arterial_road":      [attr.get("arterial_road")],
+        "cobblestone_nearby": [attr.get("cobblestone")],
         # Rail-noise cites S+U attribution because it's derived from
         # those station coords as a track proxy.
         "rail_noise":         [attr.get("sbahn"), attr.get("ubahn")],

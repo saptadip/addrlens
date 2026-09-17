@@ -70,6 +70,7 @@ export const LENS_TILE_EXPLANATIONS = {
   street_trees: "Street-tree canopy percentage in a bounding box around the flat, from Berlin's Baumbestand. Green ≥ 10 % crown coverage; amber ≥ 5 %. Dense mature canopy buffers road noise, drops summer heat, and softens the acoustic feel of the block outside the door.",
   tempo30: "Berlin's Tempolimits WFS lists exceptions to the general 50 km/h — Tempo-30 zones, 40, 60, Autobahn limits. Green if the local order is ≤ 30 km/h; amber up to 50 km/h; red above 50. Perceived road noise roughly doubles per +10 km/h at street level, so a Tempo-30 order at your door is a material win.",
   arterial_road: "Distance to the nearest arterial from the Übergeordnetes Straßennetz Bestand — Berlin's supra-local road network. INVERTED signal — further is better. Green ≥ 150 m away; amber ≥ 50 m; red inside 50 m. A rough proxy for exposure to steady traffic noise, night-time truck passes, and pram-unfriendly pavements.",
+  cobblestone_nearby: "Distance to the nearest cobblestone road, from OSM ways tagged `surface=sett|cobblestone|unhewn_cobblestone` on trafficked highway classes (residential / unclassified / tertiary / secondary / primary / living_street). INVERTED signal — further is better. Green ≥ 100 m; amber ≥ 30 m; red inside 30 m. Cobble sidewalks (footway/pedestrian) and `paving_stones` (mostly flat slab sidewalks) are deliberately excluded. Cobblestone streets are heritage-charming by day but noisy at night — passing cars rattle audibly for ~50–80 m even at 30 km/h.",
   rail_noise: "Distance to the nearest S/U-Bahn station as a proxy for track proximity. INVERTED signal — further is better. Green ≥ 400 m away; amber ≥ 200 m; red inside 200 m. S-Bahn is above-ground and generates real façade noise; Berlin's U-Bahn is underground on most sections, so U-nearest reads greener regardless of walking distance.",
   nightlife_inverted: "Same OSM bar/club count as the Newcomer nightlife tile, but the framing is inverted here: fewer venues within 300 m is greener. Green ≤ 3 venues within 300 m; amber ≤ 8; red above 8. Nightlife density predicts weekend and night-time street noise better than any daytime traffic count.",
   // Commuter lens explanations. Voice follows YF / Newcomer / QL:
@@ -188,6 +189,7 @@ export const TILE_GLOSSARY_KEYS = {
   street_trees:          ['Baumbestand', 'Straßenbäume'],
   tempo30:               ['Tempo-30', 'Tempolimits', 'Autobahn'],
   arterial_road:         ['Übergeordnetes Straßennetz'],
+  cobblestone_nearby:    ['Kopfsteinpflaster', 'Sett', 'Pflaster'],
   rail_noise:            ['S-Bahn', 'U-Bahn'],
   nightlife_inverted:    [],
   gesix_quiet:           ['Planungsraum', 'GESIx', 'Kiez', 'Bezirk'],

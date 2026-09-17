@@ -45,6 +45,10 @@ export const ico={
   // Production art (Phosphor-style) lands with the frontend UI PR.
   tempo30:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><text x="12" y="16" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor" stroke="none">30</text></svg>',
   arterial_road:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-16"/><path d="M20 20l-4-16"/><path d="M11 6h2M10 12h4M9 18h6"/></svg>',
+  // cobblestone — 3×3 grid of small stone-block shapes evoking sett-cobble
+  // paving. Same 24-viewBox / stroke-2 Feather idiom as the sibling
+  // arterial_road / tempo30 icons above.
+  cobblestone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="4" rx="1"/><rect x="9.5" y="4" width="5" height="4" rx="1"/><rect x="16" y="4" width="5" height="4" rx="1"/><rect x="3" y="10" width="5" height="4" rx="1"/><rect x="9.5" y="10" width="5" height="4" rx="1"/><rect x="16" y="10" width="5" height="4" rx="1"/><rect x="3" y="16" width="5" height="4" rx="1"/><rect x="9.5" y="16" width="5" height="4" rx="1"/><rect x="16" y="16" width="5" height="4" rx="1"/></svg>',
   rail_noise:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v14H5z"/><path d="M5 8h14M9 4v14M15 4v14"/><path d="M7 20l-2 2M17 20l2 2"/></svg>',
   // Commuter lens — Phosphor Duotone icons for the 5 new tiles that
   // don't reuse existing icons. `transit` (bus + tram), `bolt` (EV),
