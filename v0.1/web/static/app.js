@@ -54,7 +54,7 @@ wireSuggest();
 // -- Reset button — clear localStorage + reload ------------------------------
 document.getElementById('reset-btn')?.addEventListener('click', () => {
   if(!confirm('Clear card order and saved comparisons? This cannot be undone.')) return;
-  ['addrlens.cardOrder.v1', 'berlin-lens-compare-v1'].forEach(k => localStorage.removeItem(k));
+  ['addrlens.cardOrder.v1', 'berlin-lens-compare-v1', 'berlin-lens-compare-v2'].forEach(k => localStorage.removeItem(k));
   location.reload();
 });
 

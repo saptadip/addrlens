@@ -250,7 +250,10 @@ export const CONN_META = {
 };
 
 // -- Compare board ---------------------------------------------------
-export const COMPARE_KEY='berlin-lens-compare-v1'; export const COMPARE_MAX=5;
+// v2: added noise-source split, air/heat/quiet-zone, EV+swim, admin offices
+// to the raw-view compare snapshot. Bumping the key discards v1 saves that
+// would otherwise render em-dashes for every new row.
+export const COMPARE_KEY='berlin-lens-compare-v2'; export const COMPARE_MAX=5;
 
 // -- Title-case small-word set --------------------------------------
 export const _TITLE_SMALL = new Set([
