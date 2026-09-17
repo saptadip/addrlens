@@ -3,7 +3,7 @@ import { COMPARE_KEY, COMPARE_MAX } from './constants.js';
 import { S } from './state.js';
 import { esc, haversineM, toast, _track } from './dom.js';
 import { fmtDistance } from './panels/connectivity.js';
-import { noiseTierFromDen } from './panels/environment.js';
+import { noiseTierFromDen, airTierFor, heatTierFor } from './panels/environment.js';
 import { amenHasErrors } from './panels/amenities.js';
 import { renderLensCompare } from './lens/index.js';
 
@@ -32,13 +32,60 @@ export function buildSnapshot(){
     counts: {kitas:k.count, playgrounds:cnt('playgrounds'), parks:cnt('parks'),
              pharmacies:cnt('pharmacies'), supermarkets:cnt('supermarkets'),
              gps:cnt('gps'), hospitals:cnt('hospitals'), fountains:cnt('fountains'),
-             transit:cnt('transit')},
+             transit:cnt('transit'),
+             evCharging: cnt('ev_charging')},
     nearestHospital: (S.amenData && S.amenData.hospitals && S.amenData.hospitals.items && S.amenData.hospitals.items[0])
       ? {name:S.amenData.hospitals.items[0].name, distance_m:S.amenData.hospitals.items[0].distance_m}
       : null,
     noise: (S.envData && !S.envData.unavailable) ? {
       l_den: S.envData.l_den?.total, l_night: S.envData.l_night?.total, tier_den: S.envData.tier,
+      // Source-split rows for the STREET NOISE report section. Rail is
+      // captured here alongside the requested road/air split in case a
+      // future row wants it — costs nothing to stash.
+      den_road:   S.envData.l_den?.road   ?? null,
+      night_road: S.envData.l_night?.road ?? null,
+      den_air:    S.envData.l_den?.air    ?? null,
+      night_air:  S.envData.l_night?.air  ?? null,
     } : null,
+    // ENVIRONMENT & CLIMATE section — raw view renders these off S.eduData.{air,heat,quiet_zone}.
+    aq:        (S.eduData.air        && !S.eduData.air.unavailable        && S.eduData.air.no2_ugm3 != null)
+                 ? { no2_ugm3: S.eduData.air.no2_ugm3 } : null,
+    heat:      (S.eduData.heat       && !S.eduData.heat.unavailable       && S.eduData.heat.day_class)
+                 ? { day_class: S.eduData.heat.day_class } : null,
+    quietZone: S.eduData.quiet_zone
+                 ? { name: S.eduData.quiet_zone.name || null,
+                     inside: !!S.eduData.quiet_zone.inside,
+                     distance_m: S.eduData.quiet_zone.distance_m ?? null }
+                 : null,
+    // Nearest swim spot (raw view uses 3 km radius; per-row caption
+    // announces that so the parent DAILY ESSENTIALS · 800 m header is
+    // not misread as covering swim spots too).
+    swim: (S.amenData && S.amenData.swimSpots)
+      ? { count: S.amenData.swimSpots.count,
+          nearest: (S.amenData.swimSpots.items && S.amenData.swimSpots.items[0])
+            ? { name: S.amenData.swimSpots.items[0].name,
+                info: S.amenData.swimSpots.items[0].info,
+                distance_m: S.amenData.swimSpots.items[0].distance_m }
+            : null }
+      : null,
+    // OFFICIAL SERVICES — one nearest office per admin card. Payload
+    // for the section is d.others.bureaucracy.tiles[] as shaped by
+    // app.core.others_admin.build; features[0] is the nearest per key.
+    admin: (() => {
+      const tiles = (S.eduData?.others?.bureaucracy?.tiles) || [];
+      const nearest = (key) => {
+        const t = tiles.find(x => x.key === key);
+        const f = t && t.features && t.features[0];
+        return f ? { name: f.name, distance_m: f.distance_m } : null;
+      };
+      return {
+        buergeramt:     nearest('buergeramt'),
+        finanzamt:      nearest('finanzamt'),
+        standesamt:     nearest('standesamt'),
+        lea:            nearest('lea'),
+        arbeitsagentur: nearest('arbeitsagentur'),
+      };
+    })(),
     connectivity: S.eduData.connectivity || null,
     lens: S.eduData.lens || null,
   };
@@ -143,12 +190,68 @@ export function renderCompare(){
     const dist = s.school.distance_m!=null ? ` <span style="color:var(--muted);font-weight:500">(${s.school.distance_m} m · ~${Math.round(s.school.distance_m/80)} min walk)</span>` : '';
     return `<td>${esc(s.school.name)}${dist}</td>`;
   };
+  // Row-level cell renderers for the new sections. Kept next to their
+  // callers so future edits touch one contiguous block.
+  const nameDistCell = (o) => o
+    ? `<td>${esc(o.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(o.distance_m)})</span></td>`
+    : `<td class="na">—</td>`;
+  const noiseSourceCell = (v, useNightHelper=false) => {
+    if(v == null) return `<td class="na">—</td>`;
+    // Night-time uses the same tier scale offset by +10 dB, matching the
+    // total-L_Night rendering above (55/65/70 dB thresholds in `noiseTierFromDen`
+    // are for L_DEN; L_Night is ~10 dB quieter for the same annoyance level).
+    const tier = noiseTierFromDen(useNightHelper ? v + 10 : v);
+    return `<td><span class="noise-cell tier-${tier}">${v.toFixed(0)} dB</span></td>`;
+  };
+  const aqCell = (aq) => {
+    if(!aq || aq.no2_ugm3 == null) return `<td class="na">—</td>`;
+    return `<td><span class="noise-cell tier-${airTierFor(aq.no2_ugm3)}">${aq.no2_ugm3.toFixed(1)} µg/m³</span></td>`;
+  };
+  const heatCell = (h) => {
+    if(!h || !h.day_class) return `<td class="na">—</td>`;
+    // day_class is the raw Umweltatlas PET string, e.g.
+    // "> 33 °C - <= 35 °C - mäßige Belastung". The trailing German
+    // label (after the last " - ") is the human-readable level; that's
+    // what the raw-view Summer-heat card foregrounds.
+    const level = h.day_class.split(' - ').slice(-1)[0] || h.day_class;
+    return `<td><span class="noise-cell tier-${heatTierFor(h.day_class)}">${esc(level)}</span></td>`;
+  };
+  const quietZoneCell = (qz) => {
+    if(!qz || (!qz.name && !qz.inside && qz.distance_m == null)) return `<td class="na">—</td>`;
+    const name = esc(qz.name || 'Unnamed zone');
+    const state = qz.inside
+      ? 'You are inside'
+      : (qz.distance_m != null ? `${qz.distance_m} m to edge` : '');
+    return `<td>${name}${state ? ` <span style="color:var(--muted);font-weight:500">(${state})</span>` : ''}</td>`;
+  };
+  const swimCell = (s) => {
+    if(!s || s.count == null) return `<td class="na">—</td>`;
+    if(s.count === 0)         return `<td><span class="metric-num">0</span></td>`;
+    const near = s.nearest;
+    const info = near
+      ? `<div style="margin-top:2px;font-size:12px;color:var(--muted);font-weight:500">${esc(near.name)}${near.info ? ` · ${esc(near.info)}` : ''}</div>`
+      : '';
+    return `<td><span class="metric-num">${s.count}</span>${info}</td>`;
+  };
+
+  // Aircraft-noise rows collapse when both compared addresses have no
+  // aircraft dB reading — most of Berlin is far from any approach path,
+  // so the row would otherwise be all em-dashes for most comparisons.
+  const someHasAirDen   = list.some(s => s.noise && s.noise.den_air   != null);
+  const someHasAirNight = list.some(s => s.noise && s.noise.night_air != null);
+
   const rows = [
     sect('Location & Schools'),
     row('District',        list.map(s=>cell(esc(s.address.district))).join('')),
     row('Catchment Grundschule', list.map(schoolCell).join('')),
     row('SESB bilingual',  list.map(s=>cell(s.school&&s.school.sesb_strand?`<span class="sesb-cell">${esc(s.school.sesb_strand)}</span>`:null)).join('')),
     row('Nearest international', list.map(s=>cell(s.intl?`${esc(s.intl.name)} <span style="color:var(--muted);font-weight:500">(${(s.intl.distance_m/1000).toFixed(1)} km)</span>`:null)).join('')),
+    sect('Official services'),
+    row('Bürgeramt · nearest',     list.map(s => nameDistCell(s.admin?.buergeramt)).join('')),
+    row('Finanzamt · nearest',     list.map(s => nameDistCell(s.admin?.finanzamt)).join('')),
+    row('Standesamt · assigned',   list.map(s => nameDistCell(s.admin?.standesamt)).join('')),
+    row('LEA · Berlin',            list.map(s => nameDistCell(s.admin?.lea)).join('')),
+    row('Arbeitsagentur · nearest',list.map(s => nameDistCell(s.admin?.arbeitsagentur)).join('')),
     sect('Kids & family within 800 m walk'),
     row('Kitas (registered)',    list.map(s=>cell(s.counts.kitas,'metric-num')).join('')),
     row('Playgrounds',           list.map(s=>cell(s.counts.playgrounds,'metric-num')).join('')),
@@ -157,6 +260,8 @@ export function renderCompare(){
     row('Supermarkets',          list.map(s=>cell(s.counts.supermarkets,'metric-num')).join('')),
     row('Drinking fountains',    list.map(s=>cell(s.counts.fountains,'metric-num')).join('')),
     row('Transit stops',         list.map(s=>cell(s.counts.transit,'metric-num')).join('')),
+    row('EV charging · 800 m',   list.map(s=>cell(s.counts.evCharging,'metric-num')).join('')),
+    row('Swim spots · 3 km',     list.map(s => swimCell(s.swim)).join('')),
     sect('Medical services'),
     row('Pharmacies · 800 m',    list.map(s=>cell(s.counts.pharmacies,'metric-num')).join('')),
     row('Doctors · 800 m',       list.map(s=>cell(s.counts.gps,'metric-num')).join('')),
@@ -165,6 +270,14 @@ export function renderCompare(){
     sect('Street noise (Berlin 2022 façade)'),
     row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
     row('L_Night · 22–06',       list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_night==null?null:s.noise.l_night+10)}">${s.noise.l_night!=null?s.noise.l_night.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
+    row('L_DEN Road-traffic',    list.map(s => noiseSourceCell(s.noise?.den_road,   false)).join('')),
+    row('L_Night Road-traffic',  list.map(s => noiseSourceCell(s.noise?.night_road, true )).join('')),
+    someHasAirDen   ? row('L_DEN Aircraft',   list.map(s => noiseSourceCell(s.noise?.den_air,   false)).join('')) : null,
+    someHasAirNight ? row('L_Night Aircraft', list.map(s => noiseSourceCell(s.noise?.night_air, true )).join('')) : null,
+    sect('Environment & climate'),
+    row('Air quality (NO₂)',     list.map(s => aqCell(s.aq)).join('')),
+    row('Summer heat class',     list.map(s => heatCell(s.heat)).join('')),
+    row('Nearest quiet zone',    list.map(s => quietZoneCell(s.quietZone)).join('')),
     sect('Connectivity'),
     row('Nearest S-Bahn',        list.map(s=>cell(s.connectivity?.sbahn         ? `${esc(s.connectivity.sbahn.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.sbahn.distance_m)})</span>` : null)).join('')),
     row('Nearest U-Bahn',        list.map(s=>cell(s.connectivity?.ubahn         ? `${esc(s.connectivity.ubahn.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.ubahn.distance_m)})</span>` : null)).join('')),
@@ -172,7 +285,7 @@ export function renderCompare(){
     row('Nearest regional rail', list.map(s=>cell(s.connectivity?.regional_rail ? `${esc(s.connectivity.regional_rail.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.regional_rail.distance_m)})</span>` : null)).join('')),
     row('Nearest bus',           list.map(s=>cell(s.connectivity?.bus           ? `${esc(s.connectivity.bus.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.bus.distance_m)})</span>` : null)).join('')),
     row('Airport (BER)',         list.map(s=>cell(s.connectivity?.airport       ? `${esc(s.connectivity.airport.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.airport.distance_m)})</span>` : null)).join('')),
-  ].join('');
+  ].filter(Boolean).join('');
   $c.innerHTML=`${header}${printHeader}<div class="compare-wrap"><table class="compare-table">
     <thead><tr><th class="metric-col"></th>${cols}</tr></thead>
     <tbody>${rows}</tbody></table></div>`;
