@@ -401,6 +401,8 @@ NEWCOMER_LENS: LensConfig = LensConfig(
 # composite. Three new tiles come from newly-wired Berlin WFS layers
 # (Tempolimits, Übergeordnetes Straßennetz) and one from a reinterpreted
 # use of the Newcomer nightlife bucket (inverted: fewer = better here).
+# A tenth tile, `cobblestone_nearby`, was added later off the OSM
+# surface-tag snapshot to score stone-road proximity as a noise proxy.
 QUIET_LIVING_LENS: LensConfig = LensConfig(
     slug="quiet_living",
     label="Quiet Living",
@@ -466,6 +468,24 @@ QUIET_LIVING_LENS: LensConfig = LensConfig(
                     "arterial + supra-local road network. Distance to "
                     "the nearest one is a rough proxy for exposure to "
                     "traffic noise and dust."),
+        ),
+        LensTileConfig(
+            key="cobblestone_nearby", label="Cobblestone nearby", icon="cobblestone",
+            # Distance-to-nearest, inverted (further = better). Green ≥ 100 m
+            # is inaudible-indoors territory for a passing car at ~30 km/h
+            # (60–65 dB at 10 m on `sett`, drops ~6 dB per distance doubling,
+            # so ≥100 m is under the 40 dB WHO night-noise guideline). Amber
+            # is the tolerable-but-audible band. Red < 30 m means the address
+            # is on or immediately next to a cobblestone road — regular
+            # nighttime car-passes will rattle.
+            thresholds={"green_m": 100, "amber_m": 30},
+            caveat=("OSM `highway=residential|unclassified|tertiary|"
+                    "secondary|primary|living_street` AND `surface="
+                    "sett|cobblestone|unhewn_cobblestone` on trafficked "
+                    "roads only — cobble sidewalks (footway/pedestrian) "
+                    "and `paving_stones` (mostly flat slab sidewalks) are "
+                    "deliberately excluded. Way centroid is the query "
+                    "anchor; short streets are ±150 m precise."),
         ),
         LensTileConfig(
             key="rail_noise", label="Rail-track proximity", icon="rail_noise",
@@ -806,6 +826,7 @@ BERLIN = CityConfig(
         "tempolimits":    "Geoportal Berlin / Tempolimits — angeordnete Höchstgeschwindigkeiten (dl-de/zero-2.0)",
         "arterial_road":  "Geoportal Berlin / Übergeordnetes Straßennetz — Bestand (dl-de/zero-2.0)",
         "cycling":        "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=cycleway (weekly snapshot)",
+        "cobblestone":    "© OpenStreetMap contributors (ODbL) via Geofabrik — trafficked highway + surface=sett|cobblestone|unhewn_cobblestone (weekly snapshot)",
         "car_sharing":    "© OpenStreetMap contributors (ODbL) via Geofabrik — amenity=car_sharing (weekly snapshot)",
         "xmas_market":    "Berlin Senate / Weihnachtsmärkte-Verzeichnis (berlin.de, live GeoJSON)",
         "parkzone":       "Geoportal Berlin / Parkraumbewirtschaftung — Parkzonen (dl-de/by-2.0)",

@@ -167,6 +167,37 @@ _TAG_RULES = {
     "car_sharing": [
         {"amenity": {"car_sharing"}},
     ],
+
+    # cobblestone — trafficked road ways whose driving surface is stone.
+    # Powers the Quiet Living `cobblestone_nearby` tile. AND-rule on
+    # (highway, surface): only roads a car can drive on, only stone
+    # surfaces loud enough to rattle at night.
+    #
+    # Highway classes deliberately EXCLUDE footway / cycleway / path /
+    # pedestrian / service / track — those have no car traffic and
+    # therefore no cobblestone-noise concern (the pain point the tile
+    # was designed to score).
+    #
+    # Surface values include the three OSM tags that map to load-bearing
+    # cobble in Berlin: `sett` (dressed cut cobble — commonest, e.g.
+    # Prenzlauer Berg residential streets), the deprecated `cobblestone`
+    # umbrella (still used by older data), and `unhewn_cobblestone`
+    # (rough round cobble — historically loudest). `paving_stones` is
+    # EXCLUDED because in Berlin it overwhelmingly tags sidewalks, not
+    # roadways, and would inflate the tile with false positives.
+    #
+    # Each qualifying way is stored as one point at its centroid — same
+    # cost-vs-precision trade-off as the cycling bucket. Berlin's
+    # cobblestone streets are typically ≤300 m long, so centroid-based
+    # distance is accurate to ±150 m — well within the tile's 100 m
+    # green boundary noise floor. Upgrade path if higher precision is
+    # ever needed: emit N centroids per way at regular intervals along
+    # the linestring.
+    "cobblestone": [
+        {"highway": {"residential", "unclassified", "tertiary",
+                     "secondary", "primary", "living_street"},
+         "surface": {"sett", "cobblestone", "unhewn_cobblestone"}},
+    ],
 }
 
 # Categories that must have a `name` tag to survive (mirrors _DROP_UNNAMED
@@ -470,6 +501,20 @@ if __name__ == "__main__":
     # car_sharing (amenity=car_sharing on nodes).
     assert _cat_for({"highway": "cycleway"})  == "cycling"
     assert _cat_for({"amenity": "car_sharing"}) == "car_sharing"
+    # cobblestone — AND-rule on (highway, surface). Cobble sidewalks
+    # (highway=footway) must NOT match; cobble residential roads must.
+    assert _cat_for({"highway": "residential",  "surface": "sett"}) == "cobblestone"
+    assert _cat_for({"highway": "residential",  "surface": "cobblestone"}) == "cobblestone"
+    assert _cat_for({"highway": "residential",  "surface": "unhewn_cobblestone"}) == "cobblestone"
+    assert _cat_for({"highway": "living_street","surface": "sett"}) == "cobblestone"
+    assert _cat_for({"highway": "footway",      "surface": "sett"}) != "cobblestone"
+    # cobblestone's highway set excludes cycleway, so cycling is the
+    # only match at runtime regardless of dispatch mode (_cat_for = first
+    # match; _cats_for = all matches).
+    assert _cat_for({"highway": "cycleway",     "surface": "sett"}) == "cycling"
+    assert _cat_for({"highway": "residential",  "surface": "paving_stones"}) != "cobblestone"
+    assert _cat_for({"highway": "residential",  "surface": "asphalt"}) != "cobblestone"
+    assert _cat_for({"highway": "residential"}) != "cobblestone"                      # surface tag required
     # German cuisine restaurant must NOT match (post-filter catches it, but _cat_for
     # will still return intl_food — exclusion is in _add, not _cat_for).
     # (We verify exclusion logic through _INTL_FOOD_EXCLUDE_CUISINE membership.)

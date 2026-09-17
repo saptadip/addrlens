@@ -56,7 +56,7 @@ LENS_SECTION_MAP: list[dict] = [
     {"title": "Green refuge",
      "tiles": ["quiet_zone", "street_trees"]},
     {"title": "Traffic pressure",
-     "tiles": ["tempo30", "arterial_road", "rail_noise"]},
+     "tiles": ["tempo30", "arterial_road", "cobblestone_nearby", "rail_noise"]},
     {"title": "Neighbourhood profile",
      "tiles": ["nightlife_inverted", "gesix_quiet"]},
 ]
@@ -137,13 +137,16 @@ _SYSTEM = (
     "IMPORTANT — INVERTED signals: some tiles measure distance FROM a "
     "noise source or COUNT of a nuisance — the green tier means far / "
     "few of them, which is the desired state. `arterial_road`, "
-    "`rail_noise`, and `nightlife_inverted` are inverted (further / "
-    "fewer is better). If the tile's `caveat` mentions 'INVERTED' or "
-    "'further is better' or 'fewer is better', do NOT describe a green "
-    "reading as 'far / lacking' — describe it as 'buffered from', "
-    "'well set back from', or 'few venues nearby'. A green "
-    "`arterial_road` result should read 'buffered from arterial "
-    "traffic', NOT 'far from any major road'. "
+    "`cobblestone_nearby`, `rail_noise`, and `nightlife_inverted` are "
+    "inverted (further / fewer is better). If the tile's `caveat` "
+    "mentions 'INVERTED' or 'further is better' or 'fewer is better', "
+    "do NOT describe a green reading as 'far / lacking' — describe it "
+    "as 'buffered from', 'well set back from', or 'few venues nearby'. "
+    "A green `arterial_road` result should read 'buffered from arterial "
+    "traffic', NOT 'far from any major road'. A green "
+    "`cobblestone_nearby` result should read 'no cobblestone streets "
+    "within earshot' or 'the block avoids stone-paved streets', NOT "
+    "'far from cobblestone'. "
     "No German words except proper names (Bezirk, Ortsteil, Kiez, "
     "Ruhige Gebiete, Straßenbäume are fine as terminology). "
     "Rules for `sections`: return EXACTLY the sections listed in the "
@@ -267,9 +270,9 @@ def build_messages(context: dict) -> list[dict]:
              "verdict": "green",
              "note": "Designated quiet zone reachable on foot; canopy is dense on the block."},
             {"title": "Traffic pressure",
-             "tiles": ["tempo30", "arterial_road", "rail_noise"],
+             "tiles": ["tempo30", "arterial_road", "cobblestone_nearby", "rail_noise"],
              "verdict": "amber",
-             "note": "30 km/h street; arterial buffered but present; rail is well set back."},
+             "note": "30 km/h street; arterial buffered but present; no cobblestone streets within earshot; rail well set back."},
             {"title": "Neighbourhood profile",
              "tiles": ["nightlife_inverted", "gesix_quiet"],
              "verdict": "green",
@@ -432,12 +435,12 @@ def run(backend, context: dict) -> dict:
 
 
 if __name__ == "__main__":
-    # -- LENS_SECTION_MAP covers all 9 Quiet Living tile keys, no
+    # -- LENS_SECTION_MAP covers all 10 Quiet Living tile keys, no
     # orphans, no duplicates. Guards against a new QL tile landing in
     # berlin.py without a section entry.
     _ql_tile_keys = {
         "noise", "air", "quiet_zone", "street_trees",
-        "tempo30", "arterial_road", "rail_noise",
+        "tempo30", "arterial_road", "cobblestone_nearby", "rail_noise",
         "nightlife_inverted", "gesix_quiet",
     }
     _mapped = []
@@ -495,7 +498,7 @@ if __name__ == "__main__":
         "system must forbid section titles in the summary paragraph"
     # Inverted-signal handling is the load-bearing QL-specific guardrail.
     assert "inverted" in _sys.lower(), \
-        "system must handle INVERTED signals (arterial_road, rail_noise, nightlife_inverted)"
+        "system must handle INVERTED signals (arterial_road, cobblestone_nearby, rail_noise, nightlife_inverted)"
     assert "buffered" in _sys.lower(), \
         "system must model correct inverted-signal framing (e.g. 'buffered from')"
 

@@ -144,6 +144,14 @@ def _legend_for(key: str, th: dict) -> list:
             {"tier": TIER_AMBER, "text": f"{fd(th['amber_m'])}–{fd(th['green_m']-1)}"},
             {"tier": TIER_RED,   "text": f"< {fd(th['amber_m'])}"},
         ]
+    if key == "cobblestone_nearby":
+        # Inverted-distance to the nearest cobblestone road — same shape
+        # as arterial. Further is quieter (fewer stone-tyre passes at night).
+        return [
+            {"tier": TIER_GREEN, "text": f"≥ {fd(th['green_m'])}"},
+            {"tier": TIER_AMBER, "text": f"{fd(th['amber_m'])}–{fd(th['green_m']-1)}"},
+            {"tier": TIER_RED,   "text": f"< {fd(th['amber_m'])}"},
+        ]
     if key == "rail_noise":
         return [
             {"tier": TIER_GREEN, "text": f"S ≥ {fd(th['green_m'])} · U underground"},
@@ -239,6 +247,12 @@ if __name__ == "__main__":
 
     art = _legend_for("arterial_road", {"green_m": 150, "amber_m": 50})
     assert len(art) == 3 and "≥ 150m" in art[0]["text"]
+
+    # cobblestone_nearby — same inverted-distance shape as arterial.
+    cob = _legend_for("cobblestone_nearby", {"green_m": 100, "amber_m": 30})
+    assert len(cob) == 3 and cob[0]["text"] == "≥ 100m", cob
+    assert cob[1]["text"] == "30m–99m", cob
+    assert cob[2]["text"] == "< 30m", cob
 
     t30 = _legend_for("tempo30",
                        {"green_kmh": 30, "amber_kmh": 50, "default_kmh": 50})

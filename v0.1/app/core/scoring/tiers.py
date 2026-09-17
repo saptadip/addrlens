@@ -619,6 +619,40 @@ def _tier_arterial_road(arterial: dict, th: dict) -> dict:
             "numeric": f"{int(d)} m to {label}"}
 
 
+def _tier_cobblestone_nearby(features: list, th: dict) -> dict:
+    """Distance to the nearest cobblestone road (Quiet Living lens).
+    `features` is a list of shaped OSM points from the `cobblestone`
+    bucket, sorted ascending by distance. INVERTED signal — farther
+    is better.
+
+    Empty list = no cobblestone within the composer's fetch radius = green.
+    `bucket_missing=True` (fresh code + stale snapshot before the next
+    refresh regenerates the bucket) → 'unknown' rather than a false green.
+    """
+    if th.get("bucket_missing"):
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Cobblestone data unavailable",
+                "numeric": "OSM cobblestone bucket not yet in local snapshot"}
+    if not features:
+        return {"tier": TIER_GREEN,
+                "rule": f"≥ {th['green_m']} m to nearest cobblestone road",
+                "numeric": "no cobblestone within search radius"}
+    nearest = features[0]
+    d = nearest.get("distance_m")
+    label = (nearest.get("name") or "cobblestone street").strip()
+    if d >= th["green_m"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"≥ {th['green_m']} m to nearest cobblestone road",
+                "numeric": f"{int(d)} m to {label}"}
+    if d >= th["amber_m"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"{th['amber_m']}–{th['green_m']-1} m to nearest cobblestone road",
+                "numeric": f"{int(d)} m to {label}"}
+    return {"tier": TIER_RED,
+            "rule": f"< {th['amber_m']} m to nearest cobblestone road",
+            "numeric": f"{int(d)} m to {label}"}
+
+
 def _tier_rail_noise(rail: dict, th: dict) -> dict:
     """Rail-track proximity as a noise proxy. `rail` is None (no S/U
     station preloaded) or a dict from `Index.rail_track_proximity` with
@@ -1101,6 +1135,26 @@ if __name__ == "__main__":
     r = _tier_arterial_road({"name": "Torstraße", "class": "II",
                               "distance_m": 20}, th_art)
     assert r["tier"] == "red"
+
+    # Cobblestone boundaries — inverted distance ladder, same shape as
+    # arterial. Empty list = green (nothing loud within search radius).
+    th_cob = {"green_m": 100, "amber_m": 30}
+    assert _tier_cobblestone_nearby([], {**th_cob, "bucket_missing": True})["tier"] == "unknown"
+    r = _tier_cobblestone_nearby([], th_cob)
+    assert r["tier"] == "green" and "no cobblestone" in r["numeric"], r
+    r = _tier_cobblestone_nearby([{"name": "Kastanienallee", "distance_m": 150}], th_cob)
+    assert r["tier"] == "green" and "Kastanienallee" in r["numeric"], r
+    r = _tier_cobblestone_nearby([{"name": "Kastanienallee", "distance_m": 100}], th_cob)
+    assert r["tier"] == "green", r        # boundary — 100 m is still green
+    r = _tier_cobblestone_nearby([{"name": "Kastanienallee", "distance_m": 99}],  th_cob)
+    assert r["tier"] == "amber", r
+    r = _tier_cobblestone_nearby([{"name": "Kastanienallee", "distance_m": 30}],  th_cob)
+    assert r["tier"] == "amber", r        # boundary — 30 m is amber
+    r = _tier_cobblestone_nearby([{"name": "Kastanienallee", "distance_m": 29}],  th_cob)
+    assert r["tier"] == "red", r
+    # Unnamed way falls back to a stable label instead of a None crash.
+    r = _tier_cobblestone_nearby([{"distance_m": 10}], th_cob)
+    assert r["tier"] == "red" and "cobblestone street" in r["numeric"], r
 
     # Rail noise boundaries. U-Bahn is always green (underground);
     # S-Bahn scales by distance.
