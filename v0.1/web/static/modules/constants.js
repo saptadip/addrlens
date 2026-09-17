@@ -146,6 +146,9 @@ export const GLOSSARY = {
   'Tempolimits': "Berlin's speed-limit dataset — a live map of every exception to the general 50 km/h city limit. Tempo-30 zones dominate residential streets.",
   'Tempo-30': "30 km/h zone — a residential street where the speed limit is 30 km/h instead of the default 50. Reduces noise noticeably and cuts pedestrian-collision severity.",
   'Autobahn': "German motorway. In Berlin, the A100 city motorway ring and the A111/A113/A114/A115 spokes. Rural sections often have no general speed limit.",
+  'Kopfsteinpflaster': "German umbrella term for cobblestone road surfaces — literally 'head-stone paving'. Common on older residential streets across Prenzlauer Berg, Mitte, and Kreuzberg. Historically charming by day, but passing cars rattle audibly at night. Two sub-types often lumped together: rough round river-stone (unhewn cobble, loudest) and dressed cut cobble (Sett, flatter).",
+  'Sett': "Dressed cut cobblestone — rectangular stone blocks with squared edges, laid in regular rows. Quieter and smoother than unhewn round cobble but still audibly rougher than asphalt. Berlin's post-reunification street refurbishments often replaced worn cobble with Sett. Tagged `surface=sett` in OpenStreetMap.",
+  'Pflaster': "German for 'paving' generally — an umbrella term wider than Kopfsteinpflaster. Berlin's Umweltatlas distinguishes several sub-classes at block-typology level: Kleinpflaster (small mosaic cobble), Plattenpflaster (flat slabs), and Kopfsteinpflaster (full cobble). Only trafficked road cobble is scored in the Cobblestone tile — sidewalk paving is excluded.",
   'Grünanlagen': "Green spaces — Berlin's municipal category for parks, playgrounds, and other public open spaces.",
   'Spielplätze': "Playgrounds. Berlin's Grünanlagen — Spielplätze dataset lists every registered municipal playground.",
 };

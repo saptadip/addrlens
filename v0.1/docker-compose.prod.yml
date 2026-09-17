@@ -20,10 +20,21 @@ services:
     env_file:
       - /srv/addrlens/.env.production
     volumes:
-      # Read-write so `docker compose run --rm app -m scripts.refresh_osm_amenities`
-      # (systemd weekly timer) can rewrite the snapshot atomically. The running
-      # app only reads from this path; write access here is exercised only by
-      # the one-shot refresh container that reuses the same image.
+      # Read-write so the one-shot OSM refresh container can rewrite the
+      # snapshot atomically. The running app only reads from this path;
+      # write access here is exercised only by the refresh container
+      # (weekly systemd timer, or ad-hoc after a bucket-schema change).
+      #
+      # Correct invocation — must override the entrypoint because the
+      # Dockerfile has no ENTRYPOINT, only `CMD ["uvicorn", ...]`; a
+      # bare `-m ...` arg would replace CMD and fail with "exec: -m:
+      # executable file not found":
+      #
+      #   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+      #     run --rm --entrypoint python app \
+      #     -m scripts.refresh_osm_amenities
+      #
+      # Restart the app afterwards so the OsmLocalCache reloads at boot.
       - /srv/addrlens/data/osm:/srv/data/osm
     mem_limit: 700m
     memswap_limit: 1200m
