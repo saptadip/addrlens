@@ -508,7 +508,10 @@ if __name__ == "__main__":
     assert _cat_for({"highway": "residential",  "surface": "unhewn_cobblestone"}) == "cobblestone"
     assert _cat_for({"highway": "living_street","surface": "sett"}) == "cobblestone"
     assert _cat_for({"highway": "footway",      "surface": "sett"}) != "cobblestone"
-    assert _cat_for({"highway": "cycleway",     "surface": "sett"}) == "cycling"      # first-match wins
+    # cobblestone's highway set excludes cycleway, so cycling is the
+    # only match at runtime regardless of dispatch mode (_cat_for = first
+    # match; _cats_for = all matches).
+    assert _cat_for({"highway": "cycleway",     "surface": "sett"}) == "cycling"
     assert _cat_for({"highway": "residential",  "surface": "paving_stones"}) != "cobblestone"
     assert _cat_for({"highway": "residential",  "surface": "asphalt"}) != "cobblestone"
     assert _cat_for({"highway": "residential"}) != "cobblestone"                      # surface tag required

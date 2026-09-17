@@ -21,6 +21,8 @@ Reuse:
 New:
 - `tempo30` — nearest Tempolimits exception.
 - `arterial_road` — nearest arterial-tier road.
+- `cobblestone_nearby` — nearest OSM cobblestone road (surface=sett|
+  cobblestone|unhewn_cobblestone on trafficked highway classes).
 - `rail_noise` — nearest S/U-Bahn station as a track proxy.
 - `nightlife_inverted` — OSM nightlife count within 300 m; lower = greener.
 """
@@ -38,7 +40,7 @@ from app.core.scoring.tiers import (
 def quiet_living_lens(cfg, index, lon: float, lat: float, *,
                      air: dict, noise: dict, quiet_zone: dict,
                      trees: dict) -> dict:
-    """Assemble the 9-tile Quiet Living lens block for one address.
+    """Assemble the 10-tile Quiet Living lens block for one address.
 
     Args match the Young Family lens for `air`, `noise`, `quiet_zone`,
     `trees` — the /api/lookup handler computes these once and passes
@@ -77,10 +79,17 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
     # a trafficked highway class. Fetch out to (green_m + margin) so the
     # tier func can classify at the edge; matches the cycling pattern of
     # fetching amber_m + 200 in the Commuter composer.
+    # `oc is None` (no OSM snapshot loaded at all — production hard-fail
+    # scenario) is treated the same as bucket-absent → `unknown`, following
+    # the cycling_network / car_sharing_reach precedent. This is stricter
+    # than `nightlife_inverted` above (which treats `oc is None` as green);
+    # cobblestone leans conservative because a silent green claim of "no
+    # cobblestone streets nearby" on a broken snapshot would be a false
+    # positive with real user impact.
     _cob_green_m = th["cobblestone_nearby"]["green_m"]
     _cob_fetch_radius = _cob_green_m + 100
     _cob_missing = oc is None or "cobblestone" not in getattr(oc, "buckets", {})
-    if oc is None or _cob_missing:
+    if _cob_missing:
         _cob_raw = []
     else:
         _cob_raw = oc.near("cobblestone", lon, lat, _cob_fetch_radius) or []

@@ -401,6 +401,8 @@ NEWCOMER_LENS: LensConfig = LensConfig(
 # composite. Three new tiles come from newly-wired Berlin WFS layers
 # (Tempolimits, Übergeordnetes Straßennetz) and one from a reinterpreted
 # use of the Newcomer nightlife bucket (inverted: fewer = better here).
+# A tenth tile, `cobblestone_nearby`, was added later off the OSM
+# surface-tag snapshot to score stone-road proximity as a noise proxy.
 QUIET_LIVING_LENS: LensConfig = LensConfig(
     slug="quiet_living",
     label="Quiet Living",
@@ -824,7 +826,7 @@ BERLIN = CityConfig(
         "tempolimits":    "Geoportal Berlin / Tempolimits — angeordnete Höchstgeschwindigkeiten (dl-de/zero-2.0)",
         "arterial_road":  "Geoportal Berlin / Übergeordnetes Straßennetz — Bestand (dl-de/zero-2.0)",
         "cycling":        "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=cycleway (weekly snapshot)",
-        "cobblestone":    "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=residential|… AND surface=sett|cobblestone|unhewn_cobblestone (weekly snapshot)",
+        "cobblestone":    "© OpenStreetMap contributors (ODbL) via Geofabrik — trafficked highway + surface=sett|cobblestone|unhewn_cobblestone (weekly snapshot)",
         "car_sharing":    "© OpenStreetMap contributors (ODbL) via Geofabrik — amenity=car_sharing (weekly snapshot)",
         "xmas_market":    "Berlin Senate / Weihnachtsmärkte-Verzeichnis (berlin.de, live GeoJSON)",
         "parkzone":       "Geoportal Berlin / Parkraumbewirtschaftung — Parkzonen (dl-de/by-2.0)",
