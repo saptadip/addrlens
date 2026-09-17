@@ -107,6 +107,7 @@ jobs:
           - app.core.rate_limit
           - app.core.scorer
           - app.core.wfs
+          - app.core.web_glossary_selfcheck
           # Loaders — bespoke non-WFS + shared WFS helper
           - app.core.loaders.buergeramt_service_portal
           - app.core.loaders.weihnachtsmarkt
