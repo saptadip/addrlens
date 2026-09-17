@@ -71,6 +71,8 @@ export function buildSnapshot(){
     // OFFICIAL SERVICES — one nearest office per admin card. Payload
     // for the section is d.others.bureaucracy.tiles[] as shaped by
     // app.core.others_admin.build; features[0] is the nearest per key.
+    // Keys are hardcoded to the current 5 cards in cfg.others_admin_cards;
+    // add new keys here if that list grows.
     admin: (() => {
       const tiles = (S.eduData?.others?.bureaucracy?.tiles) || [];
       const nearest = (key) => {
@@ -195,12 +197,12 @@ export function renderCompare(){
   const nameDistCell = (o) => o
     ? `<td>${esc(o.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(o.distance_m)})</span></td>`
     : `<td class="na">—</td>`;
-  const noiseSourceCell = (v, useNightHelper=false) => {
+  const noiseSourceCell = (v, isNight=false) => {
     if(v == null) return `<td class="na">—</td>`;
     // Night-time uses the same tier scale offset by +10 dB, matching the
     // total-L_Night rendering above (55/65/70 dB thresholds in `noiseTierFromDen`
     // are for L_DEN; L_Night is ~10 dB quieter for the same annoyance level).
-    const tier = noiseTierFromDen(useNightHelper ? v + 10 : v);
+    const tier = noiseTierFromDen(isNight ? v + 10 : v);
     return `<td><span class="noise-cell tier-${tier}">${v.toFixed(0)} dB</span></td>`;
   };
   const aqCell = (aq) => {
@@ -214,7 +216,11 @@ export function renderCompare(){
     // label (after the last " - ") is the human-readable level; that's
     // what the raw-view Summer-heat card foregrounds.
     const level = h.day_class.split(' - ').slice(-1)[0] || h.day_class;
-    return `<td><span class="noise-cell tier-${heatTierFor(h.day_class)}">${esc(level)}</span></td>`;
+    const tier = heatTierFor(h.day_class);
+    // Unrecognised class strings (heatTierFor → 'unknown') would render as
+    // a naked padded pill with no background — fall back to a plain cell.
+    if(tier === 'unknown') return `<td>${esc(level)}</td>`;
+    return `<td><span class="noise-cell tier-${tier}">${esc(level)}</span></td>`;
   };
   const quietZoneCell = (qz) => {
     if(!qz || (!qz.name && !qz.inside && qz.distance_m == null)) return `<td class="na">—</td>`;
@@ -260,7 +266,7 @@ export function renderCompare(){
     row('Supermarkets',          list.map(s=>cell(s.counts.supermarkets,'metric-num')).join('')),
     row('Drinking fountains',    list.map(s=>cell(s.counts.fountains,'metric-num')).join('')),
     row('Transit stops',         list.map(s=>cell(s.counts.transit,'metric-num')).join('')),
-    row('EV charging · 800 m',   list.map(s=>cell(s.counts.evCharging,'metric-num')).join('')),
+    row('EV charging',           list.map(s=>cell(s.counts.evCharging,'metric-num')).join('')),
     row('Swim spots · 3 km',     list.map(s => swimCell(s.swim)).join('')),
     sect('Medical services'),
     row('Pharmacies · 800 m',    list.map(s=>cell(s.counts.pharmacies,'metric-num')).join('')),
