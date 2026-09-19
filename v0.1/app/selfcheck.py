@@ -214,7 +214,11 @@ def run_live_selfcheck() -> None:
     assert len(idx.sbahn) >= 150, f"expected ≥150 S-Bahn stations, got {len(idx.sbahn)}"
     assert len(idx.ubahn) >= 200, f"expected ≥200 U-Bahn stations (incl. S+U), got {len(idx.ubahn)}"
     assert len(idx.tram) >= 300, f"expected ≥300 tram stops, got {len(idx.tram)}"
-    assert len(idx.regional_rail) == 12, f"expected 12 curated regional-rail stations, got {len(idx.regional_rail)}"
+    # Curated regional-rail list — count is loosened to a ≥12 lower-bound
+    # rather than pinned equality. The list grows opportunistically as
+    # new RE/RB stops become relevant (recently 12 → 15); a pinned assert
+    # kept firing on every additive curation. Pin the FLOOR, not the head.
+    assert len(idx.regional_rail) >= 12, f"expected ≥12 curated regional-rail stations, got {len(idx.regional_rail)}"
     # Kastanienallee 12 is walking distance from U Eberswalder (~250 m).
     ub = idx.nearest_station(idx.ubahn, geo["lon"], geo["lat"])
     assert ub and ub["distance_m"] < 500, f"expected U-Bahn <500m of Kastanienallee 12, got {ub}"
@@ -257,7 +261,12 @@ def run_live_selfcheck() -> None:
     lens_yf, _amen, n_raw, h_raw, a_raw = _compute_lens(geo["lon"], geo["lat"])
     assert len(lens_yf["tiles"]) >= 7, f"expected ≥7 YF tiles, got {len(lens_yf['tiles'])}"
     _keys = [t["key"] for t in lens_yf["tiles"]]
-    assert _keys == ["kita","playground","pediatrician","noise","heat","air","refuge"], _keys
+    # YF lens grew from the original 7 tiles to 10 (added transit,
+    # supermarket, gesix). Assert containment of the CORE 7, not
+    # equality — additive drift is not a bug, and the source of truth
+    # for exact order is `app/cities/berlin.py::YF_LENS.tiles`.
+    _yf_core = {"kita", "playground", "pediatrician", "noise", "heat", "air", "refuge"}
+    assert _yf_core.issubset(_keys), f"YF lens missing core tiles: {_yf_core - set(_keys)} · full: {_keys}"
     for t in lens_yf["tiles"]:
         assert t["label"] and t["rule"], t
         assert t["tier"] in {"green","amber","red","unknown"}, t
@@ -383,6 +392,47 @@ def run_live_selfcheck() -> None:
         assert lea_kbg >= lea_pnk, \
             f"LEA from Kreuzberg ({lea_kbg}) should be ≥ from Pankow ({lea_pnk})"
 
+    # -- Kaaden-Ring 22 (Marzahn-Hellersdorf outer edge) -----------------
+    # Regression guard for the "outer-Berlin admin tile empty" class of
+    # bug (PR #77): Kaaden-Ring 22 sits >3 km from any Bürgeramt and
+    # >5 km from any Arbeitsagentur, so the pre-fix radius-only loaders
+    # returned zero features. The two-tier radius fallback in
+    # `Index._offices_near_with_fallback` must return the single nearest
+    # office instead of empty.
+    #
+    # Data-drift protection: if a Bürgeramt closes and the nearest for
+    # this coord shifts beyond max_radius_m=15000, this assert fires
+    # loudly before users see an empty tile in prod.
+    kaad = idx.geocode("Kaaden-Ring", "22", "12623")
+    if not kaad:
+        print("  Kaaden-Ring 22 geocode failed — skipped outer-Berlin admin regression check")
+    else:
+        assert idx.bezirk_for(kaad["lon"], kaad["lat"]) == "Marzahn-Hellersdorf", \
+            f"expected Marzahn-Hellersdorf, got {idx.bezirk_for(kaad['lon'], kaad['lat'])!r}"
+        bundle_k = _others_admin.build(cfg, idx, kaad["lon"], kaad["lat"])
+        _by_k = {t["key"]: t for t in bundle_k["tiles"]}
+        # Both tiles that used to render empty must now surface ≥1
+        # feature via the fallback branch.
+        assert len(_by_k["buergeramt"]["features"]) >= 1, \
+            f"Kaaden-Ring 22 Bürgeramt empty — fallback broken or nearest >15km"
+        assert len(_by_k["arbeitsagentur"]["features"]) >= 1, \
+            f"Kaaden-Ring 22 Arbeitsagentur empty — fallback broken or nearest >15km"
+        # Sanity: the nearest office is expected OUTSIDE the primary
+        # radius cap for this coord (otherwise the fallback wasn't
+        # actually exercised — either the address geocoded to a
+        # different point or a new central-Berlin office landed in the
+        # curated list).
+        _bur_d = _by_k["buergeramt"]["features"][0]["distance_m"]
+        _arb_d = _by_k["arbeitsagentur"]["features"][0]["distance_m"]
+        assert _bur_d > 3000, \
+            f"Kaaden-Ring 22 Bürgeramt distance {_bur_d}m ≤ 3000m — " \
+            f"fallback path not exercised, test no longer regression-guards"
+        assert _arb_d > 5000, \
+            f"Kaaden-Ring 22 Arbeitsagentur distance {_arb_d}m ≤ 5000m — " \
+            f"fallback path not exercised"
+        print(f"  Kaaden-Ring 22 outer-Berlin fallback OK "
+              f"(Bürgeramt {_bur_d}m, Arbeitsagentur {_arb_d}m)")
+
     print("  admin-offices (Others tab) asserts OK")
 
     # -- Newcomer lens (Spec E) -----------------------------------------------
@@ -406,14 +456,22 @@ def run_live_selfcheck() -> None:
         assert set(_nl_k) >= {"slug", "label", "audience", "tiles", "provenance"}, \
             f"newcomer envelope missing keys: {set(_nl_k)}"
         _nl_tiles_k = {t["key"]: t for t in _nl_k["tiles"]}
-        assert set(_nl_tiles_k) == {
+        # Newcomer lens has grown from the original 13 tiles (added
+        # parkzone, xmas_market). Assert CONTAINMENT of the original
+        # core, not equality — the source of truth for exact set is
+        # `app/cities/berlin.py::NEWCOMER_LENS.tiles`. A pinned equality
+        # here would fire on every additive tile addition.
+        _nl_core = {
             "buergeramt",
             "rail_transit", "tram_transit", "bus_transit",
             "intl_food", "coworking", "english_clinic",
             "language_school", "library", "packstation", "wochenmarkt",
             "nightlife_density",
-            "gesix_newcomer"
-        }, f"unexpected tile keys: {set(_nl_tiles_k)}"
+            "gesix_newcomer",
+        }
+        assert _nl_core.issubset(set(_nl_tiles_k)), \
+            f"newcomer lens missing core tiles: {_nl_core - set(_nl_tiles_k)} · " \
+            f"full: {set(_nl_tiles_k)}"
         for _t in _nl_k["tiles"]:
             assert _t["tier"] in {"green", "amber", "red", "unknown"}, _t
             assert _t["label"], f"tile missing label: {_t}"
@@ -442,14 +500,12 @@ def run_live_selfcheck() -> None:
         _nl_m = scorer.newcomer_lens(cfg, idx, marz["lon"], marz["lat"])
         assert _nl_m.get("slug") == "newcomer", _nl_m.get("slug")
         _nl_tiles_m = {t["key"]: t for t in _nl_m["tiles"]}
-        assert set(_nl_tiles_m) == {
-            "buergeramt",
-            "rail_transit", "tram_transit", "bus_transit",
-            "intl_food", "coworking", "english_clinic",
-            "language_school", "library", "packstation", "wochenmarkt",
-            "nightlife_density",
-            "gesix_newcomer"
-        }, f"unexpected tile keys: {set(_nl_tiles_m)}"
+        # Same containment-not-equality pattern as the Kreuzberg block
+        # above — additive tile drift is not a bug, source of truth is
+        # `app/cities/berlin.py::NEWCOMER_LENS.tiles`.
+        assert _nl_core.issubset(set(_nl_tiles_m)), \
+            f"newcomer lens missing core tiles at Marzahn: " \
+            f"{_nl_core - set(_nl_tiles_m)} · full: {set(_nl_tiles_m)}"
         for _t in _nl_m["tiles"]:
             assert _t["tier"] in {"green", "amber", "red", "unknown"}, _t
         # English-tagged OSM coverage thins out in outer districts; amber or red expected.
