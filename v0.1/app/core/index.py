@@ -889,16 +889,50 @@ class Index:
                 return (props.get(fm["name"]) or "").strip() or None
         return None
 
-    def buergeramt_near(self, lon, lat, radius_m=3000):
-        """All Bürgerämter within radius, sorted ascending by distance.
-        Each returned dict has `distance_m` added."""
+    @staticmethod
+    def _offices_near_with_fallback(offices, lon, lat, radius_m, max_radius_m):
+        """Return offices within `radius_m` (sorted asc by distance). If
+        that band is empty, fall back to the SINGLE NEAREST office up to
+        `max_radius_m` — so outer-Berlin addresses (Marzahn-Hellersdorf,
+        Spandau outskirts, Kaulsdorf, Rudow) always see at least one
+        option instead of an empty tile.
+
+        Both radii are bounded on purpose: `max_radius_m` keeps a lookup
+        from an out-of-Berlin address (e.g. Potsdam typed by mistake)
+        from silently matching a Berlin office 25 km away and passing
+        it off as "nearest". Berlin's diameter is ~40 km, so 15 km
+        comfortably covers the worst intra-city outer-to-office jump
+        while still rejecting Brandenburg addresses.
+
+        Pure static — no self state — so the __main__ selfcheck can
+        assert boundaries without a live Index."""
         hits = []
-        for o in self.buergeramts:
+        for o in offices:
             d = haversine_m(lon, lat, o["lon"], o["lat"])
             if d <= radius_m:
                 hits.append({**o, "distance_m": round(d)})
         hits.sort(key=lambda x: x["distance_m"])
-        return hits
+        if hits:
+            return hits
+        # Fallback: single nearest within max_radius_m.
+        best_o, best_d = None, float("inf")
+        for o in offices:
+            d = haversine_m(lon, lat, o["lon"], o["lat"])
+            if d < best_d:
+                best_o, best_d = o, d
+        if best_o is None or best_d > max_radius_m:
+            return []
+        return [{**best_o, "distance_m": round(best_d)}]
+
+    def buergeramt_near(self, lon, lat, radius_m=3000, max_radius_m=15000):
+        """All Bürgerämter within `radius_m` (sorted asc by distance).
+        When empty (outer bezirks — Marzahn-Hellersdorf edge, Spandau
+        outskirts — sit >3 km from any branch), falls back to the
+        single nearest Bürgeramt up to `max_radius_m`. See
+        `_offices_near_with_fallback` for the reasoning behind the
+        two-tier radius."""
+        return self._offices_near_with_fallback(
+            self.buergeramts, lon, lat, radius_m, max_radius_m)
 
     def parking_zone_at(self, lon, lat):
         """Point-in-polygon lookup over Berlin Parkraumbewirtschaftungs-
@@ -960,15 +994,14 @@ class Index:
         hits.sort(key=lambda x: x["distance_m"])
         return hits
 
-    def arbeitsagentur_near(self, lon, lat, radius_m=5000):
-        """All curated Arbeitsagentur branches within radius, sorted asc."""
-        hits = []
-        for o in self.cfg.arbeitsagenturs:
-            d = haversine_m(lon, lat, o["lon"], o["lat"])
-            if d <= radius_m:
-                hits.append({**o, "distance_m": round(d)})
-        hits.sort(key=lambda x: x["distance_m"])
-        return hits
+    def arbeitsagentur_near(self, lon, lat, radius_m=5000, max_radius_m=15000):
+        """All curated Arbeitsagentur branches within `radius_m` (sorted
+        asc by distance). When empty (Berlin's ~5 branches are unevenly
+        distributed — Kaulsdorf/Mahlsdorf sit >5 km from any one), falls
+        back to the single nearest branch up to `max_radius_m`. See
+        `_offices_near_with_fallback` for reasoning."""
+        return self._offices_near_with_fallback(
+            self.cfg.arbeitsagenturs, lon, lat, radius_m, max_radius_m)
 
     def finanzamt_nearest(self, lon, lat):
         """Nearest Finanzamt from the curated list. Returns None if the list
@@ -1152,5 +1185,47 @@ if __name__ == "__main__":
         f"expected: {_expected_loaders}\n"
         f"actual:   {_actual_order}"
     )
+
+    # -- Admin-office radius fallback ----------------------------------
+    # `_offices_near_with_fallback` returns within-radius hits when present,
+    # otherwise the single nearest within max_radius_m. Regression guard
+    # against the "Kaaden-Ring 22 shows empty Bürgeramt+Arbeitsagentur"
+    # class of bug where outer-Berlin addresses fell outside a 3-5 km
+    # central-Berlin-biased radius cap.
+    _synth_offices = [
+        {"name": "Mitte",      "lon": 13.4050, "lat": 52.5200},
+        {"name": "Friedrichshain","lon": 13.4500, "lat": 52.5150},
+        {"name": "Marzahn",    "lon": 13.5600, "lat": 52.5450},
+    ]
+    # Central lookup — Alexanderplatz-ish. All 3 offices fit within a
+    # generous radius; nearest is Mitte.
+    _r = Index._offices_near_with_fallback(_synth_offices, 13.4100, 52.5210,
+                                            radius_m=15000, max_radius_m=20000)
+    assert len(_r) == 3 and _r[0]["name"] == "Mitte", _r
+
+    # Tight radius — only Mitte fits.
+    _r = Index._offices_near_with_fallback(_synth_offices, 13.4100, 52.5210,
+                                            radius_m=1000, max_radius_m=20000)
+    assert len(_r) == 1 and _r[0]["name"] == "Mitte", _r
+
+    # Outer-Berlin lookup (~Kaaden-Ring 22 coords). No office fits the
+    # 3 km cap → fallback returns the single nearest (Marzahn) within
+    # 15 km. This is the bug this PR closes.
+    _r = Index._offices_near_with_fallback(_synth_offices, 13.6234, 52.4995,
+                                            radius_m=3000, max_radius_m=15000)
+    assert len(_r) == 1 and _r[0]["name"] == "Marzahn", _r
+    assert _r[0]["distance_m"] > 3000, \
+        f"fallback should return an office OUTSIDE the 3km cap, got {_r[0]['distance_m']}m"
+
+    # Out-of-Berlin address (Potsdam coords, ~24 km SW of Berlin
+    # centre). Fallback must reject — max_radius_m guard fires.
+    _r = Index._offices_near_with_fallback(_synth_offices, 13.0500, 52.4000,
+                                            radius_m=3000, max_radius_m=15000)
+    assert _r == [], f"out-of-Berlin lookup must return empty, got {_r}"
+
+    # Empty office list — never crashes.
+    _r = Index._offices_near_with_fallback([], 13.4, 52.5,
+                                            radius_m=3000, max_radius_m=15000)
+    assert _r == []
 
     print("index.py selfcheck OK (pure asserts only; live Index load in app.selfcheck)")
