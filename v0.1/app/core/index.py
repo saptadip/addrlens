@@ -130,6 +130,7 @@ class Index:
         self._load_swim()
         self._load_bezirksgrenzen()
         self._load_gesix()
+        self._load_sozialmonitoring()
         self._load_buergeramts()
         self._load_xmas_markets()
         self._load_parking_zones()
@@ -425,6 +426,25 @@ class Index:
         except Exception as e:
             print(f"failed ({type(e).__name__}: {e})")
 
+    def _load_sozialmonitoring(self) -> None:
+        """Hamburg BSW Sozialmonitoring — ~941 Statistische-Gebiete polygons with
+        pre-classified statusindex / dynamikindex / gesamtindex string bands.
+        Berlin's gesix_wert stays a separate path. Fails soft — WFS timeout →
+        empty list; sozialmonitoring_at returns None."""
+        cfg = self.cfg
+        self.sozialmonitoring = []
+        if not (getattr(cfg, "sozialmonitoring_wfs_url", None)
+                and getattr(cfg, "sozialmonitoring_layer", None)):
+            return
+        log_load("Sozialmonitoring (Hamburg neighbourhood status)")
+        try:
+            for props, geom in load_polygon_layer(
+                    cfg, cfg.sozialmonitoring_wfs_url, cfg.sozialmonitoring_layer, 1500):
+                self.sozialmonitoring.append((props, geom))
+            print(f"{len(self.sozialmonitoring)} Statistische Gebiete")
+        except Exception as e:
+            print(f"failed ({type(e).__name__}: {e})")
+
     def _load_buergeramts(self) -> None:
         """Bürgerämter. Sentinel layer "_geojson" triggers the
         service.berlin.de REST/HTML loader (module
@@ -611,6 +631,26 @@ class Index:
                     "schicht":  props.get("gesix_schicht"),
                     "quintile_5": q,
                     "total":    n,
+                }
+        return None
+
+    def sozialmonitoring_at(self, lon, lat):
+        """Point-in-polygon over the Sozialmonitoring polygons.
+        Returns dict of {statusindex, gesamtindex, dynamikindex, stadtteil,
+        statgeb, berichtsjahr} on hit, None on miss."""
+        if not self.sozialmonitoring:
+            return None
+        fm = self.cfg.sozialmonitoring_field_map or {}
+        pt = Point(lon, lat)
+        for props, geom in self.sozialmonitoring:
+            if geom.contains(pt):
+                return {
+                    "statusindex":  props.get(fm.get("statusindex")),
+                    "gesamtindex":  props.get(fm.get("gesamtindex")),
+                    "dynamikindex": props.get(fm.get("dynamikindex")),
+                    "stadtteil":    (props.get(fm.get("stadtteil")) or "").strip(),
+                    "statgeb":      (props.get(fm.get("statgeb")) or "").strip(),
+                    "berichtsjahr": (props.get(fm.get("berichtsjahr")) or "").strip(),
                 }
         return None
 
@@ -1202,6 +1242,7 @@ if __name__ == "__main__":
         "_load_su_bahn", "_load_tram", "_load_regional_rail",
         "_load_ferry", "_load_fire", "_load_quiet_zones", "_load_protection",
         "_load_swim", "_load_bezirksgrenzen", "_load_gesix",
+        "_load_sozialmonitoring",
         "_load_buergeramts",
         "_load_xmas_markets",
         "_load_parking_zones",
