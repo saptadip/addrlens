@@ -13,6 +13,7 @@ import pytest
 
 from app.core.index import Index
 from app.core.geo import haversine_m
+from tests.conftest import _FakeOSMLocal
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +118,6 @@ def test_lookup_berlin_response_has_nearest_school_distance_km(client, monkeypat
         bezirksgrenzen = []
         gs_public = []
 
-        from tests.conftest import _FakeOSMLocal
         osm_local = _FakeOSMLocal()
 
         def geocode(self, street, hnr, plz):
@@ -216,4 +216,19 @@ def test_berlin_lookup_has_no_sozialmonitoring_key(client):
     assert "sozialmonitoring" not in body, (
         "sozialmonitoring must not appear in Berlin response "
         "(cfg.sozialmonitoring_wfs_url=None)"
+    )
+
+
+def test_berlin_lookup_no_schools_has_no_nearest_school_key(client):
+    """When Berlin has no schools (FakeIndex gs_public=[]), the response must NOT
+    contain a nearest_school key — the block is skipped silently (§14.7 additive).
+
+    The default FakeIndex (used by the `client` fixture) has gs_public=[] and
+    the catchment stub returns no schools, so out_schools will be empty and the
+    Berlin nearest_school branch must not fire.
+    """
+    body = client.get("/api/lookup",
+                      params={"address": "Kastanienallee 12, 10435"}).json()
+    assert "nearest_school" not in body, (
+        "nearest_school must be absent when Berlin has no schools in the index"
     )

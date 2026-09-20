@@ -290,34 +290,43 @@ def lookup(
         },
     }
 
-    # Neighbourhood status — Berlin uses GESIx; Hamburg uses Sozialmonitoring
-    if cfg.sozialmonitoring_wfs_url:
-        sm = index.sozialmonitoring_at(lon, lat)
-        if sm:
-            response["sozialmonitoring"] = sm
-            response["sozialmonitoring"]["provenance"] = cfg.attribution.get(
-                "sozialmonitoring", "Freie und Hansestadt Hamburg / BSW — Sozialmonitoring")
-    elif cfg.gesix_wfs_url:
-        # existing Berlin path — unchanged
-        gx = index.gesix_at(lon, lat)
-        if gx:
-            response["gesix"] = gx
+    # Neighbourhood status — Berlin uses GESIx; Hamburg uses Sozialmonitoring.
+    # Wrapped in try/except per §14.7 — additive block must never break /api/lookup
+    # for callers that don't consume this field.
+    try:
+        if cfg.sozialmonitoring_wfs_url:
+            sm = index.sozialmonitoring_at(lon, lat)
+            if sm:
+                response["sozialmonitoring"] = sm
+                response["sozialmonitoring"]["provenance"] = cfg.attribution.get(
+                    "sozialmonitoring", "Freie und Hansestadt Hamburg / BSW — Sozialmonitoring")
+        elif cfg.gesix_wfs_url:
+            # existing Berlin path — unchanged
+            gx = index.gesix_at(lon, lat)
+            if gx:
+                response["gesix"] = gx
+    except Exception:
+        pass  # neighbourhood block is optional; absence is the natural failure mode
 
     # Nearest primary school — Hamburg returns km-only; Berlin carries distance_km
     # plus assigned school name+BSN so the frontend can render drill-down.
-    if cfg.slug == "hamburg":
-        nps = index.nearest_school_km_only(lon, lat)
-        if nps:
-            response["nearest_school"] = nps
-    else:
-        # Berlin — carry distance_km on nearest_school so frontend renders one shape.
-        if out_schools:
-            s0 = out_schools[0]
-            dkm = round(haversine_m(lon, lat, s0["lon"], s0["lat"]) / 1000, 2)
-            response["nearest_school"] = {
-                "distance_km": dkm,
-                "name": s0["name"],
-                "bsn": s0["bsn"],
-            }
+    # Wrapped in try/except per §14.7 — additive block must never break /api/lookup.
+    try:
+        if cfg.slug == "hamburg":
+            nps = index.nearest_school_km_only(lon, lat)
+            if nps:
+                response["nearest_school"] = nps
+        else:
+            # Berlin — carry distance_km on nearest_school so frontend renders one shape.
+            if out_schools:
+                s0 = out_schools[0]
+                dkm = round(haversine_m(lon, lat, s0["lon"], s0["lat"]) / 1000, 2)
+                response["nearest_school"] = {
+                    "distance_km": dkm,
+                    "name": s0["name"],
+                    "bsn": s0["bsn"],
+                }
+    except Exception:
+        pass  # nearest_school block is optional; absence is the natural failure mode
 
     return response
