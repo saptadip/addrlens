@@ -29,7 +29,7 @@ export function noiseCardsHtml(n){
   if(n.unavailable){
     return `<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Street noise</span></div>
       <p class="sub">${esc(n.reason || 'Noise data unavailable for this address.')}</p>
-      <div class="prov">${esc(n.provenance || 'Geoportal Berlin / Strategische Lärmkarten 2022')}</div></div>`;
+      <div class="prov">${esc(n.provenance || S.cfg?.attribution?.noise || 'Geoportal Berlin / Strategische Lärmkarten 2022')}</div></div>`;
   }
   const den=n.l_den.total, ngt=n.l_night.total;
   // Night thresholds are ~10 dB stricter than day (WHO 45 vs 55). Shift the
@@ -64,7 +64,7 @@ export function quietZoneCardHtml(qz){
     <div class="cell-head"><div class="icon-badge">${ico.quiet}</div><span class="cell-label">Quiet zone (nearest)</span></div>
     <h3 style="margin:6px 0 2px">${esc(qz.name || 'Unnamed zone')}</h3>
     <p class="sub">${esc(dLabel)} · ${sizeHa} · <span style="color:var(--muted)">${esc(kind)}</span></p>
-    <div class="prov">Berlin BOD · §47d BImSchG (2018 designation).</div>
+    <div class="prov">${esc(S.cfg?.attribution?.quiet_zone || 'Berlin BOD · §47d BImSchG (2018 designation).')}</div>
   </div>`;
 }
 
@@ -77,7 +77,7 @@ export function protectionCardHtml(pr){
   const anyInside = m.inside || h.inside;
   const body = anyInside
     ? `Rent-hike and unit-conversion rules protect this neighborhood from displacement. Landlords face extra approval steps to renovate or split units — usually a plus for long-term family renters.`
-    : `This address isn't in a §172 BauGB protection zone. Rent and renovation rules follow standard Berlin tenancy law.`;
+    : `This address isn't in a §172 BauGB protection zone. Rent and renovation rules follow standard ${S.cfg?.display_name || 'Berlin'} tenancy law.`;
   const dateRow = m.inside && m.in_force ? `<p class="sub" style="margin:4px 0 0">Effective: ${esc(m.in_force)}${m.code?` · <span style="color:var(--muted)">${esc(m.code)}</span>`:''}</p>` : '';
   return `<div class="cell" data-env-cat="protection">
     <div class="cell-head"><div class="icon-badge">${shieldSvg}</div><span class="cell-label">Neighborhood protection</span></div>
@@ -87,7 +87,8 @@ export function protectionCardHtml(pr){
     </div>
     <p class="protect-body">${esc(body)}</p>
     ${dateRow}
-    <div class="prov">Berlin BOD · §172 BauGB · <a href="https://www.berlin.de/sen/sbw/stadtdaten/geoportal/" target="_blank" rel="noopener">official designation ↗</a></div>
+    <div class="prov">${esc(S.cfg?.attribution?.protection || 'Berlin BOD · §172 BauGB')} · <a href="${S.cfg?.slug === 'hamburg' ? 'https://geoportal-hamburg.de/' : 'https://www.berlin.de/sen/sbw/stadtdaten/geoportal/'}" target="_blank" rel="noopener">official designation ↗</a></div>
+    <!-- TODO(Hamburg): swap protection link when confirmed -->
   </div>`;
 }
 
@@ -118,7 +119,7 @@ export function streetTreesCardHtml(t){
       <li><span class="nm">Tallest / avg height</span><span class="dist">${t.tallest_m != null ? t.tallest_m + ' m' : '—'} / ${t.avg_height_m != null ? t.avg_height_m + ' m' : '—'}</span></li>
       <li><span class="nm">Top species</span><span class="dist">${esc(topN)}</span></li>
     </ul>
-    <div class="prov">Berlin BOD · Baumbestand (Straßenbäume).</div>
+    <div class="prov">${esc(S.cfg?.attribution?.trees || 'Berlin BOD · Baumbestand (Straßenbäume).')}</div>
   </div>`;
 }
 
@@ -147,7 +148,7 @@ export function airQualityCardHtml(a){
     if(!a) return '';
     return `<div class="cell" data-env-cat="air"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Air quality (NO₂)</span></div>
       <p class="sub">${esc(a.reason || a.error || 'Air-quality data unavailable for this address.')}</p>
-      <div class="prov">${esc(a.provenance || 'Berlin BOD · Umweltatlas Luft')}</div></div>`;
+      <div class="prov">${esc(a.provenance || S.cfg?.attribution?.air || 'Berlin BOD · Umweltatlas Luft')}</div></div>`;
   }
   const tier = airTierFor(a.no2_ugm3);
   const no2 = a.no2_ugm3 != null ? a.no2_ugm3.toFixed(1) : '—';
@@ -166,7 +167,7 @@ export function summerHeatCardHtml(h){
     if(!h) return '';
     return `<div class="cell" data-env-cat="heat"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">Summer heat</span></div>
       <p class="sub">${esc(h.reason || h.error || 'Heat classification unavailable for this address.')}</p>
-      <div class="prov">${esc(h.provenance || 'Berlin BOD · Umweltatlas Klima')}</div></div>`;
+      <div class="prov">${esc(h.provenance || S.cfg?.attribution?.heat || 'Berlin BOD · Umweltatlas Klima')}</div></div>`;
   }
   const tier = heatTierFor(h.day_class);
   const cls = h.day_class || 'unknown';
