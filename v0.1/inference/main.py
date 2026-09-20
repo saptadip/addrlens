@@ -69,7 +69,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 
 from inference.templates import history as history_tpl
+from inference.templates import lens_commuter_hamburg_insight as lens_commuter_hamburg_insight_tpl
 from inference.templates import lens_commuter_insight as lens_commuter_insight_tpl
+from inference.templates import lens_newcomer_hamburg_insight as lens_newcomer_hamburg_insight_tpl
 from inference.templates import lens_newcomer_insight as lens_newcomer_insight_tpl
 from inference.templates import lens_quiet_living_insight as lens_quiet_living_insight_tpl
 from inference.templates import lens_young_family_insight as lens_young_family_insight_tpl
@@ -161,7 +163,8 @@ REMOTE_TEMPLATES = {
         "INFERENCE_REMOTE_TEMPLATES",
         "history,"
         "lens_young_family_insight,lens_newcomer_insight,"
-        "lens_quiet_living_insight,lens_commuter_insight",
+        "lens_quiet_living_insight,lens_commuter_insight,"
+        "lens_newcomer_hamburg_insight,lens_commuter_hamburg_insight",
     ).split(",")
     if t.strip()
 }
@@ -174,10 +177,12 @@ TEMPLATES = {
     # All four are strict-JSON schema outputs served exclusively by
     # Cloudflare Workers AI in prod — the local Qwen 1.5B fallback
     # cannot reliably produce the required schema.
-    "lens_young_family_insight":   lens_young_family_insight_tpl.run,
-    "lens_newcomer_insight":       lens_newcomer_insight_tpl.run,
-    "lens_quiet_living_insight":   lens_quiet_living_insight_tpl.run,
-    "lens_commuter_insight":       lens_commuter_insight_tpl.run,
+    "lens_young_family_insight":        lens_young_family_insight_tpl.run,
+    "lens_newcomer_insight":            lens_newcomer_insight_tpl.run,
+    "lens_quiet_living_insight":        lens_quiet_living_insight_tpl.run,
+    "lens_commuter_insight":            lens_commuter_insight_tpl.run,
+    "lens_newcomer_hamburg_insight":    lens_newcomer_hamburg_insight_tpl.run,
+    "lens_commuter_hamburg_insight":    lens_commuter_hamburg_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state
