@@ -37,12 +37,15 @@
 <link rel="canonical" href="https://addrlens.de/">
 <link rel="alternate" hreflang="en-GB" href="https://addrlens.de/">
 <link rel="alternate" hreflang="x-default" href="https://addrlens.de/">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- Webfonts are self-hosted under /static/fonts/ and declared as
+     @font-face in /static/app.css. No remote font CDN — closes the
+     LG München 3 O 17493/20 GDPR liability. -->
+<link rel="preload" href="/static/fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/space-grotesk-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="/static/app.css?v=20260918-cobblestone-glossary">
+<link rel="stylesheet" href="/static/app.css?v=20260920-self-host-fonts">
 <link rel="icon" type="image/png" href="/static/img/logo.png">
 <!-- Schema.org / JSON-LD structured data — WebApplication schema for LLM
      answer engines (Perplexity, ChatGPT search, Gemini) + Google Rich Results.
@@ -304,6 +307,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script type="module" src="/static/app.js?v=20260918-cobblestone-glossary"></script>
+<script type="module" src="/static/app.js?v=20260920-self-host-fonts"></script>
 </body>
 </html>
