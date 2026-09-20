@@ -141,8 +141,87 @@ OTHERS_ADMIN_CARDS: tuple = (
     OthersAdminCardConfig(key="standesamt", label="Standesamt (Marriage / Birth)", icon="standesamt"),
 )
 
-# ---- Lens configs placeholder (filled by Task 13 + Task 14) -----------------
-NEWCOMER_LENS: LensConfig = None    # noqa: PLE0605 — filled in Task 13
+# ---- Lens configs: Task 13 fills Newcomer; Task 14 fills Commuter; YF+QL deferred (spec Q9) ----
+NEWCOMER_LENS: LensConfig = LensConfig(
+    slug="newcomer",
+    label="Newcomer",
+    audience_hint="First 90 days in Hamburg — HVV, ferry, Anmeldung, English-friendly services.",
+    tiles=(
+        LensTileConfig(
+            key="rail_transit", label="Rail Transit", icon="transit",
+            thresholds={"sbahn_m": 800, "ubahn_m": 500, "any_rail_m": 1200},
+        ),
+        LensTileConfig(
+            key="ferry_transit", label="Ferry Transit", icon="ferry",
+            thresholds={"green_m": 500, "amber_m": 1000},
+            caveat=("HVV-integrated HADAG ferry piers (route_type=4). All-day service on "
+                    "lines 62, 64, 72; other lines are peak-only. Distance is walk to the "
+                    "nearest pier, not to a specific line."),
+        ),
+        LensTileConfig(
+            key="bus_transit", label="Bus Transit", icon="transit",
+            thresholds={"green_m": 300, "amber_m": 600},
+        ),
+        LensTileConfig(
+            key="intl_food", label="International food", icon="intl_food",
+            thresholds={"radius_m": 1000, "green_count": 6, "amber_count": 2},
+        ),
+        LensTileConfig(
+            key="coworking", label="Coworking + Wi-Fi cafés", icon="coworking",
+            thresholds={"radius_m": 1000, "green_count": 3, "amber_count": 1},
+        ),
+        LensTileConfig(
+            key="english_clinic", label="English-speaking clinic", icon="english_clinic",
+            thresholds={"green_m": 1000, "amber_m": 3000},
+            caveat="OSM community-tagged — inner-district coverage good, outer may under-report.",
+        ),
+        LensTileConfig(
+            key="language_school", label="German classes", icon="language_school",
+            thresholds={"green_m": 1500, "amber_m": 3500},
+            caveat=("Covers Volkshochschule Hamburg + private Sprachschulen tagged in OSM; "
+                    "small independent schools may be missing."),
+        ),
+        LensTileConfig(
+            key="library", label="Public library", icon="library",
+            thresholds={"green_m": 1000, "amber_m": 2500},
+            caveat="Bücherhallen Hamburg branches from OSM operator tag.",
+        ),
+        LensTileConfig(
+            key="packstation", label="Parcel pickup", icon="packstation",
+            thresholds={"green_m": 400, "amber_m": 1000},
+            caveat="DHL Packstation + Deutsche Post branches from OSM.",
+        ),
+        LensTileConfig(
+            key="parkzone", label="Resident parking", icon="parkzone",
+            thresholds={"amber_edge_m": 400},
+            caveat=("Hamburg Bewohnerparkgebiete — LGV polygons. Green means inside a "
+                    "zone (residents get a Bewohnerparkausweis) or ≥400 m from any zone "
+                    "edge. Hourly fees + enforcement hours not published in the WFS."),
+        ),
+        LensTileConfig(
+            key="nightlife_density", label="Nightlife density", icon="nightlife",
+            thresholds={},
+            caveat=("Numeric only — no green/amber/red verdict. Hamburg's Kiez density "
+                    "(St. Pauli, Sternschanze) is a positive for some and a negative for "
+                    "others; the noise tile covers the sound-level side of the same signal."),
+        ),
+        LensTileConfig(
+            key="sozialmonitoring_status", label="Neighbourhood status", icon="gesix",
+            thresholds={},
+            caveat=("Hamburg BSW Sozialmonitoring — 4-level Statusindex per Statistisches "
+                    "Gebiet (~2200 residents). 'Hoch' = strong socioeconomic status; "
+                    "'sehr niedrig' = neighbourhood flagged for city support. Refreshed "
+                    "annually; polygon grain is finer than Berlin's Planungsraum."),
+        ),
+        LensTileConfig(
+            key="sozialmonitoring_gesamt", label="Aufmerksamkeitsgebiet", icon="gesix",
+            thresholds={},
+            caveat=("Hamburg BSW Sozialmonitoring — combined Status+Dynamik verdict. "
+                    "'Aufmerksamkeitsgebiet' = the polygon around this flat is a city-"
+                    "designated area for social monitoring. Independent of the Status tile."),
+        ),
+    ),
+)
 COMMUTER_LENS: LensConfig = None    # noqa: PLE0605 — filled in Task 14
 
 # ---- Assemble HAMBURG CityConfig --------------------------------------------
@@ -279,9 +358,9 @@ HAMBURG = CityConfig(
         "berichtsjahr": "berichtsjahr",
     },
 
-    young_family_lens=NEWCOMER_LENS,       # placeholder — YF+QL deferred (Task 15 comment)
+    young_family_lens=None,                # placeholder — YF deferred, spec Q9
     newcomer_lens=NEWCOMER_LENS,           # filled by Task 13
-    quiet_living_lens=NEWCOMER_LENS,       # placeholder
+    quiet_living_lens=None,               # placeholder — QL deferred, spec Q9
     commuter_lens=COMMUTER_LENS,           # filled by Task 14
 
     bezirksgrenzen_wfs_url=_WFS_VERW,
@@ -313,7 +392,7 @@ HAMBURG = CityConfig(
 
 
 if __name__ == "__main__":
-    # Skeleton selfcheck — full lens-key asserts land in Task 15.
+    # Skeleton selfcheck — Newcomer lens asserts added in Task 13; Commuter lens in Task 14.
     assert HAMBURG.slug == "hamburg"
     assert HAMBURG.wfs_output_format == "application/geo+json"
     assert HAMBURG.geocoder == "oaf"
@@ -327,4 +406,10 @@ if __name__ == "__main__":
     assert HAMBURG.sozialmonitoring_wfs_url is not None
     assert HAMBURG.pools_wfs_url is None
     assert HAMBURG.xmas_market_url is None
-    print("hamburg.py skeleton selfcheck OK (lens configs land in Task 13 + 14)")
+    # Task 13 lens invariants
+    assert HAMBURG.newcomer_lens is not None
+    assert HAMBURG.young_family_lens is None
+    assert HAMBURG.quiet_living_lens is None
+    assert HAMBURG.commuter_lens is None
+    assert len(HAMBURG.newcomer_lens.tiles) == 13
+    print("hamburg.py selfcheck OK")
