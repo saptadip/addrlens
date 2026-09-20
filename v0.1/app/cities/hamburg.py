@@ -427,9 +427,9 @@ HAMBURG = CityConfig(
         "berichtsjahr": "berichtsjahr",
     },
 
-    young_family_lens=None,                # placeholder — YF deferred, spec Q9
+    young_family_lens=None,       # deferred to a later release; frontend hides YF lens for Hamburg via slug filter (spec Q9)
     newcomer_lens=NEWCOMER_LENS,           # filled by Task 13
-    quiet_living_lens=None,               # placeholder — QL deferred, spec Q9
+    quiet_living_lens=None,               # deferred to a later release; frontend hides QL lens for Hamburg via slug filter (spec Q9)
     commuter_lens=COMMUTER_LENS,           # filled by Task 14
 
     bezirksgrenzen_wfs_url=_WFS_VERW,
@@ -461,7 +461,7 @@ HAMBURG = CityConfig(
 
 
 if __name__ == "__main__":
-    # Skeleton selfcheck — Newcomer lens asserts added in Task 13; Commuter lens in Task 14.
+    # T12 skeleton asserts
     assert HAMBURG.slug == "hamburg"
     assert HAMBURG.wfs_output_format == "application/geo+json"
     assert HAMBURG.geocoder == "oaf"
@@ -475,11 +475,45 @@ if __name__ == "__main__":
     assert HAMBURG.sozialmonitoring_wfs_url is not None
     assert HAMBURG.pools_wfs_url is None
     assert HAMBURG.xmas_market_url is None
-    # Task 13 lens invariants
+    # T13/T14 lens presence asserts
     assert HAMBURG.newcomer_lens is not None
-    assert HAMBURG.young_family_lens is None
-    assert HAMBURG.quiet_living_lens is None
+    assert len(HAMBURG.newcomer_lens.tiles) == 13
     assert HAMBURG.commuter_lens is not None
     assert len(HAMBURG.commuter_lens.tiles) == 11
-    assert len(HAMBURG.newcomer_lens.tiles) == 13
-    print("hamburg.py selfcheck OK")
+    assert HAMBURG.young_family_lens is None
+    assert HAMBURG.quiet_living_lens is None
+    # T15: identity asserts
+    assert HAMBURG.newcomer_lens is NEWCOMER_LENS
+    assert HAMBURG.commuter_lens is COMMUTER_LENS
+    assert HAMBURG.others_admin_cards is OTHERS_ADMIN_CARDS
+    assert HAMBURG.buergeramt_wfs_url is None
+    # T15: tile-key order asserts — Newcomer (13 keys)
+    keys = [t.key for t in HAMBURG.newcomer_lens.tiles]
+    assert keys == [
+        "rail_transit", "ferry_transit", "bus_transit",
+        "intl_food", "coworking",
+        "english_clinic", "language_school", "library",
+        "packstation", "parkzone",
+        "nightlife_density",
+        "sozialmonitoring_status", "sozialmonitoring_gesamt",
+    ], keys
+    # T15: tile-key order asserts — Commuter (11 keys)
+    commuter_keys = [t.key for t in HAMBURG.commuter_lens.tiles]
+    assert commuter_keys == [
+        "commuter_rail_transit", "commuter_ferry_transit", "commuter_bus_transit",
+        "regional_rail_reach", "cycling_network",
+        "parkzone", "car_sharing_reach", "ev_charging_reach",
+        "airport_reach",
+        "sozialmonitoring_status_commuter", "sozialmonitoring_gesamt_commuter",
+    ], commuter_keys
+    # No tram tile in either lens
+    assert "tram_transit" not in keys
+    assert "commuter_tram_transit" not in commuter_keys
+    # Only Standesamt in Others tab
+    admin_keys = [c.key for c in HAMBURG.others_admin_cards]
+    assert admin_keys == ["standesamt"], admin_keys
+    # Attribution keys wired for every provenance-bearing dataset
+    for k in ("schools", "kitas", "hospitals", "trees", "sozialmonitoring",
+              "ferry", "parkzone", "standesamt"):
+        assert k in HAMBURG.attribution, f"missing attribution: {k}"
+    print("selfcheck ok: Hamburg Newcomer + Commuter lenses wired")
