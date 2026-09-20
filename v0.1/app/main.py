@@ -223,28 +223,38 @@ def index():
     return Response(_INDEX_HTML, media_type="text/html; charset=utf-8")
 
 
+def _city_or_default(filename: str) -> Path:
+    """Serve WEB_DIR / <slug> / <filename> if present, else WEB_DIR / <filename>.
+
+    Defensive fallback keeps Berlin serving even if a per-city file is missing.
+    slug is read from app.state.city which is set at lifespan startup.
+    """
+    p = WEB_DIR / app.state.city.slug / filename
+    return p if p.exists() else WEB_DIR / filename
+
+
 @app.get("/impressum", include_in_schema=False)
 def impressum():
-    """Serve the §5 DDG Imprint page (bilingual DE + EN)."""
-    return FileResponse(WEB_DIR / "impressum.html", media_type="text/html; charset=utf-8")
+    """Serve the §5 DDG Imprint page — per-city variant when available."""
+    return FileResponse(_city_or_default("impressum.html"), media_type="text/html; charset=utf-8")
 
 
 @app.get("/datenschutzerklaerung", include_in_schema=False)
 def datenschutzerklaerung():
-    """Serve the DSGVO/GDPR privacy policy (bilingual DE + EN)."""
-    return FileResponse(WEB_DIR / "datenschutzerklaerung.html", media_type="text/html; charset=utf-8")
+    """Serve the DSGVO/GDPR privacy policy — per-city variant when available."""
+    return FileResponse(_city_or_default("datenschutzerklaerung.html"), media_type="text/html; charset=utf-8")
 
 
 @app.get("/robots.txt", include_in_schema=False)
 def robots():
-    """Serve robots.txt — allowlist everything except /api/*, point at sitemap."""
-    return FileResponse(WEB_DIR / "robots.txt", media_type="text/plain; charset=utf-8")
+    """Serve robots.txt — per-city variant when available."""
+    return FileResponse(_city_or_default("robots.txt"), media_type="text/plain; charset=utf-8")
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap():
-    """Serve sitemap.xml — landing + legal pages. Update when public routes change."""
-    return FileResponse(WEB_DIR / "sitemap.xml", media_type="application/xml; charset=utf-8")
+    """Serve sitemap.xml — per-city variant when available."""
+    return FileResponse(_city_or_default("sitemap.xml"), media_type="application/xml; charset=utf-8")
 
 
 # ES module files under /static/modules/ must revalidate on every load.
