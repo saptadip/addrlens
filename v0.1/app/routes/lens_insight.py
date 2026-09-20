@@ -62,11 +62,15 @@ from app.deps import get_city
 router = APIRouter()
 
 # Per-lens inference template lookup. Grow as new lenses ship.
+# Keyed by (city_slug, lens_slug) so Hamburg's templates dispatch only
+# for Hamburg requests and Berlin's templates dispatch only for Berlin.
 _LENS_TEMPLATES = {
-    "young_family": "lens_young_family_insight",
-    "newcomer":     "lens_newcomer_insight",
-    "quiet_living": "lens_quiet_living_insight",
-    "commuter":     "lens_commuter_insight",
+    ("berlin",  "young_family"): "lens_young_family_insight",
+    ("berlin",  "newcomer"):     "lens_newcomer_insight",
+    ("berlin",  "quiet_living"): "lens_quiet_living_insight",
+    ("berlin",  "commuter"):     "lens_commuter_insight",
+    ("hamburg", "newcomer"):     "lens_newcomer_hamburg_insight",
+    ("hamburg", "commuter"):     "lens_commuter_hamburg_insight",
 }
 
 # Same cache grid as history — ~100 m cells. Env-tunable.
@@ -189,9 +193,10 @@ async def lens_insight(
         raise HTTPException(400, f"bad body: {e}")
 
     lens = (body.get("lens") or "").strip()
-    if lens not in _LENS_TEMPLATES:
+    if (cfg.slug, lens) not in _LENS_TEMPLATES:
+        valid = sorted(l for (c, l) in _LENS_TEMPLATES if c == cfg.slug)
         raise HTTPException(400,
-            f"unknown lens {lens!r}; expected one of {sorted(_LENS_TEMPLATES)}")
+            f"unknown lens {lens!r} for city {cfg.slug!r}; expected one of {valid}")
 
     address = body.get("address") or {}
     lat = address.get("lat")
@@ -209,7 +214,7 @@ async def lens_insight(
         return {**hit, "cached": True}
 
     payload = {
-        "template": _LENS_TEMPLATES[lens],
+        "template": _LENS_TEMPLATES[(cfg.slug, lens)],
         "city":     cfg.slug,
         "context":  {
             "address_hint": {
@@ -314,18 +319,25 @@ if __name__ == "__main__":
     assert _tiers["tram_transit"] == "unknown"
     assert _tiers["bus_transit"]  == "info"
 
-    # -- _LENS_TEMPLATES sanity: all 4 Life Lenses wired --------------
-    # Each entry must map slug → matching template name registered in
-    # inference/main.py::TEMPLATES. Drift here means the proxy accepts
-    # a lens but the inference service has no matching row.
+    # -- _LENS_TEMPLATES sanity: all 6 (city, lens) entries wired -----
+    # Each entry must map (city_slug, lens_slug) → matching template name
+    # registered in inference/main.py::TEMPLATES. Drift here means the
+    # proxy accepts a lens but the inference service has no matching row.
     assert set(_LENS_TEMPLATES.keys()) == {
-        "young_family", "newcomer", "quiet_living", "commuter",
+        ("berlin",  "young_family"),
+        ("berlin",  "newcomer"),
+        ("berlin",  "quiet_living"),
+        ("berlin",  "commuter"),
+        ("hamburg", "newcomer"),
+        ("hamburg", "commuter"),
     }, f"_LENS_TEMPLATES keys drifted: {set(_LENS_TEMPLATES.keys())}"
     assert _LENS_TEMPLATES == {
-        "young_family": "lens_young_family_insight",
-        "newcomer":     "lens_newcomer_insight",
-        "quiet_living": "lens_quiet_living_insight",
-        "commuter":     "lens_commuter_insight",
+        ("berlin",  "young_family"): "lens_young_family_insight",
+        ("berlin",  "newcomer"):     "lens_newcomer_insight",
+        ("berlin",  "quiet_living"): "lens_quiet_living_insight",
+        ("berlin",  "commuter"):     "lens_commuter_insight",
+        ("hamburg", "newcomer"):     "lens_newcomer_hamburg_insight",
+        ("hamburg", "commuter"):     "lens_commuter_hamburg_insight",
     }, "template names must match inference/main.py::TEMPLATES rows"
 
     # -- _shape_tile_contexts drops noise + keeps schema fields -------
