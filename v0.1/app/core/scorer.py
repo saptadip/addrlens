@@ -48,6 +48,72 @@ from app.core.scoring.tiers import (                                    # noqa: 
 )
 
 
+# ------------------------------------------------------------------ #
+# New Hamburg-era tier functions (Task 9).                            #
+# Simple lookup / distance functions that don't need a thresholds     #
+# dict sourced from a LensConfig — they carry their own domain logic. #
+# ------------------------------------------------------------------ #
+
+
+def _tier_ferry_transit(distance_m, thresholds):
+    if distance_m is None:
+        return "unknown"
+    if distance_m <= thresholds["green_m"]: return "green"
+    if distance_m <= thresholds["amber_m"]: return "amber"
+    return "red"
+
+
+_SM_STATUS_TO_TIER = {
+    "hoch":         "green",
+    "mittel":       "green",
+    "niedrig":      "amber",
+    "sehr niedrig": "red",
+}
+
+
+def _tier_sozialmonitoring_status(status_str, _thresholds):
+    if not status_str:
+        return "unknown"
+    return _SM_STATUS_TO_TIER.get(status_str.strip().lower(), "unknown")
+
+
+_SM_GESAMT_TO_TIER = {
+    "kein handlungsbedarf":  "green",
+    "beobachtungsgebiet":    "amber",
+    "aufmerksamkeitsgebiet": "red",
+}
+
+
+def _tier_sozialmonitoring_gesamt(gesamt_str, _thresholds):
+    if not gesamt_str:
+        return "unknown"
+    return _SM_GESAMT_TO_TIER.get(gesamt_str.strip().lower(), "unknown")
+
+
+def _tier_noise_band(band_str, thresholds):
+    """Map an isoline band label ('<50', '55-59', '>=75') to a tier using
+    green_db / amber_db (same numeric thresholds Berlin uses for per-façade
+    values). The band's lower edge drives the tier — a "55-59" band means
+    the address is inside the ≥55 isophone, so it tiers by the lower edge."""
+    if not band_str:
+        return "unknown"
+    s = band_str.strip().replace(" ", "")
+    if s.startswith("<"):
+        low = 0
+    elif s.startswith(">="):
+        low = int(s[2:])
+    elif "-" in s:
+        low = int(s.split("-")[0])
+    else:
+        try:
+            low = int(s)
+        except ValueError:
+            return "unknown"
+    if low < thresholds["green_db"]: return "green"
+    if low < thresholds["amber_db"]: return "amber"
+    return "red"
+
+
 if __name__ == "__main__":
     # ==============================================================
     # Regression selfcheck. Every assertion below is preserved verbatim

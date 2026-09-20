@@ -1171,6 +1171,48 @@ class Index:
             "distance_m": round(best_d),
         }
 
+    def noise_bands_at(self, lon, lat):
+        """Isoline noise model — runs up to 6 point-in-polygon queries per
+        address (road×day, road×night, rail×day, rail×night, air×day, air×night)
+        and returns the band string per source. `None` for any source whose
+        layer is not configured. Uses `band` as the property name; adjust when
+        Hamburg's field name is verified at impl time (falls back to first non-
+        empty string prop if `band` is not present)."""
+        from shapely.geometry import Point as _Point
+        cfg = self.cfg
+        if cfg.noise_model != "isoline":
+            return None
+        pt = _Point(lon, lat)
+        layers = [
+            ("road_den_band", cfg.noise_isoline_road_day_layer),
+            ("road_n_band",   cfg.noise_isoline_road_night_layer),
+            ("rail_den_band", cfg.noise_isoline_rail_day_layer),
+            ("rail_n_band",   cfg.noise_isoline_rail_night_layer),
+            ("air_den_band",  cfg.noise_isoline_air_day_layer),
+            ("air_n_band",    cfg.noise_isoline_air_night_layer),
+        ]
+        out = {k: None for k, _ in layers}
+        for key, layer in layers:
+            if not layer:
+                continue
+            try:
+                features = load_polygon_layer(cfg, cfg.noise_wfs_url, layer, 5000)
+            except Exception:
+                continue
+            for props, geom in features:
+                if geom.contains(pt):
+                    # Prefer explicit "band" property; fall back to first non-
+                    # empty string value.
+                    b = props.get("band")
+                    if not b:
+                        for v in props.values():
+                            if isinstance(v, str) and v.strip():
+                                b = v
+                                break
+                    out[key] = b
+                    break
+        return out
+
     def rail_track_proximity(self, lon, lat):
         """Nearest S-Bahn or U-Bahn station as a proxy for exposure to
         rail-track noise. Returns

@@ -15,6 +15,10 @@ from app.core.scoring.tiers import (
     _tier_air, _tier_from_walk, _tier_heat, _tier_kita, _tier_noise,
     _tier_pediatrician, _tier_playground,
 )
+from app.core.scorer import (
+    _tier_ferry_transit, _tier_sozialmonitoring_status,
+    _tier_sozialmonitoring_gesamt, _tier_noise_band,
+)
 
 
 @pytest.fixture(scope="module")
@@ -159,3 +163,49 @@ def test_tier_heat_unavailable_returns_unknown(yf_thresholds):
 )
 def test_tier_from_walk_ladder(walk_min, expected):
     assert _tier_from_walk(walk_min, 5, 10) == expected
+
+
+# --- _tier_ferry_transit ----------------------------------------------
+
+
+def test_ferry_transit_tiers():
+    t = {"green_m": 500, "amber_m": 1000}
+    assert _tier_ferry_transit(400, t)   == "green"
+    assert _tier_ferry_transit(700, t)   == "amber"
+    assert _tier_ferry_transit(1500, t)  == "red"
+    assert _tier_ferry_transit(None, t)  == "unknown"
+
+
+# --- _tier_sozialmonitoring_status ------------------------------------
+
+
+def test_sozialmonitoring_status_bands():
+    assert _tier_sozialmonitoring_status("hoch", {})         == "green"
+    assert _tier_sozialmonitoring_status("mittel", {})       == "green"
+    assert _tier_sozialmonitoring_status("niedrig", {})      == "amber"
+    assert _tier_sozialmonitoring_status("sehr niedrig", {}) == "red"
+    assert _tier_sozialmonitoring_status(None, {})           == "unknown"
+
+
+# --- _tier_sozialmonitoring_gesamt ------------------------------------
+
+
+def test_sozialmonitoring_gesamt_bands():
+    assert _tier_sozialmonitoring_gesamt("kein Handlungsbedarf", {})   == "green"
+    assert _tier_sozialmonitoring_gesamt("Beobachtungsgebiet", {})     == "amber"
+    assert _tier_sozialmonitoring_gesamt("Aufmerksamkeitsgebiet", {})  == "red"
+    assert _tier_sozialmonitoring_gesamt(None, {})                     == "unknown"
+
+
+# --- _tier_noise_band -------------------------------------------------
+
+
+def test_noise_band_tiers():
+    # WHO 55/60 dB LDEN thresholds — same as Berlin's numeric tiers
+    t = {"green_db": 55, "amber_db": 60}
+    assert _tier_noise_band("50-54", t)  == "green"
+    assert _tier_noise_band("55-59", t)  == "amber"   # band's lower edge >= green_db
+    assert _tier_noise_band("60-64", t)  == "red"
+    assert _tier_noise_band("<50", t)    == "green"
+    assert _tier_noise_band(">=75", t)   == "red"
+    assert _tier_noise_band(None, t)     == "unknown"
