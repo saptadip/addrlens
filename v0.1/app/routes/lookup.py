@@ -241,7 +241,7 @@ def lookup(
         lens_commuter = {"slug": "commuter",
                          "error": f"{type(e).__name__}: {e}"}
 
-    return {
+    response = {
         "address": {"street": street, "hnr": hnr, "plz": plz,
                     "lon": lon, "lat": lat, "raw": geo["props"]},
         "catchment": {
@@ -289,3 +289,35 @@ def lookup(
             "arterial_road": cfg.attribution.get("arterial_road", ""),
         },
     }
+
+    # Neighbourhood status — Berlin uses GESIx; Hamburg uses Sozialmonitoring
+    if cfg.sozialmonitoring_wfs_url:
+        sm = index.sozialmonitoring_at(lon, lat)
+        if sm:
+            response["sozialmonitoring"] = sm
+            response["sozialmonitoring"]["provenance"] = cfg.attribution.get(
+                "sozialmonitoring", "Freie und Hansestadt Hamburg / BSW — Sozialmonitoring")
+    elif cfg.gesix_wfs_url:
+        # existing Berlin path — unchanged
+        gx = index.gesix_at(lon, lat)
+        if gx:
+            response["gesix"] = gx
+
+    # Nearest primary school — Hamburg returns km-only; Berlin carries distance_km
+    # plus assigned school name+BSN so the frontend can render drill-down.
+    if cfg.slug == "hamburg":
+        nps = index.nearest_school_km_only(lon, lat)
+        if nps:
+            response["nearest_school"] = nps
+    else:
+        # Berlin — carry distance_km on nearest_school so frontend renders one shape.
+        if out_schools:
+            s0 = out_schools[0]
+            dkm = round(haversine_m(lon, lat, s0["lon"], s0["lat"]) / 1000, 2)
+            response["nearest_school"] = {
+                "distance_km": dkm,
+                "name": s0["name"],
+                "bsn": s0["bsn"],
+            }
+
+    return response

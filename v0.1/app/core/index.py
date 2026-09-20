@@ -665,6 +665,17 @@ class Index:
                            key=lambda pc: haversine_m(lon, lat, pc[1][0], pc[1][1]))
         return sorted_gs[:k]
 
+    def nearest_school_km_only(self, lon, lat):
+        """Hamburg-simple version — returns just distance in km. Hamburg's
+        Einzugsgebiete are per statistical district, not per-school, so we
+        don't return catchment / school-name / BSN — the frontend renders
+        'nearest primary school: 0.4 km' and stops."""
+        if not self.gs_public:
+            return None
+        best = min(self.gs_public, key=lambda pc: haversine_m(lon, lat, pc[1][0], pc[1][1]))
+        d = haversine_m(lon, lat, best[1][0], best[1][1])
+        return {"distance_km": round(d / 1000, 2)}
+
     def nearest_intl(self, lon, lat):
         if not self.gs_intl:
             return None
