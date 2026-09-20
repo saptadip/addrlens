@@ -17,4 +17,8 @@ def config(cfg: CityConfig = Depends(get_city)):
         "default_center":  list(cfg.default_center),
         "attribution":     cfg.attribution,
         "noise_year":      cfg.noise_year,
+        "other_cities":    [
+            {"slug": "berlin",  "display_name": "Berlin",  "url": "https://addrlens.de"},
+            {"slug": "hamburg", "display_name": "Hamburg", "url": "https://hamburg.addrlens.de"},
+        ],
     }
