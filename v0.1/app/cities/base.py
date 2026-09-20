@@ -256,6 +256,57 @@ class CityConfig:
     parking_zones_layer:         Optional[str] = None
     parking_zones_field_map:     Optional[dict] = None
 
+    # -- Ship C (Hamburg): geocoder axis — OGC API Features alongside WFS/nominatim ------
+    # Berlin uses geocoder="wfs" + geocoder_wfs_url; Hamburg's DOG address
+    # service is GML-only via classic WFS, so we route through the OGC API
+    # Features endpoint at api.hamburg.de which returns JSON directly.
+    geocoder_oaf_url:       Optional[str] = None
+    geocoder_oaf_field_map: Optional[dict] = None
+
+    # -- Ship C: WFS transport axis — some cities require explicit srsName ------
+    # Berlin auto-projects when srsName omitted; Hamburg 400s. Default preserves
+    # Berlin's behaviour (the wfs() helper adds it only when != "" and city asks).
+    wfs_srs_name: str = "EPSG:4326"
+
+    # -- Ship C: Ferry as first-class connectivity mode (Hamburg HADAG piers) ------
+    ferry_stations_data_path: Optional[str] = None
+
+    # -- Ship C: Hamburg Sozialmonitoring — parallels gesix_* for Berlin --------------
+    # Berlin's gesix_* fields stay; Hamburg populates sozialmonitoring_* instead.
+    # Index picks the right one based on which is configured.
+    sozialmonitoring_wfs_url:   Optional[str] = None
+    sozialmonitoring_layer:     Optional[str] = None
+    sozialmonitoring_field_map: Optional[dict] = None
+
+    # -- Ship C: Noise-model axis ------------------------------------------------
+    # "point" = per-façade attribute (Berlin ua_stratlaerm_2022 → dB integer).
+    # "isoline" = per-source point-in-polygon returning band strings ("55-59").
+    # "none" = no noise data (future cities).
+    noise_model: str = "point"
+    noise_isoline_road_day_layer:   Optional[str] = None
+    noise_isoline_road_night_layer: Optional[str] = None
+    noise_isoline_rail_day_layer:   Optional[str] = None
+    noise_isoline_rail_night_layer: Optional[str] = None
+    noise_isoline_air_day_layer:    Optional[str] = None
+    noise_isoline_air_night_layer:  Optional[str] = None
+
+    # -- Ship C: Air-model axis --------------------------------------------------
+    # "street" = per-Straßenabschnitt NO₂ (Berlin Luftreinhalteplan).
+    # "station" = nearest-station distance proxy. "none" = no air tile.
+    air_model: str = "street"
+    air_stations_data_path: Optional[str] = None
+
+    # -- Ship C: Fire response-zones availability --------------------------------
+    # Berlin publishes full citywide Einsatzbereiche; Hamburg publishes only an
+    # Eimsbüttel pilot. When False, Index.fire_rescue returns nearest-station
+    # only + zone fields None; frontend hides the zone line.
+    fire_zones_available: bool = True
+
+    # -- Ship C: Bezirks integer-code → name lookup ------------------------------
+    # Berlin stores bezirk as string in every layer that uses it; Hamburg
+    # stores integer codes on the SozErhVo layer. Inline lookup, no plumbing.
+    bezirk_id_to_name: Optional[dict] = None
+
 
 @dataclass(frozen=True)
 class LensTileConfig:
