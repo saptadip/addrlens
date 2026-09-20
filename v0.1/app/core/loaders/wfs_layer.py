@@ -43,7 +43,8 @@ def _fetch_features(cfg: CityConfig, url: str, layer: str, count: int) -> list:
     response has no `features` key). Errors bubble up; the pre-split
     loaders let them propagate to `Index.__init__` too.
     """
-    r = wfs(url, typeNames=layer, count=count, outputFormat=cfg.wfs_output_format)
+    r = wfs(url, typeNames=layer, count=count, outputFormat=cfg.wfs_output_format,
+            srsName=cfg.wfs_srs_name)
     return r.get("features") or []
 
 

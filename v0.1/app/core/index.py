@@ -509,14 +509,14 @@ class Index:
     # -------------------------------------------------------------- lookups
 
     def geocode(self, street, hnr, plz):
-        """Look up an address via the city's WFS geocoder. Tolerates:
-          - 'strasse' ↔ 'straße' spelling (retry with opposite fold);
-          - letter suffix on hnr ('44A', '5c') — Berlin BOD stores the
-            digits in `hnr` (integer) and the letter in `hnr_zusatz`;
-            with a suffix we split + query both fields, else int compare
-            against the raw digits works as string in CQL."""
-        import re
+        """Look up an address via the city's configured geocoder.
+        cfg.geocoder ∈ {"wfs", "oaf"} — Berlin uses "wfs", Hamburg "oaf"."""
         cfg = self.cfg
+        if cfg.geocoder == "oaf":
+            from app.core.loaders.oaf_geocoder import geocode_oaf
+            return geocode_oaf(cfg, street, hnr, plz)
+        # Default: classic WFS path (Berlin) — unchanged behaviour below.
+        import re
         gm = cfg.geocoder_field_map
         m = re.match(r"^(\d+)([A-Za-z]?)$", (hnr or "").strip())
         hnr_num, hnr_letter = (m.group(1), m.group(2).upper()) if m else (hnr, "")
@@ -528,14 +528,12 @@ class Index:
             if hnr_letter:
                 cql += f" AND {gm.get('hnr_zusatz','hnr_zusatz')}='{cql_esc(hnr_letter)}'"
             r = wfs(cfg.geocoder_wfs_url, typeNames=cfg.geocoder_layer,
-                    CQL_FILTER=cql, count=1, outputFormat=cfg.wfs_output_format)
+                    CQL_FILTER=cql, count=1, outputFormat=cfg.wfs_output_format,
+                    srsName=cfg.wfs_srs_name)
             return r.get("features") or []
 
         feats = _try(street)
         if not feats:
-            # ß ↔ ss fold — Berlin BOD stores 'Sybelstraße' but many users
-            # (expats especially) type 'Sybelstrasse'. Retry with the opposite
-            # spelling. Symmetric: applies both directions.
             alt = None
             if "strasse" in street.lower():
                 alt = street.replace("strasse", "straße").replace("Strasse", "Straße")
