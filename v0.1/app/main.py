@@ -6,7 +6,10 @@ it and both are exposed on app.state for routes to pick up via app.deps.
 Ship D-1: /ready returns 503 until Index is loaded so an orchestrator that
 promotes the pod on /health won't send user traffic to a cold container.
 """
+import base64
+import hashlib
 import os
+import re as _jsonld_re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -318,18 +321,35 @@ def _umami_origin() -> str:
 
 _UMAMI_ORIGIN = _umami_origin()
 
-# SHA-256 hash of the JSON-LD structured-data block in web/index.html
+# SHA-256 hash of the JSON-LD structured-data block in the served HTML.
 # (<script type="application/ld+json">…</script>). Per CSP L3 spec, JSON-LD
 # data blocks are exempt from script-src, but some browsers (older Chrome,
 # some Safari versions, CSP validators) still flag them as inline-script
 # violations. Whitelisting the exact content hash silences the warning
-# without opening the door to `'unsafe-inline'`. If the JSON-LD content
-# changes, recompute with:
-#   python -c "import hashlib,base64,re; \
-#     html=open('web/index.html').read(); \
-#     m=re.search(r'<script type=\"application/ld\+json\">(.*?)</script>', html, re.DOTALL); \
-#     print('sha256-'+base64.b64encode(hashlib.sha256(m.group(1).encode()).digest()).decode())"
-_JSONLD_HASH = "'sha256-lDQ6ebdG88cQn3rjZolSlpxIE1He/+rKXD+SwHIf18E='"
+# without opening the door to `'unsafe-inline'`.
+#
+# The hash is computed at boot from the actual _INDEX_HTML content — which
+# already has per-city SSR applied (e.g. "Hamburg" substituted for "Berlin"
+# in name/addressLocality/audience fields). This means each city gets its
+# own correct hash without any manual recompute step.
+#
+# Berlin expected: 'sha256-lDQ6ebdG88cQn3rjZolSlpxIE1He/+rKXD+SwHIf18E='
+def _compute_jsonld_hash(html: str) -> str:
+    """Extract the JSON-LD block from html and return a CSP sha256- hash token.
+
+    Returns an empty string if no JSON-LD block is found (which drops the
+    hash from _SCRIPT_SRC silently — safe for pages that omit the block).
+    """
+    m = _jsonld_re.search(
+        r'<script type="application/ld\+json">(.*?)</script>', html, _jsonld_re.DOTALL
+    )
+    if not m:
+        return ""
+    digest = hashlib.sha256(m.group(1).encode()).digest()
+    return f"'sha256-{base64.b64encode(digest).decode()}'"
+
+
+_JSONLD_HASH = _compute_jsonld_hash(_INDEX_HTML)
 _SCRIPT_SRC  = " ".join(x for x in ["'self'", "https://unpkg.com", _UMAMI_ORIGIN, _JSONLD_HASH] if x)
 _STYLE_SRC   = " ".join(["'self'", "'unsafe-inline'",
                          "https://fonts.googleapis.com", "https://unpkg.com"])
