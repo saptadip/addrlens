@@ -1,3 +1,27 @@
+/* Self-hosted webfonts — Inter (body + headings) and Space Grotesk (hero
+   accents), replacing the remote Google Fonts CDN load. Closes the LG
+   München 3 O 17493/20 GDPR liability (Google-Fonts remote-load leaks
+   visitor IP to Google without consent). font-display:swap matches the
+   previous CDN behaviour so there is no visual regression. WOFF2 files
+   ship under /static/fonts/ (latin + latin-ext subsets — covers German
+   umlauts + Berlin place-name accents; no cyrillic/vietnamese payload). */
+@font-face {font-family:'Inter';font-style:normal;font-weight:400;font-display:swap;
+  src:url('/static/fonts/inter-400.woff2') format('woff2');}
+@font-face {font-family:'Inter';font-style:normal;font-weight:500;font-display:swap;
+  src:url('/static/fonts/inter-500.woff2') format('woff2');}
+@font-face {font-family:'Inter';font-style:normal;font-weight:600;font-display:swap;
+  src:url('/static/fonts/inter-600.woff2') format('woff2');}
+@font-face {font-family:'Inter';font-style:normal;font-weight:700;font-display:swap;
+  src:url('/static/fonts/inter-700.woff2') format('woff2');}
+@font-face {font-family:'Inter';font-style:normal;font-weight:800;font-display:swap;
+  src:url('/static/fonts/inter-800.woff2') format('woff2');}
+@font-face {font-family:'Space Grotesk';font-style:normal;font-weight:500;font-display:swap;
+  src:url('/static/fonts/space-grotesk-500.woff2') format('woff2');}
+@font-face {font-family:'Space Grotesk';font-style:normal;font-weight:600;font-display:swap;
+  src:url('/static/fonts/space-grotesk-600.woff2') format('woff2');}
+@font-face {font-family:'Space Grotesk';font-style:normal;font-weight:700;font-display:swap;
+  src:url('/static/fonts/space-grotesk-700.woff2') format('woff2');}
+
 /* Micro-interactions — subtle base, delightful gesture-triggered animations */
 :root{--bg:#FAFBFC;--card:#FFFFFF;
   --hero-bg:#DCE7F3;                     /* cool sky-clay — neumorphic hero surface */
