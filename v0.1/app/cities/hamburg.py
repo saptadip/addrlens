@@ -1,0 +1,330 @@
+"""Hamburg CityConfig — Ship C. Every URL + field name verified against
+docs/superpowers/specs/2026-09-20-hamburg-data-landscape.md (2026-09-20).
+
+Selfcheck: `python -m app.cities.hamburg` prints 'selfcheck ok' when Newcomer
++ Commuter lens configs land (Task 13 + Task 14). Until then, the config is
+loadable but has None lens slots.
+
+ponytail: re-verify Kundenzentrum + admin office locations annually; the
+Standesamt dict was hand-curated 2026-09-20 from hamburg.de directories."""
+
+import os
+import re
+from pathlib import Path
+
+from app.cities.base import (
+    CityConfig, LensConfig, LensTileConfig, OthersAdminCardConfig,
+)
+
+# ---- WFS endpoints (all verified 2026-09-20 via GetCapabilities) ------------
+_WFS_DOG_OAF        = "https://api.hamburg.de/datasets/v1/hh_wfs_dog/collections/hauskoordinaten/items"
+_WFS_SCHULEN        = "https://geodienste.hamburg.de/HH_WFS_Schulen"
+_WFS_EINZUGSGEB     = "https://geodienste.hamburg.de/HH_WFS_Regionaler_Bildungsatlas_Einzugsgebiete_Schulwahl"
+_WFS_KITA           = "https://geodienste.hamburg.de/HH_WFS_KitaEinrichtung"
+_WFS_KKH            = "https://geodienste.hamburg.de/HH_WFS_Krankenhaeuser"
+_WFS_BRUNNEN        = "https://geodienste.hamburg.de/wfs_wc_mit_trinkbrunnen"
+_WFS_GRUENPLAN      = "https://geodienste.hamburg.de/HH_WFS_Gruenplan"
+_WFS_SPIELPLAETZE   = "https://geodienste.hamburg.de/wfs_spielplaetze"
+_WFS_LAERM          = "https://geodienste.hamburg.de/HH_WFS_Strassenverkehr"      # verify at impl (returned 404 in discovery)
+_WFS_KLIMA          = "https://geodienste.hamburg.de/wfs_stadtklimaanalyse_hamburg_2023"
+_WFS_BAUMKATASTER   = "https://geodienste.hamburg.de/HH_WFS_Strassenbaumkataster"
+_WFS_RUHIGE         = "https://geodienste.hamburg.de/HH_WFS_Ruhige_Gebiete"
+_WFS_SOZERHVO       = "https://geodienste.hamburg.de/HH_WFS_SozErhVO"
+_WFS_VERW           = "https://geodienste.hamburg.de/HH_WFS_Verwaltungsgrenzen"
+_WFS_FEUERWEHR      = "https://geodienste.hamburg.de/HH_WFS_feuerwehrstandorte"
+_WFS_TEMPOLIMITS    = "https://geodienste.hamburg.de/HH_WFS_Zulaessige_Hoechstgeschwindigkeiten"
+_WFS_STRNETZ        = "https://geodienste.hamburg.de/HH_WFS_Strassen_und_Wegenetz"
+_WFS_BADEGEWAESSER  = "https://geodienste.hamburg.de/HH_WFS_Badegewaesser"
+_WFS_PARKZONEN      = "https://geodienste.hamburg.de/HH_WFS_bewohnerparkgebiete"
+_WFS_SOZMON         = "https://geodienste.hamburg.de/wfs_sozialmonitoring"
+
+# ---- 7 Bezirke: integer code → name (SozErhVo stores as int) ----------------
+_BEZIRK_ID_TO_NAME = {
+    1: "Hamburg-Mitte", 2: "Altona", 3: "Eimsbüttel",
+    4: "Hamburg-Nord", 5: "Wandsbek", 6: "Bergedorf", 7: "Harburg",
+}
+
+# ---- Standesamt — 1 per Bezirk (7 entries from landscape doc §4.2). ---------
+# Only admin office curated for Hamburg day-1 per spec Q10-B.
+# ponytail: re-verify 2027-09 against hamburg.de/politik-und-verwaltung
+# /bezirke/bezirksthemen/standesamt.
+_STANDESAMTS_BY_BEZIRK = {
+    "Hamburg-Mitte":  {"name": "Standesamt Hamburg-Mitte",
+                        "address": "Caffamacherreihe 1–3, 20355 Hamburg",
+                        "lat": 53.5544, "lon":  9.9845},
+    "Altona":          {"name": "Standesamt Altona",
+                        "address": "Platz der Republik 1, 22765 Hamburg",
+                        "lat": 53.5470, "lon":  9.9357},
+    "Eimsbüttel":      {"name": "Standesamt Eimsbüttel",
+                        "address": "Grindelberg 62–66, 20144 Hamburg",
+                        "lat": 53.5747, "lon":  9.9790},
+    "Hamburg-Nord":    {"name": "Standesamt Hamburg-Nord",
+                        "address": "Kümmellstraße 5–7, 20249 Hamburg",
+                        "lat": 53.5899, "lon":  9.9845},
+    "Wandsbek":        {"name": "Standesamt Wandsbek",
+                        "address": "Schloßstraße 60, 22041 Hamburg",
+                        "lat": 53.5717, "lon": 10.0708},
+    "Bergedorf":       {"name": "Standesamt Bergedorf",
+                        "address": "Gräpelweg 8, 21029 Hamburg (Haus im Park)",
+                        "lat": 53.4891, "lon": 10.2190},
+    "Harburg":         {"name": "Standesamt Harburg",
+                        "address": "Harburger Rathausplatz 1, 21073 Hamburg",
+                        "lat": 53.4591, "lon":  9.9795},
+}
+
+# ---- Regional rail curated list (13 from landscape §3.3) --------------------
+_REGIONAL_RAIL = (
+    ("Hamburg Hauptbahnhof",   53.55278, 10.00639),
+    ("Hamburg-Altona",         53.55194,  9.93500),
+    ("Hamburg Dammtor",        53.56083,  9.98944),
+    ("Hamburg-Harburg",        53.45611,  9.99169),
+    ("Hamburg-Bergedorf",      53.48944, 10.20639),
+    ("Hamburg-Rahlstedt",      53.60333, 10.15806),
+    ("Hamburg-Tonndorf",       53.59306, 10.13361),
+    ("Wilhelmsburg",           53.4989,  10.0069),
+    ("Pinneberg",              53.65917,  9.79139),
+    ("Elbgaustraße",           53.6103,   9.9036),
+    ("Neugraben",              53.4728,   9.8611),
+    ("Aumühle",                53.5300,  10.3167),
+    ("Buxtehude",              53.4747,   9.6931),
+)
+
+# ---- Hamburg-specific glossary (LLM post-processing) ------------------------
+_HAMBURG_GLOSSARY = [
+    (re.compile(r"\bKundenzentr\w*\b"),        "citizens' service office"),
+    (re.compile(r"\bBezirk\b"),                "Hamburg borough"),
+    (re.compile(r"\bStadtteil\b"),             "neighbourhood"),
+    (re.compile(r"\bStatistisches Gebiet\b"),  "statistical area (~2200 residents)"),
+    (re.compile(r"\bSozialmonitoring\b"),      "Hamburg's neighbourhood-status monitor"),
+    (re.compile(r"\bAufmerksamkeitsgebiet\b"), "an area flagged for city social monitoring"),
+    (re.compile(r"\bBücherhallen\b"),          "public library network"),
+    (re.compile(r"\bHVV\b"),                   "Hamburg's transit union"),
+    (re.compile(r"\bHADAG\b"),                 "Elbe ferry operator"),
+    (re.compile(r"\bBewohnerparkgebiet\b"),    "resident parking zone"),
+]
+
+# ---- Attribution dict — per-source credit strings ---------------------------
+_ATTRIBUTION = {
+    "catchment":      "Freie und Hansestadt Hamburg / BSB via LGV (dl-de/by-2-0)",
+    "schools":        "Freie und Hansestadt Hamburg / BSB via LGV (dl-de/by-2-0)",
+    "addresses":      "Freie und Hansestadt Hamburg / LGV — DOG (dl-de/by-2-0)",
+    "kitas":          "Freie und Hansestadt Hamburg / BAGFI (dl-de/by-2-0)",
+    "hospitals":      "Freie und Hansestadt Hamburg / BWGV (dl-de/by-2-0)",
+    "fountains":      "Freie und Hansestadt Hamburg / BUKEA · Stadtreinigung Hamburg (dl-de/by-2-0)",
+    "playgrounds":    "Freie und Hansestadt Hamburg / BUKEA — wfs_spielplaetze (dl-de/by-2-0)",
+    "parks":          "Freie und Hansestadt Hamburg / BUKEA — Grünplan (dl-de/by-2-0)",
+    "noise":          "Freie und Hansestadt Hamburg / BUKEA — Strategische Lärmkarten 2022 (dl-de/by-2-0)",
+    "sbahn":          "Hamburger Verkehrsverbund GmbH (dl-de/by-2-0)",
+    "ubahn":          "Hamburger Verkehrsverbund GmbH (dl-de/by-2-0)",
+    "ferry":          "Hamburger Verkehrsverbund GmbH · HADAG Seetouristik und Fährdienst AG (dl-de/by-2-0)",
+    "regional_rail":  "Hamburger Verkehrsverbund GmbH (dl-de/by-2-0)",
+    "airport":        "Hamburg Airport Helmut Schmidt (HAM) — public landmark",
+    "fire":           "Freie und Hansestadt Hamburg / Behörde für Inneres und Sport (dl-de/by-2-0)",
+    "trees":          "Freie und Hansestadt Hamburg / BUKEA — Straßenbaumkataster (dl-de/by-2-0)",
+    "quiet_zone":     "Freie und Hansestadt Hamburg / BUKEA — Ruhige Gebiete + Ruheinseln (dl-de/by-2-0)",
+    "protection":     "Freie und Hansestadt Hamburg / BSW — Soziale Erhaltungsverordnungen § 172 BauGB (dl-de/by-2-0)",
+    "heat":           "Freie und Hansestadt Hamburg / BUKEA — Stadtklimaanalyse 2023 (dl-de/by-2-0)",
+    "bezirksgrenzen": "Freie und Hansestadt Hamburg / LGV — Verwaltungsgrenzen (dl-de/by-2-0)",
+    "sozialmonitoring": "Freie und Hansestadt Hamburg / BSW — Sozialmonitoring Integrierte Stadtteilentwicklung (dl-de/by-2-0)",
+    "standesamt":     "Curated from hamburg.de Standesamt-Verzeichnis (public reference, verified 2026-09-20)",
+    "tempolimits":    "Freie und Hansestadt Hamburg / BVM — Zulässige Höchstgeschwindigkeiten (dl-de/by-2-0)",
+    "arterial_road":  "Freie und Hansestadt Hamburg / BVM via LGV — Straßen- und Wegenetz (dl-de/by-2-0)",
+    "cycling":        "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=cycleway (weekly Hamburg extract)",
+    "cobblestone":    "© OpenStreetMap contributors (ODbL) via Geofabrik — trafficked highway + surface=sett|cobblestone (weekly Hamburg extract)",
+    "car_sharing":    "© OpenStreetMap contributors (ODbL) via Geofabrik — amenity=car_sharing (weekly Hamburg extract)",
+    "parkzone":       "Freie und Hansestadt Hamburg / LGV — Bewohnerparkgebiete (dl-de/by-2-0)",
+    "natural_swim":   "Freie und Hansestadt Hamburg / BUKEA — Badegewässer (dl-de/by-2-0)",
+}
+
+# ---- Others admin cards: Standesamt only (Q10-B) ----------------------------
+OTHERS_ADMIN_CARDS: tuple = (
+    OthersAdminCardConfig(key="standesamt", label="Standesamt (Marriage / Birth)", icon="standesamt"),
+)
+
+# ---- Lens configs placeholder (filled by Task 13 + Task 14) -----------------
+NEWCOMER_LENS: LensConfig = None    # noqa: PLE0605 — filled in Task 13
+COMMUTER_LENS: LensConfig = None    # noqa: PLE0605 — filled in Task 14
+
+# ---- Assemble HAMBURG CityConfig --------------------------------------------
+HAMBURG = CityConfig(
+    slug="hamburg",
+    display_name="Hamburg",
+    default_center=(53.5511, 9.9937),
+    wfs_output_format="application/geo+json",
+    wfs_srs_name="EPSG:4326",
+
+    geocoder="oaf",
+    geocoder_wfs_url=None, geocoder_layer=None, geocoder_field_map={},
+    geocoder_oaf_url=_WFS_DOG_OAF,
+    geocoder_oaf_field_map={"street": "strasse", "hnr": "hausnummer", "plz": "plz"},
+
+    catchment_wfs_url=_WFS_EINZUGSGEB,
+    catchment_layer="de.hh.up:einzug_einzugsgebiete_primarstufe",
+    catchment_field_map={"id": "id", "district": "bezirk"},   # verify DescribeFeatureType at impl
+
+    schools_wfs_url=_WFS_SCHULEN,
+    schools_layer="de.hh.up:staatliche_schulen",              # private schools loaded as second layer at impl
+    schools_field_map={
+        "name": "name", "id": "schulnummer", "type": "schulform",
+        "public_flag": "traeger",
+        "street": "strasse", "hnr": "hausnummer", "plz": "plz",
+        "phone": "telefon", "website": "homepage", "school_year": "schuljahr",
+    },
+    schools_public_value="staatlich",
+    schools_primary_types=frozenset({"Grundschule", "Stadtteilschule"}),
+    schools_intl_keywords=("international", "english", "bilingual", "bilinguale"),
+    bilingual_schools={},
+
+    kita_wfs_url=_WFS_KITA,
+    kita_layer="app:KitaEinrichtungen",
+    kita_field_map={"name": "name", "capacity": "plaetze",
+                    "operator_type": "traeger", "approach": "konzeption"},
+
+    hospital_wfs_url=_WFS_KKH,
+    hospital_layers=(("de.hh.up:gesundheit_krankenhaeuser", "plan"),),
+    hospital_field_map={
+        "name_primary": "name", "name_alt1": "name", "name_alt2": "name",
+        "beds": "geplante_bettenzahl", "beds_alt": "teilstationaere_plaetze",
+        "traeger": "traeger", "ortsteil": "stadtteil",
+        "fachabteilungen": "fachabteilungen",
+    },
+    hospital_radius_m=2000, hospital_match_m=500,
+
+    fountains_wfs_url=_WFS_BRUNNEN, fountains_layer="de.hh.up:wc_mit_trinkbrunnen",
+    fountains_field_map={"seasonal": "hinweis", "bezirk": "bezirk",
+                          "type": "typ", "location": "standort"},
+
+    green_wfs_url=_WFS_GRUENPLAN,
+    parks_layer="de.hh.up:verzeichnis_oeffentlicher_gruenanlagen",
+    playgrounds_layer=None,   # split WFS — loaded via separate _WFS_SPIELPLAETZE at impl
+
+    # Noise: isoline model, 6 layers
+    noise_wfs_url=_WFS_LAERM,
+    noise_layer=None,       # unused when noise_model == "isoline"
+    noise_field_map={},
+    noise_year=2022,
+    noise_model="isoline",
+    noise_isoline_road_day_layer="de.hh.up:strassenverkehr_tag_abend_nacht_2022",
+    noise_isoline_road_night_layer="de.hh.up:strassenverkehr_nacht_2022",
+    noise_isoline_rail_day_layer=None,     # fill after impl-time WFS verify
+    noise_isoline_rail_night_layer=None,
+    noise_isoline_air_day_layer=None,
+    noise_isoline_air_night_layer=None,
+
+    # Fire: BF + FF layers (UNION at impl); no citywide zone layer
+    fire_wfs_url=_WFS_FEUERWEHR,
+    fire_stations_layer="de.hh.up:berufsfeuerwehr",
+    fire_zones_layer=None,
+    fire_stations_field_map={"name": "name", "type": "typ", "address": "adresse",
+                              "phone_bf": "telefon", "phone_ff": "telefon", "zone_id": None},
+    fire_zones_field_map={},
+    fire_zones_available=False,
+
+    trees_wfs_url=_WFS_BAUMKATASTER, trees_layer="de.hh.up:strassenbaumkataster",
+    trees_field_map={"species_de": "art_deutsch", "genus_de": "gattung_deutsch",
+                      "group": "gattung", "height": None,      # HH has no height field
+                      "age": None, "planting_year": "pflanzjahr", "street": "strasse"},
+    trees_radius_m=200,
+
+    quiet_wfs_url=_WFS_RUHIGE, quiet_layer="de.hh.up:ruhige_gebiete_hamburg",
+    quiet_field_map={"name": "name", "kind": "kind",
+                      "size_ha": "groesse_ha", "id": "id"},
+
+    protection_wfs_url=_WFS_SOZERHVO,
+    protection_em_layer="de.hh.up:sozerhvo_inkraft",
+    protection_es_layer=None,
+    protection_field_map={"name": "gebietsname", "code": "fundstelle",
+                          "in_force": "datum", "district": "bezirk",     # int code!
+                          "size_ha": None},
+
+    pools_wfs_url=None,           # dropped per spec Q3
+    pools_layer=None,
+    pools_field_map={},
+    swim_natural_wfs_url=_WFS_BADEGEWAESSER,
+    swim_natural_layer="app:badegewaesser",
+    swim_natural_field_map={"name": "name", "eu_rating": "eu_einstufung",
+                             "website": "link", "cyano": "cyano"},
+
+    # Air: none (per Q10 / landscape §2.8)
+    air_wfs_url=None, air_layer=None, air_field_map={},
+    air_model="none",
+
+    heat_wfs_url=_WFS_KLIMA,
+    heat_layer="de.hh.up:bewertung_tags_siedlung_verkehr",
+    heat_field_map={"day_class": "bewertung"},
+
+    stations_data_path=str(Path(__file__).resolve().parent / "data" / "vbb_hamburg_su.csv"),
+    tram_wfs_url=None, tram_layer=None, tram_field_map={},
+    regional_rail_stations=_REGIONAL_RAIL,
+    airport={"name": "Hamburg Airport Helmut Schmidt (HAM)",
+             "iata": "HAM", "lat": 53.6304, "lon": 9.98823},
+    ferry_stations_data_path=str(Path(__file__).resolve().parent / "data" / "hvv_hamburg_ferry.csv"),
+
+    bilingual_glossary=_HAMBURG_GLOSSARY,
+    overpass_bbox=(53.39, 9.73, 53.73, 10.32),
+    attribution=_ATTRIBUTION,
+
+    osm_local_path=os.environ.get("OSM_LOCAL_PATH", "data/osm/hamburg-amenities.json"),
+    address_local_path=os.environ.get("ADDRESS_LOCAL_PATH", "data/osm/hamburg-addresses.json"),
+
+    gesix_wfs_url=None, gesix_layer=None,        # Hamburg uses sozialmonitoring
+    sozialmonitoring_wfs_url=_WFS_SOZMON,
+    sozialmonitoring_layer="de.hh.up:sozialmonitoring",
+    sozialmonitoring_field_map={
+        "statusindex":  "statusindex",
+        "gesamtindex":  "gesamtindex",
+        "dynamikindex": "dynamikindex",
+        "stadtteil":    "stadtteil",
+        "statgeb":      "statgeb",
+        "berichtsjahr": "berichtsjahr",
+    },
+
+    young_family_lens=NEWCOMER_LENS,       # placeholder — YF+QL deferred (Task 15 comment)
+    newcomer_lens=NEWCOMER_LENS,           # filled by Task 13
+    quiet_living_lens=NEWCOMER_LENS,       # placeholder
+    commuter_lens=COMMUTER_LENS,           # filled by Task 14
+
+    bezirksgrenzen_wfs_url=_WFS_VERW,
+    bezirksgrenzen_layer="app:bezirke",
+    bezirksgrenzen_field_map={"name": "bezirk_name"},   # verify at impl
+    buergeramt_wfs_url=None, buergeramt_layer=None, buergeramt_field_map={},
+    finanzamts=(), standesamts_by_bezirk=_STANDESAMTS_BY_BEZIRK,
+    arbeitsagenturs=(), lea_office={},
+    others_admin_cards=OTHERS_ADMIN_CARDS,
+
+    xmas_market_url=None,
+
+    parking_zones_wfs_url=_WFS_PARKZONEN,
+    parking_zones_layer="de.hh.up:bewohnerparkgebiete",
+    parking_zones_field_map={"name": "gebiet", "bezirk": "bezirk",
+                              "zeiten": None, "gebuehr": None, "bemerkung": None},
+
+    tempolimits_wfs_url=_WFS_TEMPOLIMITS,
+    tempolimits_layer="de.hh.up:zulaessige_hoechstgeschwindigkeiten",
+    tempolimits_field_map={"speed": "wert", "time_restriction": "zeit",
+                            "reason": "durch_t"},
+
+    arterial_wfs_url=_WFS_STRNETZ,
+    arterial_layer="de.hh.up:strassennetz_gesamt",
+    arterial_field_map={"name": "strassenname", "class": "strassenklasse"},
+
+    bezirk_id_to_name=_BEZIRK_ID_TO_NAME,
+)
+
+
+if __name__ == "__main__":
+    # Skeleton selfcheck — full lens-key asserts land in Task 15.
+    assert HAMBURG.slug == "hamburg"
+    assert HAMBURG.wfs_output_format == "application/geo+json"
+    assert HAMBURG.geocoder == "oaf"
+    assert HAMBURG.noise_model == "isoline"
+    assert HAMBURG.air_model == "none"
+    assert HAMBURG.fire_zones_available is False
+    assert HAMBURG.bezirk_id_to_name[1] == "Hamburg-Mitte"
+    assert len(HAMBURG.standesamts_by_bezirk) == 7
+    assert len(HAMBURG.regional_rail_stations) == 13
+    assert HAMBURG.gesix_wfs_url is None
+    assert HAMBURG.sozialmonitoring_wfs_url is not None
+    assert HAMBURG.pools_wfs_url is None
+    assert HAMBURG.xmas_market_url is None
+    print("hamburg.py skeleton selfcheck OK (lens configs land in Task 13 + 14)")
