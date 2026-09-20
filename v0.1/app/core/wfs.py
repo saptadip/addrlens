@@ -110,6 +110,7 @@ def wfs(base, srsName=None, **kw):
     kw.setdefault("version", "2.0.0")
     kw.setdefault("request", "GetFeature")
     kw.setdefault("outputFormat", "application/json")
+    kw.setdefault("srsName", "EPSG:4326")   # always WGS84 lon,lat (Berlin's default; overridable via srsName kwarg)
     if srsName:
         kw["srsName"] = srsName
     url = base + "?" + urllib.parse.urlencode(kw)

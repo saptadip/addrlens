@@ -22,7 +22,7 @@ def test_srsname_included_when_supplied():
         assert "EPSG:4326" in parsed.get("srsName", [])
 
 
-def test_srsname_omitted_when_not_supplied():
+def test_srsname_defaults_to_epsg4326_when_not_supplied():
     with patch.object(wfs_mod, "_get_client") as mock_get_client:
         mock_client = MagicMock()
         mock_resp = MagicMock()
@@ -34,4 +34,4 @@ def test_srsname_omitted_when_not_supplied():
                     count=1, outputFormat="application/json")
         called_url = mock_client.get.call_args[0][0]
         parsed = urllib.parse.parse_qs(urllib.parse.urlparse(called_url).query)
-        assert "srsName" not in parsed
+        assert parsed.get("srsName") == ["EPSG:4326"]
