@@ -118,7 +118,10 @@ _UMAMI_SCRIPT_URL = os.environ.get("UMAMI_SCRIPT_URL", "").strip()
 
 
 def _load_index_html() -> str:
+    import re as _re
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+
+    # --- Umami analytics injection (existing) ---------------------------------
     if _UMAMI_WEBSITE_ID and _UMAMI_SCRIPT_URL:
         # Very small surface — a defer'd single-line script tag with the
         # website id data attribute. Umami's own docs recommend exactly
@@ -128,6 +131,81 @@ def _load_index_html() -> str:
             f'src="{_UMAMI_SCRIPT_URL}"></script>\n</head>'
         )
         html = html.replace("</head>", snippet, 1)
+
+    # --- Per-city SSR swap ----------------------------------------------------
+    # Load city config (reads CITY env var, defaults to 'berlin').
+    cfg = load_city()
+    outlines_dir = WEB_DIR / "static" / "img" / "city-outlines"
+
+    # Always swap data-city attribute (no-op for Berlin since value matches).
+    html = html.replace('data-city="berlin"', f'data-city="{cfg.slug}"', 1)
+
+    # Always inject the city outline path into both SVG slots.
+    outline_file = outlines_dir / f"{cfg.slug}.svg"
+    outline_fragment = outline_file.read_text(encoding="utf-8")
+    html = html.replace("<!-- CITY-OUTLINE-PATH -->", outline_fragment, 1)
+    html = html.replace("<!-- CITY-CLIP-PATH -->", outline_fragment, 1)
+
+    # Always inject the city pins.
+    pins_file = outlines_dir / f"{cfg.slug}-pins.svg"
+    pins_fragment = pins_file.read_text(encoding="utf-8")
+    html = html.replace("<!-- CITY-PINS -->", pins_fragment, 1)
+
+    # City-specific text/JSON-LD/hero swaps — only when not Berlin.
+    if cfg.slug != "berlin":
+        dn = cfg.display_name  # e.g. "Hamburg"
+
+        # Title + meta content strings
+        html = html.replace("Moving to Berlin?", f"Moving to {dn}?")
+        html = html.replace(
+            "People moving to or evaluating flats in Berlin",
+            f"People moving to or evaluating flats in {dn}",
+        )
+        html = html.replace("AddrLens Berlin", f"AddrLens {dn}")
+        html = html.replace(
+            'aria-label="Berlin address"',
+            f'aria-label="{dn} address"',
+        )
+        html = html.replace(
+            "life around any Berlin address",
+            f"life around any {dn} address",
+        )
+        html = html.replace(
+            "AddrLens hero — Moving to Berlin?",
+            f"AddrLens hero — Moving to {dn}?",
+        )
+        html = html.replace(
+            "Search box for any Berlin address, Berlin map on the right",
+            f"Search box for any {dn} address, {dn} map on the right",
+        )
+        html = html.replace("AddrLens scanning Berlin", f"AddrLens scanning {dn}")
+        # aria-label on logo anchor
+        html = html.replace(
+            'aria-label="AddrLens Berlin — home"',
+            f'aria-label="AddrLens {dn} — home"',
+        )
+
+        # JSON-LD structured data fields
+        html = html.replace('"addressLocality": "Berlin"', f'"addressLocality": "{dn}"')
+        html = html.replace('"name": "Berlin"', f'"name": "{dn}"')
+
+        # Example address chip: swap Berlin example for Hamburg
+        html = html.replace(
+            "Sybelstrasse 59, Charlottenburg, 10629 Berlin",
+            "Grindelallee 100, Rotherbaum, 20146 Hamburg",
+        )
+
+        # Footer attribution — replace the full <p id="footer-city-attr">…</p>
+        # element with Hamburg's attribution list (sorted unique values).
+        hh_attr = " · ".join(sorted(set(cfg.attribution.values())))
+        html = _re.sub(
+            r'<p id="footer-city-attr">.*?</p>',
+            f'<p id="footer-city-attr">{hh_attr}</p>',
+            html,
+            count=1,
+            flags=_re.DOTALL,
+        )
+
     return html
 
 
