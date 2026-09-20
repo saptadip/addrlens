@@ -123,6 +123,7 @@ class Index:
         self._load_su_bahn()
         self._load_tram()
         self._load_regional_rail()
+        self._load_ferry()
         self._load_fire()
         self._load_quiet_zones()
         self._load_protection()
@@ -160,6 +161,10 @@ class Index:
         """Catchment polygons + all schools + derived public / intl lists
         + esb→schools point-in-polygon index."""
         cfg = self.cfg
+        self.esbs, self.schools = [], []
+        self.gs_public, self.gs_intl, self.esb_to_gs = [], [], {}
+        if not (cfg.catchment_wfs_url and cfg.schools_wfs_url):
+            return
         log_load("catchment polygons")
         self.esbs = load_polygon_layer(
             cfg, cfg.catchment_wfs_url, cfg.catchment_layer, 1000)
@@ -178,7 +183,6 @@ class Index:
                         and any(k in norm(p[s_fm["name"]]) for k in cfg.schools_intl_keywords)]
 
         c_fm = cfg.catchment_field_map
-        self.esb_to_gs = {}
         for props, geom in self.esbs:
             self.esb_to_gs[props[c_fm["id"]]] = [
                 (p, c) for p, c in self.gs_public if geom.contains(Point(c))
@@ -188,6 +192,9 @@ class Index:
 
     def _load_kitas(self) -> None:
         cfg = self.cfg
+        self.kitas = []
+        if not (cfg.kita_wfs_url and cfg.kita_layer):
+            return
         log_load(f"kitas ({cfg.display_name} geoportal)")
         self.kitas = load_point_layer_raw(
             cfg, cfg.kita_wfs_url, cfg.kita_layer, 5000)
@@ -267,6 +274,27 @@ class Index:
             {"name": n, "lat": la, "lon": lo}
             for n, la, lo in self.cfg.regional_rail_stations
         ]
+
+    def _load_ferry(self) -> None:
+        """HADAG ferry piers from HVV GTFS extract (Hamburg only; Berlin has no
+        ferry-as-commute mode). Vendored CSV like S/U-Bahn; None path → empty list."""
+        cfg = self.cfg
+        self.ferry = []
+        path = getattr(cfg, "ferry_stations_data_path", None)
+        if not path:
+            return
+        log_load("HVV ferry piers")
+        import csv as _csv
+        with open(path, encoding="utf-8", newline="") as f:
+            for row in _csv.DictReader(f):
+                self.ferry.append({
+                    "name":      row["name"],
+                    "lat":       float(row["lat"]),
+                    "lon":       float(row["lon"]),
+                    "lines":     row.get("lines", ""),
+                    "peak_only": row.get("peak_only", "0") == "1",
+                })
+        print(f"{len(self.ferry)} ferry piers")
 
     def _load_fire(self) -> None:
         """Fire stations + response zones. Two-layer load: zones
@@ -661,6 +689,14 @@ class Index:
             return None
         best = min(points, key=lambda p: haversine_m(lon, lat, p["lon"], p["lat"]))
         return {**best, "distance_m": round(haversine_m(lon, lat, best["lon"], best["lat"]))}
+
+    def nearest_ferry(self, lon, lat):
+        """Nearest HADAG pier + distance_m. Returns None when self.ferry empty."""
+        if not self.ferry:
+            return None
+        best = min(self.ferry, key=lambda p: haversine_m(lon, lat, p["lon"], p["lat"]))
+        d = haversine_m(lon, lat, best["lon"], best["lat"])
+        return {**best, "distance_m": round(d)}
 
     # -- Phase 1 lookups (Fire, Quiet, Protection, Pools, Trees) -----------
 
@@ -1164,7 +1200,7 @@ if __name__ == "__main__":
         "_load_catchments_and_schools", "_load_kitas",
         "_load_fountains", "_load_hospitals",
         "_load_su_bahn", "_load_tram", "_load_regional_rail",
-        "_load_fire", "_load_quiet_zones", "_load_protection",
+        "_load_ferry", "_load_fire", "_load_quiet_zones", "_load_protection",
         "_load_swim", "_load_bezirksgrenzen", "_load_gesix",
         "_load_buergeramts",
         "_load_xmas_markets",
