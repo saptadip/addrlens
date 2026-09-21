@@ -21,6 +21,22 @@ export function snapshotId(a){ return `${a.street}-${a.hnr}-${a.plz}`.toLowerCas
 // dropped instead of rendering blank rows against a new schema.
 export const SNAPSHOT_SCHEMA = 3;
 
+// Prune snapshots saved against an older shape — run once at module load
+// so every consumer (pill count, Save button, analytics, render) sees the
+// same list. Cheap: parses localStorage once, writes only when something
+// changed. Idempotent across reloads. Placed AFTER the SNAPSHOT_SCHEMA
+// declaration to avoid a temporal-dead-zone ReferenceError swallowed by
+// the try/catch (which would leave the prune a silent no-op).
+(function pruneStaleSnapshotsOnce(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(COMPARE_KEY) || '[]');
+    const fresh = raw.filter(x => (x.schemaVersion || 1) === SNAPSHOT_SCHEMA);
+    if (fresh.length !== raw.length) {
+      localStorage.setItem(COMPARE_KEY, JSON.stringify(fresh));
+    }
+  } catch (e) { /* localStorage unavailable — nothing to prune */ }
+})();
+
 export function buildSnapshot(){
   if(!S.eduData||!S.eduData.address) return null;
   const a=S.eduData.address, c=S.eduData.catchment||{}, s=(S.eduData.schools||[])[0], i=S.eduData.intl_grundschule, k=S.eduData.kitas||{};
@@ -81,7 +97,10 @@ export function buildSnapshot(){
     catchment: {esb:c.esb, district:districtFallback},
     school: schoolLike ? {name:schoolLike.name, sesb_strand:schoolLike.sesb_strand,
                            school_year:schoolLike.school_year,
-                           distance_m: s ? schoolDist : schoolDistFallback} : null,
+                           // Prefer catchment-school distance; fall back to nearest-school
+                           // when the catchment row has no lat (Berlin edge case: BOD
+                           // school without coords) so the row isn't silently distanceless.
+                           distance_m: (s && schoolDist != null) ? schoolDist : schoolDistFallback} : null,
     intl: i ? {name:i.name, distance_m:i.distance_m,
                 address: i.address || null, kind: i.kind || null} : null,
     counts: {kitas:k.count, playgrounds:cnt('playgrounds'), parks:cnt('parks'),
@@ -168,6 +187,8 @@ export function refreshSaveBtn(){
   const snap=buildSnapshot();
   if(!snap){ btn.hidden=true; return; }
   btn.hidden=false;
+  // Stale-schema snapshots are pruned at module load, so a plain read is
+  // safe here — no risk of a pre-schema-bump entry wrongly disabling Save.
   const already=compareLoad().find(x=>x.id===snap.id);
   if(already){ btn.textContent='✓ Added to Compare'; btn.disabled=true; return; }
   // Ready if both fetches landed AND (no OSM errors OR we've already retried once).
@@ -185,14 +206,8 @@ export function showView(){
 }
 
 export function renderCompare(){
-  // Drop snapshots saved against an older shape — they'd render empty rows
-  // (District: null · Bürgeramt: —). Force a re-save with fresh data.
-  const raw = compareLoad();
-  const list = raw.filter(x => (x.schemaVersion || 1) === SNAPSHOT_SCHEMA);
-  if (list.length !== raw.length) {
-    compareSave(list);
-    compareRefreshPill();
-  }
+  // Stale-schema snapshots pruned at module load; safe to read directly.
+  const list=compareLoad();
   const $c=document.getElementById('compare-content');
   const header=`<div class="compare-header">
     <h2>Comparison board</h2>
