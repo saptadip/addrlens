@@ -613,6 +613,12 @@ BERLIN = CityConfig(
     schools_primary_types=frozenset({
         "Grundschule", "Gemeinschaftsschule", "Kombinierte allgemein bildende Schule",
     }),
+    # T27 fix: gs_public must stay Grundschule-only for Berlin's catchment
+    # fallback (nearest_gs_public) and T11 nearest-school ruling. The broader
+    # schools_primary_types includes Gemeinschaftsschulen + Kombinierte which
+    # are not Grundschulen. Without this override, T27's initial commit would
+    # silently widen the set that catchment fallback searches against.
+    schools_gs_public_types=frozenset({"Grundschule"}),
     schools_intl_keywords=("international", "english", "american", "british",
                            "bilingual", "bilinguale", "jfk", "kennedy", "europa"),
     bilingual_schools=_SESB_GRUNDSCHULEN,

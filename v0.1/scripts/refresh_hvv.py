@@ -29,10 +29,16 @@ TRANSPARENZPORTAL_SEARCH = ("https://suche.transparenz.hamburg.de/dataset?q="
 OUT_SU     = Path(__file__).resolve().parent.parent / "app" / "cities" / "data" / "vbb_hamburg_su.csv"
 OUT_FERRY  = Path(__file__).resolve().parent.parent / "app" / "cities" / "data" / "hvv_hamburg_ferry.csv"
 
-# GTFS route_type values (spec §2.1)
-_ROUTE_TYPE_SUBWAY  = "1"   # U-Bahn
-_ROUTE_TYPE_RAIL    = "2"   # S-Bahn + RE/RB + AKN
-_ROUTE_TYPE_FERRY   = "4"
+# GTFS route_type values (spec §2.1 base codes + HVV extended hierarchy codes).
+# HVV GTFS Fpl_20260903 uses extended codes exclusively for metro/S-Bahn/ferry;
+# the base codes (1, 2, 4) are absent in that feed. We match both sets so the
+# script remains forward-compatible if HVV ever switches back to base codes.
+#   base: 1=subway, 2=rail, 4=ferry
+#   extended (Google Transit / NeTEx hierarchy):
+#     109=S-Bahn, 402=U-Bahn/metro, 1200=water transport (HADAG ferry)
+_ROUTE_TYPE_SUBWAY  = {"1",   "402"}   # U-Bahn (base + extended)
+_ROUTE_TYPE_RAIL    = {"2",   "109"}   # S-Bahn + RE/RB (base + extended)
+_ROUTE_TYPE_FERRY   = {"4",   "1200"}  # HADAG ferry (base + extended)
 
 
 def _fetch_current_zip_url() -> str:
@@ -171,12 +177,12 @@ def main() -> None:
     su_stops = _extract_stops_for_route_types(
         stops_csv=stops_csv, routes_csv=routes_csv, trips_csv=trips_csv,
         stop_times_csv=stop_times_csv,
-        route_types={_ROUTE_TYPE_SUBWAY, _ROUTE_TYPE_RAIL},
+        route_types=_ROUTE_TYPE_SUBWAY | _ROUTE_TYPE_RAIL,
     )
     ferry_stops = _extract_stops_for_route_types(
         stops_csv=stops_csv, routes_csv=routes_csv, trips_csv=trips_csv,
         stop_times_csv=stop_times_csv,
-        route_types={_ROUTE_TYPE_FERRY},
+        route_types=_ROUTE_TYPE_FERRY,
     )
     n_su = _write_su_csv(su_stops, OUT_SU)
     n_ferry = _write_ferry_csv(ferry_stops, calendar_csv, OUT_FERRY)

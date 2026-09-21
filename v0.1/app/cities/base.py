@@ -307,6 +307,16 @@ class CityConfig:
     # stores integer codes on the SozErhVo layer. Inline lookup, no plumbing.
     bezirk_id_to_name: Optional[dict] = None
 
+    # -- T27 fix: gs_public filter scope ----------------------------------------
+    # When set, `gs_public` (public Grundschulen list, used in catchment fallback
+    # and nearest-school ruling) filters against this frozenset instead of
+    # schools_primary_types. Allows Hamburg to use plural-type ingest
+    # (schools_primary_types = {"Grundschulen", "Stadtteilschulen"}) while
+    # Berlin's gs_public stays tightly scoped to {"Grundschule"} only.
+    # When None (default), falls back to schools_primary_types — preserves
+    # Hamburg's pre-existing behaviour byte-exactly.
+    schools_gs_public_types: Optional[frozenset] = None
+
 
 @dataclass(frozen=True)
 class LensTileConfig:

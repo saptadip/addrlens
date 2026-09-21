@@ -176,8 +176,13 @@ class Index:
         self.schools = load_point_layer_raw(
             cfg, cfg.schools_wfs_url, cfg.schools_layer, 2000)
 
+        # T27 fix: use schools_gs_public_types when set (Berlin Grundschule-only
+        # filter); fall back to schools_primary_types when None (Hamburg's plural
+        # types already correct for gs_public). Avoids silent widening of Berlin's
+        # catchment-fallback + nearest-school ruling to Gemeinschaftsschulen.
+        _gs_types = getattr(cfg, "schools_gs_public_types", None) or cfg.schools_primary_types
         self.gs_public = [(p, c) for p, c in self.schools
-                          if p.get(s_fm["type"]) in cfg.schools_primary_types
+                          if p.get(s_fm["type"]) in _gs_types
                           and p.get(s_fm["public_flag"]) == cfg.schools_public_value]
         self.gs_intl = [(p, c) for p, c in self.schools
                         if p.get(s_fm["type"]) in cfg.schools_primary_types
