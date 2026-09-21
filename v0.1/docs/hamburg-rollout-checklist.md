@@ -3,6 +3,39 @@
 Post-deploy smoke tests. Run against `hamburg-staging.addrlens.de` first;
 promote to `hamburg.addrlens.de` after all green.
 
+## First-boot data seed
+
+The `app-hh` container reads HVV transit CSVs from the bind-mounted volume
+`/srv/addrlens/data/hamburg-transit/`. This directory does NOT exist on a
+fresh host, and the refresh-hvv.timer only runs monthly, so you must seed
+it before the first `docker compose up`.
+
+**Option A — copy committed CSVs from the repo (fastest):**
+```bash
+sudo mkdir -p /srv/addrlens/data/hamburg-transit
+sudo cp v0.1/app/cities/data/vbb_hamburg_su.csv \
+        /srv/addrlens/data/hamburg-transit/
+sudo cp v0.1/app/cities/data/hvv_hamburg_ferry.csv \
+        /srv/addrlens/data/hamburg-transit/
+```
+
+**Option B — run the live refresh to get current month's GTFS data:**
+```bash
+sudo mkdir -p /srv/addrlens/data/hamburg-transit
+docker compose \
+    -f docker-compose.yml \
+    -f docker-compose.prod.yml \
+    --env-file /srv/addrlens/.env.production \
+    run --rm --entrypoint python app-hh \
+    -m scripts.refresh_hvv
+```
+The script will write directly to `/srv/hamburg-transit/` inside the container
+(which maps to `/srv/addrlens/data/hamburg-transit/` on the host) via the
+`HVV_OUT_SU` / `HVV_OUT_FERRY` env vars set in docker-compose.prod.yml.
+
+- [ ] `/srv/addrlens/data/hamburg-transit/vbb_hamburg_su.csv` exists and is non-empty before `docker compose up`
+- [ ] `/srv/addrlens/data/hamburg-transit/hvv_hamburg_ferry.csv` exists and is non-empty before `docker compose up`
+
 ## Boot
 - [ ] `docker compose logs app-hh` shows all Hamburg loaders completing with expected counts (calibrated to 2026-09-21 live snapshot; small drift OK, large drops warrant investigation): schools ≥ 270 public Grundschulen, kitas ≥ 1100, hospitals ≥ 35, drinking fountains ≥ 40, S-Bahn ≥ 140, U-Bahn ≥ 200, ferry piers ≥ 30, sozialmonitoring polygons ≥ 1400, Bezirke = 7, parking zones ≥ 140, tempolimits segments ≥ 30 000, arterial segments ≥ 30 000; gesix empty; fire response zones empty (Hamburg has no zone polygon)
 - [ ] `curl https://hamburg-staging.addrlens.de/health` → 200 `{"status":"ok"}`

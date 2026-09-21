@@ -409,12 +409,16 @@ HAMBURG = CityConfig(
     heat_layer="de.hh.up:bewertung_tags_siedlung_verkehr",
     heat_field_map={"day_class": "bewertung"},
 
-    stations_data_path=str(Path(__file__).resolve().parent / "data" / "vbb_hamburg_su.csv"),
+    stations_data_path=os.environ.get(
+        "HVV_STATIONS_PATH",
+        str(Path(__file__).resolve().parent / "data" / "vbb_hamburg_su.csv")),
     tram_wfs_url=None, tram_layer=None, tram_field_map={},
     regional_rail_stations=_REGIONAL_RAIL,
     airport={"name": "Hamburg Airport Helmut Schmidt (HAM)",
              "iata": "HAM", "lat": 53.6304, "lon": 9.98823},
-    ferry_stations_data_path=str(Path(__file__).resolve().parent / "data" / "hvv_hamburg_ferry.csv"),
+    ferry_stations_data_path=os.environ.get(
+        "HVV_FERRY_PATH",
+        str(Path(__file__).resolve().parent / "data" / "hvv_hamburg_ferry.csv")),
 
     bilingual_glossary=_HAMBURG_GLOSSARY,
     overpass_bbox=(53.39, 9.73, 53.73, 10.32),

@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import os
 import re
 import sys
 import urllib.request
@@ -26,8 +27,10 @@ from pathlib import Path
 TRANSPARENZPORTAL_SEARCH = ("https://suche.transparenz.hamburg.de/dataset?q="
                             "hvv+Fahrplandaten+GTFS&sort=metadata_modified+desc")
 
-OUT_SU     = Path(__file__).resolve().parent.parent / "app" / "cities" / "data" / "vbb_hamburg_su.csv"
-OUT_FERRY  = Path(__file__).resolve().parent.parent / "app" / "cities" / "data" / "hvv_hamburg_ferry.csv"
+OUT_SU    = Path(os.environ.get("HVV_OUT_SU",
+                str(Path(__file__).resolve().parents[1] / "app" / "cities" / "data" / "vbb_hamburg_su.csv")))
+OUT_FERRY = Path(os.environ.get("HVV_OUT_FERRY",
+                str(Path(__file__).resolve().parents[1] / "app" / "cities" / "data" / "hvv_hamburg_ferry.csv")))
 
 # GTFS route_type values (spec §2.1 base codes + HVV extended hierarchy codes).
 # HVV GTFS Fpl_20260903 uses extended codes exclusively for metro/S-Bahn/ferry;

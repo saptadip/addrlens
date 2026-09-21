@@ -86,8 +86,13 @@ services:
       CITY: hamburg
       PORT: 8002
       INFERENCE_URL: http://inference:8080
+      HVV_STATIONS_PATH: /srv/hamburg-transit/vbb_hamburg_su.csv
+      HVV_FERRY_PATH: /srv/hamburg-transit/hvv_hamburg_ferry.csv
+      HVV_OUT_SU: /srv/hamburg-transit/vbb_hamburg_su.csv
+      HVV_OUT_FERRY: /srv/hamburg-transit/hvv_hamburg_ferry.csv
     volumes:
       - /srv/addrlens/data/osm-hamburg:/srv/data/osm
+      - /srv/addrlens/data/hamburg-transit:/srv/hamburg-transit
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=3)\" || exit 1"]
       interval: 30s
