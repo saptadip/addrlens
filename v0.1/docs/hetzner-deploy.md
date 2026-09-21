@@ -331,19 +331,25 @@ Read alongside:
 
 ### 1. First-boot data seed (on the box)
 
-Hamburg reads HVV S/U + ferry CSVs from a bind-mounted volume that doesn't exist on a fresh host. The `refresh-hvv.timer` only fires monthly, so seed the volume before `docker compose up`:
+Hamburg reads HVV S/U + ferry CSVs from a bind-mounted volume that doesn't exist on a fresh host. The `refresh-hvv.timer` only fires monthly, so seed the volume before `docker compose up`.
+
+**Ownership matters:** the `app-hh` container runs as non-root `addrlens` (uid `10001`, per `ops/Dockerfile.app`). Bind-mount overlays honour host permissions, so both dirs need to be chowned to that uid — otherwise the container hits `PermissionError [Errno 13]` on the first write. This mirrors what `bootstrap.sh:54` does for Berlin's `/srv/addrlens/data/osm` + `models`.
 
 ```bash
-sudo mkdir -p /srv/addrlens/data/hamburg-transit
-sudo cp /srv/addrlens/repo/v0.1/app/cities/data/vbb_hamburg_su.csv \
+sudo mkdir -p /srv/addrlens/data/hamburg-transit /srv/addrlens/data/osm-hamburg
+sudo chown -R 10001:10001 /srv/addrlens/data/hamburg-transit /srv/addrlens/data/osm-hamburg
+```
+
+Then seed HVV CSVs (fastest path — copy the committed snapshot):
+```bash
+sudo -u \#10001 cp /srv/addrlens/repo/v0.1/app/cities/data/vbb_hamburg_su.csv \
         /srv/addrlens/data/hamburg-transit/
-sudo cp /srv/addrlens/repo/v0.1/app/cities/data/hvv_hamburg_ferry.csv \
+sudo -u \#10001 cp /srv/addrlens/repo/v0.1/app/cities/data/hvv_hamburg_ferry.csv \
         /srv/addrlens/data/hamburg-transit/
 ```
 
-Alternative: run the live refresh once to pull the current month's GTFS:
+Alternative — run the live refresh once to pull the current month's GTFS (writes as container uid, ownership already right):
 ```bash
-sudo mkdir -p /srv/addrlens/data/hamburg-transit
 cd /srv/addrlens/repo/v0.1
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
     --env-file /srv/addrlens/.env.production \
@@ -351,9 +357,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 ```
 The script writes to `/srv/hamburg-transit/` inside the container, mapped to `/srv/addrlens/data/hamburg-transit/` on the host via the `HVV_OUT_SU` / `HVV_OUT_FERRY` env vars set in `docker-compose.prod.yml`.
 
-Hamburg OSM snapshot dir also needs a first-boot seed:
+Seed Hamburg OSM snapshot:
 ```bash
-sudo mkdir -p /srv/addrlens/data/osm-hamburg
 cd /srv/addrlens/repo/v0.1
 docker compose -f docker-compose.yml -f docker-compose.prod.yml \
     --env-file /srv/addrlens/.env.production \
