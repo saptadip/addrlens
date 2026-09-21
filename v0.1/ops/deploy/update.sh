@@ -37,32 +37,42 @@ fi
 cd "$REPO/v0.1"
 
 # --- 4. Rebuild only images whose sources changed --------------------------
-"${COMPOSE[@]}" build --pull app inference
+# app-hh (Hamburg) shares ops/Dockerfile.app with app (Berlin) — same COPY
+# layers, different runtime CITY env. Both must be rebuilt so a source
+# change (e.g. Hamburg trees_bbox MultiPoint fix) lands on both containers.
+"${COMPOSE[@]}" build --pull app app-hh inference
 
 # --- 5. Recreate containers that need it ------------------------------------
 "${COMPOSE[@]}" up -d --remove-orphans
 
-# --- 6. Readiness gate — 90 s budget ---------------------------------------
-echo "[deploy] waiting for app /ready"
-READY=""
-for i in $(seq 1 30); do
-    if "${COMPOSE[@]}" exec -T app python -c \
-        "import urllib.request,sys; \
-         sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/ready', timeout=2).status==200 else 1)" \
-        2>/dev/null
-    then
-        READY="1"
-        echo "[deploy] app ready after ~$((i*3))s"
-        break
+# --- 6. Readiness gate — 90 s budget per container --------------------------
+# Gate on both app (:8001 = Berlin) + app-hh (:8002 = Hamburg). Either can
+# fail independently (different WFS endpoints, different Index shape) so
+# both must reach /ready before we declare success.
+for svc_port in "app:8001" "app-hh:8002"; do
+    svc="${svc_port%%:*}"
+    port="${svc_port##*:}"
+    echo "[deploy] waiting for $svc /ready on :$port"
+    READY=""
+    for i in $(seq 1 30); do
+        if "${COMPOSE[@]}" exec -T "$svc" python -c \
+            "import urllib.request,sys; \
+             sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:${port}/ready', timeout=2).status==200 else 1)" \
+            2>/dev/null
+        then
+            READY="1"
+            echo "[deploy] $svc ready after ~$((i*3))s"
+            break
+        fi
+        sleep 3
+    done
+    if [ -z "$READY" ]; then
+        echo "[deploy] ERROR: $svc never became ready in 90s. Check logs:"
+        echo "[deploy]   ${COMPOSE[*]} logs --tail=100 $svc"
+        echo "[deploy] Rollback with: ./ops/deploy/rollback.sh $PREV_SHA"
+        exit 1
     fi
-    sleep 3
 done
-if [ -z "$READY" ]; then
-    echo "[deploy] ERROR: app never became ready in 90s. Check logs:"
-    echo "[deploy]   ${COMPOSE[*]} logs --tail=100 app"
-    echo "[deploy] Rollback with: ./ops/deploy/rollback.sh $PREV_SHA"
-    exit 1
-fi
 
 # --- 7. Prune dangling images (weekly discipline; safe here) ---------------
 docker image prune -f --filter "until=168h"
