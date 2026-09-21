@@ -49,4 +49,17 @@ def geocode_oaf(cfg, street: str, hnr: str, plz: str) -> Optional[dict]:
     if not feats:
         return None
     lon, lat = feats[0]["geometry"]["coordinates"]
-    return {"lon": lon, "lat": lat, "props": feats[0].get("properties") or {}}
+    props = feats[0].get("properties") or {}
+    # Hamburg's DOG OAF exposes `ortsteil` as a numeric code ("117") and the
+    # human name lives in `postOrtsteil` ("Hammerbrook"). The frontend AI
+    # panel reads `raw.ortsteil` for the summary chip; if it finds the raw
+    # numeric code the chip renders "117" instead of the neighbourhood
+    # name. Remap in place so `raw.ortsteil` is always human-readable when
+    # OAF returns both. Same story for `bezirke` (plural, human) vs the
+    # frontend-expected `bezirk` fallback — alias it when only the plural
+    # form is present.
+    if props.get("postOrtsteil"):
+        props["ortsteil"] = props["postOrtsteil"]
+    if props.get("bezirke") and not props.get("bezirk"):
+        props["bezirk"] = props["bezirke"]
+    return {"lon": lon, "lat": lat, "props": props}

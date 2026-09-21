@@ -384,6 +384,23 @@ UMAMI_SCRIPT_URL_HAMBURG=<same script URL as Berlin — usually https://umami.ad
 # SENTRY_ENV=production
 ```
 
+**CRITICAL — update `INFERENCE_REMOTE_TEMPLATES`.** Prod inference runs the `remote` Docker target (Cloudflare Workers AI only; `INFERENCE_LOCAL_BACKEND=off` per `ops/Dockerfile.inference`). A template registered in `inference/main.py::TEMPLATES` but ABSENT from `INFERENCE_REMOTE_TEMPLATES` gets routed to the disabled local backend → 503 upstream → `lens_insight` returns 504. The two new Hamburg templates land in the code default (`inference/main.py:158-167`) but your prod env file was written pre-Hamburg and pins the older list. Append them:
+
+```
+# Pre-Hamburg (existing):
+# INFERENCE_REMOTE_TEMPLATES=history,lens_newcomer_insight,lens_young_family_insight,lens_quiet_living_insight,lens_commuter_insight
+
+# Hamburg (add lens_newcomer_hamburg_insight + lens_commuter_hamburg_insight):
+INFERENCE_REMOTE_TEMPLATES=history,lens_newcomer_insight,lens_young_family_insight,lens_quiet_living_insight,lens_commuter_insight,lens_newcomer_hamburg_insight,lens_commuter_hamburg_insight
+```
+
+After editing the env file, recreate the `inference` container (env is read at import time; `docker compose restart` does not pick up env changes — needs `up -d` to reload):
+```bash
+cd /srv/addrlens/repo/v0.1
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+    --env-file /srv/addrlens/.env.production up -d inference
+```
+
 Berlin's shared `UMAMI_WEBSITE_ID` and `UMAMI_SCRIPT_URL` continue to serve `app` — Hamburg reads `_HAMBURG` suffix first, falls back to shared if the suffix is unset (per `app/main.py:_CITY_ENV` dispatch).
 
 ### 3. Cloudflare Tunnel Public Hostname
@@ -396,7 +413,9 @@ Add a second Public Hostname to the existing tunnel:
 | Domain | `addrlens.de` |
 | Service Type | HTTP |
 | URL | `app-hh:8002` |
-| HTTP Host Header | `hamburg.addrlens.de` |
+| HTTP Host Header | *(leave blank — must match Berlin's setting)* |
+
+**Important:** leave "HTTP Host Header" **empty** — matches Berlin's Public Hostname. A non-empty value here rewrites the Host header sent to `app-hh` and caused an early Hamburg deploy to 504 on `/api/lens_insight` specifically. Verify Berlin's apex hostname has this field blank too before applying.
 
 Full walkthrough in `v0.1/ops/cloudflared/README.md` § "Hamburg subdomain". Wizard creates the proxied CNAME `hamburg.addrlens.de` → the tunnel automatically. Berlin's apex `addrlens.de` hostname is untouched.
 

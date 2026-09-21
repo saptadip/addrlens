@@ -196,6 +196,22 @@ def _legend_for(key: str, th: dict) -> list:
             {"tier": TIER_RED,   "text": f">{th['amber_km']} km"},
         ]
 
+    # Hamburg Sozialmonitoring — categorical, but the tier logic is a clean
+    # 3-band (Statusindex) / 2-band (Aufmerksamkeitsgebiet flag) mapping to
+    # green/amber/red. Emit a legend so the frontend's donut-arc renderer
+    # fires (empty legend → no donut, per lens/index.js:118 early exit).
+    if key in ("sozialmonitoring_status", "sozialmonitoring_status_commuter"):
+        return [
+            {"tier": TIER_GREEN, "text": "Statusindex: hoch"},
+            {"tier": TIER_AMBER, "text": "Statusindex: mittel"},
+            {"tier": TIER_RED,   "text": "Statusindex: niedrig / sehr niedrig"},
+        ]
+    if key in ("sozialmonitoring_gesamt", "sozialmonitoring_gesamt_commuter"):
+        return [
+            {"tier": TIER_GREEN, "text": "not flagged"},
+            {"tier": TIER_RED,   "text": "Aufmerksamkeitsgebiet (flagged for city support)"},
+        ]
+
     # nightlife_density (numeric-only) + gesix / gesix_newcomer / gesix_quiet
     # / gesix_commuter (5-quintile) don't fit a 3-band legend — skip.
     return []

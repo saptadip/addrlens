@@ -214,7 +214,7 @@ NEWCOMER_LENS: LensConfig = LensConfig(
                     "annually; polygon grain is finer than Berlin's Planungsraum."),
         ),
         LensTileConfig(
-            key="sozialmonitoring_gesamt", label="Aufmerksamkeitsgebiet", icon="gesix",
+            key="sozialmonitoring_gesamt", label="City-watch flag", icon="gesix",
             thresholds={},
             caveat=("Hamburg BSW Sozialmonitoring — combined Status+Dynamik verdict. "
                     "'Aufmerksamkeitsgebiet' = the polygon around this flat is a city-"
@@ -286,7 +286,7 @@ COMMUTER_LENS: LensConfig = LensConfig(
                     "tile, commuter-audience framing."),
         ),
         LensTileConfig(
-            key="sozialmonitoring_gesamt_commuter", label="Aufmerksamkeitsgebiet", icon="gesix",
+            key="sozialmonitoring_gesamt_commuter", label="City-watch flag", icon="gesix",
             thresholds={},
             caveat="Hamburg BSW Sozialmonitoring — combined verdict.",
         ),
