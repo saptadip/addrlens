@@ -56,10 +56,16 @@ def is_paediatric(tags) -> bool:
 
 def _bod_layers(cfg: CityConfig) -> dict:
     """BOD-first categories per plan §Ship B (parks + playgrounds). Empty tuple
-    entry = "OSM only", used when a city doesn't publish that layer."""
+    entry = "OSM only", used when a city doesn't publish that layer.
+
+    Playgrounds may live on a separate WFS base URL (Hamburg's
+    spielplaetze_hh) — `playgrounds_wfs_url` overrides `green_wfs_url`
+    when set."""
     out = {}
-    if cfg.green_wfs_url and cfg.playgrounds_layer:
-        out["playgrounds"] = (cfg.green_wfs_url, cfg.playgrounds_layer)
+    if cfg.playgrounds_layer:
+        pg_base = getattr(cfg, "playgrounds_wfs_url", None) or cfg.green_wfs_url
+        if pg_base:
+            out["playgrounds"] = (pg_base, cfg.playgrounds_layer)
     if cfg.green_wfs_url and cfg.parks_layer:
         out["parks"] = (cfg.green_wfs_url, cfg.parks_layer)
     return out

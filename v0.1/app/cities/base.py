@@ -323,6 +323,26 @@ class CityConfig:
     # (Berlin's OTHERS_ADMIN_CARDS doesn't include a `kundenzentrum` entry).
     kundenzentren: tuple = ()
 
+    # -- Fire: second FF (volunteer) stations layer -----------------------------
+    # Berlin has only BF; Hamburg publishes BF + FF as two typeNames. Loader
+    # unions them so `Index.fire_stations` covers the whole city.
+    fire_stations_layer_ff: Optional[str] = None
+
+    # -- Intl / bilingual schools: curated fallback ----------------------------
+    # Hamburg's public-schools WFS misses most intl/bilingual schools (they're
+    # private). This tuple is consulted as a fallback in `Index.nearest_intl`
+    # when the WFS-derived `gs_intl` list is empty. Berlin leaves it () and
+    # uses the WFS-derived list only.
+    intl_schools_curated: tuple = ()
+
+    # -- Playgrounds: split WFS override -------------------------------------
+    # Berlin publishes parks + playgrounds under a single Grünplan WFS
+    # (green_wfs_url + playgrounds_layer). Hamburg keeps them apart:
+    # spielplaetze_hh lives on its own base URL. When set, this URL is
+    # used as the WFS base for the playgrounds layer instead of
+    # `green_wfs_url`. Leave None to keep Berlin's single-base behaviour.
+    playgrounds_wfs_url: Optional[str] = None
+
 
 @dataclass(frozen=True)
 class LensTileConfig:

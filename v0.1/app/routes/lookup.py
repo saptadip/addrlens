@@ -108,11 +108,20 @@ def lookup(
     intl = index.nearest_intl(lon, lat)
     intl_out = None
     if intl:
-        s = intl["school"]
-        intl_out = {"name": s[s_fm["name"]], "bsn": s[s_fm["id"]],
-                    "distance_m": intl["distance_m"],
-                    "lat": intl["lat"], "lon": intl["lon"],
-                    "website": s.get(s_fm["website"])}
+        if intl.get("curated"):
+            # Curated fallback (Hamburg): school dict is not WFS-shaped.
+            intl_out = {"name": intl["name"], "bsn": None,
+                        "distance_m": intl["distance_m"],
+                        "lat": intl["lat"], "lon": intl["lon"],
+                        "address": intl.get("address"),
+                        "website": intl.get("website"),
+                        "kind": intl.get("kind")}
+        else:
+            s = intl["school"]
+            intl_out = {"name": s[s_fm["name"]], "bsn": s[s_fm["id"]],
+                        "distance_m": intl["distance_m"],
+                        "lat": intl["lat"], "lon": intl["lon"],
+                        "website": s.get(s_fm["website"])}
 
     kitas = kitas_near(index, cfg, lon, lat, 800)
 

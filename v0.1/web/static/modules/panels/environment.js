@@ -27,9 +27,11 @@ export function strollerCardHtml(){
 
 export function noiseCardsHtml(n){
   if(n.unavailable){
-    return `<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Street noise</span></div>
-      <p class="sub">${esc(n.reason || 'Noise data unavailable for this address.')}</p>
-      <div class="prov">${esc(n.provenance || S.cfg?.attribution?.noise || 'Geoportal Berlin / Strategische Lärmkarten 2022')}</div></div>`;
+    // Suppress placeholder cards when the city doesn't publish a noise map at
+    // all (Hamburg: façade point layer not in the shape we consume). A
+    // "not configured" card is worse than no card — user asked for card
+    // removal when Hamburg-specific data doesn't exist.
+    return '';
   }
   const den=n.l_den.total, ngt=n.l_night.total;
   // Night thresholds are ~10 dB stricter than day (WHO 45 vs 55). Shift the
@@ -150,12 +152,9 @@ export function heatTierFor(dayClass){
 }
 
 export function airQualityCardHtml(a){
-  if(!a || a.unavailable){
-    if(!a) return '';
-    return `<div class="cell" data-env-cat="air"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Air quality (NO₂)</span></div>
-      <p class="sub">${esc(a.reason || a.error || 'Air-quality data unavailable for this address.')}</p>
-      <div class="prov">${esc(a.provenance || S.cfg?.attribution?.air || '')}</div></div>`;
-  }
+  // Drop card entirely when the city has no air-quality dataset wired
+  // (Hamburg: air_model="none"). Same rule as noise placeholder above.
+  if(!a || a.unavailable) return '';
   const tier = airTierFor(a.no2_ugm3);
   const no2 = a.no2_ugm3 != null ? a.no2_ugm3.toFixed(1) : '—';
   const idx = a.index_2020 != null ? a.index_2020.toFixed(2) : '—';

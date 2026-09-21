@@ -98,11 +98,18 @@ export function render(d){
   // preflight ruling) and Hamburg (`nearest_school_km_only`). Only render this
   // fallback when the schools card would otherwise be absent.
   const _nps = d.nearest_school;
+  const _npsWalk = _nps && _nps.distance_m != null ? ` · ~${walkMin(_nps.distance_m)} min walk` : '';
+  const _npsAddr = _nps && _nps.address ? `<span class="dim">${esc(_nps.address)}</span> · ` : '';
+  const _npsWeb = _nps && _nps.website
+    ? ` · <a href="${esc(_nps.website)}" target="_blank" rel="noopener">website</a>` : '';
+  const _npsPhone = _nps && _nps.phone
+    ? ` · <a href="tel:${esc(String(_nps.phone).replace(/\s+/g,''))}">${esc(_nps.phone)}</a>` : '';
   const nearestPrimary = (!ssSorted.length && _nps && _nps.distance_km != null)
     ? `<div class="cell edu-cell" data-edu-cat="nearest-primary">
          <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">Nearest primary school</span></div>
          <h3>${_nps.name ? esc(_nps.name) : `${_nps.distance_km} km`}</h3>
-         <p class="sub">${_nps.distance_km} km${_nps.bsn ? ` · BSN ${esc(_nps.bsn)}` : ''}</p>
+         <p class="sub">${_npsAddr}${_nps.distance_km} km${_npsWalk}${_nps.bsn ? ` · BSN ${esc(_nps.bsn)}` : ''}${_npsWeb}${_npsPhone}</p>
+         ${_nps.school_year ? `<div class="badges"><span class="badge b-public">Public · staatlich</span><span class="badge b-dist">Schuljahr ${esc(_nps.school_year)}</span></div>` : ''}
          <div class="prov" style="font-style:italic">No catchment polygons for this city — showing nearest public Grundschule by distance only.</div>
        </div>` : '';
   const schools = ssSorted.length ? ssSorted.map((s, idx) => {
@@ -250,8 +257,13 @@ export function selectEduCategory(cat){
     } else if(cat==='intl'){
       const i=S.eduData.intl_grundschule;
       if(!i) return;
-      points=[{lat:i.lat,lon:i.lon,name:i.name,distance_m:i.distance_m}];
+      points=[{lat:i.lat,lon:i.lon,name:i.name,distance_m:i.distance_m,info:i.address||i.kind||''}];
       style=EDU_STYLE.intl; label='International';
+    } else if(cat==='nearest-primary'){
+      const n=S.eduData.nearest_school;
+      if(!n || n.lat==null) return;
+      points=[{lat:n.lat,lon:n.lon,name:n.name||'Nearest school',distance_m:n.distance_m,info:n.address||''}];
+      style=EDU_STYLE.school; label='Nearest primary';
     } else return;
     if(hint) hint.textContent=points.length>1?`${label}: ${points.length} plotted`:label;
     const markers=points.map(pt=>L.marker([pt.lat,pt.lon],{icon:iconPin(ico[style.icon],style.color)})

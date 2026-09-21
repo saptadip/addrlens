@@ -172,10 +172,26 @@ def bod_polygon_features(base, type_name, lon, lat, radius_m=800,
         dist = haversine_m(lon, lat, cx, cy)
         if dist > radius_m: continue        # centroid outside radius (bbox is looser)
         props = f.get("properties") or {}
-        name = (props.get("namenr") or "").strip() or (props.get("planname") or "").strip() \
-               or props.get("objartname") or "—"
+        # Berlin BOD keys: namenr / planname / objartname.
+        # Hamburg BOD keys: name (spielplaetze_hh) / benennung + belegenheit
+        # (verzeichnis_oeffentlicher_gruenanlagen). Chain both so `_DROP_UNNAMED`
+        # doesn't wipe every Hamburg park+playground for having no `namenr`.
+        name = ((props.get("namenr") or "").strip()
+                or (props.get("planname") or "").strip()
+                or (props.get("name") or "").strip()
+                or (props.get("benennung") or "").strip()
+                or (props.get("belegenheit") or "").strip()
+                or props.get("objartname") or "—")
+        # area_m2: Berlin katasterfl / nettospfl (int/float m²) or Hamburg
+        # flaeche_ha (string, German decimal comma, hectares).
+        area_m2 = props.get("katasterfl") or props.get("nettospfl")
+        if area_m2 is None and props.get("flaeche_ha"):
+            try:
+                area_m2 = float(str(props["flaeche_ha"]).replace(",", ".")) * 10_000
+            except (ValueError, TypeError):
+                area_m2 = None
         out.append({"name": name, "lat": cy, "lon": cx, "distance_m": round(dist),
-                    "area_m2": props.get("katasterfl") or props.get("nettospfl"),
+                    "area_m2": area_m2,
                     "props": props, "source": "bod"})
     out.sort(key=lambda x: x["distance_m"])
     _cache.set(key, out)

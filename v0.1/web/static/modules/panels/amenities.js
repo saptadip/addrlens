@@ -94,11 +94,12 @@ function _hydrateLookupTiles(d){
     S.amenData.fireRescue = {
       count: fmtDistance(fr.nearest.distance_m),
       items: (fr.top3 || []).map(s => ({
-        name: s.name,
+        name: s.name || 'Feuerwehr',
         lat: s.lat, lon: s.lon,
         distance_m: s.distance_m,
         info: `${s.type === 'BF' ? 'Professional' : 'Volunteer'}${s.address ? ' · ' + s.address : ''}`,
         _phone_bf: s.phone_bf, _phone_ff: s.phone_ff, _zone: s.zone_code,
+        _address: s.address, _type: s.type,
       })),
       provenance: (d.provenance || {}).fire || '',
       _zone_name: fr.zone_name, _zone_code: fr.zone_code,
