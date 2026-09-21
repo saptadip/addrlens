@@ -42,16 +42,18 @@ fi
 usermod -aG docker "$DEPLOY_USER"
 
 # --- 3. Directory layout ----------------------------------------------------
-mkdir -p "$SRV_ROOT"/{models,data/osm,logs}
+mkdir -p "$SRV_ROOT"/{models,data/osm,data/osm-hamburg,data/hamburg-transit,logs}
 chown -R "$DEPLOY_USER:$DEPLOY_USER" "$SRV_ROOT"
 # The app + inference images run as the non-root user `addrlens` (uid 10001,
 # set in ops/Dockerfile.app / ops/Dockerfile.inference). The bind-mounted
-# data/osm and models directories need to be writable by that in-container
-# user so the weekly refresh script can rewrite the snapshot atomically,
-# and so `docker compose run` can drop a downloaded PBF into data/osm.
-# Change ownership to the container uid — a simpler and more resilient
-# choice than granting the host user membership in a matching group.
-chown -R 10001:10001 "$SRV_ROOT/data/osm" "$SRV_ROOT/models"
+# data/osm{,-hamburg} + hamburg-transit + models directories need to be
+# writable by that in-container user so the weekly/monthly refresh scripts
+# can rewrite snapshots atomically, and so `docker compose run` can drop a
+# downloaded PBF/GTFS zip into the appropriate dir. Change ownership to the
+# container uid — a simpler and more resilient choice than granting the
+# host user membership in a matching group.
+chown -R 10001:10001 "$SRV_ROOT/data/osm" "$SRV_ROOT/data/osm-hamburg" \
+                     "$SRV_ROOT/data/hamburg-transit" "$SRV_ROOT/models"
 touch "$SRV_ROOT/.env.production"
 chmod 600 "$SRV_ROOT/.env.production"
 chown "$DEPLOY_USER:$DEPLOY_USER" "$SRV_ROOT/.env.production"
