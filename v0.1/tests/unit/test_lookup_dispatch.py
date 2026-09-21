@@ -20,6 +20,15 @@ from tests.conftest import _FakeOSMLocal
 # Helpers: minimal Index stubs
 # ---------------------------------------------------------------------------
 
+_SCHOOLS_FIELD_MAP = {
+    "name": "schulname", "id": "bsn", "type": "schulart",
+    "public_flag": "traeger",
+    "street": "strasse", "hnr": "hausnr", "plz": "plz",
+    "phone": "telefon", "website": "internet",
+    "school_year": "schuljahr",
+}
+
+
 def _make_index_with_school(lon_s, lat_s, gs_public_props=None):
     """Index stub with a single public Grundschule at (lon_s, lat_s)."""
     idx = Index.__new__(Index)
@@ -30,8 +39,13 @@ def _make_index_with_school(lon_s, lat_s, gs_public_props=None):
         sozialmonitoring_field_map=None,
         sozialmonitoring=None,
         gesix=None,
+        schools_field_map=_SCHOOLS_FIELD_MAP,
     )
-    props = gs_public_props or {"e_name": "Testschule", "bsn": "001", "type": "Grundschule"}
+    props = gs_public_props or {
+        "schulname": "Testschule", "bsn": "001", "schulart": "Grundschule",
+        "strasse": "Teststr 1", "plz": "10999",
+        "telefon": None, "internet": None, "schuljahr": "2024",
+    }
     idx.gs_public = [(props, (lon_s, lat_s))]
     idx.sozialmonitoring = []
     idx.gesix = []
@@ -47,6 +61,7 @@ def _make_empty_index():
         sozialmonitoring_field_map=None,
         sozialmonitoring=None,
         gesix=None,
+        schools_field_map=_SCHOOLS_FIELD_MAP,
     )
     idx.gs_public = []
     idx.sozialmonitoring = []
@@ -84,12 +99,22 @@ def test_nearest_school_km_only_empty_returns_none():
     assert idx.nearest_school_km_only(10.0, 53.55) is None
 
 
-def test_nearest_school_km_only_no_extra_keys():
-    """Hamburg km-only result must not carry name or bsn."""
+def test_nearest_school_km_only_enriched_shape():
+    """Enriched Hamburg result carries display fields the Nearest primary
+    school card needs (name/address/website/phone/lat/lon/school_year)
+    on top of the base distance_km/distance_m."""
     idx = _make_index_with_school(10.0, 53.55)
     result = idx.nearest_school_km_only(10.001, 53.55)
     assert result is not None
-    assert set(result.keys()) == {"distance_km"}
+    assert set(result.keys()) == {
+        "distance_km", "distance_m", "name", "bsn", "address",
+        "phone", "website", "school_year", "lat", "lon",
+    }
+    assert result["name"] == "Testschule"
+    assert result["bsn"] == "001"
+    assert result["address"] == "Teststr 1, 10999"
+    assert result["lat"] == 53.55 and result["lon"] == 10.0
+    assert result["school_year"] == "2024"
 
 
 # ---------------------------------------------------------------------------

@@ -98,10 +98,16 @@ def _kita_info(p, cfg: CityConfig):
         try:
             parts.append(f"{int(cap)} places")
         except (ValueError, TypeError): pass
-    op_type = (p.get(fm["operator_type"]) or "").strip()
+    def _coerce(v):
+        # Hamburg's Leistungsname is a JSON array; Berlin fields are scalar
+        # strings. Both need a compact one-liner.
+        if v is None:                        return ""
+        if isinstance(v, (list, tuple)):     return " · ".join(str(x).strip() for x in v if x)
+        return str(v).strip()
+    op_type = _coerce(p.get(fm["operator_type"]))
     if op_type:                     parts.append(op_type)       # e.g. "freie Träger", "Eigenbetrieb"
-    ang = (p.get(fm["approach"]) or "").strip()
-    if ang and ang != "":           parts.append(ang)
+    ang = _coerce(p.get(fm["approach"]))
+    if ang and ang != op_type:      parts.append(ang)
     return " · ".join(parts)
 
 
@@ -318,25 +324,50 @@ class Index:
         (polygons) + stations (points). Point-in-polygon at lookup
         returns the regulatory-authoritative zone; nearest station is a
         straight distance search over all stations (crossing a zone
-        boundary is fine — dispatch coordinates, not us)."""
+        boundary is fine — dispatch coordinates, not us).
+
+        Some cities (Hamburg) publish two station layers (BF + FF) with
+        no `type` attribute — we tag each row from the layer it came from.
+        Address may also need composition from street+hnr+plz+ort fields
+        when the WFS doesn't publish a single `adresse` line."""
         cfg = self.cfg
         self.fire_stations, self.fire_zones = [], []
         if not (cfg.fire_wfs_url and cfg.fire_stations_layer):
             return
         log_load("fire stations + response zones")
         sfm = cfg.fire_stations_field_map
-        for props, coords in load_point_layer_raw(
-                cfg, cfg.fire_wfs_url, cfg.fire_stations_layer, 500):
-            lo, la = coords
-            self.fire_stations.append({
-                "name":      props.get(sfm["name"]),
-                "type":      props.get(sfm["type"]),        # "BF" or "FF"
-                "address":   props.get(sfm["address"]),
-                "phone_bf":  props.get(sfm["phone_bf"]),
-                "phone_ff":  props.get(sfm["phone_ff"]),
-                "zone_code": props.get(sfm["zone_id"]),
-                "lat": la, "lon": lo,
-            })
+
+        def _compose_address(props: dict) -> str | None:
+            """Prefer sfm['address'] as a full-line field; if hnr/plz/ort
+            are also mapped, compose 'street hnr, plz ort' instead."""
+            street = props.get(sfm["address"]) if sfm.get("address") else None
+            hnr = props.get(sfm["hnr"]) if sfm.get("hnr") else None
+            plz = props.get(sfm["plz"]) if sfm.get("plz") else None
+            ort = props.get(sfm["ort"]) if sfm.get("ort") else None
+            if hnr or plz or ort:
+                left = f"{(street or '').strip()} {str(hnr or '').strip()}".strip()
+                right = f"{str(plz or '').strip()} {(ort or '').strip()}".strip()
+                return ", ".join(x for x in (left, right) if x) or None
+            return (street or "").strip() or None
+
+        layers = [(cfg.fire_stations_layer, "BF")]
+        ff_layer = getattr(cfg, "fire_stations_layer_ff", None)
+        if ff_layer:
+            layers.append((ff_layer, "FF"))
+        for layer, tag in layers:
+            for props, coords in load_point_layer_raw(
+                    cfg, cfg.fire_wfs_url, layer, 500):
+                lo, la = coords
+                _type = props.get(sfm["type"]) if sfm.get("type") else None
+                self.fire_stations.append({
+                    "name":      (props.get(sfm["name"]) or "").strip() or None,
+                    "type":      _type or tag,                # 'BF' or 'FF'
+                    "address":   _compose_address(props),
+                    "phone_bf":  props.get(sfm["phone_bf"]) if sfm.get("phone_bf") else None,
+                    "phone_ff":  props.get(sfm["phone_ff"]) if sfm.get("phone_ff") else None,
+                    "zone_code": props.get(sfm["zone_id"]) if sfm.get("zone_id") else None,
+                    "lat": la, "lon": lo,
+                })
         self.fire_zones = load_polygon_layer(
             cfg, cfg.fire_wfs_url, cfg.fire_zones_layer, 50)
         print(f"{len(self.fire_stations)} stations · "
@@ -682,23 +713,62 @@ class Index:
         return sorted_gs[:k]
 
     def nearest_school_km_only(self, lon, lat):
-        """Hamburg-simple version — returns just distance in km. Hamburg's
-        Einzugsgebiete are per statistical district, not per-school, so we
-        don't return catchment / school-name / BSN — the frontend renders
-        'nearest primary school: 0.4 km' and stops."""
+        """Hamburg-simple version — returns nearest public Grundschule with
+        name/address/phone/website/lat/lon so the frontend can render a full
+        card with walk time + map plot. Hamburg's Einzugsgebiete are per
+        statistical district (no per-school catchment polygons), so `bsn`
+        and `catchment` are intentionally omitted."""
         if not self.gs_public:
             return None
         best = min(self.gs_public, key=lambda pc: haversine_m(lon, lat, pc[1][0], pc[1][1]))
-        d = haversine_m(lon, lat, best[1][0], best[1][1])
-        return {"distance_km": round(d / 1000, 2)}
+        p, c = best
+        s_fm = self.cfg.schools_field_map
+        d_m = haversine_m(lon, lat, c[0], c[1])
+        street = (p.get(s_fm["street"]) or "").strip()
+        plz = (p.get(s_fm["plz"]) or "").strip()
+        return {
+            "distance_km": round(d_m / 1000, 2),
+            "distance_m":  round(d_m),
+            "name":        (p.get(s_fm["name"]) or "").strip() or None,
+            "bsn":         p.get(s_fm["id"]),
+            "address":     ", ".join(x for x in (street, plz) if x) or None,
+            "phone":       p.get(s_fm["phone"]),
+            "website":     p.get(s_fm["website"]),
+            "school_year": p.get(s_fm["school_year"]),
+            "lat":         c[1],
+            "lon":         c[0],
+        }
 
     def nearest_intl(self, lon, lat):
-        if not self.gs_intl:
+        """Nearest intl / bilingual school. Uses WFS-derived `gs_intl` first;
+        falls back to `cfg.intl_schools_curated` when WFS returns nothing
+        (Hamburg — most intl schools are private and outside the state
+        `staatliche_schulen` layer). Curated entries carry name+address+
+        website+lat/lon directly."""
+        if self.gs_intl:
+            best = min(self.gs_intl, key=lambda pc: haversine_m(lon, lat, pc[1][0], pc[1][1]))
+            p, c = best
+            return {"school": p, "lon": c[0], "lat": c[1],
+                    "distance_m": round(haversine_m(lon, lat, c[0], c[1]))}
+        curated = getattr(self.cfg, "intl_schools_curated", ()) or ()
+        if not curated:
             return None
-        best = min(self.gs_intl, key=lambda pc: haversine_m(lon, lat, pc[1][0], pc[1][1]))
-        p, c = best
-        return {"school": p, "lon": c[0], "lat": c[1],
-                "distance_m": round(haversine_m(lon, lat, c[0], c[1]))}
+        best = min(curated, key=lambda o: haversine_m(lon, lat, o["lon"], o["lat"]))
+        d = haversine_m(lon, lat, best["lon"], best["lat"])
+        # Shape mirrors the WFS branch enough for the lookup route to pull
+        # `name` + `website` off the `school` dict (route reads via s_fm).
+        # Also expose the curated fields directly for a simpler frontend.
+        return {
+            "school":     {"name": best["name"], "website": best.get("website"),
+                            "address": best.get("address"), "kind": best.get("kind")},
+            "name":       best["name"],
+            "address":    best.get("address"),
+            "website":    best.get("website"),
+            "kind":       best.get("kind"),
+            "lon":        best["lon"], "lat": best["lat"],
+            "distance_m": round(d),
+            "curated":    True,
+        }
 
     def sesb_strand(self, schulname):
         low = norm(schulname)
@@ -839,10 +909,41 @@ class Index:
                 best_props, best_geom, best_d = props, geom, d
         if best_props is None: return None
         c = best_geom.centroid
+        size_ha = best_props.get(qfm["size_ha"])
+        # Fallback: compute from geometry when the WFS layer has no size
+        # field (Hamburg's `ruhige_gebiete_hamburg` only carries {nr, name}).
+        # Convert EPSG:4326 → equal-area via a local pseudo-metric using
+        # cos(latitude) — accurate to ~1% at Hamburg / Berlin latitudes.
+        if size_ha in (None, "") and best_geom is not None:
+            try:
+                import math
+                lat_rad = math.radians(c.y)
+                deg_lat_m = 111_320.0
+                deg_lon_m = 111_320.0 * math.cos(lat_rad)
+                area_deg2 = best_geom.area          # in squared degrees
+                area_m2 = area_deg2 * deg_lat_m * deg_lon_m
+                size_ha = round(area_m2 / 10_000, 2)
+            except Exception:
+                pass
+        # Kind fallback: absent in Hamburg's layer — infer a generic label
+        # from the zone name (e.g. "Friedhof", "Park", "Forst") when None.
+        kind = best_props.get(qfm["kind"])
+        if not kind:
+            name_lc = ((best_props.get(qfm["name"]) or "").strip().lower())
+            for kw, label in (("friedhof",   "Friedhof (cemetery green)"),
+                              ("forst",      "Forst / Wald"),
+                              ("park",       "Parkanlage"),
+                              ("naturschutz","Naturschutzgebiet"),
+                              ("insel",      "Ruheinsel")):
+                if kw in name_lc:
+                    kind = label
+                    break
+            if not kind:
+                kind = "Ruhiges Gebiet"
         return {
             "name":       (best_props.get(qfm["name"]) or "").strip(),
-            "kind":       best_props.get(qfm["kind"]),
-            "size_ha":    best_props.get(qfm["size_ha"]),
+            "kind":       kind,
+            "size_ha":    size_ha,
             "distance_m": round(best_d),
             "lat": c.y, "lon": c.x,
             "inside":     best_d < 1.0,

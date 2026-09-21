@@ -6,16 +6,43 @@ import { esc, walkMin, shortUrl } from './dom.js';
 // live spots, so "capacity" means total places, not open ones. Product doc §6.
 export function kitaDetailHtml(it){
   const p = it.props || {};
+  const rows = [];
+  const push = (l, v) => v && rows.push([l, v]);
+  const telHtml = (v) => `<a href="tel:${esc(String(v).replace(/\s+/g,''))}">${esc(v)}</a>`;
+  const webHtml = (v) => `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(shortUrl(v))}</a>`;
+
+  // Hamburg's WFS uses German field names (Strasse/Hausnr/PLZ/Ort/Telefon/…)
+  // — detect by presence and fall through to Berlin's e_* prefix shape below.
+  if(p.Strasse || p.Hausnr || p.Telefon || p.PLZ){
+    const street = [p.Strasse, p.Hausnr].filter(Boolean).join(' ').trim();
+    const addr = [street, [p.PLZ, p.Ort].filter(Boolean).join(' ').trim()].filter(x => x).join(', ');
+    if(addr)              push('Address', esc(addr));
+    if(p.Telefon)         push('Phone',   telHtml(p.Telefon));
+    if(p.Ansprechpartner) push('Contact', esc(p.Ansprechpartner));
+    // Leistungsname is an array (['Krippe bis zu 12-stündige Betreuung', …]);
+    // fall through to Leistungsarten code when array is empty.
+    const approaches = Array.isArray(p.Leistungsname) ? p.Leistungsname.filter(Boolean) : [];
+    if(approaches.length) push('Approach', esc(approaches.join(' · ')));
+    else if(p.Leistungsarten) push('Approach', esc(p.Leistungsarten));
+    const cap = p.Anzahl_betreuter_Kinder;
+    if(cap != null && cap !== '') push('Capacity',
+      `${esc(String(cap))} places <span class="dim">(total, not availability)</span>`);
+    const area = p['Pädagogische_Fläche_in_qm'];
+    if(area)              push('Indoor area', `${esc(String(area))} m²`);
+    if(p.Erhebungsstichtag) push('As of', esc(p.Erhebungsstichtag));
+    return rows.map(([l,v])=>`<div class="det-row"><span class="det-label">${l}</span><span class="det-val">${v}</span></div>`).join('');
+  }
+
+  // Berlin BOD shape (e_* prefix).
   const streetLine = [p.e_strasse, p.e_hnr].filter(Boolean).join(' ').trim() + (p.e_zusatz ? p.e_zusatz.trim() : '');
   const fullAddr = [streetLine.trim(), (p.e_plz||'').trim()].filter(Boolean).join(', ');
   const approaches = [p.ang_1, p.ang_2].map(x=>x&&x.trim()).filter(Boolean).join(' · ');
-  const rows = [];
-  if(fullAddr)    rows.push(['Address', esc(fullAddr)]);
-  if(p.e_tel)     rows.push(['Phone',   `<a href="tel:${esc(p.e_tel.replace(/\s+/g,''))}">${esc(p.e_tel)}</a>`]);
-  if(p.e_web)     rows.push(['Website', `<a href="${esc(p.e_web)}" target="_blank" rel="noopener">${esc(shortUrl(p.e_web))}</a>`]);
-  if(p.t_name)    rows.push(['Träger',  esc(p.t_name) + (p.t_art?` <span class="dim">(${esc(p.t_art)})</span>`:'')]);
-  if(approaches)  rows.push(['Approach', esc(approaches)]);
-  if(p.e_platz)   rows.push(['Capacity', `${esc(p.e_platz)} places <span class="dim">(total, not availability)</span>`]);
+  if(fullAddr)    push('Address', esc(fullAddr));
+  if(p.e_tel)     push('Phone',   telHtml(p.e_tel));
+  if(p.e_web)     push('Website', webHtml(p.e_web));
+  if(p.t_name)    push('Träger',  esc(p.t_name) + (p.t_art?` <span class="dim">(${esc(p.t_art)})</span>`:''));
+  if(approaches)  push('Approach', esc(approaches));
+  if(p.e_platz)   push('Capacity', `${esc(p.e_platz)} places <span class="dim">(total, not availability)</span>`);
   return rows.map(([l,v])=>`<div class="det-row"><span class="det-label">${l}</span><span class="det-val">${v}</span></div>`).join('');
 }
 
@@ -74,33 +101,69 @@ export function amenDetailHtml(cat, it){
   }
   else if(cat === 'hospitals'){
     // BOD identity fields (address, beds, Träger) + OSM overlay (ER, phone, website).
-    const hStreet=[p.gc_strasse, p.gc_haus].filter(Boolean).join(' ').trim();
-    const hAddr=[hStreet, [(p.gc_plz||'').trim(), p.gc_ortsteil].filter(Boolean).join(' ')].filter(x=>x&&x.trim()).join(', ');
-    if(hAddr)                        push('Address', esc(hAddr));
-    if(p._layer==='weitere'){
-      if(p.fachabteilungen)          push('Speciality', esc(p.fachabteilungen));
-      if(p.betten)                   push('Beds', esc(p.betten));
+    // Hamburg's BOD publishes address/beds/traeger/homepage under different keys —
+    // detect via `adresse` presence and shape rows from those fields.
+    if(p.adresse || p.traegerschaft){
+      const hAddr = [p.adresse, p.ort].filter(x => x && x.trim()).join(', ');
+      if(hAddr)                       push('Address', esc(hAddr));
+      if(p.planbetten != null && p.planbetten !== '')
+                                       push('Beds', esc(String(p.planbetten)));
+      else if(p.groessenklasse_krankenhaus)
+                                       push('Beds', esc(p.groessenklasse_krankenhaus));
+      if(p.teilstationaere_behandlungsplaetze != null && p.teilstationaere_behandlungsplaetze !== '')
+                                       push('Day-care places', esc(String(p.teilstationaere_behandlungsplaetze)));
+      if(p.traegerschaft)              push('Träger', esc(p.traegerschaft));
+      if(p.art_der_stationaeren_versorgung)
+                                       push('Care model', esc(p.art_der_stationaeren_versorgung));
+      if(p.not_und_unfallversorgung){
+        const t = String(p.not_und_unfallversorgung);
+        const isER = /Teilnahme/i.test(t) && !/keine/i.test(t);
+        push('Emergency room', isER ? '✓ Yes' : 'No');
+      }
+      if(p.homepage)                   push('Website', webLink(p.homepage));
     } else {
-      if(p.betten_insgesamt)         push('Beds', esc(p.betten_insgesamt));
-      if(p.kkh && p.kkh_standort && p.kkh.trim() !== p.kkh_standort.trim())
-                                     push('Träger', esc(p.kkh));
+      const hStreet=[p.gc_strasse, p.gc_haus].filter(Boolean).join(' ').trim();
+      const hAddr=[hStreet, [(p.gc_plz||'').trim(), p.gc_ortsteil].filter(Boolean).join(' ')].filter(x=>x&&x.trim()).join(', ');
+      if(hAddr)                        push('Address', esc(hAddr));
+      if(p._layer==='weitere'){
+        if(p.fachabteilungen)          push('Speciality', esc(p.fachabteilungen));
+        if(p.betten)                   push('Beds', esc(p.betten));
+      } else {
+        if(p.betten_insgesamt)         push('Beds', esc(p.betten_insgesamt));
+        if(p.kkh && p.kkh_standort && p.kkh.trim() !== p.kkh_standort.trim())
+                                       push('Träger', esc(p.kkh));
+      }
     }
     const o = it.osm || {};
-    if(o.emergency === 'yes')        push('Emergency room', '✓ Yes');
-    else if(o.emergency === 'no')    push('Emergency room', 'No');
+    if(o.emergency === 'yes')        push('Emergency room (OSM)', '✓ Yes');
+    else if(o.emergency === 'no')    push('Emergency room (OSM)', 'No');
     if(o.phone)                      push('Phone', telLink(o.phone));
-    if(o.website)                    push('Website', webLink(o.website));
+    if(o.website && !p.homepage)     push('Website', webLink(o.website));
     if(o.wheelchair === 'yes')       push('Access', 'Step-free');
   }
   else if(cat === 'fountains'){
-    // BOD-only. Address comes from standort (free text) + district.
-    const loc=[p.standort, p.postleitzahl&&(p.postleitzahl+' '+(p.bezirk||''))].filter(x=>x&&String(x).trim()).join(', ');
-    if(loc)                          push('Location', esc(loc));
-    if(p.einschraenkungen)           push('Out of service', esc(p.einschraenkungen));
-    if(p.trinkbrunnenart)            push('Type', esc(p.trinkbrunnenart));
-    if(p.baujahr)                    push('Installed', esc(p.baujahr));
-    if(p.informationen && p.informationen.trim())
+    // Berlin BOD (Trinkbrunnenart / Baujahr / Informationen) vs. Hamburg's
+    // combined WC+Trinkbrunnen layer (toilette / adresse / kostenlos /
+    // behindertengerecht). Detect Hamburg via `toilette` presence.
+    if(p.toilette || p.adresse){
+      const loc=[p.standort, p.adresse, p.bezirk].filter(x=>x&&String(x).trim()).join(' · ');
+      if(loc)                        push('Location', esc(loc));
+      if(p.toilette)                 push('Type', esc(p.toilette));
+      const perks = [];
+      if(p.kostenlos === 'ja')             perks.push('Free');
+      if(p.behindertengerecht === 'ja')    perks.push('Step-free');
+      if(p.genderneutral === 'ja')         perks.push('Gender-neutral');
+      if(p.wickeltisch === 'ja')           perks.push('Changing table');
+      if(perks.length)               push('Amenities', esc(perks.join(' · ')));
+    } else {
+      const loc=[p.standort, p.postleitzahl&&(p.postleitzahl+' '+(p.bezirk||''))].filter(x=>x&&String(x).trim()).join(', ');
+      if(loc)                        push('Location', esc(loc));
+      if(p.einschraenkungen)         push('Out of service', esc(p.einschraenkungen));
+      if(p.trinkbrunnenart)          push('Type', esc(p.trinkbrunnenart));
+      if(p.baujahr)                  push('Installed', esc(p.baujahr));
+      if(p.informationen && p.informationen.trim())
                                      push('Season', esc(p.informationen.trim()));
+    }
   }
   else if(cat === 'transit'){
     const modes = [];
@@ -135,6 +198,12 @@ export function amenDetailHtml(cat, it){
       if(t.fee === 'yes')            push('Fee', 'Yes');
       if(t.access && t.access !== 'yes') push('Access', esc(t.access));
       if(t.wheelchair === 'yes')     push('Wheelchair', 'Step-free');
+    } else if(p.beschreibung || p.anbindung || p.link){
+      // Hamburg BOD (spielplaetze_hh): name/beschreibung/link/bild/anbindung.
+      // No Baujahr/Sanierjahr/Fläche/Widmung fields; render what's available.
+      if(p.beschreibung)             push('Description', esc(p.beschreibung));
+      if(p.anbindung)                push('Transit access', esc(p.anbindung));
+      if(p.link)                     push('More', webLink(p.link));
     } else {
       if(p.katasterfl)               push('Area', `${(+p.katasterfl).toLocaleString('en-US')} m²`);
       if(p.baujahr && p.baujahr.trim())     push('Built',     esc(p.baujahr.trim()));
@@ -155,6 +224,18 @@ export function amenDetailHtml(cat, it){
         const title = parts.slice(1).join(':') || parts[0];
         push('More', `<a href="https://${esc(lang)}.wikipedia.org/wiki/${encodeURIComponent(title)}" target="_blank" rel="noopener">Wikipedia</a>`);
       }
+    } else if(p.flaeche_ha || p.stadtteil || p.gruen_art){
+      // Hamburg BOD (verzeichnis_oeffentlicher_gruenanlagen).
+      const loc = [p.stadtteil, p.belegenheit].filter(x => x && String(x).trim()).join(' · ');
+      if(loc)                        push('Location', esc(loc));
+      if(p.flaeche_ha && String(p.flaeche_ha).trim()){
+        const ha = parseFloat(String(p.flaeche_ha).replace(',', '.'));
+        if(isFinite(ha))             push('Area', ha >= 1 ? `${ha.toFixed(2)} ha` : `${Math.round(ha * 10_000).toLocaleString('en-US')} m²`);
+      }
+      if(p.gruen_art)                push('Status', esc(p.gruen_art));
+      if(p.verwaltungsvermoegen)     push('Managed by', esc(p.verwaltungsvermoegen));
+      if(p.eigentum)                 push('Ownership', esc(p.eigentum));
+      if(p.aktualitaet)              push('As of', esc(p.aktualitaet));
     } else {
       if(p.katasterfl){
         const a = +p.katasterfl;
@@ -168,10 +249,17 @@ export function amenDetailHtml(cat, it){
   }
   // Phase-1 tile detail rows.
   else if(cat === 'fireRescue'){
+    if(it._address)                  push('Address', esc(it._address));
     if(it._zone)                     push('Zone', esc(it._zone));
     if(it._phone_bf && it._phone_bf !== '-')  push('Phone (Berufsfeuerwehr)', telLink(it._phone_bf));
     if(it._phone_ff && it._phone_ff !== '-')  push('Phone (Freiwillige)',     telLink(it._phone_ff));
-    if(it.info)                      push('Kind',    esc(it.info));
+    // Universal fire/rescue emergency number in DE (shown when per-station
+    // phones aren't published — Hamburg's WFS carries no telefon field).
+    if(!it._phone_bf && !it._phone_ff) push('Emergency', telLink('112'));
+    const kind = it._type === 'BF' ? 'Professional (Berufsfeuerwehr)'
+                : it._type === 'FF' ? 'Volunteer (Freiwillige Feuerwehr)'
+                : (it.info || '');
+    if(kind)                         push('Kind', esc(kind));
   }
   else if(cat === 'swimSpots'){
     if(it._kind === 'natural'){

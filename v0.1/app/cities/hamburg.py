@@ -152,6 +152,65 @@ _KUNDENZENTREN = (
     {"name": "Kundenzentrum Harburg",        "address": "Harburger Rathausplatz 1, 21073 Hamburg", "lat": 53.4591, "lon":  9.9795},
 )
 
+# ---- LEA equivalent — Hamburg's Einwohner-Zentralamt (Ausländerbehörde) ----
+# One-office directory, same shape as Berlin's LEA. Verified 2026-09-21
+# from hamburg.de/behoerdenfinder.
+_LEA_OFFICE = {
+    "name":    "Einwohner-Zentralamt (Ausländerangelegenheiten)",
+    "address": "Amsinckstraße 28, 20097 Hamburg",
+    "lat":     53.5468, "lon": 10.0135,
+    "website": "https://www.hamburg.de/behoerdenfinder/hamburg/11331683/",
+}
+
+# ---- Arbeitsagentur Hamburg — 4 city branches per arbeitsagentur.de --------
+_ARBEITSAGENTURS = (
+    {"name": "Agentur für Arbeit Hamburg (Zentrale)",
+     "address": "Kurt-Schumacher-Allee 16, 20097 Hamburg",
+     "lat": 53.5497, "lon": 10.0136,
+     "website": "https://www.arbeitsagentur.de/vor-ort/hamburg"},
+    {"name": "Agentur für Arbeit Hamburg-Altona",
+     "address": "Kieler Straße 39, 22769 Hamburg",
+     "lat": 53.5786, "lon": 9.9391,
+     "website": "https://www.arbeitsagentur.de/vor-ort/hamburg-altona"},
+    {"name": "Agentur für Arbeit Hamburg-Harburg",
+     "address": "Harburger Ring 35, 21073 Hamburg",
+     "lat": 53.4602, "lon": 9.9855,
+     "website": "https://www.arbeitsagentur.de/vor-ort/hamburg-harburg"},
+    {"name": "Agentur für Arbeit Hamburg-Nord",
+     "address": "Alsterdorfer Straße 262, 22297 Hamburg",
+     "lat": 53.6142, "lon": 10.0136,
+     "website": "https://www.arbeitsagentur.de/vor-ort/hamburg-nord"},
+)
+
+# ---- Curated intl / bilingual schools Hamburg (private + a few state) ------
+# Hamburg's public schools WFS only ingests `staatliche_schulen`; most
+# international schools are private and not in that layer. Curated list
+# stands in until private-schools ingest lands. Shape matches Berlin's
+# `bilingual_schools` intent but is a positional tuple so it can flow through
+# `intl_schools_curated` → Index fallback in `nearest_intl`.
+_INTL_SCHOOLS = (
+    {"name":    "International School of Hamburg",
+     "address": "Hemmingstedter Weg 130, 22609 Hamburg",
+     "lat": 53.5719, "lon":  9.8434,
+     "website": "https://www.ish.hamburg/",
+     "kind":    "International (K–12)"},
+    {"name":    "Phorms Hamburg (Bilingual)",
+     "address": "Willi-Bredel-Straße 43, 22159 Hamburg",
+     "lat": 53.6242, "lon": 10.1245,
+     "website": "https://hamburg.phorms.de/",
+     "kind":    "Bilingual DE/EN (K–12)"},
+    {"name":    "Heinrich-Hertz-Schule (bilingual profile)",
+     "address": "Grasweg 72–76, 22303 Hamburg",
+     "lat": 53.5904, "lon":  9.9948,
+     "website": "https://www.hhs-hamburg.de/",
+     "kind":    "State bilingual DE/EN"},
+    {"name":    "Katharineum zu Hamburg (Europa-Schule)",
+     "address": "Bogenstraße 34–36, 20144 Hamburg",
+     "lat": 53.5720, "lon":  9.9707,
+     "website": "https://katharineum.hamburg/",
+     "kind":    "Bilingual DE/EN"},
+)
+
 # ---- Finanzämter Hamburg — ~9 offices per Finanzbehörde directory ----------
 _FINANZAMTS = (
     {"name": "Finanzamt Hamburg-Altona",      "address": "Große Bergstraße 264, 22767 Hamburg", "lat": 53.5497, "lon":  9.9345},
@@ -165,11 +224,13 @@ _FINANZAMTS = (
     {"name": "Finanzamt Hamburg-Oberalster",  "address": "Am Ohlmoorgraben 4, 22391 Hamburg",   "lat": 53.6635, "lon": 10.0730},
 )
 
-# ---- Others admin cards: Kundenzentrum + Finanzamt + Standesamt ------------
+# ---- Others admin cards: Kundenzentrum + Finanzamt + Standesamt + LEA + Arbeitsagentur ----
 OTHERS_ADMIN_CARDS: tuple = (
-    OthersAdminCardConfig(key="kundenzentrum", label="Kundenzentrum (Anmeldung)",   icon="buergeramt"),
-    OthersAdminCardConfig(key="finanzamt",     label="Finanzamt (Tax Office)",       icon="finanzamt"),
-    OthersAdminCardConfig(key="standesamt",    label="Standesamt (Marriage / Birth)", icon="standesamt"),
+    OthersAdminCardConfig(key="kundenzentrum",  label="Kundenzentrum (Anmeldung)",         icon="buergeramt"),
+    OthersAdminCardConfig(key="finanzamt",      label="Finanzamt (Tax Office)",            icon="finanzamt"),
+    OthersAdminCardConfig(key="standesamt",     label="Standesamt (Marriage / Birth)",     icon="standesamt"),
+    OthersAdminCardConfig(key="lea",            label="LEA (Residence Permit)",            icon="lea"),
+    OthersAdminCardConfig(key="arbeitsagentur", label="Arbeitsagentur (Employment Agency)", icon="arbeitsagentur"),
 )
 
 # ---- Lens configs: Task 13 fills Newcomer; Task 14 fills Commuter; YF+QL deferred (spec Q9) ----
@@ -364,8 +425,15 @@ HAMBURG = CityConfig(
 
     kita_wfs_url=_WFS_KITA,
     kita_layer="app:KitaEinrichtungen",
+    # Extended vs Berlin's 4-key map — carries per-Kita rendering fields
+    # (Strasse/Hausnr/PLZ/Ort/Telefon + Leistungsname[]) so the frontend
+    # tooltip has Address/Phone/Capacity/Approach rows for Hamburg too.
     kita_field_map={"name": "Name", "capacity": "Anzahl_betreuter_Kinder",
-                    "operator_type": "Leistungsarten", "approach": "Leistungsarten"},
+                    "operator_type": "Leistungsarten", "approach": "Leistungsname",
+                    "street": "Strasse", "hnr": "Hausnr", "plz": "PLZ", "ort": "Ort",
+                    "phone": "Telefon", "contact": "Ansprechpartner",
+                    "area_sqm": "Pädagogische_Fläche_in_qm",
+                    "as_of": "Erhebungsstichtag"},
 
     hospital_wfs_url=_WFS_KKH,
     hospital_layers=(("de.hh.up:gesundheit_krankenhaeuser", "plan"),),
@@ -374,16 +442,27 @@ HAMBURG = CityConfig(
         "beds": "planbetten", "beds_alt": "teilstationaere_behandlungsplaetze",
         "traeger": "traegerschaft", "ortsteil": "ort",
         "fachabteilungen": "art_der_stationaeren_versorgung",
+        # extended: adresse + ort together give a full street + PLZ line;
+        # homepage feeds the Website row on the tooltip.
+        "address": "adresse", "website": "homepage",
+        "beds_class": "groessenklasse_krankenhaus",
     },
     hospital_radius_m=2000, hospital_match_m=500,
 
     fountains_wfs_url=_WFS_BRUNNEN, fountains_layer="de.hh.up:wc_mit_trinkbrunnen",
+    # Verified live 2026-09-21: layer carries {toilette, standort, adresse,
+    # bezirk, kostenlos, behindertengerecht, genderneutral, wickeltisch}.
+    # `type` → `toilette` (Automatiktoilette / Trinkbrunnen), `location` →
+    # `standort`, `seasonal` absent → left as unmapped `hinweis` for fallthrough.
     fountains_field_map={"seasonal": "hinweis", "bezirk": "bezirk",
-                          "type": "typ", "location": "standort"},
+                          "type": "toilette", "location": "standort",
+                          "address": "adresse", "free": "kostenlos",
+                          "wheelchair": "behindertengerecht"},
 
     green_wfs_url=_WFS_GRUENPLAN,
     parks_layer="de.hh.up:verzeichnis_oeffentlicher_gruenanlagen",
-    playgrounds_layer=None,   # split WFS — loaded via separate _WFS_SPIELPLAETZE at impl
+    playgrounds_layer="de.hh.up:spielplaetze_hh",
+    playgrounds_wfs_url=_WFS_SPIELPLAETZE,   # split WFS — separate base URL
 
     # Noise: isoline model, 6 layers
     noise_wfs_url=_WFS_LAERM,
@@ -398,12 +477,19 @@ HAMBURG = CityConfig(
     noise_isoline_air_day_layer=None,
     noise_isoline_air_night_layer=None,
 
-    # Fire: BF + FF layers (UNION at impl); no citywide zone layer
+    # Fire: BF + FF two layers (UNION at load-time); no citywide zone layer.
+    # Verified live 2026-09-21 — layers carry {bezeichnung, strasse,
+    # hausnummer, postleitzahl, ab_ort, ab_ortsteil}. No `telefon` on
+    # either layer, so per-station phone rows are dropped for Hamburg
+    # (universal fire/rescue number: 112).
     fire_wfs_url=_WFS_FEUERWEHR,
     fire_stations_layer="de.hh.up:berufsfeuerwehr",
+    fire_stations_layer_ff="de.hh.up:freiwillige_feuerwehr",
     fire_zones_layer=None,
-    fire_stations_field_map={"name": "name", "type": "typ", "address": "adresse",
-                              "phone_bf": "telefon", "phone_ff": "telefon", "zone_id": None},
+    fire_stations_field_map={"name": "bezeichnung", "type": None,
+                              "address": "strasse", "hnr": "hausnummer",
+                              "plz": "postleitzahl", "ort": "ab_ort",
+                              "phone_bf": None, "phone_ff": None, "zone_id": None},
     fire_zones_field_map={},
     fire_zones_available=False,
 
@@ -491,8 +577,9 @@ HAMBURG = CityConfig(
     bezirksgrenzen_field_map={"name": "bezirk_name"},   # verify at impl
     buergeramt_wfs_url=None, buergeramt_layer=None, buergeramt_field_map={},
     finanzamts=_FINANZAMTS, standesamts_by_bezirk=_STANDESAMTS_BY_BEZIRK,
-    arbeitsagenturs=(), lea_office={},
+    arbeitsagenturs=_ARBEITSAGENTURS, lea_office=_LEA_OFFICE,
     kundenzentren=_KUNDENZENTREN,
+    intl_schools_curated=_INTL_SCHOOLS,
     others_admin_cards=OTHERS_ADMIN_CARDS,
 
     xmas_market_url=None,
@@ -564,11 +651,14 @@ if __name__ == "__main__":
     # No tram tile in either lens
     assert "tram_transit" not in keys
     assert "commuter_tram_transit" not in commuter_keys
-    # Others tab: 3 curated cards (Kundenzentrum, Finanzamt, Standesamt)
+    # Others tab: 5 curated cards (Kundenzentrum, Finanzamt, Standesamt, LEA, Arbeitsagentur)
     admin_keys = [c.key for c in HAMBURG.others_admin_cards]
-    assert admin_keys == ["kundenzentrum", "finanzamt", "standesamt"], admin_keys
+    assert admin_keys == ["kundenzentrum", "finanzamt", "standesamt", "lea", "arbeitsagentur"], admin_keys
     assert len(HAMBURG.kundenzentren) == 7, len(HAMBURG.kundenzentren)
     assert len(HAMBURG.finanzamts) == 9, len(HAMBURG.finanzamts)
+    assert len(HAMBURG.arbeitsagenturs) == 4, len(HAMBURG.arbeitsagenturs)
+    assert HAMBURG.lea_office and HAMBURG.lea_office.get("name")
+    assert len(HAMBURG.intl_schools_curated) >= 3
     # Attribution keys wired for every provenance-bearing dataset
     for k in ("schools", "kitas", "hospitals", "trees", "sozialmonitoring",
               "ferry", "parkzone", "standesamt", "kundenzentrum", "finanzamt"):
