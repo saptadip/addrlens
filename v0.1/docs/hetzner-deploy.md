@@ -321,6 +321,150 @@ Zero-to-live playbook for deploying addrlens to a fresh Hetzner box behind a Clo
   - **Rotating the Resend API key:** Resend dashboard → API Keys → revoke old → create new → update Gmail Send-As SMTP password. ~2 min. No DNS changes needed.
   - **If Cloudflare Email Routing was disabled** (currently enabled per the Umami setup step, which uses the same Email tab), the inbound `sapta@addrlens.de` → Gmail forward stops working, so the Gmail Send-As verification code won't arrive. Confirm Email Routing is enabled before starting step 6.
 
+## Deploying Hamburg alongside Berlin
+
+Ships Hamburg as a second `app-hh` container next to Berlin's `app`, served on `hamburg.addrlens.de` via the same Cloudflare Tunnel. Berlin keeps serving throughout — this procedure is additive.
+
+Read alongside:
+- `v0.1/ops/cloudflared/README.md` § "Hamburg subdomain" — tunnel Public Hostname setup
+- `v0.1/docs/hamburg-rollout-checklist.md` — post-deploy verification runbook
+
+### 1. First-boot data seed (on the box)
+
+Hamburg reads HVV S/U + ferry CSVs from a bind-mounted volume that doesn't exist on a fresh host. The `refresh-hvv.timer` only fires monthly, so seed the volume before `docker compose up`:
+
+```bash
+sudo mkdir -p /srv/addrlens/data/hamburg-transit
+sudo cp /srv/addrlens/repo/v0.1/app/cities/data/vbb_hamburg_su.csv \
+        /srv/addrlens/data/hamburg-transit/
+sudo cp /srv/addrlens/repo/v0.1/app/cities/data/hvv_hamburg_ferry.csv \
+        /srv/addrlens/data/hamburg-transit/
+```
+
+Alternative: run the live refresh once to pull the current month's GTFS:
+```bash
+sudo mkdir -p /srv/addrlens/data/hamburg-transit
+cd /srv/addrlens/repo/v0.1
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+    --env-file /srv/addrlens/.env.production \
+    run --rm --entrypoint python app-hh -m scripts.refresh_hvv
+```
+The script writes to `/srv/hamburg-transit/` inside the container, mapped to `/srv/addrlens/data/hamburg-transit/` on the host via the `HVV_OUT_SU` / `HVV_OUT_FERRY` env vars set in `docker-compose.prod.yml`.
+
+Hamburg OSM snapshot dir also needs a first-boot seed:
+```bash
+sudo mkdir -p /srv/addrlens/data/osm-hamburg
+cd /srv/addrlens/repo/v0.1
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+    --env-file /srv/addrlens/.env.production \
+    run --rm --entrypoint python app-hh \
+    -m scripts.refresh_osm_amenities --city hamburg
+```
+Takes ~2-3 min (Geofabrik Hamburg PBF is smaller than Berlin's). Writes `hamburg-amenities.json` + `hamburg-addresses.json` to `/srv/addrlens/data/osm-hamburg/`.
+
+### 2. Env vars
+
+Append to `/srv/addrlens/.env.production`:
+
+```
+# Hamburg-specific Umami site (create in Umami dashboard first —
+# hamburg.addrlens.de tracks pageviews separately from Berlin)
+UMAMI_WEBSITE_ID_HAMBURG=<hamburg site tracking id>
+UMAMI_SCRIPT_URL_HAMBURG=<same script URL as Berlin — usually https://umami.addrlens.de/script.js>
+
+# Optional: pin Sentry env to keep Berlin's existing filter working.
+# If unset, Berlin defaults to "berlin-production" and Hamburg to
+# "hamburg-production" — widen your Sentry dashboard filter to match,
+# OR set this env var to preserve the pre-Hamburg literal "production":
+# SENTRY_ENV=production
+```
+
+Berlin's shared `UMAMI_WEBSITE_ID` and `UMAMI_SCRIPT_URL` continue to serve `app` — Hamburg reads `_HAMBURG` suffix first, falls back to shared if the suffix is unset (per `app/main.py:_CITY_ENV` dispatch).
+
+### 3. Cloudflare Tunnel Public Hostname
+
+Add a second Public Hostname to the existing tunnel:
+
+| Field | Value |
+|---|---|
+| Subdomain | `hamburg` |
+| Domain | `addrlens.de` |
+| Service Type | HTTP |
+| URL | `app-hh:8002` |
+| HTTP Host Header | `hamburg.addrlens.de` |
+
+Full walkthrough in `v0.1/ops/cloudflared/README.md` § "Hamburg subdomain". Wizard creates the proxied CNAME `hamburg.addrlens.de` → the tunnel automatically. Berlin's apex `addrlens.de` hostname is untouched.
+
+### 4. Build + start app-hh
+
+```bash
+cd /srv/addrlens/repo/v0.1
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+    --env-file /srv/addrlens/.env.production \
+    up -d app-hh
+```
+
+Watch startup — Index boot takes ~10-20 s against Hamburg's WFS endpoints:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+    logs -f app-hh
+```
+Expect the loader-count lines to match the thresholds in `hamburg-rollout-checklist.md § Boot` (schools ≥ 270, kitas ≥ 1100, hospitals ≥ 35, S-Bahn ≥ 140, U-Bahn ≥ 200, ferry piers ≥ 30, sozialmonitoring polygons ≥ 1400).
+
+Health check:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec app-hh \
+    python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8002/ready').read())"
+```
+Expect `{"status":"ready","city":"hamburg"}`.
+
+Berlin unaffected — confirm both containers running:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+# Expect: app (port 8001) + app-hh (port 8002) + inference + cloudflared + umami + umami-db, all Up (healthy)
+```
+
+### 5. Systemd refresh timers
+
+```bash
+sudo systemctl link /srv/addrlens/repo/v0.1/ops/systemd/refresh-hvv.service
+sudo systemctl link /srv/addrlens/repo/v0.1/ops/systemd/refresh-hvv.timer
+sudo systemctl link /srv/addrlens/repo/v0.1/ops/systemd/refresh-osm-hamburg.service
+sudo systemctl link /srv/addrlens/repo/v0.1/ops/systemd/refresh-osm-hamburg.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now refresh-hvv.timer refresh-osm-hamburg.timer
+```
+
+Verify:
+```bash
+systemctl list-timers refresh-hvv.timer refresh-osm-hamburg.timer
+# NEXT column should show 1st of next month 05:00 (hvv) + next Sunday 04:00 (osm-hamburg)
+```
+
+Berlin's existing `refresh-osm-amenities.timer` continues to fire on Sun 03:00 — Hamburg's OSM timer is offset by 1h to avoid hammering Geofabrik.
+
+### 6. Verify + sign off
+
+Walk `v0.1/docs/hamburg-rollout-checklist.md` end-to-end (Boot → 10-address suite → LLM insights → Legal → Cross-link → SSR+CSP → Metrics → Data refresh timers → Rollback dry-run → Sign-off).
+
+### Rollback
+
+To stop Hamburg without touching Berlin:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml stop app-hh
+```
+Berlin's `app` container keeps serving. Cloudflare will return 502 on `hamburg.addrlens.de` until either `app-hh` restarts or the Public Hostname is removed at Cloudflare.
+
+To fully unwind:
+1. `docker compose ... stop app-hh` (above)
+2. Delete the `hamburg` Public Hostname at Cloudflare
+3. `sudo systemctl disable --now refresh-hvv.timer refresh-osm-hamburg.timer`
+4. `sudo rm /etc/systemd/system/refresh-hvv.{service,timer} /etc/systemd/system/refresh-osm-hamburg.{service,timer}`
+5. `sudo systemctl daemon-reload`
+6. Optional: `sudo rm -rf /srv/addrlens/data/hamburg-transit /srv/addrlens/data/osm-hamburg`
+
+Berlin is untouched by any of the above.
+
 ## Updates
 
 Run from the box after `git push origin main` has landed the new code:
