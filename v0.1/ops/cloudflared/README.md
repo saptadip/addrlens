@@ -27,6 +27,25 @@ Wizard → **Public Hostnames** step:
 
 The wizard automatically creates a proxied CNAME `addrlens.de` → `<tunnel-id>.cfargotunnel.com`. If existing A/AAAA records exist on apex, accept the wizard's "replace" prompt.
 
+### Hamburg subdomain
+
+Add a second Public Hostname on the same tunnel for Hamburg:
+
+| Field | Value |
+|---|---|
+| Subdomain | `hamburg` |
+| Domain | `addrlens.de` |
+| Path | *(blank — all paths)* |
+| Service Type | HTTP |
+| URL | `app-hh:8002` |
+
+**Additional Application Settings:**
+- HTTP Host Header: `hamburg.addrlens.de`
+- HTTP2 connection: On
+- Connection timeout: 30 s
+
+Wizard creates `hamburg.addrlens.de` proxied CNAME to the same tunnel. `app-hh` container (docker-compose.prod.yml) runs `CITY=hamburg` on port 8002.
+
 ## Token rotation
 
 If the token is compromised or you want to rotate:
