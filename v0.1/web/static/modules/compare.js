@@ -17,18 +17,92 @@ export function compareRefreshPill(){
 }
 export function snapshotId(a){ return `${a.street}-${a.hnr}-${a.plz}`.toLowerCase().replace(/\s+/g,'-'); }
 
+// Bump when snapshot shape changes so stale localStorage entries get
+// dropped instead of rendering blank rows against a new schema.
+export const SNAPSHOT_SCHEMA = 3;
+
+// Prune snapshots saved against an older shape — run once at module load
+// so every consumer (pill count, Save button, analytics, render) sees the
+// same list. Cheap: parses localStorage once, writes only when something
+// changed. Idempotent across reloads. Placed AFTER the SNAPSHOT_SCHEMA
+// declaration to avoid a temporal-dead-zone ReferenceError swallowed by
+// the try/catch (which would leave the prune a silent no-op).
+(function pruneStaleSnapshotsOnce(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(COMPARE_KEY) || '[]');
+    const fresh = raw.filter(x => (x.schemaVersion || 1) === SNAPSHOT_SCHEMA);
+    if (fresh.length !== raw.length) {
+      localStorage.setItem(COMPARE_KEY, JSON.stringify(fresh));
+    }
+  } catch (e) { /* localStorage unavailable — nothing to prune */ }
+})();
+
 export function buildSnapshot(){
   if(!S.eduData||!S.eduData.address) return null;
   const a=S.eduData.address, c=S.eduData.catchment||{}, s=(S.eduData.schools||[])[0], i=S.eduData.intl_grundschule, k=S.eduData.kitas||{};
   const cnt=(cat)=> (S.amenData && S.amenData[cat]) ? S.amenData[cat].count : null;
   const schoolDist = s && s.lat!=null ? Math.round(haversineM(a.lat, a.lon, s.lat, s.lon)) : null;
+  // Hamburg's OAF geocoder exposes district under `raw.bezirke` (aliased in
+  // oaf_geocoder.py). Fall through both so `district` is never `null` when a
+  // real Bezirk / borough is known.
+  const districtFallback = c.district || (a.raw && (a.raw.bezirke || a.raw.bezirk)) || null;
+  // Ortsteil / neighborhood: Berlin BOD exposes `raw.ort_name`; Hamburg OAF
+  // exposes `raw.ortsteil` (aliased from `postOrtsteil` by oaf_geocoder).
+  const ortsteil = (a.raw && (a.raw.ort_name || a.raw.ortsteil || a.raw.postOrtsteil)) || null;
+  // Locality band — Berlin's GESIx quintile OR Hamburg's Sozialmonitoring
+  // Statusindex. Both surface here as a single { label, tier } pair so the
+  // Compare row can render one cell shape regardless of city.
+  const locality = (() => {
+    const gx = S.eduData.gesix;
+    if (gx) {
+      const label = gx.class_en || gx.class_de || null;
+      const q = gx.quintile_5 || null;
+      const tier = q >= 1 && q <= 2 ? 'green' : q === 3 ? 'amber' : q >= 4 ? 'red' : 'unknown';
+      return { label: label || (q ? `Quintile ${q} of 5` : null),
+                sub: gx.plr_name || null,
+                tier, source: 'gesix' };
+    }
+    const sm = S.eduData.sozialmonitoring;
+    if (sm && sm.statusindex) {
+      const status = String(sm.statusindex);
+      const low = status.toLowerCase();
+      const tier = low === 'hoch' ? 'green'
+                 : low === 'mittel' ? 'amber'
+                 : low.includes('sehr') ? 'red'
+                 : low === 'niedrig' ? 'orange'
+                 : 'unknown';
+      const pretty = status.charAt(0).toUpperCase() + status.slice(1);
+      return { label: pretty, sub: sm.stadtteil || null,
+                tier, source: 'sozialmonitoring' };
+    }
+    return null;
+  })();
+  // Hamburg has no per-school catchment polygon → schools[] empty. Fall
+  // through to nearest_school (raw view's Nearest primary school card)
+  // so this row isn't blank in the Compare board.
+  const nps = S.eduData.nearest_school;
+  const schoolLike = s || (nps ? {name:nps.name, sesb_strand:null,
+                                    school_year:nps.school_year,
+                                    lat:nps.lat, lon:nps.lon} : null);
+  const schoolDistFallback = schoolLike && schoolLike.lat != null
+    ? Math.round(haversineM(a.lat, a.lon, schoolLike.lat, schoolLike.lon))
+    : (nps && nps.distance_m != null ? nps.distance_m : null);
   return {
     id: snapshotId(a),
     savedAt: Date.now(),
-    address: {street:a.street, hnr:a.hnr, plz:a.plz, district:c.district, lat:a.lat, lon:a.lon},
-    catchment: {esb:c.esb, district:c.district},
-    school: s ? {name:s.name, sesb_strand:s.sesb_strand, school_year:s.school_year, distance_m:schoolDist} : null,
-    intl: i ? {name:i.name, distance_m:i.distance_m} : null,
+    schemaVersion: SNAPSHOT_SCHEMA,
+    citySlug: S.cfg?.slug || 'berlin',
+    address: {street:a.street, hnr:a.hnr, plz:a.plz, district:districtFallback,
+              ortsteil, locality, lat:a.lat, lon:a.lon},
+    catchment: {esb:c.esb, district:districtFallback},
+    school: schoolLike ? {name:schoolLike.name, sesb_strand:schoolLike.sesb_strand,
+                           school_year:schoolLike.school_year,
+                           // Prefer catchment-school distance; fall back to nearest-school
+                           // when the catchment row has no lat (Berlin edge case: BOD
+                           // school without coords) so the row isn't silently distanceless.
+                           distance_m: (s && schoolDist != null) ? schoolDist : schoolDistFallback} : null,
+    intl: i ? {name:i.name, distance_m:i.distance_m,
+                address: i.address || null, kind: i.kind || null} : null,
     counts: {kitas:k.count, playgrounds:cnt('playgrounds'), parks:cnt('parks'),
              pharmacies:cnt('pharmacies'), supermarkets:cnt('supermarkets'),
              gps:cnt('gps'), hospitals:cnt('hospitals'), fountains:cnt('fountains'),
@@ -80,8 +154,14 @@ export function buildSnapshot(){
         const f = t && t.features && t.features[0];
         return f ? { name: f.name, distance_m: f.distance_m } : null;
       };
+      // `anmeldung` is the shared slot for the Anmeldung office —
+      // buergeramt in Berlin, kundenzentrum in Hamburg. Frontend renders
+      // one row against this key so the Compare table doesn't care about
+      // the local name (which lives in the row's label).
       return {
+        anmeldung:      nearest('buergeramt') || nearest('kundenzentrum'),
         buergeramt:     nearest('buergeramt'),
+        kundenzentrum:  nearest('kundenzentrum'),
         finanzamt:      nearest('finanzamt'),
         standesamt:     nearest('standesamt'),
         lea:            nearest('lea'),
@@ -107,6 +187,8 @@ export function refreshSaveBtn(){
   const snap=buildSnapshot();
   if(!snap){ btn.hidden=true; return; }
   btn.hidden=false;
+  // Stale-schema snapshots are pruned at module load, so a plain read is
+  // safe here — no risk of a pre-schema-bump entry wrongly disabling Save.
   const already=compareLoad().find(x=>x.id===snap.id);
   if(already){ btn.textContent='✓ Added to Compare'; btn.disabled=true; return; }
   // Ready if both fetches landed AND (no OSM errors OR we've already retried once).
@@ -124,6 +206,7 @@ export function showView(){
 }
 
 export function renderCompare(){
+  // Stale-schema snapshots pruned at module load; safe to read directly.
   const list=compareLoad();
   const $c=document.getElementById('compare-content');
   const header=`<div class="compare-header">
@@ -246,17 +329,51 @@ export function renderCompare(){
   const someHasAirDen   = list.some(s => s.noise && s.noise.den_air   != null);
   const someHasAirNight = list.some(s => s.noise && s.noise.night_air != null);
 
+  // City-aware labels + row filtering: hide rows that would be all-blank
+  // for the current comparison. Assume single-city comparison; if the user
+  // mixes cities, the label follows the first snapshot.
+  const allHamburg = list.every(s => s.citySlug === 'hamburg');
+  const anmeldungLabel = allHamburg ? 'Kundenzentrum · nearest' : 'Bürgeramt · nearest';
+  const schoolRowLabel = list.every(s => !s.school || s.school.sesb_strand == null)
+    ? 'Nearest primary school' : 'Catchment Grundschule';
+  const someHasSesb    = list.some(s => s.school && s.school.sesb_strand);
+  const someHasIntl    = list.some(s => s.intl);
+  const someHasNoise   = list.some(s => s.noise);
+  const someHasAq      = list.some(s => s.aq);
+  const someHasTram    = list.some(s => s.connectivity && s.connectivity.tram);
+  const someHasFerry   = list.some(s => s.connectivity && s.connectivity.ferry);
+  const someHasOrtsteil = list.some(s => s.address && s.address.ortsteil);
+  const someHasLocality = list.some(s => s.address && s.address.locality && s.address.locality.label);
+  const localityHeaderLabel = allHamburg
+    ? 'Locality band (Sozialmonitoring)'
+    : 'Locality band (GESIx)';
+  const localityCell = (loc) => {
+    if(!loc || !loc.label) return `<td class="na">—</td>`;
+    const sub = loc.sub ? ` <span style="color:var(--muted);font-weight:500">· ${esc(loc.sub)}</span>` : '';
+    return `<td><span class="noise-cell tier-${loc.tier || 'unknown'}">${esc(loc.label)}</span>${sub}</td>`;
+  };
+  const airportLabel   = allHamburg ? 'Airport (HAM)' : 'Airport (BER)';
+  const noiseSectLabel = allHamburg
+    ? 'Street noise'                                       // Hamburg noise map not wired
+    : 'Street noise (Berlin 2022 façade)';
+
   const rows = [
     sect('Location & Schools'),
-    row('District',        list.map(s=>cell(esc(s.address.district))).join('')),
-    row('Catchment Grundschule', list.map(schoolCell).join('')),
-    row('SESB bilingual',  list.map(s=>cell(s.school&&s.school.sesb_strand?`<span class="sesb-cell">${esc(s.school.sesb_strand)}</span>`:null)).join('')),
-    row('Nearest international', list.map(s=>cell(s.intl?`${esc(s.intl.name)} <span style="color:var(--muted);font-weight:500">(${(s.intl.distance_m/1000).toFixed(1)} km)</span>`:null)).join('')),
+    row('District',        list.map(s=>cell(s.address.district ? esc(s.address.district) : null)).join('')),
+    someHasOrtsteil ? row('Ortsteil',
+                          list.map(s=>cell(s.address && s.address.ortsteil ? esc(s.address.ortsteil) : null)).join('')) : null,
+    someHasLocality ? row(localityHeaderLabel,
+                          list.map(s => localityCell(s.address && s.address.locality)).join('')) : null,
+    row(schoolRowLabel,    list.map(schoolCell).join('')),
+    someHasSesb ? row('SESB bilingual',
+                      list.map(s=>cell(s.school&&s.school.sesb_strand?`<span class="sesb-cell">${esc(s.school.sesb_strand)}</span>`:null)).join('')) : null,
+    someHasIntl ? row('Nearest international',
+                      list.map(s=>cell(s.intl?`${esc(s.intl.name)} <span style="color:var(--muted);font-weight:500">(${(s.intl.distance_m/1000).toFixed(1)} km)</span>`:null)).join('')) : null,
     sect('Official services'),
-    row('Bürgeramt · nearest',     list.map(s => nameDistCell(s.admin?.buergeramt)).join('')),
+    row(anmeldungLabel,            list.map(s => nameDistCell(s.admin?.anmeldung)).join('')),
     row('Finanzamt · nearest',     list.map(s => nameDistCell(s.admin?.finanzamt)).join('')),
     row('Standesamt · assigned',   list.map(s => nameDistCell(s.admin?.standesamt)).join('')),
-    row('LEA · Berlin',            list.map(s => nameDistCell(s.admin?.lea)).join('')),
+    row('LEA (Residence Permit)',  list.map(s => nameDistCell(s.admin?.lea)).join('')),
     row('Arbeitsagentur · nearest',list.map(s => nameDistCell(s.admin?.arbeitsagentur)).join('')),
     sect('Kids & family within 800 m walk'),
     row('Kitas (registered)',    list.map(s=>cell(s.counts.kitas,'metric-num')).join('')),
@@ -273,24 +390,25 @@ export function renderCompare(){
     row('Doctors · 800 m',       list.map(s=>cell(s.counts.gps,'metric-num')).join('')),
     row('Hospitals · 2 km',      list.map(s=>cell(s.counts.hospitals,'metric-num')).join('')),
     row('Nearest hospital',      list.map(s=>cell(s.nearestHospital?`${esc(s.nearestHospital.name)} <span style="color:var(--muted);font-weight:500">(${s.nearestHospital.distance_m} m)</span>`:null)).join('')),
-    sect('Street noise (Berlin 2022 façade)'),
-    row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
-    row('L_Night · 22–06',       list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_night==null?null:s.noise.l_night+10)}">${s.noise.l_night!=null?s.noise.l_night.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')),
-    row('L_DEN Road-traffic',    list.map(s => noiseSourceCell(s.noise?.den_road,   false)).join('')),
-    row('L_Night Road-traffic',  list.map(s => noiseSourceCell(s.noise?.night_road, true )).join('')),
+    someHasNoise ? sect(noiseSectLabel) : null,
+    someHasNoise ? row('L_DEN · 24 h',          list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_den)}">${s.noise.l_den!=null?s.noise.l_den.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')) : null,
+    someHasNoise ? row('L_Night · 22–06',       list.map(s=>s.noise?`<td><span class="noise-cell tier-${noiseTierFromDen(s.noise.l_night==null?null:s.noise.l_night+10)}">${s.noise.l_night!=null?s.noise.l_night.toFixed(0)+' dB':'—'}</span></td>`:`<td class="na">—</td>`).join('')) : null,
+    someHasNoise ? row('L_DEN Road-traffic',    list.map(s => noiseSourceCell(s.noise?.den_road,   false)).join('')) : null,
+    someHasNoise ? row('L_Night Road-traffic',  list.map(s => noiseSourceCell(s.noise?.night_road, true )).join('')) : null,
     someHasAirDen   ? row('L_DEN Aircraft',   list.map(s => noiseSourceCell(s.noise?.den_air,   false)).join('')) : null,
     someHasAirNight ? row('L_Night Aircraft', list.map(s => noiseSourceCell(s.noise?.night_air, true )).join('')) : null,
     sect('Environment & climate'),
-    row('Air quality (NO₂)',     list.map(s => aqCell(s.aq)).join('')),
+    someHasAq ? row('Air quality (NO₂)',     list.map(s => aqCell(s.aq)).join('')) : null,
     row('Summer heat class',     list.map(s => heatCell(s.heat)).join('')),
     row('Nearest quiet zone',    list.map(s => quietZoneCell(s.quietZone)).join('')),
     sect('Connectivity'),
     row('Nearest S-Bahn',        list.map(s=>cell(s.connectivity?.sbahn         ? `${esc(s.connectivity.sbahn.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.sbahn.distance_m)})</span>` : null)).join('')),
     row('Nearest U-Bahn',        list.map(s=>cell(s.connectivity?.ubahn         ? `${esc(s.connectivity.ubahn.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.ubahn.distance_m)})</span>` : null)).join('')),
-    row('Nearest tram',          list.map(s=>cell(s.connectivity?.tram          ? `${esc(s.connectivity.tram.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.tram.distance_m)})</span>` : null)).join('')),
+    someHasTram ? row('Nearest tram', list.map(s=>cell(s.connectivity?.tram ? `${esc(s.connectivity.tram.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.tram.distance_m)})</span>` : null)).join('')) : null,
     row('Nearest regional rail', list.map(s=>cell(s.connectivity?.regional_rail ? `${esc(s.connectivity.regional_rail.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.regional_rail.distance_m)})</span>` : null)).join('')),
     row('Nearest bus',           list.map(s=>cell(s.connectivity?.bus           ? `${esc(s.connectivity.bus.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.bus.distance_m)})</span>` : null)).join('')),
-    row('Airport (BER)',         list.map(s=>cell(s.connectivity?.airport       ? `${esc(s.connectivity.airport.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.airport.distance_m)})</span>` : null)).join('')),
+    someHasFerry ? row('Nearest ferry pier', list.map(s=>cell(s.connectivity?.ferry ? `${esc(s.connectivity.ferry.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.ferry.distance_m)})</span>` : null)).join('')) : null,
+    row(airportLabel,            list.map(s=>cell(s.connectivity?.airport       ? `${esc(s.connectivity.airport.name)} <span style="color:var(--muted);font-weight:500">(${fmtDistance(s.connectivity.airport.distance_m)})</span>` : null)).join('')),
   ].filter(Boolean).join('');
   $c.innerHTML=`${header}${printHeader}<div class="compare-wrap"><table class="compare-table">
     <thead><tr><th class="metric-col"></th>${cols}</tr></thead>
