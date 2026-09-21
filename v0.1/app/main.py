@@ -219,10 +219,21 @@ def _load_index_html() -> str:
         html = html.replace('"addressLocality": "Berlin"', f'"addressLocality": "{dn}"')
         html = html.replace('"name": "Berlin"', f'"name": "{dn}"')
 
-        # Example address chip: swap Berlin example for Hamburg
+        # Example address chips + placeholder — swap Berlin defaults for
+        # Hamburg. Three chips + one input placeholder must all match the
+        # target city or expat users get a Berlin postcode as the on-boarding
+        # suggestion. Both `data-q` attr and visible text carry the literal.
         html = html.replace(
             "Sybelstrasse 59, Charlottenburg, 10629 Berlin",
             "Grindelallee 100, Rotherbaum, 20146 Hamburg",
+        )
+        html = html.replace(
+            "Kastanienallee 12, 10435",
+            "Heidenkampsweg 40, 20097",
+        )
+        html = html.replace(
+            "Konrad-Wolf-Straße 44A, 13055",
+            "Hebbelstraße 12, 22085",
         )
 
         # Footer attribution is now driven by the per-city <slug>-attribution.html
