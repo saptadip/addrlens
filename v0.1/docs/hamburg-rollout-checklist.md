@@ -4,7 +4,7 @@ Post-deploy smoke tests. Run against `hamburg-staging.addrlens.de` first;
 promote to `hamburg.addrlens.de` after all green.
 
 ## Boot
-- [ ] `docker compose logs app-hh` shows all Hamburg loaders completing with expected counts (schools ≥ 500, kitas ≥ 1000, hospitals ≥ 40, S-Bahn ≥ 60, U-Bahn ≥ 90, ferry piers ≥ 25, sozialmonitoring polygons ≥ 800; gesix empty)
+- [ ] `docker compose logs app-hh` shows all Hamburg loaders completing with expected counts (calibrated to 2026-09-21 live snapshot; small drift OK, large drops warrant investigation): schools ≥ 270 public Grundschulen, kitas ≥ 1100, hospitals ≥ 35, drinking fountains ≥ 40, S-Bahn ≥ 140, U-Bahn ≥ 200, ferry piers ≥ 30, sozialmonitoring polygons ≥ 1400, Bezirke = 7, parking zones ≥ 140, tempolimits segments ≥ 30 000, arterial segments ≥ 30 000; gesix empty; fire response zones empty (Hamburg has no zone polygon)
 - [ ] `curl https://hamburg-staging.addrlens.de/health` → 200 `{"status":"ok"}`
 - [ ] `curl https://hamburg-staging.addrlens.de/ready` → 200 `{"status":"ready","city":"hamburg"}`
 - [ ] `curl https://hamburg-staging.addrlens.de/api/config | jq .slug` → `"hamburg"`
@@ -12,7 +12,7 @@ promote to `hamburg.addrlens.de` after all green.
 - [ ] `docker compose logs app` unchanged — Berlin app still serving `addrlens.de`
 - [ ] `docker compose ps` shows both `app` (port 8001) + `app-hh` (port 8002) healthy
 
-## Sample-address suite (7 addresses across 7 Bezirke)
+## Sample-address suite (10 addresses across all 7 Bezirke)
 
 For each address, fetch `/api/lookup?street=...&hnr=...&plz=...` and verify:
 1. Sternschanze — Susannenstr. 34, 20357 (Altona)
@@ -22,6 +22,9 @@ For each address, fetch `/api/lookup?street=...&hnr=...&plz=...` and verify:
 5. Blankenese — Elbchaussee 500, 22587 (Altona)
 6. Wilhelmsburg — Vogelhüttendeich 30, 21107 (Hamburg-Mitte)
 7. Rahlstedt — Rahlstedter Str. 42, 22143 (Wandsbek)
+8. Hoheluft — Grindelallee 100, 20146 (Eimsbüttel)
+9. Bergedorf-Zentrum — Sachsentor 20, 21029 (Bergedorf)
+10. Harburg-Zentrum — Harburger Rathausplatz 1, 21073 (Harburg)
 
 Per address:
 - [ ] `/api/lookup` returns 200 with populated `sozialmonitoring` block (`statusindex`, `gesamtindex`, `dynamikindex`, `stadtteil`, `statgeb`, `berichtsjahr`, `provenance`)
