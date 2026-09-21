@@ -126,7 +126,6 @@ _UMAMI_SCRIPT_URL = (os.environ.get(f"UMAMI_SCRIPT_URL_{_CITY_ENV}")
 
 
 def _load_index_html() -> str:
-    import re as _re
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
 
     # --- Umami analytics injection (existing) ---------------------------------
