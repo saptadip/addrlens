@@ -46,6 +46,33 @@ def test_hamburg_commuter_composer_runs():
         assert banned not in tile_keys
 
 
+def test_hamburg_new_tiles_have_provenance_mapping():
+    """_sources_for must return a non-empty citation for every new Hamburg
+    tile key at a real (green/amber/red) tier. Guards against the fourth-
+    surface attribution drift where the tile card renders empty citations
+    while the footer + impressum cite the source. Direct-tested at the
+    mapping layer because the composer path returns [] on UNKNOWN tiers
+    by design (tier=UNKNOWN → no citation, same as Berlin gesix)."""
+    from app.core.scoring.provenance import _sources_for
+    for hh_tile in ("ferry_transit", "commuter_ferry_transit",
+                    "sozialmonitoring_status", "sozialmonitoring_gesamt",
+                    "sozialmonitoring_status_commuter",
+                    "sozialmonitoring_gesamt_commuter"):
+        srcs = _sources_for(HAMBURG, hh_tile, "green")
+        assert srcs, f"Hamburg tile {hh_tile!r} has empty sources at tier=green — provenance mapping gap"
+
+
+def test_hamburg_new_tiles_have_legend_mapping():
+    """_legend_for must return a non-empty 3-band legend for ferry tiles.
+    Sozialmonitoring tiles are category-driven (like Berlin gesix) and
+    correctly return []."""
+    from app.core.scoring.legends import _legend_for
+    ferry_th = {"green_m": 500, "amber_m": 1000}
+    assert _legend_for("ferry_transit", ferry_th), "ferry_transit missing legend"
+    assert _legend_for("commuter_ferry_transit", {"green_m": 400, "amber_m": 800}), \
+        "commuter_ferry_transit missing legend"
+
+
 def test_berlin_composers_still_produce_all_tiles():
     """Regression guard: Berlin composers must still return the full 15/10
     tile set with no KeyError from the new conditional guards."""
