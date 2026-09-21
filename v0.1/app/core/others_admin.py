@@ -103,6 +103,12 @@ def _features_for(key: str, cfg, index, lon: float, lat: float) -> list:
     if key == "arbeitsagentur":
         raw = index.arbeitsagentur_near(lon, lat)
         return [f for f in (_shape_office(o) for o in raw) if f]
+    if key == "kundenzentrum":
+        # Hamburg's Kundenzentrum is Berlin's Bürgeramt equivalent — one
+        # Bezirks-main office + Stadtteil branches. Uses the same
+        # `_offices_near_with_fallback` shape as arbeitsagentur.
+        raw = index.kundenzentrum_near(lon, lat)
+        return [f for f in (_shape_office(o) for o in raw) if f]
     return []
 
 
@@ -115,6 +121,7 @@ _PROV_KEYS_BY_CARD = {
     "standesamt":     ("standesamt", "bezirksgrenzen"),
     "lea":            ("lea",),
     "arbeitsagentur": ("arbeitsagentur",),
+    "kundenzentrum":  ("kundenzentrum",),
 }
 
 

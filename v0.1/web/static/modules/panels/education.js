@@ -56,15 +56,21 @@ export function render(d){
          </div>
        </details>`
     : '';
+  // Berlin's BOD WFS exposes `raw.ort_name` and `catchment.district`; Hamburg's
+  // OAF exposes `raw.ortsteil` (remapped from `postOrtsteil` by oaf_geocoder)
+  // and `raw.bezirk` (aliased from `bezirke`). Fall through both so the pill +
+  // history payload render on either city without a slug branch.
+  const _addrBezirk   = c.district || (a.raw || {}).bezirk   || '';
+  const _addrOrtsteil = (a.raw || {}).ort_name || (a.raw || {}).ortsteil || '';
   const _histCtx = {
     lat: a.lat, lon: a.lon,
     street: a.street, hnr: a.hnr, plz: a.plz,
-    bezirk: c.district || '',
-    ortsteil: ((a.raw || {}).ort_name) || '',
+    bezirk: _addrBezirk,
+    ortsteil: _addrOrtsteil,
   };
   const addr=`<div class="cell edu-cell addr-cell gesix-tier-${_gTier}" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
     <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} ${esc(S.cfg?.display_name || 'Berlin')}</p>
-    <div class="badges">${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}<button type="button" class="pill-btn addr-history-btn" data-hist='${esc(JSON.stringify(_histCtx))}' title="Get history in plain English">Get History</button>${_localityPill}</div>
+    <div class="badges">${_addrBezirk?`<span class="badge b-dist">${esc(_addrBezirk)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}<button type="button" class="pill-btn addr-history-btn" data-hist='${esc(JSON.stringify(_histCtx))}' title="Get history in plain English">Get History</button>${_localityPill}</div>
     <div class="addr-history-body" hidden></div>
   </div>`;
   const ssSorted = (ss || []).map(s => ({
@@ -85,6 +91,20 @@ export function render(d){
     groupLabel = 'Assigned Grundschule';
     groupHint  = '';
   }
+  // Nearest primary school (km-only) — fallback card for cities where
+  // `catchment` returns no assigned schools (Hamburg: catchment polygons are
+  // per-Statistikgebiet not per-school, so `d.schools` is always []). T11's
+  // `nearest_school.distance_km` is populated for both Berlin (extension via
+  // preflight ruling) and Hamburg (`nearest_school_km_only`). Only render this
+  // fallback when the schools card would otherwise be absent.
+  const _nps = d.nearest_school;
+  const nearestPrimary = (!ssSorted.length && _nps && _nps.distance_km != null)
+    ? `<div class="cell edu-cell" data-edu-cat="nearest-primary">
+         <div class="cell-head"><div class="icon-badge">${ico.school}</div><span class="cell-label">Nearest primary school</span></div>
+         <h3>${_nps.name ? esc(_nps.name) : `${_nps.distance_km} km`}</h3>
+         <p class="sub">${_nps.distance_km} km${_nps.bsn ? ` · BSN ${esc(_nps.bsn)}` : ''}</p>
+         <div class="prov" style="font-style:italic">No catchment polygons for this city — showing nearest public Grundschule by distance only.</div>
+       </div>` : '';
   const schools = ssSorted.length ? ssSorted.map((s, idx) => {
     const distTxt = s._distance_m != null
       ? ` · ${s._distance_m} m · ~${walkMin(s._distance_m)} min walk` : '';
@@ -119,7 +139,7 @@ export function render(d){
   const intl=i?`<div class="cell edu-cell" data-edu-cat="intl"><div class="cell-head"><div class="icon-badge">${ico.globe}</div><span class="cell-label">Nearest international / bilingual</span></div>
     <h3>${esc(i.name)}</h3><p class="sub">${(i.distance_m/1000).toFixed(1)} km · ~${walkMin(i.distance_m)} min walk${i.website?` · <a href="${esc(i.website)}" target="_blank" rel="noopener">website</a>`:''}</p></div>`:'';
   const map=`<div class="map-cell"><div class="map-hint" id="eduHint">Click a card to plot its location</div><div id="map"></div></div>`;
-  dom.$out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${kita}${intl}</div>${map}</div>`;
+  dom.$out.innerHTML=`<div class="grid"><div class="stack">${addr}${schools}${nearestPrimary}${kita}${intl}</div>${map}</div>`;
   renderConn(d.connectivity, d.provenance, d.address);
   renderOthers(d);
   drawMap(d); const kn=document.getElementById('kitaN'); if(kn&&k.count!=null)countUp(kn,k.count);

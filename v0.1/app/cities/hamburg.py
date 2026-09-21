@@ -127,6 +127,8 @@ _ATTRIBUTION = {
     "bezirksgrenzen": "Freie und Hansestadt Hamburg / LGV — Verwaltungsgrenzen (dl-de/by-2-0)",
     "sozialmonitoring": "Freie und Hansestadt Hamburg / BSW — Sozialmonitoring Integrierte Stadtteilentwicklung (dl-de/by-2-0)",
     "standesamt":     "Curated from hamburg.de Standesamt-Verzeichnis (public reference, verified 2026-09-20)",
+    "kundenzentrum":  "Curated from hamburg.de Kundenzentren-Verzeichnis (public reference, verified 2026-09-21)",
+    "finanzamt":      "Curated from Hamburger Finanzbehörde — Finanzämter-Übersicht (public reference, verified 2026-09-21)",
     "tempolimits":    "Freie und Hansestadt Hamburg / BVM — Zulässige Höchstgeschwindigkeiten (dl-de/by-2-0)",
     "arterial_road":  "Freie und Hansestadt Hamburg / BVM via LGV — Straßen- und Wegenetz (dl-de/by-2-0)",
     "cycling":        "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=cycleway (weekly Hamburg extract)",
@@ -136,9 +138,38 @@ _ATTRIBUTION = {
     "natural_swim":   "Freie und Hansestadt Hamburg / BUKEA — Badegewässer (dl-de/by-2-0)",
 }
 
-# ---- Others admin cards: Standesamt only (Q10-B) ----------------------------
+# ---- Kundenzentren (Hamburg's Bürgeramt equivalent) — 7 Bezirks-main -------
+# Reuses the same buildings as _STANDESAMTS_BY_BEZIRK (each Bezirk hosts
+# both under one roof at the same address). Stadtteil branches (~33 more)
+# to be added post-launch when address geocoding is bulk-verified.
+_KUNDENZENTREN = (
+    {"name": "Kundenzentrum Hamburg-Mitte", "address": "Caffamacherreihe 1–3, 20355 Hamburg",  "lat": 53.5544, "lon":  9.9845},
+    {"name": "Kundenzentrum Altona",         "address": "Platz der Republik 1, 22765 Hamburg",  "lat": 53.5470, "lon":  9.9357},
+    {"name": "Kundenzentrum Eimsbüttel",     "address": "Grindelberg 62–66, 20144 Hamburg",     "lat": 53.5747, "lon":  9.9790},
+    {"name": "Kundenzentrum Hamburg-Nord",   "address": "Kümmellstraße 5–7, 20249 Hamburg",     "lat": 53.5899, "lon":  9.9845},
+    {"name": "Kundenzentrum Wandsbek",       "address": "Schloßstraße 60, 22041 Hamburg",       "lat": 53.5717, "lon": 10.0708},
+    {"name": "Kundenzentrum Bergedorf",      "address": "Wentorfer Straße 38, 21029 Hamburg",   "lat": 53.4885, "lon": 10.2110},
+    {"name": "Kundenzentrum Harburg",        "address": "Harburger Rathausplatz 1, 21073 Hamburg", "lat": 53.4591, "lon":  9.9795},
+)
+
+# ---- Finanzämter Hamburg — ~9 offices per Finanzbehörde directory ----------
+_FINANZAMTS = (
+    {"name": "Finanzamt Hamburg-Altona",      "address": "Große Bergstraße 264, 22767 Hamburg", "lat": 53.5497, "lon":  9.9345},
+    {"name": "Finanzamt Hamburg-Am Tierpark", "address": "Am Tierpark 21, 22527 Hamburg",       "lat": 53.5928, "lon":  9.9425},
+    {"name": "Finanzamt Hamburg-Barmbek-Uhlenhorst", "address": "Steilshooper Straße 129, 22305 Hamburg", "lat": 53.5949, "lon": 10.0454},
+    {"name": "Finanzamt Hamburg-Bergedorf",   "address": "Neuer Weg 5, 21029 Hamburg",          "lat": 53.4870, "lon": 10.2100},
+    {"name": "Finanzamt Hamburg-Hansa",       "address": "Steinstraße 10, 20095 Hamburg",       "lat": 53.5505, "lon": 10.0030},
+    {"name": "Finanzamt Hamburg-Harburg",     "address": "Harburger Ring 10–14, 21073 Hamburg", "lat": 53.4619, "lon":  9.9870},
+    {"name": "Finanzamt Hamburg-Mitte",       "address": "Rödingsmarkt 29, 20459 Hamburg",      "lat": 53.5486, "lon":  9.9847},
+    {"name": "Finanzamt Hamburg-Nord",        "address": "Borsteler Chaussee 45, 22453 Hamburg", "lat": 53.6060, "lon":  9.9750},
+    {"name": "Finanzamt Hamburg-Oberalster",  "address": "Am Ohlmoorgraben 4, 22391 Hamburg",   "lat": 53.6635, "lon": 10.0730},
+)
+
+# ---- Others admin cards: Kundenzentrum + Finanzamt + Standesamt ------------
 OTHERS_ADMIN_CARDS: tuple = (
-    OthersAdminCardConfig(key="standesamt", label="Standesamt (Marriage / Birth)", icon="standesamt"),
+    OthersAdminCardConfig(key="kundenzentrum", label="Kundenzentrum (Anmeldung)",   icon="buergeramt"),
+    OthersAdminCardConfig(key="finanzamt",     label="Finanzamt (Tax Office)",       icon="finanzamt"),
+    OthersAdminCardConfig(key="standesamt",    label="Standesamt (Marriage / Birth)", icon="standesamt"),
 )
 
 # ---- Lens configs: Task 13 fills Newcomer; Task 14 fills Commuter; YF+QL deferred (spec Q9) ----
@@ -383,8 +414,13 @@ HAMBURG = CityConfig(
     trees_radius_m=200,
 
     quiet_wfs_url=_WFS_RUHIGE, quiet_layer="de.hh.up:ruhige_gebiete_hamburg",
-    quiet_field_map={"name": "name", "kind": "kind",
-                      "size_ha": "groesse_ha", "id": "id"},
+    # Verified via live DescribeFeatureType 2026-09-21: layer returns
+    # `{nr: int, ruhiges_gebiet: str}` — no `kind` or `groesse_ha`. Map
+    # `name → ruhiges_gebiet` so nearest_quiet_zone doesn't render
+    # "Unnamed zone" for every Hamburg lookup. Other keys stay for API
+    # symmetry (return None cleanly instead of KeyError).
+    quiet_field_map={"name": "ruhiges_gebiet", "kind": "kind",
+                      "size_ha": "groesse_ha", "id": "nr"},
 
     protection_wfs_url=_WFS_SOZERHVO,
     protection_em_layer="de.hh.up:sozerhvo_inkraft",
@@ -407,7 +443,13 @@ HAMBURG = CityConfig(
 
     heat_wfs_url=_WFS_KLIMA,
     heat_layer="de.hh.up:bewertung_tags_siedlung_verkehr",
-    heat_field_map={"day_class": "bewertung"},
+    # Verified via live GetFeature 2026-09-21: properties are
+    # `{typ, nutzung, pet_14h, pet_klasse, bewertung_tag}`. `bewertung_tag`
+    # carries the full label ("Sehr starke Belastung (38 °C bis <= 41 °C)")
+    # which the frontend splits on " - " into level+range — same shape the
+    # Berlin heat card expects. Map `day_class → bewertung_tag`, not
+    # `bewertung` (which returned None → "unknown unknown" in the raw view).
+    heat_field_map={"day_class": "bewertung_tag"},
 
     stations_data_path=os.environ.get(
         "HVV_STATIONS_PATH",
@@ -448,8 +490,9 @@ HAMBURG = CityConfig(
     bezirksgrenzen_layer="app:bezirke",
     bezirksgrenzen_field_map={"name": "bezirk_name"},   # verify at impl
     buergeramt_wfs_url=None, buergeramt_layer=None, buergeramt_field_map={},
-    finanzamts=(), standesamts_by_bezirk=_STANDESAMTS_BY_BEZIRK,
+    finanzamts=_FINANZAMTS, standesamts_by_bezirk=_STANDESAMTS_BY_BEZIRK,
     arbeitsagenturs=(), lea_office={},
+    kundenzentren=_KUNDENZENTREN,
     others_admin_cards=OTHERS_ADMIN_CARDS,
 
     xmas_market_url=None,
@@ -521,11 +564,13 @@ if __name__ == "__main__":
     # No tram tile in either lens
     assert "tram_transit" not in keys
     assert "commuter_tram_transit" not in commuter_keys
-    # Only Standesamt in Others tab
+    # Others tab: 3 curated cards (Kundenzentrum, Finanzamt, Standesamt)
     admin_keys = [c.key for c in HAMBURG.others_admin_cards]
-    assert admin_keys == ["standesamt"], admin_keys
+    assert admin_keys == ["kundenzentrum", "finanzamt", "standesamt"], admin_keys
+    assert len(HAMBURG.kundenzentren) == 7, len(HAMBURG.kundenzentren)
+    assert len(HAMBURG.finanzamts) == 9, len(HAMBURG.finanzamts)
     # Attribution keys wired for every provenance-bearing dataset
     for k in ("schools", "kitas", "hospitals", "trees", "sozialmonitoring",
-              "ferry", "parkzone", "standesamt"):
+              "ferry", "parkzone", "standesamt", "kundenzentrum", "finanzamt"):
         assert k in HAMBURG.attribution, f"missing attribution: {k}"
     print("selfcheck ok: Hamburg Newcomer + Commuter lenses wired")

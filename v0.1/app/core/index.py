@@ -1119,6 +1119,13 @@ class Index:
         return self._offices_near_with_fallback(
             self.cfg.arbeitsagenturs, lon, lat, radius_m, max_radius_m)
 
+    def kundenzentrum_near(self, lon, lat, radius_m=3000, max_radius_m=15000):
+        """Hamburg's Bürgeramt equivalent — curated Kundenzentrum branches.
+        Same fallback semantics as arbeitsagentur_near. Returns [] when
+        cfg.kundenzentren is empty (default for cities other than Hamburg)."""
+        return self._offices_near_with_fallback(
+            self.cfg.kundenzentren, lon, lat, radius_m, max_radius_m)
+
     def finanzamt_nearest(self, lon, lat):
         """Nearest Finanzamt from the curated list. Returns None if the list
         is empty (config bug)."""

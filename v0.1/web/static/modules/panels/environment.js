@@ -94,7 +94,13 @@ export function protectionCardHtml(pr){
 
 export function streetTreesCardHtml(t){
   if(!t || t.count == null) return '';
-  const fmtBands = t.age_bands
+  // Suppress the age-mix row entirely when the upstream city has no `age`
+  // field in its tree WFS (Hamburg's Baumkataster carries no age column,
+  // so every tree lands in the young/mature/old zero bucket — showing
+  // "Young: 0 · Mature: 0 · Old: 0" is worse than not showing the row).
+  const _ageTotal = t.age_bands ? (t.age_bands.young + t.age_bands.mature + t.age_bands.old) : 0;
+  const _hasAge = t.age_bands && _ageTotal > 0;
+  const fmtBands = _hasAge
     ? `Young &lt; 20 yr: ${t.age_bands.young} · Mature: ${t.age_bands.mature} · Old &gt; 60 yr: ${t.age_bands.old}`
     : '—';
   const groups = Object.entries(t.group_mix || {})
@@ -111,7 +117,7 @@ export function streetTreesCardHtml(t){
     <div class="cell-head"><div class="icon-badge">${ico.tree}</div><span class="cell-label">Street trees · ${t.radius_m} m</span></div>
     <div class="metric-big"><span class="n">${t.count}</span><span class="cap">trees within ${t.radius_m} m</span></div>
     <ul class="amen-list" style="margin-top:8px">
-      <li><span class="nm">Age mix</span><span class="dist">${esc(fmtBands.replace(/&lt;/g,'<').replace(/&gt;/g,'>'))}</span></li>
+      ${_hasAge ? `<li><span class="nm">Age mix</span><span class="dist">${esc(fmtBands.replace(/&lt;/g,'<').replace(/&gt;/g,'>'))}</span></li>` : ''}
       <li><span class="nm">Species diversity</span><span class="dist">${t.unique_species} species · ${t.unique_genera} genera</span></li>
       <li><span class="nm">Group mix</span><span class="dist">${esc(groups)}</span></li>
       <li><span class="nm">Planting years</span><span class="dist">${esc(range)}</span></li>
@@ -148,7 +154,7 @@ export function airQualityCardHtml(a){
     if(!a) return '';
     return `<div class="cell" data-env-cat="air"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Air quality (NO₂)</span></div>
       <p class="sub">${esc(a.reason || a.error || 'Air-quality data unavailable for this address.')}</p>
-      <div class="prov">${esc(a.provenance || S.cfg?.attribution?.air || 'Berlin BOD · Umweltatlas Luft')}</div></div>`;
+      <div class="prov">${esc(a.provenance || S.cfg?.attribution?.air || '')}</div></div>`;
   }
   const tier = airTierFor(a.no2_ugm3);
   const no2 = a.no2_ugm3 != null ? a.no2_ugm3.toFixed(1) : '—';
@@ -167,7 +173,7 @@ export function summerHeatCardHtml(h){
     if(!h) return '';
     return `<div class="cell" data-env-cat="heat"><div class="cell-head"><div class="icon-badge">${ico.sun}</div><span class="cell-label">Summer heat</span></div>
       <p class="sub">${esc(h.reason || h.error || 'Heat classification unavailable for this address.')}</p>
-      <div class="prov">${esc(h.provenance || S.cfg?.attribution?.heat || 'Berlin BOD · Umweltatlas Klima')}</div></div>`;
+      <div class="prov">${esc(h.provenance || S.cfg?.attribution?.heat || '')}</div></div>`;
   }
   const tier = heatTierFor(h.day_class);
   const cls = h.day_class || 'unknown';
