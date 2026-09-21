@@ -3,6 +3,8 @@
 Post-deploy smoke tests. Run against `hamburg-staging.addrlens.de` first;
 promote to `hamburg.addrlens.de` after all green.
 
+**For the imperative deployment procedure** (data seed, env vars, Cloudflare hostname, `docker compose up`, systemd timers), see `v0.1/docs/hetzner-deploy.md` § "Deploying Hamburg alongside Berlin". This checklist starts after `docker compose up -d app-hh` has landed.
+
 ## First-boot data seed
 
 The `app-hh` container reads HVV transit CSVs from the bind-mounted volume
