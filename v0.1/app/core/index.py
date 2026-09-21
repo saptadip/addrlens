@@ -893,11 +893,26 @@ class Index:
             return {"error": str(e)[:200]}
         feats = d.get("features") or []
         # Second pass: filter to the actual radius (bbox is looser).
+        # Hamburg's Baumkataster stores each tree as MultiPoint (single point
+        # wrapped in an outer list) — GeoJSON spec allows this and OGC WFS
+        # servers vary. Berlin's Baumbestand uses plain Point. Extract the
+        # first (lon, lat) pair from either shape rather than assuming Point.
         kept = []
         for f in feats:
             g = f.get("geometry")
             if not g: continue
-            lo, la = g["coordinates"]
+            coords = g.get("coordinates")
+            if not coords: continue
+            gtype = (g.get("type") or "").lower()
+            try:
+                if gtype == "point":
+                    lo, la = coords[0], coords[1]
+                elif gtype == "multipoint":
+                    lo, la = coords[0][0], coords[0][1]
+                else:
+                    continue  # unsupported geometry for a tree point
+            except (TypeError, IndexError):
+                continue
             if haversine_m(lon, lat, lo, la) <= radius_m:
                 kept.append(f["properties"] or {})
         if not kept:
