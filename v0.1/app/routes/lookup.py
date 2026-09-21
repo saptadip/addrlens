@@ -163,6 +163,15 @@ def lookup(
             **cfg.airport,
             "distance_m": round(haversine_m(lon, lat, cfg.airport["lon"], cfg.airport["lat"])),
         }
+    # Ferry — Hamburg's HADAG piers (Task 7). Berlin's ferry_stations_data_path
+    # is None → _load_ferry is a no-op → nearest_ferry returns None; Berlin's
+    # CONN_META doesn't declare a ferry card, so the None here is harmless
+    # (frontend never reads it). Wrapped per §14.7 — a bad ferry row must
+    # never break /api/lookup for other consumers.
+    try:
+        conn["ferry"] = index.nearest_ferry(lon, lat)
+    except Exception:
+        conn["ferry"] = None
 
     # -- Young Family lens (Spec A) ----------------------------------------
     # The lens needs playgrounds + gps (pediatricians) + noise, none of
