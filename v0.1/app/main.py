@@ -159,6 +159,14 @@ def _load_index_html() -> str:
     pins_fragment = pins_file.read_text(encoding="utf-8")
     html = html.replace("<!-- CITY-PINS -->", pins_fragment, 1)
 
+    # Always inject the city attribution fragment (h4 + <p id="footer-city-attr">
+    # + 4 further h4 sections). Berlin fragment is byte-identical to the pre-T29
+    # inline block; Hamburg fragment carries Hamburg data-source list, HVV/HADAG,
+    # BSW Sozialmonitoring, standesamt-only admin, Hamburg Geofabrik extract.
+    attribution_file = outlines_dir / f"{cfg.slug}-attribution.html"
+    attribution_fragment = attribution_file.read_text(encoding="utf-8")
+    html = html.replace("<!-- CITY-ATTRIBUTION-BLOCK -->", attribution_fragment, 1)
+
     # City-specific text/JSON-LD/hero swaps — only when not Berlin.
     if cfg.slug != "berlin":
         dn = cfg.display_name  # e.g. "Hamburg"
@@ -203,16 +211,9 @@ def _load_index_html() -> str:
             "Grindelallee 100, Rotherbaum, 20146 Hamburg",
         )
 
-        # Footer attribution — replace the full <p id="footer-city-attr">…</p>
-        # element with Hamburg's attribution list (sorted unique values).
-        hh_attr = " · ".join(sorted(set(cfg.attribution.values())))
-        html = _re.sub(
-            r'<p id="footer-city-attr">.*?</p>',
-            f'<p id="footer-city-attr">{hh_attr}</p>',
-            html,
-            count=1,
-            flags=_re.DOTALL,
-        )
+        # Footer attribution is now driven by the per-city <slug>-attribution.html
+        # fragment injected above via <!-- CITY-ATTRIBUTION-BLOCK -->; no
+        # regex-substitute needed here.
 
     return html
 

@@ -133,14 +133,14 @@
     <span class="chip" data-q="Konrad-Wolf-Straße 44A, 13055">Konrad-Wolf-Straße 44A, 13055</span>
     <span class="chip" data-q="Sybelstrasse 59, Charlottenburg, 10629 Berlin">Sybelstrasse 59, Charlottenburg, 10629 Berlin</span>
   </div>
-  <!-- Hero art — animated Berlin scanner. A red-ringed crosshair lens
-       pans across the real Berlin admin outline every 6 s, revealing
+  <!-- Hero art — animated per-city scanner. A red-ringed crosshair lens
+       pans across the real city admin outline every 6 s, revealing
        tier-graded pins (green / amber / red) as it sweeps. Reinforces
        the "AddrLens = a lens on your neighbourhood" concept from the
-       header logo. Pure CSS animation, no JS. Berlin outline path =
-       union of the 12 Bezirke from the Bezirksgrenzen Geoportal WFS
-       layer, simplified to ~128 vertices. Pins sit at real Bezirk
-       centroids + one jittered interior point per Bezirk. -->
+       header logo. Pure CSS animation, no JS. Outline path + pins are
+       injected at SSR from web/static/img/city-outlines/<slug>.svg +
+       <slug>-pins.svg — Berlin uses 12 Bezirke centroids; Hamburg uses
+       7 Bezirke centroids. -->
   <div class="hero-art-slot">
     <svg class="hero-art hero-art-svg" viewBox="0 0 260 260"
          role="img" aria-label="AddrLens scanning Berlin"
@@ -260,20 +260,7 @@
   <div class="attribution-body">
     <p class="attribution-lead">Every data point in this app comes from open sources. Attribution is preserved per each dataset's licence.</p>
 
-    <h4>Berlin Open Data — Geoportal Berlin</h4>
-    <p id="footer-city-attr">Schulen · Adressen Berlin · Kindertagesstätten · Krankenhäuser · Trinkwasserbrunnen (Betrieb: Berliner Wasserbetriebe) · Grünanlagen (Spielplätze + Parks) · Strategische Lärmkarten 2022 (Fassadenpegel) · Umweltatlas Klimabewertungskarten 2022 (Bioklima Tag) · Umweltatlas Luftreinhalteplan 2018–2025 · Baumbestand Straßenbäume · Feuerwehr Standorte &amp; Einsatzbereiche · Ruhige Gebiete 2018 · Erhaltungsverordnungsgebiete § 172 BauGB · Schwimmbäder der Berliner Bäder-Betriebe · Badegewässerqualität (LAGeSo) · Bezirksgrenzen · Parkraumbewirtschaftungszonen (Anwohnerparken). Licences: dl-de/by-2.0 · dl-de/zero-2.0.</p>
-
-    <h4>Public transport</h4>
-    <p>VBB Verkehrsverbund Berlin-Brandenburg / Koordinaten der Zugangsmöglichkeiten zu Stationen — S-Bahn, U-Bahn, regional rail (<a href="https://creativecommons.org/licenses/by/4.0/">CC-BY-4.0</a>). Geoportal Berlin / BVG Ungestörtes ÖPNV-Netz — Straßenbahnhaltestellen (dl-de/by-2.0). Bus stops via <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> (ODbL).</p>
-
-    <h4>Neighbourhood profile</h4>
-    <p>Senatsverwaltung für Wissenschaft, Gesundheit, Pflege und Gleichstellung / Gesundheits- und Sozialstrukturatlas — GESIx 2022 (dl-de/zero-2.0). 447 Planungsräume, refreshed every 3–5 years by the Senate.</p>
-
-    <h4>Administrative offices</h4>
-    <p>Curated from berlin.de public directories: Bürgerämter (service.berlin.de), Finanzamt-Verzeichnis, Standesamt-Verzeichnis, Landesamt für Einwanderung (LEA), Bundesagentur für Arbeit Berlin-Brandenburg. Public reference — not a licensed dataset.</p>
-
-    <h4>OpenStreetMap supplements</h4>
-    <p>Contains information from <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors, licensed under the <a href="https://opendatacommons.org/licenses/odbl/">Open Database License (ODbL)</a>. Used for pharmacies, supermarkets, GPs, bus stops, address autocomplete (~414 k Berlin addresses), address history, and the Newcomer-lens buckets (international food, coworking / Wi-Fi cafés, English-speaking clinics, German-language schools, public libraries, Packstationen, Wochenmärkte, bars &amp; clubs). Delivered via a weekly Berlin extract from <a href="https://download.geofabrik.de/europe/germany/berlin.html">Geofabrik</a> (see their <a href="https://download.geofabrik.de/technical.html">technical policy</a>) — same ODbL terms, refreshed Sundays 03:00 CET.</p>
+    <!-- CITY-ATTRIBUTION-BLOCK -->
 
     <h4>Map tiles &amp; library</h4>
     <p>Basemap tiles © <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors, served directly from tile.openstreetmap.org under the OSMF <a href="https://operations.osmfoundation.org/policies/tiles/">Tile Usage Policy</a>. Interactive maps rendered with <a href="https://leafletjs.com/">Leaflet</a> (BSD 2-clause).</p>
