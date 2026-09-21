@@ -19,7 +19,7 @@ export function snapshotId(a){ return `${a.street}-${a.hnr}-${a.plz}`.toLowerCas
 
 // Bump when snapshot shape changes so stale localStorage entries get
 // dropped instead of rendering blank rows against a new schema.
-export const SNAPSHOT_SCHEMA = 2;
+export const SNAPSHOT_SCHEMA = 3;
 
 export function buildSnapshot(){
   if(!S.eduData||!S.eduData.address) return null;
@@ -30,6 +30,37 @@ export function buildSnapshot(){
   // oaf_geocoder.py). Fall through both so `district` is never `null` when a
   // real Bezirk / borough is known.
   const districtFallback = c.district || (a.raw && (a.raw.bezirke || a.raw.bezirk)) || null;
+  // Ortsteil / neighborhood: Berlin BOD exposes `raw.ort_name`; Hamburg OAF
+  // exposes `raw.ortsteil` (aliased from `postOrtsteil` by oaf_geocoder).
+  const ortsteil = (a.raw && (a.raw.ort_name || a.raw.ortsteil || a.raw.postOrtsteil)) || null;
+  // Locality band — Berlin's GESIx quintile OR Hamburg's Sozialmonitoring
+  // Statusindex. Both surface here as a single { label, tier } pair so the
+  // Compare row can render one cell shape regardless of city.
+  const locality = (() => {
+    const gx = S.eduData.gesix;
+    if (gx) {
+      const label = gx.class_en || gx.class_de || null;
+      const q = gx.quintile_5 || null;
+      const tier = q >= 1 && q <= 2 ? 'green' : q === 3 ? 'amber' : q >= 4 ? 'red' : 'unknown';
+      return { label: label || (q ? `Quintile ${q} of 5` : null),
+                sub: gx.plr_name || null,
+                tier, source: 'gesix' };
+    }
+    const sm = S.eduData.sozialmonitoring;
+    if (sm && sm.statusindex) {
+      const status = String(sm.statusindex);
+      const low = status.toLowerCase();
+      const tier = low === 'hoch' ? 'green'
+                 : low === 'mittel' ? 'amber'
+                 : low.includes('sehr') ? 'red'
+                 : low === 'niedrig' ? 'orange'
+                 : 'unknown';
+      const pretty = status.charAt(0).toUpperCase() + status.slice(1);
+      return { label: pretty, sub: sm.stadtteil || null,
+                tier, source: 'sozialmonitoring' };
+    }
+    return null;
+  })();
   // Hamburg has no per-school catchment polygon → schools[] empty. Fall
   // through to nearest_school (raw view's Nearest primary school card)
   // so this row isn't blank in the Compare board.
@@ -45,7 +76,8 @@ export function buildSnapshot(){
     savedAt: Date.now(),
     schemaVersion: SNAPSHOT_SCHEMA,
     citySlug: S.cfg?.slug || 'berlin',
-    address: {street:a.street, hnr:a.hnr, plz:a.plz, district:districtFallback, lat:a.lat, lon:a.lon},
+    address: {street:a.street, hnr:a.hnr, plz:a.plz, district:districtFallback,
+              ortsteil, locality, lat:a.lat, lon:a.lon},
     catchment: {esb:c.esb, district:districtFallback},
     school: schoolLike ? {name:schoolLike.name, sesb_strand:schoolLike.sesb_strand,
                            school_year:schoolLike.school_year,
@@ -295,6 +327,16 @@ export function renderCompare(){
   const someHasAq      = list.some(s => s.aq);
   const someHasTram    = list.some(s => s.connectivity && s.connectivity.tram);
   const someHasFerry   = list.some(s => s.connectivity && s.connectivity.ferry);
+  const someHasOrtsteil = list.some(s => s.address && s.address.ortsteil);
+  const someHasLocality = list.some(s => s.address && s.address.locality && s.address.locality.label);
+  const localityHeaderLabel = allHamburg
+    ? 'Locality band (Sozialmonitoring)'
+    : 'Locality band (GESIx)';
+  const localityCell = (loc) => {
+    if(!loc || !loc.label) return `<td class="na">—</td>`;
+    const sub = loc.sub ? ` <span style="color:var(--muted);font-weight:500">· ${esc(loc.sub)}</span>` : '';
+    return `<td><span class="noise-cell tier-${loc.tier || 'unknown'}">${esc(loc.label)}</span>${sub}</td>`;
+  };
   const airportLabel   = allHamburg ? 'Airport (HAM)' : 'Airport (BER)';
   const noiseSectLabel = allHamburg
     ? 'Street noise'                                       // Hamburg noise map not wired
@@ -303,6 +345,10 @@ export function renderCompare(){
   const rows = [
     sect('Location & Schools'),
     row('District',        list.map(s=>cell(s.address.district ? esc(s.address.district) : null)).join('')),
+    someHasOrtsteil ? row('Ortsteil',
+                          list.map(s=>cell(s.address && s.address.ortsteil ? esc(s.address.ortsteil) : null)).join('')) : null,
+    someHasLocality ? row(localityHeaderLabel,
+                          list.map(s => localityCell(s.address && s.address.locality)).join('')) : null,
     row(schoolRowLabel,    list.map(schoolCell).join('')),
     someHasSesb ? row('SESB bilingual',
                       list.map(s=>cell(s.school&&s.school.sesb_strand?`<span class="sesb-cell">${esc(s.school.sesb_strand)}</span>`:null)).join('')) : null,
