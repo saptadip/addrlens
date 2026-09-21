@@ -34,6 +34,7 @@ export const strollerState = {floor:'', lift:null, kwr:false};
 // Everything below is a mutable scalar. Wrap in an object so imports can
 // read + write through a single reference.
 export const S = {
+  cfg:       null,          // /api/config payload; set once at boot by app.js
   lastCoord: null,          // {lat,lon} of last successful lookup
   amenData:  null,
   eduData:   null,

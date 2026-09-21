@@ -102,7 +102,7 @@ def _legend_for(key: str, th: dict) -> list:
             {"tier": TIER_AMBER, "text": f"rail ≤{fd(th['any_rail_m'])}"},
             {"tier": TIER_RED,   "text": f">{fd(th['any_rail_m'])}"},
         ]
-    if key in ("tram_transit", "bus_transit", "english_clinic",
+    if key in ("tram_transit", "bus_transit", "ferry_transit", "english_clinic",
                "language_school", "library", "packstation", "wochenmarkt"):
         return _dist_legend(th['green_m'], th['amber_m'])
     if key == "intl_food":
@@ -176,6 +176,7 @@ def _legend_for(key: str, th: dict) -> list:
             {"tier": TIER_RED,   "text": f">{fd(th['any_rail_m'])}"},
         ]
     if key in ("commuter_tram_transit", "commuter_bus_transit",
+               "commuter_ferry_transit",
                "regional_rail_reach", "cycling_network"):
         return _dist_legend(th['green_m'], th['amber_m'])
     if key in ("car_sharing_reach", "ev_charging_reach"):

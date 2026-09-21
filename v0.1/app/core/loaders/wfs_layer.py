@@ -40,10 +40,15 @@ def log_load(label: str) -> None:
 
 def _fetch_features(cfg: CityConfig, url: str, layer: str, count: int) -> list:
     """One WFS GetFeature — return the raw feature list (`[]` if the
-    response has no `features` key). Errors bubble up; the pre-split
-    loaders let them propagate to `Index.__init__` too.
+    response has no `features` key). Returns `[]` immediately when `url`
+    or `layer` is falsy — lets callers pass None WFS URLs without a guard.
+    Errors bubble up; the pre-split loaders let them propagate to
+    `Index.__init__` too.
     """
-    r = wfs(url, typeNames=layer, count=count, outputFormat=cfg.wfs_output_format)
+    if not url or not layer:
+        return []
+    r = wfs(url, typeNames=layer, count=count, outputFormat=cfg.wfs_output_format,
+            srsName=cfg.wfs_srs_name)
     return r.get("features") or []
 
 
@@ -102,6 +107,7 @@ if __name__ == "__main__":
 
     class _Cfg:
         wfs_output_format = "application/json"
+        wfs_srs_name = "EPSG:4326"
 
     def _fake_wfs(base, **kw):
         return {"features": [

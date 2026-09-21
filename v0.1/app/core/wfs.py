@@ -105,12 +105,14 @@ def _get_client() -> httpx.Client:
     return _client
 
 
-def wfs(base, **kw):
+def wfs(base, srsName=None, **kw):
     kw.setdefault("service", "WFS")
     kw.setdefault("version", "2.0.0")
     kw.setdefault("request", "GetFeature")
     kw.setdefault("outputFormat", "application/json")
-    kw.setdefault("srsName", "EPSG:4326")   # always WGS84 lon,lat
+    kw.setdefault("srsName", "EPSG:4326")   # always WGS84 lon,lat (Berlin's default; overridable via srsName kwarg)
+    if srsName:
+        kw["srsName"] = srsName
     url = base + "?" + urllib.parse.urlencode(kw)
     client = _get_client()
     attempts = _RETRIES + 1

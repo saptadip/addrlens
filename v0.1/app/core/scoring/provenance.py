@@ -87,6 +87,14 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         # empty "Data sources" section on the About tab.
         "airport_reach":          ["Curated coordinate — Berlin Brandenburg Airport (BER, public)"],
         "gesix_commuter":         [attr.get("gesix")],
+        # Hamburg-only tiles (Ship C). Ferry cites HVV/HADAG; sozialmonitoring
+        # tiles cite BSW's Integrierte Stadtteilentwicklung dataset.
+        "ferry_transit":                    [attr.get("ferry")],
+        "commuter_ferry_transit":           [attr.get("ferry")],
+        "sozialmonitoring_status":          [attr.get("sozialmonitoring")],
+        "sozialmonitoring_gesamt":          [attr.get("sozialmonitoring")],
+        "sozialmonitoring_status_commuter": [attr.get("sozialmonitoring")],
+        "sozialmonitoring_gesamt_commuter": [attr.get("sozialmonitoring")],
     }
     # Dedupe while preserving insertion order — some tiles cite multiple
     # attribution keys that resolve to the same string (e.g. rail_transit

@@ -68,6 +68,46 @@ services:
     networks:
       - addrlens_net
 
+  # --- Hamburg app container (parallel to the Berlin `app` service) -----
+  # Same image + inference container as Berlin. CITY=hamburg picks up the
+  # HAMBURG CityConfig, city-scoped OSM snapshot dir, and Hamburg-specific
+  # constants at boot. Cloudflare Tunnel routes hamburg.addrlens.de →
+  # app-hh:8002 (see ops/cloudflared/README.md). Runs on port 8002 so
+  # `docker logs app-hh` and any host-network debug can be visually
+  # distinguished from Berlin's :8001.
+  app-hh:
+    build:
+      context: .
+      dockerfile: ops/Dockerfile.app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
+    env_file:
+      - /srv/addrlens/.env.production
+    environment:
+      CITY: hamburg
+      PORT: 8002
+      INFERENCE_URL: http://inference:8080
+      HVV_STATIONS_PATH: /srv/hamburg-transit/vbb_hamburg_su.csv
+      HVV_FERRY_PATH: /srv/hamburg-transit/hvv_hamburg_ferry.csv
+      HVV_OUT_SU: /srv/hamburg-transit/vbb_hamburg_su.csv
+      HVV_OUT_FERRY: /srv/hamburg-transit/hvv_hamburg_ferry.csv
+    volumes:
+      - /srv/addrlens/data/osm-hamburg:/srv/data/osm
+      - /srv/addrlens/data/hamburg-transit:/srv/hamburg-transit
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=3)\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+    mem_limit: 700m
+    memswap_limit: 1200m
+    restart: unless-stopped
+    depends_on:
+      inference:
+        condition: service_healthy
+    networks:
+      - addrlens_net
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     command: tunnel --no-autoupdate run
@@ -77,6 +117,8 @@ services:
     restart: unless-stopped
     depends_on:
       app:
+        condition: service_healthy
+      app-hh:
         condition: service_healthy
     networks:
       - addrlens_net

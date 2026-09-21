@@ -110,15 +110,8 @@ def run_pure_selfchecks() -> None:
         print(r.stdout.strip().splitlines()[-1] if r.stdout.strip() else "OK")
 
 
-def run_live_selfcheck() -> None:
-    """Live-Index asserts — need real Berlin Geoportal + WFS access. The
-    known-good addresses (Kastanienallee 12, Kurfürstendamm 195) are Berlin-
-    specific; when Hamburg lands in Ship C, add its own addresses behind a
-    `if cfg.slug == "berlin":` branch or split into per-city selfchecks."""
-    cfg = load_city()
-    if cfg.slug != "berlin":
-        print(f"live selfcheck: no known-good asserts for CITY={cfg.slug!r} yet (Berlin-only for now)")
-        return
+def _live_selfcheck_berlin(cfg) -> None:
+    """Live-Index asserts for Berlin — Geoportal + WFS access required."""
     print(f"→ Index({cfg.slug}) build …", flush=True)
     idx = Index(cfg)
 
@@ -520,6 +513,147 @@ def run_live_selfcheck() -> None:
     print("  newcomer lens asserts OK")
 
     print("→ live selfcheck OK")
+
+
+def _live_selfcheck_hamburg(cfg) -> None:
+    """Live-Index smoke test for Hamburg — exercises all Hamburg WFS loaders
+    against live endpoints and validates the geocode + sozialmonitoring path.
+
+    Rationale: any 4xx / timeout / field-name mismatch surfaces here (at CI
+    / `CITY=hamburg python -m app.selfcheck` time) rather than in prod.
+    """
+    print(f"→ Index({cfg.slug}) build …", flush=True)
+    idx = Index(cfg)
+
+    # -- Attribution keys present -------------------------------------------
+    for k in ("schools", "kitas", "hospitals", "sozialmonitoring", "ferry"):
+        assert k in cfg.attribution, f"missing attribution key: {k!r}"
+    print("  attribution keys OK")
+
+    # -- Loader counts (loose lower bounds) ----------------------------------
+    # gesix must be empty — Hamburg uses sozialmonitoring instead.
+    assert idx.gesix == [], f"gesix must be empty for Hamburg, got {len(idx.gesix)} entries"
+    print(f"  gesix empty (correct for Hamburg)")
+
+    # S/U-Bahn: HVV CSV vendored (76 S-Bahn + 70 U-Bahn in v1 extract)
+    assert len(idx.sbahn) >= 60, f"expected ≥60 S-Bahn stations (HVV), got {len(idx.sbahn)}"
+    assert len(idx.ubahn) >= 60, f"expected ≥60 U-Bahn stations (HVV), got {len(idx.ubahn)}"
+    print(f"  S-Bahn {len(idx.sbahn)} · U-Bahn {len(idx.ubahn)} OK")
+
+    # Ferry piers: HADAG CSV vendored
+    assert len(idx.ferry) >= 10, f"expected ≥10 HADAG ferry piers, got {len(idx.ferry)}"
+    print(f"  ferry piers {len(idx.ferry)} OK")
+
+    # Regional rail: curated list (13 from landscape §3.3)
+    assert len(idx.regional_rail) >= 13, \
+        f"expected ≥13 regional rail stations, got {len(idx.regional_rail)}"
+    print(f"  regional rail {len(idx.regional_rail)} OK")
+
+    # Kitas: Hamburg BAGFI WFS
+    assert len(idx.kitas) >= 500, f"expected ≥500 Hamburg Kitas, got {len(idx.kitas)}"
+    print(f"  kitas {len(idx.kitas)} OK")
+
+    # Hospitals: Hamburg BWGV WFS
+    assert len(idx.hospitals) >= 20, f"expected ≥20 hospitals, got {len(idx.hospitals)}"
+    print(f"  hospitals {len(idx.hospitals)} OK")
+
+    # Public Grundschulen (gs_public) — Hamburg uses kapitelbezeichnung="Grundschulen"
+    # (plural) for filtering; schools WFS serves 208 Grundschulen in state schools.
+    assert len(idx.gs_public) >= 150, f"expected ≥150 public primary schools, got {len(idx.gs_public)}"
+    print(f"  gs_public {len(idx.gs_public)} OK")
+
+    # Sozialmonitoring: Hamburg BSW WFS
+    assert len(idx.sozialmonitoring) >= 400, \
+        f"expected ≥400 Statistische Gebiete, got {len(idx.sozialmonitoring)}"
+    print(f"  sozialmonitoring {len(idx.sozialmonitoring)} Statistische Gebiete OK")
+
+    # -- Geocode Lange Reihe 1, 20099 Hamburg (St. Georg) ----------------------
+    # Note: Rathausmarkt / government-zone statgebs are excluded from
+    # Hamburg's BSW Sozialmonitoring (commercial-core Statistische Gebiete have
+    # no residential population to monitor). Lange Reihe 1 (St. Georg) is a
+    # well-known residential address in Hamburg-Mitte with confirmed coverage.
+    geo = idx.geocode("Lange Reihe", "1", "20099")
+    assert geo, "Lange Reihe 1, 20099 Hamburg must geocode via OAF GAGES endpoint"
+    lon, lat = geo["lon"], geo["lat"]
+    # Sanity check: must be in central Hamburg bounding box
+    assert 53.54 < lat < 53.57, f"lat {lat} outside central Hamburg range"
+    assert 9.98 < lon < 10.02, f"lon {lon} outside central Hamburg range"
+    print(f"  geocode Lange Reihe 1 → ({lon:.5f}, {lat:.5f}) OK")
+
+    # -- Sozialmonitoring lookup at St. Georg --------------------------------
+    sm = idx.sozialmonitoring_at(lon, lat)
+    assert sm is not None, "sozialmonitoring_at must return a result for Lange Reihe 1 (St. Georg)"
+    assert sm.get("statusindex"), f"statusindex must be non-empty: {sm}"
+    assert sm.get("stadtteil"), f"stadtteil must be non-empty: {sm}"
+    print(f"  sozialmonitoring_at → stadtteil={sm['stadtteil']!r} "
+          f"statusindex={sm['statusindex']!r} OK")
+
+    # -- Nearest school (Hamburg-simple distance-only path) ------------------
+    school_res = idx.nearest_school_km_only(lon, lat)
+    assert school_res is not None, "nearest_school_km_only must return a result"
+    assert "distance_km" in school_res, f"result shape wrong: {school_res}"
+    assert 0 < school_res["distance_km"] < 5, \
+        f"nearest school from Lange Reihe 1 should be <5 km, got {school_res}"
+    print(f"  nearest_school_km_only → {school_res['distance_km']} km OK")
+
+    # -- Nearest ferry pier --------------------------------------------------
+    ferry_res = idx.nearest_ferry(lon, lat)
+    assert ferry_res is not None, "nearest_ferry must return a result"
+    assert ferry_res.get("distance_m", 0) < 5000, \
+        f"nearest ferry from Lange Reihe 1 should be <5 km, got {ferry_res}"
+    print(f"  nearest_ferry → {ferry_res['name']!r} {ferry_res['distance_m']} m OK")
+
+    # -- Bezirk lookup -------------------------------------------------------
+    bezirk = idx.bezirk_for(lon, lat)
+    assert bezirk, f"bezirk_for must return a name for Lange Reihe 1, got {bezirk!r}"
+    print(f"  bezirk_for → {bezirk!r} OK")
+
+    # -- Standesamt for St. Georg (Hamburg-Mitte) ----------------------------
+    sa = idx.standesamt_for(lon, lat)
+    assert sa is not None, "standesamt_for must return a result for Lange Reihe 1"
+    assert "Mitte" in sa.get("name", ""), f"expected Standesamt Mitte (Hamburg-Mitte), got {sa}"
+    print(f"  standesamt_for → {sa['name']!r} OK")
+
+    # -- Newcomer + Commuter lens composers ----------------------------------
+    # Exercises the conditional-guard refactor from PR #81 fix wave.
+    # Before the fix: both called threw KeyError on Hamburg config (Berlin-only
+    # tile keys e.g. 'xmas_market', 'commuter_tram_transit' were hardcoded).
+    nl = scorer.newcomer_lens(cfg, idx, lon, lat, amenities={})
+    assert nl.get("slug") == "newcomer", f"newcomer slug wrong: {nl.get('slug')}"
+    _nl_keys = {t["key"] for t in nl["tiles"]}
+    for _req in ("ferry_transit", "sozialmonitoring_status", "sozialmonitoring_gesamt"):
+        assert _req in _nl_keys, f"Hamburg newcomer tile {_req!r} missing: {_nl_keys}"
+    for _banned in ("xmas_market", "tram_transit", "gesix_newcomer"):
+        assert _banned not in _nl_keys, f"Berlin tile {_banned!r} leaked into Hamburg newcomer: {_nl_keys}"
+    for _t in nl["tiles"]:
+        assert _t.get("tier") in {"green", "amber", "red", "unknown"}, \
+            f"newcomer tile {_t.get('key')!r} has invalid tier: {_t.get('tier')!r}"
+    print(f"  newcomer_lens → {len(nl['tiles'])} tiles, slug={nl['slug']!r} OK")
+
+    cl = scorer.commuter_lens(cfg, idx, lon, lat, amenities={})
+    assert cl.get("slug") == "commuter", f"commuter slug wrong: {cl.get('slug')}"
+    _cl_keys = {t["key"] for t in cl["tiles"]}
+    for _req in ("commuter_ferry_transit", "sozialmonitoring_status_commuter", "sozialmonitoring_gesamt_commuter"):
+        assert _req in _cl_keys, f"Hamburg commuter tile {_req!r} missing: {_cl_keys}"
+    for _banned in ("commuter_tram_transit", "gesix_commuter"):
+        assert _banned not in _cl_keys, f"Berlin tile {_banned!r} leaked into Hamburg commuter: {_cl_keys}"
+    for _t in cl["tiles"]:
+        assert _t.get("tier") in {"green", "amber", "red", "unknown"}, \
+            f"commuter tile {_t.get('key')!r} has invalid tier: {_t.get('tier')!r}"
+    print(f"  commuter_lens → {len(cl['tiles'])} tiles, slug={cl['slug']!r} OK")
+
+    print("→ live selfcheck OK")
+
+
+def run_live_selfcheck() -> None:
+    """Dispatch to the city-specific live selfcheck path."""
+    cfg = load_city()
+    if cfg.slug == "berlin":
+        _live_selfcheck_berlin(cfg)
+    elif cfg.slug == "hamburg":
+        _live_selfcheck_hamburg(cfg)
+    else:
+        print(f"live selfcheck: no smoke path for CITY={cfg.slug!r}")
 
 
 def main() -> None:

@@ -3,6 +3,7 @@
 // so all DOM references made at import top-level are safe.
 
 import { dom, S, panels, othersState, strollerState } from './modules/state.js';
+// S.cfg is written below after /api/config resolves; panel modules read S.cfg for city strings.
 import { _track, formatApiError } from './modules/dom.js';
 import { showStatus, clearResultState } from './modules/status.js';
 import { fetchAmenities, fetchNoise, readJson, isNonJsonError } from './modules/api.js';
@@ -12,6 +13,7 @@ import { wireSuggest } from './modules/suggest.js';
 import { installTooltipHandlers } from './modules/tooltips.js';
 import { compareRefreshPill, showView, saveCurrent } from './modules/compare.js';
 import { initLifeMode } from './modules/lens/index.js';
+import { renderCitySwitch } from './modules/city-switch.js';
 
 // -- Tab switching -----------------------------------------------------------
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -61,7 +63,8 @@ document.getElementById('reset-btn')?.addEventListener('click', () => {
 // -- Form submit -------------------------------------------------------------
 dom.$f.addEventListener('submit',async ev=>{ev.preventDefault();const q=dom.$q.value.trim();if(!q)return;
   _track('lookup', { query_len: q.length });
-  showStatus('loading', "Reading Berlin's open data…");
+  const _cityName = document.body?.dataset?.city === 'hamburg' ? 'Hamburg' : 'Berlin';
+  showStatus('loading', `Reading ${_cityName}'s open data…`);
   try{
     const r=await fetch('/api/lookup?address='+encodeURIComponent(q));
     const d=await readJson(r);
@@ -145,6 +148,7 @@ compareRefreshPill(); showView(); initLifeMode();
 // strings so each city gets legally-correct provenance without a rebuild.
 fetch('/api/config').then(r=>r.ok?readJson(r).catch(()=>null):null).then(cfg=>{
   if(!cfg) return;
+  S.cfg = cfg;                              // make cfg available to panel modules via S
   const dn = cfg.display_name || 'Berlin';
   document.title = 'AddrLens';
   const $bn = document.getElementById('brand-name');
@@ -160,4 +164,5 @@ fetch('/api/config').then(r=>r.ok?readJson(r).catch(()=>null):null).then(cfg=>{
     }
     $attrPrint.textContent = `${dn} Open Data: ${lines.join(' · ')}.`;
   }
+  renderCitySwitch(cfg);
 }).catch(()=>{ /* keep Berlin defaults; harmless */ });

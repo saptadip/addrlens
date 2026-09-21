@@ -86,6 +86,7 @@ class _FakeIndex:
         self.pools = []
         self.natural_swim = []
         self.gesix = []
+        self.sozialmonitoring = []
         self.buergeramts = []
         self.tempolimits = []
         self.arterials = []
@@ -148,8 +149,14 @@ class _FakeIndex:
     def trees_bbox(self, lon, lat, radius_m=None):
         return None
 
-    # ---- GESIx + Others admin ----------------------------------------
+    # ---- GESIx + Sozialmonitoring + Others admin ---------------------
     def gesix_at(self, lon, lat):
+        return None
+
+    def sozialmonitoring_at(self, lon, lat):
+        return None
+
+    def nearest_school_km_only(self, lon, lat):
         return None
 
     def bezirk_for(self, lon, lat):

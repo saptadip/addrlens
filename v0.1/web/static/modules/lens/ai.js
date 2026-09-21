@@ -3,6 +3,7 @@ import { escapeHtml, _track } from '../dom.js';
 import { getActiveLens } from './state.js';
 import { readJson } from '../api.js';
 import { formatApiError } from '../dom.js';
+import { S } from '../state.js';
 
 export function _hasLensAI(slug) { return _LENS_WITH_AI.has(slug); }
 
@@ -153,7 +154,7 @@ export function renderLensAIBody(li, tileTierByKey, ctx) {
         <img class="lens-ai-signature-brand" src="/static/img/logo.png"
              alt="AddrLens" width="500" height="500">
         <span class="lens-ai-signature-dot">·</span>
-        <span class="lens-ai-signature-meta">Berlin · AI-generated ${escapeHtml(ts)}</span>
+        <span class="lens-ai-signature-meta">${escapeHtml(S.cfg?.display_name || 'Berlin')} · AI-generated ${escapeHtml(ts)}</span>
       </div>
     </div>`;
 }
@@ -234,7 +235,7 @@ function _bindLensAIDownload(panel, addr, lens, active) {
     document.body.classList.remove('pdf-export-mode');
 
     const a = addr.address || {};
-    const bezirk = a.raw?.bez_name || a.raw?.bezirk || 'Berlin';
+    const bezirk = a.raw?.bez_name || a.raw?.bezirk || S.cfg?.display_name || 'Berlin';
     const ortsteil = a.raw?.ort_name || a.raw?.ortsteil || '';
     // NFKD splits characters like `ö` into `o` + combining-diaeresis
     // (U+0308); the regex strips the diacritic range (U+0300–U+036F).

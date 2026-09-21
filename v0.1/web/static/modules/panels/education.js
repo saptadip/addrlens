@@ -52,7 +52,7 @@ export function render(d){
            ${_gLabel ? `<div class="det-row"><div class="det-label">Band</div>
              <div class="det-val">${esc(_gLabel)}</div></div>` : ''}
            <div class="det-row"><div class="det-label">Source</div>
-             <div class="det-val dim">Berlin 2022 GESIx socioeconomic band</div></div>
+             <div class="det-val dim">${S.cfg?.slug === 'hamburg' ? 'Hamburg 2024 Sozialmonitoring Statusindex' : 'Berlin 2022 GESIx socioeconomic band'}</div></div>
          </div>
        </details>`
     : '';
@@ -63,7 +63,7 @@ export function render(d){
     ortsteil: ((a.raw || {}).ort_name) || '',
   };
   const addr=`<div class="cell edu-cell addr-cell gesix-tier-${_gTier}" data-edu-cat="address"><div class="cell-head"><div class="icon-badge">${ico.home}</div><span class="cell-label">Address</span></div>
-    <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} Berlin</p>
+    <h3>${esc(a.street)} ${esc(a.hnr)}</h3><p class="sub">${esc(a.plz)} ${esc(S.cfg?.display_name || 'Berlin')}</p>
     <div class="badges">${c.district?`<span class="badge b-dist">${esc(c.district)}</span>`:''}${c.esb?`<span class="badge b-esb">ESB ${esc(c.esb)}</span>`:''}<button type="button" class="pill-btn addr-history-btn" data-hist='${esc(JSON.stringify(_histCtx))}' title="Get history in plain English">Get History</button>${_localityPill}</div>
     <div class="addr-history-body" hidden></div>
   </div>`;

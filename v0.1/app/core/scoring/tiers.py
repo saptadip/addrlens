@@ -941,6 +941,93 @@ def _tier_xmas_market(features: list, th: dict) -> dict:
                              numeric_fmt=_num)
 
 
+# ==================================================================== #
+# Hamburg-specific tiers (T7/T8/T9 — wired in PR #81 fix wave).       #
+# ==================================================================== #
+
+
+def _tier_ferry_transit(features: list, th: dict) -> dict:
+    """Distance-to-nearest HADAG ferry pier (Hamburg only).
+
+    `features` is a list of piers decorated with `distance_m` (same
+    shape as tram/bus features). Threshold shape: {green_m, amber_m}.
+    """
+    return _tier_distance_ladder(features, th,
+                                  nearest_label="ferry pier",
+                                  empty_label="ferry pier",
+                                  numeric_prefix="Ferry ")
+
+
+def _tier_sozialmonitoring_status(sm: Optional[dict], th: dict) -> dict:
+    """Hamburg BSW Sozialmonitoring — Statusindex tile.
+
+    `sm` is the dict returned by `Index.sozialmonitoring_at` (keys:
+    statusindex, gesamtindex, dynamikindex, stadtteil, statgeb,
+    berichtsjahr) or None when the address falls outside all polygons
+    (rare for within-Hamburg addresses).
+
+    Hamburg's Statusindex levels (as published by BSW):
+      "hoch", "mittel", "niedrig", "sehr niedrig"
+
+    `th` is empty ({}) for this tile — the status string drives the tier
+    directly without numeric thresholds.
+    """
+    if sm is None:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "outside Sozialmonitoring coverage area",
+                "numeric": ""}
+    status = (sm.get("statusindex") or "").strip().lower()
+    stadtteil = (sm.get("stadtteil") or "").strip()
+    jahr = (sm.get("berichtsjahr") or "").strip()
+    label_suffix = f" · {stadtteil}" if stadtteil else ""
+    if status in ("hoch",):
+        return {"tier": TIER_GREEN,
+                "rule": "Statusindex: hoch (strong socioeconomic status)",
+                "numeric": f"hoch{label_suffix}"}
+    if status in ("mittel",):
+        return {"tier": TIER_AMBER,
+                "rule": "Statusindex: mittel",
+                "numeric": f"mittel{label_suffix}"}
+    if status in ("niedrig", "sehr niedrig"):
+        return {"tier": TIER_RED,
+                "rule": f"Statusindex: {status} — neighbourhood flagged for city support",
+                "numeric": f"{status}{label_suffix}"}
+    # Unknown status string (e.g. field missing, new label not yet handled)
+    return {"tier": TIER_UNKNOWN,
+            "rule": "Sozialmonitoring status not available",
+            "numeric": f"{status}{label_suffix}" if status else ""}
+
+
+def _tier_sozialmonitoring_gesamt(sm: Optional[dict], th: dict) -> dict:
+    """Hamburg BSW Sozialmonitoring — Gesamtindex / Aufmerksamkeitsgebiet tile.
+
+    `gesamtindex` encodes the combined Status+Dynamik verdict. BSW publishes
+    this as either an empty/None string (polygon not flagged) or
+    "Aufmerksamkeitsgebiet" (designated area for city social monitoring).
+
+    `th` is empty ({}) — string-driven, no numeric thresholds.
+    """
+    if sm is None:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "outside Sozialmonitoring coverage area",
+                "numeric": ""}
+    gesamt = (sm.get("gesamtindex") or "").strip()
+    stadtteil = (sm.get("stadtteil") or "").strip()
+    label_suffix = f" · {stadtteil}" if stadtteil else ""
+    if "aufmerksamkeit" in gesamt.lower():
+        return {"tier": TIER_RED,
+                "rule": "Aufmerksamkeitsgebiet — combined Status+Dynamik monitoring area",
+                "numeric": f"Aufmerksamkeitsgebiet{label_suffix}"}
+    if gesamt:
+        # Non-empty but not Aufmerksamkeitsgebiet → treat as not-flagged
+        return {"tier": TIER_GREEN,
+                "rule": "not an Aufmerksamkeitsgebiet",
+                "numeric": f"{gesamt}{label_suffix}"}
+    return {"tier": TIER_GREEN,
+            "rule": "not an Aufmerksamkeitsgebiet",
+            "numeric": f"not flagged{label_suffix}"}
+
+
 if __name__ == "__main__":
     # noise_tier — thresholds copied verbatim from phase3.
     assert noise_tier(50) == "green"

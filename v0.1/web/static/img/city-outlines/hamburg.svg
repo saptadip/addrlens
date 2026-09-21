@@ -1,0 +1,19 @@
+<!-- Simplified Hamburg admin boundary — ~40 vertices. Replace with cartographically accurate simplification from OSM boundary relation 62782 before v1 launch. -->
+<path class="hero-city"
+      d="M 80,62
+         L 95,58 L 110,55 L 128,54 L 145,56 L 160,58
+         L 175,63 L 188,70 L 198,80
+         L 208,92 L 215,105 L 218,118
+         L 225,126 L 232,132 L 230,140
+         L 222,148 L 215,152 L 205,155
+         L 210,163 L 208,172
+         L 196,178 L 185,182
+         L 178,190 L 170,198 L 162,208
+         L 150,215 L 138,217 L 126,212
+         L 115,207 L 108,198
+         L 100,192 L 90,196 L 80,195
+         L 68,188 L 58,178 L 52,166
+         L 48,154 L 50,142 L 54,132
+         L 52,120 L 56,110 L 62,100
+         L 66,90 L 68,78 L 72,70
+         Z"/>

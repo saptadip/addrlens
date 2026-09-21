@@ -1,0 +1,27 @@
+<!-- Hamburg-Mitte (~130,140) -->
+<circle cx="130" cy="140" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<circle cx="140" cy="133" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<circle cx="122" cy="148" r="4" class="hero-scan-pin hero-scan-pin-amber"/>
+<!-- Altona (~75,145) -->
+<circle cx="75"  cy="145" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<circle cx="68"  cy="138" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<circle cx="82"  cy="155" r="4" class="hero-scan-pin hero-scan-pin-amber"/>
+<!-- Eimsbüttel (~110,110) -->
+<circle cx="110" cy="110" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<circle cx="100" cy="118" r="4" class="hero-scan-pin hero-scan-pin-red"/>
+<circle cx="120" cy="102" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<!-- Hamburg-Nord (~150,100) -->
+<circle cx="150" cy="100" r="4" class="hero-scan-pin hero-scan-pin-amber"/>
+<circle cx="160" cy="92"  r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<circle cx="142" cy="108" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<!-- Wandsbek (~190,115) -->
+<circle cx="190" cy="115" r="4" class="hero-scan-pin hero-scan-pin-red"/>
+<circle cx="200" cy="125" r="4" class="hero-scan-pin hero-scan-pin-amber"/>
+<circle cx="180" cy="108" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<!-- Bergedorf (~200,170) -->
+<circle cx="200" cy="170" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<circle cx="192" cy="180" r="4" class="hero-scan-pin hero-scan-pin-amber"/>
+<!-- Harburg (~148,205) -->
+<circle cx="148" cy="205" r="4" class="hero-scan-pin hero-scan-pin-red"/>
+<circle cx="138" cy="198" r="4" class="hero-scan-pin hero-scan-pin-green"/>
+<circle cx="158" cy="196" r="4" class="hero-scan-pin hero-scan-pin-green"/>

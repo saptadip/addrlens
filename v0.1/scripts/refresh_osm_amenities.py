@@ -212,7 +212,13 @@ _DROP_UNNAMED = {"parks", "playgrounds"}
 # in the rule engine — the tuple/dict rule format only expresses OR-of-inclusions.
 _INTL_FOOD_EXCLUDE_CUISINE = frozenset({
     "german", "regional", "european", "bavarian", "berlin", "brandenburg",
+    "hamburg", "nordfriesisch",
 })
+
+_GEOFABRIK_URLS = {
+    "berlin":  "https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf",
+    "hamburg": "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
+}
 
 GEOFABRIK_URL = "https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf"
 
@@ -426,26 +432,31 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--data-dir", default=os.environ.get("OSM_DATA_DIR", "data/osm"),
                     help="host filesystem dir (dev) or Docker volume mount (prod)")
-    ap.add_argument("--url", default=GEOFABRIK_URL,
-                    help="Geofabrik pbf URL (default: Berlin)")
+    ap.add_argument("--city", default="berlin", choices=list(_GEOFABRIK_URLS.keys()),
+                    help="City slug (default: berlin) — selects the Geofabrik PBF + output paths")
+    ap.add_argument("--pbf-url", default=None,
+                    help="Geofabrik pbf URL (overrides --city; default: computed from --city)")
     ap.add_argument("--skip-download", action="store_true",
                     help="re-parse an existing pbf without re-downloading")
     args = ap.parse_args()
 
+    # Use --pbf-url if provided, otherwise derive from --city
+    pbf_url = args.pbf_url if args.pbf_url else _GEOFABRIK_URLS[args.city]
+
     data_dir = Path(args.data_dir).resolve()
-    pbf_path = data_dir / "berlin-latest.osm.pbf"
-    json_path = data_dir / "berlin-amenities.json"
-    addr_path = data_dir / "berlin-addresses.json"
+    pbf_path = data_dir / f"{args.city}-latest.osm.pbf"
+    json_path = data_dir / f"{args.city}-amenities.json"
+    addr_path = data_dir / f"{args.city}-addresses.json"
 
     if not args.skip_download:
-        download_pbf(args.url, pbf_path)
+        download_pbf(pbf_url, pbf_path)
     elif not pbf_path.exists():
         print(f"! --skip-download but {pbf_path} missing", file=sys.stderr)
         sys.exit(2)
 
     buckets, addresses = parse_and_filter(pbf_path)
     write_snapshot(buckets, json_path,
-                   source=f"Geofabrik {args.url.rsplit('/', 1)[-1]} "
+                   source=f"Geofabrik {pbf_url.rsplit('/', 1)[-1]} "
                           f"({datetime.fromtimestamp(pbf_path.stat().st_mtime, tz=timezone.utc).date()})")
     # Addresses ship as a plain JSON list — no meta wrapper — so
     # address_index.py can json.load() the file straight into the index.
@@ -531,11 +542,18 @@ if __name__ == "__main__":
     assert _cats_for({"office": "coworking"}) == ["coworking"]
     print("rule-engine selfcheck ok")
 
+    # Parse args to get city for selfcheck path
+    import argparse as _argparse
+    _ap = _argparse.ArgumentParser(add_help=False)
+    _ap.add_argument("--city", default="berlin", choices=list(_GEOFABRIK_URLS.keys()))
+    _ap.add_argument("--data-dir", default=os.environ.get("OSM_DATA_DIR", "data/osm"))
+    _args, _ = _ap.parse_known_args()
+
     main()
 
     # Snapshot-shape selfcheck (plan Step 4). Runs AFTER main() so the
     # snapshot is guaranteed fresh. JSON shape: {"meta": {...}, "buckets": {...}}.
-    snap = pathlib.Path("data/osm/berlin-amenities.json")
+    snap = pathlib.Path(_args.data_dir) / f"{_args.city}-amenities.json"
     if snap.exists():
         import json as _json
         j = _json.loads(snap.read_text())

@@ -157,9 +157,10 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
   }
 }
 
-/* Berlin outline — dark slate fill + black stroke (forensic editorial
-   mood, chosen over indigo / logo-palette variants during design review). */
-.hero-berlin{fill:rgba(15,23,42,0.85);
+/* City outline — dark slate fill + black stroke (forensic editorial
+   mood, chosen over indigo / logo-palette variants during design review).
+   .hero-city is the generic class used by per-city SVG fragments. */
+.hero-berlin,.hero-city{fill:rgba(15,23,42,0.85);
   stroke:#0D0D0D;stroke-width:2.4}
 
 /* Tier-graded pins revealed as the lens sweeps. Traffic-light hues so

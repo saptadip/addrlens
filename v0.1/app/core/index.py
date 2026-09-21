@@ -123,12 +123,14 @@ class Index:
         self._load_su_bahn()
         self._load_tram()
         self._load_regional_rail()
+        self._load_ferry()
         self._load_fire()
         self._load_quiet_zones()
         self._load_protection()
         self._load_swim()
         self._load_bezirksgrenzen()
         self._load_gesix()
+        self._load_sozialmonitoring()
         self._load_buergeramts()
         self._load_xmas_markets()
         self._load_parking_zones()
@@ -160,6 +162,10 @@ class Index:
         """Catchment polygons + all schools + derived public / intl lists
         + esb→schools point-in-polygon index."""
         cfg = self.cfg
+        self.esbs, self.schools = [], []
+        self.gs_public, self.gs_intl, self.esb_to_gs = [], [], {}
+        if not (cfg.catchment_wfs_url and cfg.schools_wfs_url):
+            return
         log_load("catchment polygons")
         self.esbs = load_polygon_layer(
             cfg, cfg.catchment_wfs_url, cfg.catchment_layer, 1000)
@@ -170,15 +176,19 @@ class Index:
         self.schools = load_point_layer_raw(
             cfg, cfg.schools_wfs_url, cfg.schools_layer, 2000)
 
+        # T27 fix: use schools_gs_public_types when set (Berlin Grundschule-only
+        # filter); fall back to schools_primary_types when None (Hamburg's plural
+        # types already correct for gs_public). Avoids silent widening of Berlin's
+        # catchment-fallback + nearest-school ruling to Gemeinschaftsschulen.
+        _gs_types = getattr(cfg, "schools_gs_public_types", None) or cfg.schools_primary_types
         self.gs_public = [(p, c) for p, c in self.schools
-                          if p.get(s_fm["type"]) == "Grundschule"
+                          if p.get(s_fm["type"]) in _gs_types
                           and p.get(s_fm["public_flag"]) == cfg.schools_public_value]
         self.gs_intl = [(p, c) for p, c in self.schools
                         if p.get(s_fm["type"]) in cfg.schools_primary_types
                         and any(k in norm(p[s_fm["name"]]) for k in cfg.schools_intl_keywords)]
 
         c_fm = cfg.catchment_field_map
-        self.esb_to_gs = {}
         for props, geom in self.esbs:
             self.esb_to_gs[props[c_fm["id"]]] = [
                 (p, c) for p, c in self.gs_public if geom.contains(Point(c))
@@ -188,6 +198,9 @@ class Index:
 
     def _load_kitas(self) -> None:
         cfg = self.cfg
+        self.kitas = []
+        if not (cfg.kita_wfs_url and cfg.kita_layer):
+            return
         log_load(f"kitas ({cfg.display_name} geoportal)")
         self.kitas = load_point_layer_raw(
             cfg, cfg.kita_wfs_url, cfg.kita_layer, 5000)
@@ -267,6 +280,27 @@ class Index:
             {"name": n, "lat": la, "lon": lo}
             for n, la, lo in self.cfg.regional_rail_stations
         ]
+
+    def _load_ferry(self) -> None:
+        """HADAG ferry piers from HVV GTFS extract (Hamburg only; Berlin has no
+        ferry-as-commute mode). Vendored CSV like S/U-Bahn; None path → empty list."""
+        cfg = self.cfg
+        self.ferry = []
+        path = getattr(cfg, "ferry_stations_data_path", None)
+        if not path:
+            return
+        log_load("HVV ferry piers")
+        import csv as _csv
+        with open(path, encoding="utf-8", newline="") as f:
+            for row in _csv.DictReader(f):
+                self.ferry.append({
+                    "name":      row["name"],
+                    "lat":       float(row["lat"]),
+                    "lon":       float(row["lon"]),
+                    "lines":     row.get("lines", ""),
+                    "peak_only": row.get("peak_only", "0") == "1",
+                })
+        print(f"{len(self.ferry)} ferry piers")
 
     def _load_fire(self) -> None:
         """Fire stations + response zones. Two-layer load: zones
@@ -397,6 +431,25 @@ class Index:
         except Exception as e:
             print(f"failed ({type(e).__name__}: {e})")
 
+    def _load_sozialmonitoring(self) -> None:
+        """Hamburg BSW Sozialmonitoring — ~941 Statistische-Gebiete polygons with
+        pre-classified statusindex / dynamikindex / gesamtindex string bands.
+        Berlin's gesix_wert stays a separate path. Fails soft — WFS timeout →
+        empty list; sozialmonitoring_at returns None."""
+        cfg = self.cfg
+        self.sozialmonitoring = []
+        if not (getattr(cfg, "sozialmonitoring_wfs_url", None)
+                and getattr(cfg, "sozialmonitoring_layer", None)):
+            return
+        log_load("Sozialmonitoring (Hamburg neighbourhood status)")
+        try:
+            for props, geom in load_polygon_layer(
+                    cfg, cfg.sozialmonitoring_wfs_url, cfg.sozialmonitoring_layer, 1500):
+                self.sozialmonitoring.append((props, geom))
+            print(f"{len(self.sozialmonitoring)} Statistische Gebiete")
+        except Exception as e:
+            print(f"failed ({type(e).__name__}: {e})")
+
     def _load_buergeramts(self) -> None:
         """Bürgerämter. Sentinel layer "_geojson" triggers the
         service.berlin.de REST/HTML loader (module
@@ -509,14 +562,14 @@ class Index:
     # -------------------------------------------------------------- lookups
 
     def geocode(self, street, hnr, plz):
-        """Look up an address via the city's WFS geocoder. Tolerates:
-          - 'strasse' ↔ 'straße' spelling (retry with opposite fold);
-          - letter suffix on hnr ('44A', '5c') — Berlin BOD stores the
-            digits in `hnr` (integer) and the letter in `hnr_zusatz`;
-            with a suffix we split + query both fields, else int compare
-            against the raw digits works as string in CQL."""
-        import re
+        """Look up an address via the city's configured geocoder.
+        cfg.geocoder ∈ {"wfs", "oaf"} — Berlin uses "wfs", Hamburg "oaf"."""
         cfg = self.cfg
+        if cfg.geocoder == "oaf":
+            from app.core.loaders.oaf_geocoder import geocode_oaf
+            return geocode_oaf(cfg, street, hnr, plz)
+        # Default: classic WFS path (Berlin) — unchanged behaviour below.
+        import re
         gm = cfg.geocoder_field_map
         m = re.match(r"^(\d+)([A-Za-z]?)$", (hnr or "").strip())
         hnr_num, hnr_letter = (m.group(1), m.group(2).upper()) if m else (hnr, "")
@@ -528,14 +581,12 @@ class Index:
             if hnr_letter:
                 cql += f" AND {gm.get('hnr_zusatz','hnr_zusatz')}='{cql_esc(hnr_letter)}'"
             r = wfs(cfg.geocoder_wfs_url, typeNames=cfg.geocoder_layer,
-                    CQL_FILTER=cql, count=1, outputFormat=cfg.wfs_output_format)
+                    CQL_FILTER=cql, count=1, outputFormat=cfg.wfs_output_format,
+                    srsName=cfg.wfs_srs_name)
             return r.get("features") or []
 
         feats = _try(street)
         if not feats:
-            # ß ↔ ss fold — Berlin BOD stores 'Sybelstraße' but many users
-            # (expats especially) type 'Sybelstrasse'. Retry with the opposite
-            # spelling. Symmetric: applies both directions.
             alt = None
             if "strasse" in street.lower():
                 alt = street.replace("strasse", "straße").replace("Strasse", "Straße")
@@ -588,6 +639,26 @@ class Index:
                 }
         return None
 
+    def sozialmonitoring_at(self, lon, lat):
+        """Point-in-polygon over the Sozialmonitoring polygons.
+        Returns dict of {statusindex, gesamtindex, dynamikindex, stadtteil,
+        statgeb, berichtsjahr} on hit, None on miss."""
+        if not self.sozialmonitoring:
+            return None
+        fm = self.cfg.sozialmonitoring_field_map or {}
+        pt = Point(lon, lat)
+        for props, geom in self.sozialmonitoring:
+            if geom.contains(pt):
+                return {
+                    "statusindex":  props.get(fm.get("statusindex")),
+                    "gesamtindex":  props.get(fm.get("gesamtindex")),
+                    "dynamikindex": props.get(fm.get("dynamikindex")),
+                    "stadtteil":    (props.get(fm.get("stadtteil")) or "").strip(),
+                    "statgeb":      (props.get(fm.get("statgeb")) or "").strip(),
+                    "berichtsjahr": (props.get(fm.get("berichtsjahr")) or "").strip(),
+                }
+        return None
+
     def nearest_gs_public(self, lon, lat, k=2):
         """Return the k nearest public Grundschulen by straight-line distance.
         Used as a fallback when an ESB polygon contains no school inside its
@@ -598,6 +669,17 @@ class Index:
         sorted_gs = sorted(self.gs_public,
                            key=lambda pc: haversine_m(lon, lat, pc[1][0], pc[1][1]))
         return sorted_gs[:k]
+
+    def nearest_school_km_only(self, lon, lat):
+        """Hamburg-simple version — returns just distance in km. Hamburg's
+        Einzugsgebiete are per statistical district, not per-school, so we
+        don't return catchment / school-name / BSN — the frontend renders
+        'nearest primary school: 0.4 km' and stops."""
+        if not self.gs_public:
+            return None
+        best = min(self.gs_public, key=lambda pc: haversine_m(lon, lat, pc[1][0], pc[1][1]))
+        d = haversine_m(lon, lat, best[1][0], best[1][1])
+        return {"distance_km": round(d / 1000, 2)}
 
     def nearest_intl(self, lon, lat):
         if not self.gs_intl:
@@ -663,6 +745,14 @@ class Index:
             return None
         best = min(points, key=lambda p: haversine_m(lon, lat, p["lon"], p["lat"]))
         return {**best, "distance_m": round(haversine_m(lon, lat, best["lon"], best["lat"]))}
+
+    def nearest_ferry(self, lon, lat):
+        """Nearest HADAG pier + distance_m. Returns None when self.ferry empty."""
+        if not self.ferry:
+            return None
+        best = min(self.ferry, key=lambda p: haversine_m(lon, lat, p["lon"], p["lat"]))
+        d = haversine_m(lon, lat, best["lon"], best["lat"])
+        return {**best, "distance_m": round(d)}
 
     # -- Phase 1 lookups (Fire, Quiet, Protection, Pools, Trees) -----------
 
@@ -1097,6 +1187,48 @@ class Index:
             "distance_m": round(best_d),
         }
 
+    def noise_bands_at(self, lon, lat):
+        """Isoline noise model — runs up to 6 point-in-polygon queries per
+        address (road×day, road×night, rail×day, rail×night, air×day, air×night)
+        and returns the band string per source. `None` for any source whose
+        layer is not configured. Uses `band` as the property name; adjust when
+        Hamburg's field name is verified at impl time (falls back to first non-
+        empty string prop if `band` is not present)."""
+        from shapely.geometry import Point as _Point
+        cfg = self.cfg
+        if cfg.noise_model != "isoline":
+            return None
+        pt = _Point(lon, lat)
+        layers = [
+            ("road_den_band", cfg.noise_isoline_road_day_layer),
+            ("road_n_band",   cfg.noise_isoline_road_night_layer),
+            ("rail_den_band", cfg.noise_isoline_rail_day_layer),
+            ("rail_n_band",   cfg.noise_isoline_rail_night_layer),
+            ("air_den_band",  cfg.noise_isoline_air_day_layer),
+            ("air_n_band",    cfg.noise_isoline_air_night_layer),
+        ]
+        out = {k: None for k, _ in layers}
+        for key, layer in layers:
+            if not layer:
+                continue
+            try:
+                features = load_polygon_layer(cfg, cfg.noise_wfs_url, layer, 5000)
+            except Exception:
+                continue
+            for props, geom in features:
+                if geom.contains(pt):
+                    # Prefer explicit "band" property; fall back to first non-
+                    # empty string value.
+                    b = props.get("band")
+                    if not b:
+                        for v in props.values():
+                            if isinstance(v, str) and v.strip():
+                                b = v
+                                break
+                    out[key] = b
+                    break
+        return out
+
     def rail_track_proximity(self, lon, lat):
         """Nearest S-Bahn or U-Bahn station as a proxy for exposure to
         rail-track noise. Returns
@@ -1166,8 +1298,9 @@ if __name__ == "__main__":
         "_load_catchments_and_schools", "_load_kitas",
         "_load_fountains", "_load_hospitals",
         "_load_su_bahn", "_load_tram", "_load_regional_rail",
-        "_load_fire", "_load_quiet_zones", "_load_protection",
+        "_load_ferry", "_load_fire", "_load_quiet_zones", "_load_protection",
         "_load_swim", "_load_bezirksgrenzen", "_load_gesix",
+        "_load_sozialmonitoring",
         "_load_buergeramts",
         "_load_xmas_markets",
         "_load_parking_zones",

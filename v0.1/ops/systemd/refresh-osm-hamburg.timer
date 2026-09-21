@@ -1,0 +1,11 @@
+[Unit]
+Description=Trigger weekly Hamburg OSM refresh on Sunday 04:00 Europe/Berlin (offset 1h from Berlin's 03:00 to avoid Geofabrik hammering)
+
+[Timer]
+OnCalendar=Sun 04:00
+Persistent=true
+RandomizedDelaySec=15min
+Unit=refresh-osm-hamburg.service
+
+[Install]
+WantedBy=timers.target

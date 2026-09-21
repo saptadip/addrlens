@@ -6,7 +6,10 @@ it and both are exposed on app.state for routes to pick up via app.deps.
 Ship D-1: /ready returns 503 until Index is loaded so an orchestrator that
 promotes the pod on /health won't send user traffic to a cold container.
 """
+import base64
+import hashlib
 import os
+import re as _jsonld_re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -72,7 +75,9 @@ if os.environ.get("SENTRY_DSN_APP"):
         dsn=os.environ["SENTRY_DSN_APP"],
         integrations=[StarletteIntegration(), FastApiIntegration()],
         traces_sample_rate=0.1,
-        environment=os.environ.get("SENTRY_ENV", "production"),
+        environment=os.environ.get(
+            "SENTRY_ENV",
+            f"{os.environ.get('CITY', 'berlin').strip().lower()}-production"),
         release=os.environ.get("GIT_SHA") or None,
         send_default_pii=False,
         before_send=_sentry_scrub,
@@ -113,12 +118,17 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 # the index.html <head>. Read at import time and cached — zero per-request
 # cost, no template engine required. Local dev leaves the vars unset and
 # ships a tracker-free page.
-_UMAMI_WEBSITE_ID = os.environ.get("UMAMI_WEBSITE_ID", "").strip()
-_UMAMI_SCRIPT_URL = os.environ.get("UMAMI_SCRIPT_URL", "").strip()
+_CITY_ENV = os.environ.get("CITY", "berlin").strip().upper()
+_UMAMI_WEBSITE_ID = (os.environ.get(f"UMAMI_WEBSITE_ID_{_CITY_ENV}")
+                     or os.environ.get("UMAMI_WEBSITE_ID", "")).strip()
+_UMAMI_SCRIPT_URL = (os.environ.get(f"UMAMI_SCRIPT_URL_{_CITY_ENV}")
+                     or os.environ.get("UMAMI_SCRIPT_URL", "")).strip()
 
 
 def _load_index_html() -> str:
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+
+    # --- Umami analytics injection (existing) ---------------------------------
     if _UMAMI_WEBSITE_ID and _UMAMI_SCRIPT_URL:
         # Very small surface — a defer'd single-line script tag with the
         # website id data attribute. Umami's own docs recommend exactly
@@ -128,6 +138,97 @@ def _load_index_html() -> str:
             f'src="{_UMAMI_SCRIPT_URL}"></script>\n</head>'
         )
         html = html.replace("</head>", snippet, 1)
+
+    # --- Per-city SSR swap ----------------------------------------------------
+    # Load city config (reads CITY env var, defaults to 'berlin').
+    cfg = load_city()
+    outlines_dir = WEB_DIR / "static" / "img" / "city-outlines"
+
+    # Always swap data-city attribute (no-op for Berlin since value matches).
+    html = html.replace('data-city="berlin"', f'data-city="{cfg.slug}"', 1)
+
+    # Always inject the city outline path into both SVG slots.
+    outline_file = outlines_dir / f"{cfg.slug}.svg"
+    try:
+        outline_fragment = outline_file.read_text(encoding="utf-8")
+        html = html.replace("<!-- CITY-OUTLINE-PATH -->", outline_fragment, 1)
+        html = html.replace("<!-- CITY-CLIP-PATH -->", outline_fragment, 1)
+    except FileNotFoundError:
+        import sys as _sys
+        print(f"WARNING: city outline SVG not found: {outline_file} — "
+              f"CITY-OUTLINE-PATH / CITY-CLIP-PATH markers not replaced", file=_sys.stderr)
+
+    # Always inject the city pins.
+    pins_file = outlines_dir / f"{cfg.slug}-pins.svg"
+    try:
+        pins_fragment = pins_file.read_text(encoding="utf-8")
+        html = html.replace("<!-- CITY-PINS -->", pins_fragment, 1)
+    except FileNotFoundError:
+        import sys as _sys
+        print(f"WARNING: city pins SVG not found: {pins_file} — "
+              f"CITY-PINS marker not replaced", file=_sys.stderr)
+
+    # Always inject the city attribution fragment (h4 + <p id="footer-city-attr">
+    # + 4 further h4 sections). Berlin fragment is byte-identical to the pre-T29
+    # inline block; Hamburg fragment carries Hamburg data-source list, HVV/HADAG,
+    # BSW Sozialmonitoring, standesamt-only admin, Hamburg Geofabrik extract.
+    attribution_file = outlines_dir / f"{cfg.slug}-attribution.html"
+    try:
+        attribution_fragment = attribution_file.read_text(encoding="utf-8")
+        html = html.replace("<!-- CITY-ATTRIBUTION-BLOCK -->", attribution_fragment, 1)
+    except FileNotFoundError:
+        import sys as _sys
+        print(f"WARNING: city attribution HTML not found: {attribution_file} — "
+              f"CITY-ATTRIBUTION-BLOCK marker not replaced", file=_sys.stderr)
+
+    # City-specific text/JSON-LD/hero swaps — only when not Berlin.
+    if cfg.slug != "berlin":
+        dn = cfg.display_name  # e.g. "Hamburg"
+
+        # Title + meta content strings
+        html = html.replace("Moving to Berlin?", f"Moving to {dn}?")
+        html = html.replace(
+            "People moving to or evaluating flats in Berlin",
+            f"People moving to or evaluating flats in {dn}",
+        )
+        html = html.replace("AddrLens Berlin", f"AddrLens {dn}")
+        html = html.replace(
+            'aria-label="Berlin address"',
+            f'aria-label="{dn} address"',
+        )
+        html = html.replace(
+            "life around any Berlin address",
+            f"life around any {dn} address",
+        )
+        html = html.replace(
+            "AddrLens hero — Moving to Berlin?",
+            f"AddrLens hero — Moving to {dn}?",
+        )
+        html = html.replace(
+            "Search box for any Berlin address, Berlin map on the right",
+            f"Search box for any {dn} address, {dn} map on the right",
+        )
+        html = html.replace("AddrLens scanning Berlin", f"AddrLens scanning {dn}")
+        # aria-label on logo anchor
+        html = html.replace(
+            'aria-label="AddrLens Berlin — home"',
+            f'aria-label="AddrLens {dn} — home"',
+        )
+
+        # JSON-LD structured data fields
+        html = html.replace('"addressLocality": "Berlin"', f'"addressLocality": "{dn}"')
+        html = html.replace('"name": "Berlin"', f'"name": "{dn}"')
+
+        # Example address chip: swap Berlin example for Hamburg
+        html = html.replace(
+            "Sybelstrasse 59, Charlottenburg, 10629 Berlin",
+            "Grindelallee 100, Rotherbaum, 20146 Hamburg",
+        )
+
+        # Footer attribution is now driven by the per-city <slug>-attribution.html
+        # fragment injected above via <!-- CITY-ATTRIBUTION-BLOCK -->; no
+        # regex-substitute needed here.
+
     return html
 
 
@@ -142,28 +243,38 @@ def index():
     return Response(_INDEX_HTML, media_type="text/html; charset=utf-8")
 
 
+def _city_or_default(filename: str) -> Path:
+    """Serve WEB_DIR / <slug> / <filename> if present, else WEB_DIR / <filename>.
+
+    Defensive fallback keeps Berlin serving even if a per-city file is missing.
+    slug is read from app.state.city which is set at lifespan startup.
+    """
+    p = WEB_DIR / app.state.city.slug / filename
+    return p if p.exists() else WEB_DIR / filename
+
+
 @app.get("/impressum", include_in_schema=False)
 def impressum():
-    """Serve the §5 DDG Imprint page (bilingual DE + EN)."""
-    return FileResponse(WEB_DIR / "impressum.html", media_type="text/html; charset=utf-8")
+    """Serve the §5 DDG Imprint page — per-city variant when available."""
+    return FileResponse(_city_or_default("impressum.html"), media_type="text/html; charset=utf-8")
 
 
 @app.get("/datenschutzerklaerung", include_in_schema=False)
 def datenschutzerklaerung():
-    """Serve the DSGVO/GDPR privacy policy (bilingual DE + EN)."""
-    return FileResponse(WEB_DIR / "datenschutzerklaerung.html", media_type="text/html; charset=utf-8")
+    """Serve the DSGVO/GDPR privacy policy — per-city variant when available."""
+    return FileResponse(_city_or_default("datenschutzerklaerung.html"), media_type="text/html; charset=utf-8")
 
 
 @app.get("/robots.txt", include_in_schema=False)
 def robots():
-    """Serve robots.txt — allowlist everything except /api/*, point at sitemap."""
-    return FileResponse(WEB_DIR / "robots.txt", media_type="text/plain; charset=utf-8")
+    """Serve robots.txt — per-city variant when available."""
+    return FileResponse(_city_or_default("robots.txt"), media_type="text/plain; charset=utf-8")
 
 
 @app.get("/sitemap.xml", include_in_schema=False)
 def sitemap():
-    """Serve sitemap.xml — landing + legal pages. Update when public routes change."""
-    return FileResponse(WEB_DIR / "sitemap.xml", media_type="application/xml; charset=utf-8")
+    """Serve sitemap.xml — per-city variant when available."""
+    return FileResponse(_city_or_default("sitemap.xml"), media_type="application/xml; charset=utf-8")
 
 
 # ES module files under /static/modules/ must revalidate on every load.
@@ -240,18 +351,35 @@ def _umami_origin() -> str:
 
 _UMAMI_ORIGIN = _umami_origin()
 
-# SHA-256 hash of the JSON-LD structured-data block in web/index.html
+# SHA-256 hash of the JSON-LD structured-data block in the served HTML.
 # (<script type="application/ld+json">…</script>). Per CSP L3 spec, JSON-LD
 # data blocks are exempt from script-src, but some browsers (older Chrome,
 # some Safari versions, CSP validators) still flag them as inline-script
 # violations. Whitelisting the exact content hash silences the warning
-# without opening the door to `'unsafe-inline'`. If the JSON-LD content
-# changes, recompute with:
-#   python -c "import hashlib,base64,re; \
-#     html=open('web/index.html').read(); \
-#     m=re.search(r'<script type=\"application/ld\+json\">(.*?)</script>', html, re.DOTALL); \
-#     print('sha256-'+base64.b64encode(hashlib.sha256(m.group(1).encode()).digest()).decode())"
-_JSONLD_HASH = "'sha256-lDQ6ebdG88cQn3rjZolSlpxIE1He/+rKXD+SwHIf18E='"
+# without opening the door to `'unsafe-inline'`.
+#
+# The hash is computed at boot from the actual _INDEX_HTML content — which
+# already has per-city SSR applied (e.g. "Hamburg" substituted for "Berlin"
+# in name/addressLocality/audience fields). This means each city gets its
+# own correct hash without any manual recompute step.
+#
+# Berlin expected: 'sha256-lDQ6ebdG88cQn3rjZolSlpxIE1He/+rKXD+SwHIf18E='
+def _compute_jsonld_hash(html: str) -> str:
+    """Extract the JSON-LD block from html and return a CSP sha256- hash token.
+
+    Returns an empty string if no JSON-LD block is found (which drops the
+    hash from _SCRIPT_SRC silently — safe for pages that omit the block).
+    """
+    m = _jsonld_re.search(
+        r'<script type="application/ld\+json">(.*?)</script>', html, _jsonld_re.DOTALL
+    )
+    if not m:
+        return ""
+    digest = hashlib.sha256(m.group(1).encode()).digest()
+    return f"'sha256-{base64.b64encode(digest).decode()}'"
+
+
+_JSONLD_HASH = _compute_jsonld_hash(_INDEX_HTML)
 _SCRIPT_SRC  = " ".join(x for x in ["'self'", "https://unpkg.com", _UMAMI_ORIGIN, _JSONLD_HASH] if x)
 _STYLE_SRC   = " ".join(["'self'", "'unsafe-inline'",
                          "https://fonts.googleapis.com", "https://unpkg.com"])
