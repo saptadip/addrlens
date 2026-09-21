@@ -1,0 +1,21 @@
+[Unit]
+Description=Weekly Hamburg OSM amenities refresh (Geofabrik -> filtered JSON)
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=sapta
+WorkingDirectory=/srv/addrlens/repo/v0.1
+ExecStart=/usr/bin/docker compose \
+    -f docker-compose.yml -f docker-compose.prod.yml \
+    --env-file /srv/addrlens/.env.production \
+    run --rm --entrypoint python app-hh \
+    -m scripts.refresh_osm_amenities --city hamburg
+ExecStartPost=/usr/bin/docker compose \
+    -f docker-compose.yml -f docker-compose.prod.yml \
+    --env-file /srv/addrlens/.env.production \
+    restart app-hh
+TimeoutStartSec=30min
+StandardOutput=journal
+StandardError=journal
