@@ -33,9 +33,11 @@ def test_sozialmonitoring_two_tiles_per_lens():
     assert "sozialmonitoring_gesamt_commuter" in c_keys
 
 
-def test_only_standesamt_in_others_tab():
+def test_others_tab_has_kundenzentrum_finanzamt_standesamt():
     admin_keys = [c.key for c in HAMBURG.others_admin_cards]
-    assert admin_keys == ["standesamt"]
+    assert admin_keys == ["kundenzentrum", "finanzamt", "standesamt"]
+    assert len(HAMBURG.kundenzentren) == 7   # 7 Bezirks-main Kundenzentren
+    assert len(HAMBURG.finanzamts) == 9      # 9 Hamburg Finanzämter
 
 
 def test_hamburg_flags():

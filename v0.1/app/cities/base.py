@@ -317,6 +317,12 @@ class CityConfig:
     # Hamburg's pre-existing behaviour byte-exactly.
     schools_gs_public_types: Optional[frozenset] = None
 
+    # -- Others tab: Hamburg Kundenzentrum (Bürgeramt-equivalent) --------------
+    # Curated tuple (name/address/lat/lon dicts) — same shape as `finanzamts`
+    # + `arbeitsagenturs`. Defaults to () so Berlin's Others tab is unchanged
+    # (Berlin's OTHERS_ADMIN_CARDS doesn't include a `kundenzentrum` entry).
+    kundenzentren: tuple = ()
+
 
 @dataclass(frozen=True)
 class LensTileConfig:

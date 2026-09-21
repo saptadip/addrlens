@@ -270,7 +270,13 @@ def air_quality_at(cfg: CityConfig, lon, lat, search_radius_m=150):
     the street I'm on" read; upgrade path is per-line distance.
     """
     if not (cfg.air_wfs_url and cfg.air_layer):
-        return {"unavailable": True, "reason": f"air-quality map not configured for {cfg.display_name}"}
+        # Include provenance so the frontend's "provenance ||" fallback chain
+        # doesn't leak the Berlin literal `Berlin BOD · Umweltatlas Luft` on
+        # a Hamburg deploy (Hamburg's _ATTRIBUTION has no `air` key by design
+        # — spec Q10 — so an empty string is the correct citation here).
+        return {"unavailable": True,
+                "reason": f"air-quality map not configured for {cfg.display_name}",
+                "provenance": cfg.attribution.get("air", "")}
     key = ("air", cfg.slug, round(lon, 5), round(lat, 5))
     hit = _cache.get(key)
     if hit is not None:
