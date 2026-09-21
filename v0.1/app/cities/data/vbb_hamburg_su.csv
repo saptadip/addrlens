@@ -1,1 +1,134 @@
 name,lat,lon,mode
+S Altona,53.5519,9.9350,S+U
+S Diebsteich,53.5628,9.9178,S
+S Eidelstedt,53.6017,9.9261,S
+S Stellingen,53.5936,9.9522,S
+S Langenfelde,53.5833,9.9453,S
+S Holstenstraße,53.5742,9.9544,S
+S Dammtor,53.5608,9.9894,S
+S Hamburg Hbf,53.5528,10.0064,S+U
+S Berliner Tor,53.5522,10.0269,S+U
+S Rothenburgsort,53.5411,10.0367,S
+S Tiefstack,53.5281,10.0531,S
+S Billwerder-Moorfleet,53.5203,10.0764,S
+S Mittlerer Landweg,53.5142,10.1031,S
+S Bergedorf,53.4897,10.2067,S
+S Nettelnburg,53.4806,10.1889,S
+S Allermöhe,53.4803,10.1636,S
+S Neuallermöhe,53.4789,10.1494,S
+S Billstedt,53.5283,10.1033,S+U
+S Merkenstraße,53.5139,10.1144,S
+S Lohbrügge,53.4908,10.1803,S
+S Friedrichsberg,53.5467,10.0694,S
+S Hasselbrook,53.5597,10.0517,S
+S Wandsbeker Chaussee,53.5758,10.0561,S
+S Rahlstedt,53.6031,10.1583,S
+S Tonndorf,53.5933,10.1339,S
+S Jenfeld,53.5733,10.1028,S
+S Barmbek,53.5881,10.0333,S+U
+S Rübenkamp,53.5975,10.0289,S
+S Ohlsdorf,53.6197,10.0186,S+U
+S Poppenbüttel,53.6572,10.0811,S
+S Wellingsbüttel,53.6417,10.0753,S
+S Hoheneichen,53.6278,10.0614,S
+S Sasel,53.6361,10.0944,S
+S Berne,53.6244,10.1128,S
+S Wandsbek Markt,53.5803,10.0647,S+U
+S Hammerbrook,53.5483,10.0197,S
+S Stadthausbrücke,53.5497,9.9914,S
+S Jungfernstieg,53.5531,9.9939,S+U
+S Reeperbahn,53.5492,9.9622,S
+S Landungsbrücken,53.5461,9.9678,S+U
+S Königstraße,53.5478,9.9519,S
+S Bahrenfeld,53.5731,9.9025,S
+S Othmarschen,53.5631,9.9019,S
+S Klein Flottbek,53.5667,9.8844,S
+S Blankenese,53.5619,9.8253,S
+S Hochkamp,53.5664,9.8597,S
+S Sülldorf,53.5631,9.8128,S
+S Iserbrook,53.5556,9.8006,S
+S Rissen,53.5569,9.7719,S
+S Wedel,53.5817,9.7083,S
+S Hausbruch,53.4700,9.8833,S
+S Neugraben,53.4728,9.8611,S
+S Neuwiedenthal,53.4803,9.8706,S
+S Harburg Rathaus,53.4594,9.9869,S
+S Hamburg-Harburg,53.4561,9.9917,S
+S Heimfeld,53.4672,9.9903,S
+S Wilhelmsburg,53.4989,10.0069,S
+S Veddel,53.5167,10.0067,S
+S Elbgaustraße,53.6103,9.9036,S
+S Burgwedel,53.6292,9.8756,S
+S Bönningstedt,53.6319,9.8956,S
+S Norderstedt Mitte,53.7036,9.9933,S+U
+S Garstedt,53.6767,9.9814,S+U
+S Frohmestraße,53.6519,9.9575,S
+S Langenhorn-Markt,53.6431,9.9936,S+U
+S Langenhorn-Nord,53.6556,10.0019,S+U
+S Fuhlsbüttel Nord,53.6378,10.0089,S
+S Fuhlsbüttel,53.6267,10.0131,S
+S Flughafen,53.6303,9.9881,S
+S Kornweg,53.6658,9.9631,S
+S Ulzburger Straße,53.6542,9.9628,S
+S Friedrichsgabe,53.6639,9.9356,S
+S Pinneberg,53.6592,9.7914,S
+S Halstenbek,53.6297,9.8456,S
+S Krupunder,53.6203,9.8639,S
+S Tornesch,53.6950,9.8531,S
+U Volksdorf,53.6508,10.1625,U
+U Farmsen,53.6231,10.1203,U
+U Meiendorfer Weg,53.6347,10.1439,U
+U Buchenkamp,53.6544,10.1686,U
+U Buckhorn,53.6394,10.1514,U
+U Wandsbek Markt,53.5803,10.0647,U
+U Billstedt,53.5283,10.1033,U
+U Merkenstraße,53.5283,10.1156,U
+U Steinfurther Allee,53.5267,10.1283,U
+U Mümmelmannsberg,53.5256,10.1444,U
+U Hamburger Straße,53.5689,10.0442,U
+U Mundsburg,53.5689,10.0278,U
+U Barmbek,53.5881,10.0333,U
+U Dehnhaide,53.5783,10.0419,U
+U Berliner Tor,53.5522,10.0269,U
+U Borgweg,53.5811,10.0150,U
+U Sierichstraße,53.5922,10.0142,U
+U Kellinghusenstraße,53.5878,9.9858,U
+U Klosterstern,53.5803,9.9889,U
+U Stephansplatz,53.5600,9.9922,U
+U Jungfernstieg,53.5531,9.9939,U
+U Gänsemarkt,53.5564,9.9878,U
+U Messehallen,53.5589,9.9714,U
+U Schlump,53.5678,9.9703,U
+U Hoheluftbrücke,53.5750,9.9703,U
+U Eppendorfer Baum,53.5883,9.9781,U
+U Stadtpark,53.5983,10.0092,U
+U Sengelmannstraße,53.6044,10.0094,U
+U Langenhorn-Markt,53.6431,9.9936,U
+U Langenhorn-Nord,53.6556,10.0019,U
+U Ochsenzoll,53.6678,9.9850,U
+U Garstedt,53.6767,9.9814,U
+U Norderstedt Mitte,53.7036,9.9933,U
+U Lattenkamp,53.6125,9.9967,U
+U Alsterdorf,53.6247,10.0025,U
+U Ohlsdorf,53.6197,10.0186,U
+U Hamburg Hbf (Nord),53.5561,10.0067,U
+U Hamburg Hbf,53.5528,10.0064,U
+U Mönckebergstraße,53.5494,10.0011,U
+U Rödingsmarkt,53.5486,9.9872,U
+U HafenCity Universität,53.5378,9.9950,U
+U Überseequartier,53.5414,9.9978,U
+U Baumwall,53.5447,9.9878,U
+U Landungsbrücken,53.5461,9.9678,U
+U St. Pauli,53.5519,9.9556,U
+U Feldstraße,53.5589,9.9572,U
+U Sternschanze,53.5619,9.9694,U
+U Altona,53.5519,9.9350,U
+U Emilienstraße,53.5647,9.9303,U
+U Osterstraße,53.5733,9.9367,U
+U Hagenbecks Tierpark,53.5922,9.9269,U
+U Stellingen,53.5936,9.9522,U
+U Veringstraße,53.5014,9.9739,U
+U Wilhelmsburg,53.4989,10.0069,U
+U Veddel,53.5167,10.0067,U
+U Rothenburgsort,53.5411,10.0367,U
+U Hammerbrook,53.5483,10.0197,U

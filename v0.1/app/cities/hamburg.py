@@ -17,7 +17,7 @@ from app.cities.base import (
 )
 
 # ---- WFS endpoints (all verified 2026-09-20 via GetCapabilities) ------------
-_WFS_DOG_OAF        = "https://api.hamburg.de/datasets/v1/hh_wfs_dog/collections/hauskoordinaten/items"
+_WFS_DOG_OAF        = "https://api.hamburg.de/datasets/v1/gages_vereinfacht/collections/hauskoordinaten/items"
 _WFS_SCHULEN        = "https://geodienste.hamburg.de/HH_WFS_Schulen"
 _WFS_EINZUGSGEB     = "https://geodienste.hamburg.de/HH_WFS_Regionaler_Bildungsatlas_Einzugsgebiete_Schulwahl"
 _WFS_KITA           = "https://geodienste.hamburg.de/HH_WFS_KitaEinrichtung"
@@ -304,37 +304,45 @@ HAMBURG = CityConfig(
     geocoder="oaf",
     geocoder_wfs_url=None, geocoder_layer=None, geocoder_field_map={},
     geocoder_oaf_url=_WFS_DOG_OAF,
-    geocoder_oaf_field_map={"street": "strasse", "hnr": "hausnummer", "plz": "plz"},
+    geocoder_oaf_field_map={"street": "strassenname", "hnr": "hausnummer", "plz": "postleitzahl"},
 
+    # Hamburg catchment: einzugsgebiete_primarstufe has no polygon geometry (it's a
+    # statistical linkage table, schule_id × statgeb_id). Leaving the URL set so
+    # _load_catchments_and_schools still fires and loads schools; 0 ESB polygons is
+    # expected. catchment_field_map uses actual field names from DescribeFeatureType.
     catchment_wfs_url=_WFS_EINZUGSGEB,
     catchment_layer="de.hh.up:einzug_einzugsgebiete_primarstufe",
-    catchment_field_map={"id": "id", "district": "bezirk"},   # verify DescribeFeatureType at impl
+    catchment_field_map={"id": "schule_id", "district": "statgeb_id"},
 
     schools_wfs_url=_WFS_SCHULEN,
     schools_layer="de.hh.up:staatliche_schulen",              # private schools loaded as second layer at impl
     schools_field_map={
-        "name": "name", "id": "schulnummer", "type": "schulform",
-        "public_flag": "traeger",
-        "street": "strasse", "hnr": "hausnummer", "plz": "plz",
-        "phone": "telefon", "website": "homepage", "school_year": "schuljahr",
+        # kapitelbezeichnung = simple type group (e.g. "Grundschulen"); schulform is
+        # pipe-delimited compound (e.g. "Grundschule|Vorschulklasse") so we map
+        # "type" to kapitelbezeichnung for reliable filtering.
+        "name": "schulname", "id": "schul_id", "type": "kapitelbezeichnung",
+        "public_flag": "rechtsform",
+        "street": "adresse_strasse_hausnr", "hnr": "adresse_strasse_hausnr", "plz": "adresse_ort",
+        "phone": "schul_telefonnr", "website": "schul_homepage",
+        "school_year": "schueleranzahl_schuljahr",
     },
     schools_public_value="staatlich",
-    schools_primary_types=frozenset({"Grundschule", "Stadtteilschule"}),
+    schools_primary_types=frozenset({"Grundschulen", "Stadtteilschulen"}),  # kapitelbezeichnung plural
     schools_intl_keywords=("international", "english", "bilingual", "bilinguale"),
     bilingual_schools={},
 
     kita_wfs_url=_WFS_KITA,
     kita_layer="app:KitaEinrichtungen",
-    kita_field_map={"name": "name", "capacity": "plaetze",
-                    "operator_type": "traeger", "approach": "konzeption"},
+    kita_field_map={"name": "Name", "capacity": "Anzahl_betreuter_Kinder",
+                    "operator_type": "Leistungsarten", "approach": "Leistungsarten"},
 
     hospital_wfs_url=_WFS_KKH,
     hospital_layers=(("de.hh.up:gesundheit_krankenhaeuser", "plan"),),
     hospital_field_map={
-        "name_primary": "name", "name_alt1": "name", "name_alt2": "name",
-        "beds": "geplante_bettenzahl", "beds_alt": "teilstationaere_plaetze",
-        "traeger": "traeger", "ortsteil": "stadtteil",
-        "fachabteilungen": "fachabteilungen",
+        "name_primary": "name", "name_alt1": "einrichtung", "name_alt2": "name",
+        "beds": "planbetten", "beds_alt": "teilstationaere_behandlungsplaetze",
+        "traeger": "traegerschaft", "ortsteil": "ort",
+        "fachabteilungen": "art_der_stationaeren_versorgung",
     },
     hospital_radius_m=2000, hospital_match_m=500,
 

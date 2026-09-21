@@ -177,7 +177,7 @@ class Index:
             cfg, cfg.schools_wfs_url, cfg.schools_layer, 2000)
 
         self.gs_public = [(p, c) for p, c in self.schools
-                          if p.get(s_fm["type"]) == "Grundschule"
+                          if p.get(s_fm["type"]) in cfg.schools_primary_types
                           and p.get(s_fm["public_flag"]) == cfg.schools_public_value]
         self.gs_intl = [(p, c) for p, c in self.schools
                         if p.get(s_fm["type"]) in cfg.schools_primary_types

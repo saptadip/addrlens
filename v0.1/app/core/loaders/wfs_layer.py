@@ -107,6 +107,7 @@ if __name__ == "__main__":
 
     class _Cfg:
         wfs_output_format = "application/json"
+        wfs_srs_name = "EPSG:4326"
 
     def _fake_wfs(base, **kw):
         return {"features": [
