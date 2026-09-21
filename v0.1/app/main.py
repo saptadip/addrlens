@@ -75,7 +75,9 @@ if os.environ.get("SENTRY_DSN_APP"):
         dsn=os.environ["SENTRY_DSN_APP"],
         integrations=[StarletteIntegration(), FastApiIntegration()],
         traces_sample_rate=0.1,
-        environment=os.environ.get("SENTRY_ENV", "production"),
+        environment=os.environ.get(
+            "SENTRY_ENV",
+            f"{os.environ.get('CITY', 'berlin').strip().lower()}-production"),
         release=os.environ.get("GIT_SHA") or None,
         send_default_pii=False,
         before_send=_sentry_scrub,
@@ -116,8 +118,11 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 # the index.html <head>. Read at import time and cached — zero per-request
 # cost, no template engine required. Local dev leaves the vars unset and
 # ships a tracker-free page.
-_UMAMI_WEBSITE_ID = os.environ.get("UMAMI_WEBSITE_ID", "").strip()
-_UMAMI_SCRIPT_URL = os.environ.get("UMAMI_SCRIPT_URL", "").strip()
+_CITY_ENV = os.environ.get("CITY", "berlin").strip().upper()
+_UMAMI_WEBSITE_ID = (os.environ.get(f"UMAMI_WEBSITE_ID_{_CITY_ENV}")
+                     or os.environ.get("UMAMI_WEBSITE_ID", "")).strip()
+_UMAMI_SCRIPT_URL = (os.environ.get(f"UMAMI_SCRIPT_URL_{_CITY_ENV}")
+                     or os.environ.get("UMAMI_SCRIPT_URL", "")).strip()
 
 
 def _load_index_html() -> str:
