@@ -58,22 +58,33 @@ def _fountain_info(p, cfg: CityConfig):
     return " · ".join(parts)
 
 
+def _s(v) -> str:
+    """Coerce a WFS property value to a stripped string, preserving the
+    `x or ""` skip-empty semantics. WFS servers vary: Berlin returns numeric
+    fields as JSON strings (`"180"`); Hamburg returns them as JSON ints
+    (`180`). Any downstream `.strip()` on the raw value would crash on int.
+    Falsy inputs (None, 0, "", []) → "" so the caller's `if x:` skip fires
+    identically for both cities."""
+    return str(v or "").strip()
+
+
 def _hospital_info(p, cfg: CityConfig):
     """One short line from a hospital feature's properties. 'Plan' hospitals
     show bed count + Träger; specialist 'weitere' clinics show speciality."""
     fm = cfg.hospital_field_map
     parts = []
     if p.get("_layer") == "weitere":
-        fach = (p.get(fm["fachabteilungen"]) or "").strip()
+        fach = _s(p.get(fm["fachabteilungen"]))
         if fach: parts.append(fach)
-        if p.get(fm["beds_alt"]): parts.append(f"{p[fm['beds_alt']]} beds")
+        beds_alt = _s(p.get(fm["beds_alt"]))
+        if beds_alt: parts.append(f"{beds_alt} beds")
     else:
-        beds = (p.get(fm["beds"]) or "").strip()
+        beds = _s(p.get(fm["beds"]))
         if beds: parts.append(f"{beds} beds")
-        traeger = (p.get(fm["traeger"]) or "").strip()
-        if traeger and traeger != (p.get(fm["name_primary"]) or "").strip():
+        traeger = _s(p.get(fm["traeger"]))
+        if traeger and traeger != _s(p.get(fm["name_primary"])):
             parts.append(traeger)
-    ort = (p.get(fm["ortsteil"]) or "").strip()
+    ort = _s(p.get(fm["ortsteil"]))
     if ort: parts.append(ort)
     return " · ".join(parts)
 
