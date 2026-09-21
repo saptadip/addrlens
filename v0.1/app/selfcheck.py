@@ -614,6 +614,34 @@ def _live_selfcheck_hamburg(cfg) -> None:
     assert "Mitte" in sa.get("name", ""), f"expected Standesamt Mitte (Hamburg-Mitte), got {sa}"
     print(f"  standesamt_for → {sa['name']!r} OK")
 
+    # -- Newcomer + Commuter lens composers ----------------------------------
+    # Exercises the conditional-guard refactor from PR #81 fix wave.
+    # Before the fix: both called threw KeyError on Hamburg config (Berlin-only
+    # tile keys e.g. 'xmas_market', 'commuter_tram_transit' were hardcoded).
+    nl = scorer.newcomer_lens(cfg, idx, lon, lat, amenities={})
+    assert nl.get("slug") == "newcomer", f"newcomer slug wrong: {nl.get('slug')}"
+    _nl_keys = {t["key"] for t in nl["tiles"]}
+    for _req in ("ferry_transit", "sozialmonitoring_status", "sozialmonitoring_gesamt"):
+        assert _req in _nl_keys, f"Hamburg newcomer tile {_req!r} missing: {_nl_keys}"
+    for _banned in ("xmas_market", "tram_transit", "gesix_newcomer"):
+        assert _banned not in _nl_keys, f"Berlin tile {_banned!r} leaked into Hamburg newcomer: {_nl_keys}"
+    for _t in nl["tiles"]:
+        assert _t.get("tier") in {"green", "amber", "red", "unknown"}, \
+            f"newcomer tile {_t.get('key')!r} has invalid tier: {_t.get('tier')!r}"
+    print(f"  newcomer_lens → {len(nl['tiles'])} tiles, slug={nl['slug']!r} OK")
+
+    cl = scorer.commuter_lens(cfg, idx, lon, lat, amenities={})
+    assert cl.get("slug") == "commuter", f"commuter slug wrong: {cl.get('slug')}"
+    _cl_keys = {t["key"] for t in cl["tiles"]}
+    for _req in ("commuter_ferry_transit", "sozialmonitoring_status_commuter", "sozialmonitoring_gesamt_commuter"):
+        assert _req in _cl_keys, f"Hamburg commuter tile {_req!r} missing: {_cl_keys}"
+    for _banned in ("commuter_tram_transit", "gesix_commuter"):
+        assert _banned not in _cl_keys, f"Berlin tile {_banned!r} leaked into Hamburg commuter: {_cl_keys}"
+    for _t in cl["tiles"]:
+        assert _t.get("tier") in {"green", "amber", "red", "unknown"}, \
+            f"commuter tile {_t.get('key')!r} has invalid tier: {_t.get('tier')!r}"
+    print(f"  commuter_lens → {len(cl['tiles'])} tiles, slug={cl['slug']!r} OK")
+
     print("→ live selfcheck OK")
 
 

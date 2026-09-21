@@ -149,22 +149,37 @@ def _load_index_html() -> str:
 
     # Always inject the city outline path into both SVG slots.
     outline_file = outlines_dir / f"{cfg.slug}.svg"
-    outline_fragment = outline_file.read_text(encoding="utf-8")
-    html = html.replace("<!-- CITY-OUTLINE-PATH -->", outline_fragment, 1)
-    html = html.replace("<!-- CITY-CLIP-PATH -->", outline_fragment, 1)
+    try:
+        outline_fragment = outline_file.read_text(encoding="utf-8")
+        html = html.replace("<!-- CITY-OUTLINE-PATH -->", outline_fragment, 1)
+        html = html.replace("<!-- CITY-CLIP-PATH -->", outline_fragment, 1)
+    except FileNotFoundError:
+        import sys as _sys
+        print(f"WARNING: city outline SVG not found: {outline_file} — "
+              f"CITY-OUTLINE-PATH / CITY-CLIP-PATH markers not replaced", file=_sys.stderr)
 
     # Always inject the city pins.
     pins_file = outlines_dir / f"{cfg.slug}-pins.svg"
-    pins_fragment = pins_file.read_text(encoding="utf-8")
-    html = html.replace("<!-- CITY-PINS -->", pins_fragment, 1)
+    try:
+        pins_fragment = pins_file.read_text(encoding="utf-8")
+        html = html.replace("<!-- CITY-PINS -->", pins_fragment, 1)
+    except FileNotFoundError:
+        import sys as _sys
+        print(f"WARNING: city pins SVG not found: {pins_file} — "
+              f"CITY-PINS marker not replaced", file=_sys.stderr)
 
     # Always inject the city attribution fragment (h4 + <p id="footer-city-attr">
     # + 4 further h4 sections). Berlin fragment is byte-identical to the pre-T29
     # inline block; Hamburg fragment carries Hamburg data-source list, HVV/HADAG,
     # BSW Sozialmonitoring, standesamt-only admin, Hamburg Geofabrik extract.
     attribution_file = outlines_dir / f"{cfg.slug}-attribution.html"
-    attribution_fragment = attribution_file.read_text(encoding="utf-8")
-    html = html.replace("<!-- CITY-ATTRIBUTION-BLOCK -->", attribution_fragment, 1)
+    try:
+        attribution_fragment = attribution_file.read_text(encoding="utf-8")
+        html = html.replace("<!-- CITY-ATTRIBUTION-BLOCK -->", attribution_fragment, 1)
+    except FileNotFoundError:
+        import sys as _sys
+        print(f"WARNING: city attribution HTML not found: {attribution_file} — "
+              f"CITY-ATTRIBUTION-BLOCK marker not replaced", file=_sys.stderr)
 
     # City-specific text/JSON-LD/hero swaps — only when not Berlin.
     if cfg.slug != "berlin":
