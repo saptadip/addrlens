@@ -1,5 +1,4 @@
 import { esc, walkMin, shortUrl } from './dom.js';
-import { S } from './state.js';
 
 // Kita detail rows + amenity detail rows — pure HTML string builders.
 // Kita detail rows for the ⓘ tooltip on each list item.

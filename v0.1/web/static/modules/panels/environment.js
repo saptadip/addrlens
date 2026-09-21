@@ -27,11 +27,16 @@ export function strollerCardHtml(){
 
 export function noiseCardsHtml(n){
   if(n.unavailable){
-    // Suppress placeholder cards when the city doesn't publish a noise map at
-    // all (Hamburg: façade point layer not in the shape we consume). A
-    // "not configured" card is worse than no card — user asked for card
-    // removal when Hamburg-specific data doesn't exist.
-    return '';
+    // Suppress placeholder only for cities that don't wire a noise dataset
+    // at all (Hamburg). For a city that DOES wire noise, an unavailable
+    // response means WFS transiently failed — surface the reason so
+    // support/oncall can see it instead of silently showing nothing.
+    const configured = !!(S.cfg?.attribution?.noise);
+    const noReasonToShow = S.cfg?.slug === 'hamburg' || !configured;
+    if(noReasonToShow) return '';
+    return `<div class="cell"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Street noise</span></div>
+      <p class="sub">${esc(n.reason || 'Noise data unavailable for this address.')}</p>
+      <div class="prov">${esc(n.provenance || S.cfg?.attribution?.noise || '')}</div></div>`;
   }
   const den=n.l_den.total, ngt=n.l_night.total;
   // Night thresholds are ~10 dB stricter than day (WHO 45 vs 55). Shift the
@@ -152,9 +157,19 @@ export function heatTierFor(dayClass){
 }
 
 export function airQualityCardHtml(a){
-  // Drop card entirely when the city has no air-quality dataset wired
-  // (Hamburg: air_model="none"). Same rule as noise placeholder above.
-  if(!a || a.unavailable) return '';
+  if(!a) return '';
+  if(a.unavailable){
+    // Drop card silently when the city has no air-quality dataset wired
+    // (Hamburg: air_model="none"). For a wired city (Berlin), keep the
+    // reason visible so a transient WFS failure doesn't disappear from
+    // the UI without explanation.
+    const configured = !!(S.cfg?.attribution?.air);
+    const noReasonToShow = S.cfg?.slug === 'hamburg' || !configured;
+    if(noReasonToShow) return '';
+    return `<div class="cell" data-env-cat="air"><div class="cell-head"><div class="icon-badge">${ico.waves}</div><span class="cell-label">Air quality (NO₂)</span></div>
+      <p class="sub">${esc(a.reason || a.error || 'Air-quality data unavailable for this address.')}</p>
+      <div class="prov">${esc(a.provenance || S.cfg?.attribution?.air || '')}</div></div>`;
+  }
   const tier = airTierFor(a.no2_ugm3);
   const no2 = a.no2_ugm3 != null ? a.no2_ugm3.toFixed(1) : '—';
   const idx = a.index_2020 != null ? a.index_2020.toFixed(2) : '—';
