@@ -62,6 +62,27 @@ for svc_port in "app:8001" "app-hh:8002"; do
         then
             READY="1"
             echo "[deploy] $svc ready after ~$((i*3))s"
+            # Post-ready smoke: one canonical address per city, assert 200 +
+            # expected keys. Runs INSIDE the readiness loop so $svc and $port
+            # are in scope (both are for-loop-locals derived from $svc_port).
+            case "$svc" in
+                app)    ADDR="Kastanienallee 12, 10435" ;;
+                app-hh) ADDR="Heidenkampsweg 40, 20097" ;;
+            esac
+            if ! "${COMPOSE[@]}" exec -T "$svc" python -c "
+import json, urllib.request, urllib.parse, sys
+q = urllib.parse.urlencode({'address': '$ADDR'})
+r = urllib.request.urlopen(f'http://127.0.0.1:${port}/api/lookup?{q}', timeout=15)
+if r.status != 200: sys.exit(2)
+d = json.load(r)
+if not d.get('address') or (not d.get('schools') and not d.get('nearest_school')):
+    sys.exit(3)
+print('ok')
+"; then
+                echo "[deploy] ERROR: $svc smoke failed on address '$ADDR'"
+                echo "[deploy] Rollback with: ./ops/deploy/rollback.sh $PREV_SHA"
+                exit 4
+            fi
             break
         fi
         sleep 3
