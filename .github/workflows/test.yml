@@ -107,6 +107,7 @@ jobs:
           # City config
           - app.cities.base
           - app.cities.berlin
+          - app.cities.hamburg
           # Core primitives
           - app.core.addr
           - app.core.address_index
