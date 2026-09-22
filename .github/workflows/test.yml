@@ -40,12 +40,27 @@ jobs:
           CITY: berlin
           INFERENCE_URL: http://localhost:9999
         run: pytest --collect-only -q
-      - name: Test
+      - name: Test (shared — no CITY)
+        working-directory: v0.1
+        env:
+          INFERENCE_URL: http://localhost:9999
+        # First step writes a fresh .coverage; later steps append. Without
+        # --cov-append the last-run step would leave only its slice
+        # measured, silently dropping the combined coverage badge.
+        run: pytest -v -m "not berlin and not hamburg" --cov=app --cov-report=
+      - name: Test (Berlin)
         working-directory: v0.1
         env:
           CITY: berlin
           INFERENCE_URL: http://localhost:9999
-        run: pytest -v --cov=app --cov-report=term-missing --cov-report=xml
+        run: pytest -v -m berlin --cov=app --cov-append --cov-report=
+      - name: Test (Hamburg)
+        working-directory: v0.1
+        env:
+          CITY: hamburg
+          INFERENCE_URL: http://localhost:9999
+        # Final step emits the XML+term reports off the combined .coverage.
+        run: pytest -v -m hamburg --cov=app --cov-append --cov-report=term-missing --cov-report=xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -92,6 +107,7 @@ jobs:
           # City config
           - app.cities.base
           - app.cities.berlin
+          - app.cities.hamburg
           # Core primitives
           - app.core.addr
           - app.core.address_index

@@ -4,6 +4,8 @@ Ground truth: the selfcheck block at the bottom of `app/core/addr.py`.
 """
 import pytest
 
+pytestmark = pytest.mark.berlin
+
 from app.core.addr import parse_address
 
 

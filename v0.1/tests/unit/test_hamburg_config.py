@@ -1,6 +1,9 @@
 """Hamburg CityConfig invariants — imported at test time so CI catches
 tile-key drift the same way TILE_GLOSSARY_KEYS catches Berlin's."""
 from app.cities.hamburg import HAMBURG, NEWCOMER_LENS, COMMUTER_LENS
+import pytest
+
+pytestmark = pytest.mark.hamburg
 
 
 def test_hamburg_slug():

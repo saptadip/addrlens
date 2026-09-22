@@ -31,6 +31,11 @@ else
 fi
 
 cd "$REPO/v0.1"
-"${COMPOSE[@]}" build app inference
-"${COMPOSE[@]}" up -d --force-recreate app inference
+# Parity with update.sh: both Berlin (app) and Hamburg (app-hh) must be
+# rebuilt on rollback. Omitting app-hh here left Hamburg silently on the
+# new-code image while Berlin rolled back (pre-PR#92 bug). Any change to
+# update.sh's service list must be mirrored here — keep the two scripts
+# service-symmetric.
+"${COMPOSE[@]}" build app app-hh inference
+"${COMPOSE[@]}" up -d --force-recreate app app-hh inference
 echo "[rollback] done. now on $TARGET"
