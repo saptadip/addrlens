@@ -11,6 +11,9 @@ hamburg.addrlens.de).
 so Berlin's "0 beds → skip" behaviour is byte-preservable.
 """
 from app.core.index import _hospital_info, _s
+import pytest
+
+pytestmark = pytest.mark.hamburg
 
 
 class _CfgHH:

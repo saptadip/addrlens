@@ -12,8 +12,11 @@ checks the singular form.
 from unittest.mock import patch, MagicMock
 
 import httpx
+import pytest
 
 from app.core.loaders.oaf_geocoder import geocode_oaf
+
+pytestmark = pytest.mark.hamburg
 
 
 class _Cfg:

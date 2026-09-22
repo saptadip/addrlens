@@ -1,7 +1,10 @@
 """Ferry loader + nearest-pier lookup — pure, no live WFS."""
 from types import SimpleNamespace
+import pytest
 
 from app.core.index import Index
+
+pytestmark = pytest.mark.hamburg
 
 
 def _cfg(tmp_path):

@@ -6,6 +6,9 @@ tier fns returned no legend rows → donut missing on Hamburg's
 Neighbourhood-status + City-watch-flag cards.
 """
 from app.core.scoring.legends import _legend_for
+import pytest
+
+pytestmark = pytest.mark.hamburg
 
 
 def test_sozialmonitoring_status_legend():
