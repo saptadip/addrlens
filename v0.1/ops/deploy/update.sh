@@ -62,6 +62,41 @@ for svc_port in "app:8001" "app-hh:8002"; do
         then
             READY="1"
             echo "[deploy] $svc ready after ~$((i*3))s"
+            # Post-ready smoke: canonical address read from CityConfig so a
+            # city-data change (address renamed, PLZ boundary shift) touches
+            # one file — not this script. Empty smoke_address → WARN + skip.
+            case "$svc" in
+                app)    ADDR=$("${COMPOSE[@]}" exec -T "$svc" python -c "from app.cities.berlin import BERLIN; print(BERLIN.smoke_address)") ;;
+                app-hh) ADDR=$("${COMPOSE[@]}" exec -T "$svc" python -c "from app.cities.hamburg import HAMBURG; print(HAMBURG.smoke_address)") ;;
+            esac
+            if [ -z "$ADDR" ]; then
+                echo "[deploy] WARN: $svc has no smoke_address configured — skipping /api/lookup smoke"
+            else
+            if ! "${COMPOSE[@]}" exec -T "$svc" python -c "
+import json, urllib.request, urllib.parse, sys
+q = urllib.parse.urlencode({'address': '$ADDR'})
+try:
+    r = urllib.request.urlopen(f'http://127.0.0.1:${port}/api/lookup?{q}', timeout=15)
+except Exception as e:
+    print(f'FAIL[urlopen]: {type(e).__name__}: {e}', file=sys.stderr); sys.exit(2)
+if r.status != 200:
+    print(f'FAIL[http_status]: got {r.status}, want 200', file=sys.stderr); sys.exit(2)
+try:
+    d = json.load(r)
+except Exception as e:
+    print(f'FAIL[json_parse]: {type(e).__name__}: {e}', file=sys.stderr); sys.exit(3)
+if not d.get('address'):
+    print(f'FAIL[missing_address_key]: keys={sorted(d)[:10]}', file=sys.stderr); sys.exit(3)
+if not d.get('schools') and not d.get('nearest_school'):
+    print(f'FAIL[missing_schools_and_nearest_school]: keys={sorted(d)[:10]}', file=sys.stderr); sys.exit(3)
+print('ok')
+"; then
+                RC=$?
+                echo "[deploy] ERROR: $svc smoke failed on address '$ADDR' (python rc=$RC)"
+                echo "[deploy] Rollback with: ./ops/deploy/rollback.sh $PREV_SHA"
+                exit 4
+            fi
+            fi
             break
         fi
         sleep 3

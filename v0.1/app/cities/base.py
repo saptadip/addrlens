@@ -343,6 +343,14 @@ class CityConfig:
     # `green_wfs_url`. Leave None to keep Berlin's single-base behaviour.
     playgrounds_wfs_url: Optional[str] = None
 
+    # -- Deploy-time /api/lookup smoke address ----------------------------------
+    # Canonical address used by ops/deploy/update.sh to smoke-test the
+    # /api/lookup endpoint after /ready passes. Pinned next to the city
+    # config so a city-data change (address renamed, PLZ boundary shift)
+    # touches one file — not the deploy script. Empty string disables the
+    # smoke curl for that city.
+    smoke_address: str = ""
+
 
 @dataclass(frozen=True)
 class LensTileConfig:

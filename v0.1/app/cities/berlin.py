@@ -872,6 +872,9 @@ BERLIN = CityConfig(
     # cached in memory, no cron. Empty in summer, ~45–50 markets in Dec.
     xmas_market_url=_WEIHNACHTSMARKT_URL,
 
+    # Canonical address for ops/deploy/update.sh smoke-test.
+    smoke_address="Kastanienallee 12, 10435",
+
     # Parkraumbewirtschaftungszonen — 103 paid-parking polygons for the
     # Newcomer + Commuter Anwohnerparken tile.
     parking_zones_wfs_url=_WFS_PARKZONEN,
@@ -910,4 +913,5 @@ if __name__ == "__main__":
     assert admin_keys == ["buergeramt", "finanzamt", "standesamt",
                           "lea", "arbeitsagentur"], admin_keys
     assert "buergeramt" in BERLIN.attribution
+    assert BERLIN.smoke_address, "smoke_address must be set for update.sh"
     print("selfcheck ok: NEWCOMER_LENS + OTHERS_ADMIN_CARDS wired")

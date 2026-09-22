@@ -3,9 +3,6 @@ from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
 from app.core.loaders import oaf_geocoder
-import pytest
-
-pytestmark = pytest.mark.hamburg
 
 
 def _cfg():

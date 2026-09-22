@@ -72,7 +72,7 @@ SAMPLER = {
 }
 
 # Newcomer lens tile groupings. Keys must match `LensTileConfig.key` in
-# `app/cities/hamburg.py::NEWCOMER_LENS`. Every tile must appear in exactly
+# `app/cities/hamburg/lenses.py::NEWCOMER_LENS`. Every tile must appear in exactly
 # one section — the __main__ selfcheck enforces this.
 LENS_SECTION_MAP: list[dict] = [
     {"title": "Daily transit",
