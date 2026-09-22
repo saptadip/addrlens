@@ -65,6 +65,7 @@ assert len(HAMBURG.finanzamts) == 9, len(HAMBURG.finanzamts)
 assert len(HAMBURG.arbeitsagenturs) == 4, len(HAMBURG.arbeitsagenturs)
 assert HAMBURG.lea_office and HAMBURG.lea_office.get("name")
 assert len(HAMBURG.intl_schools_curated) >= 3
+assert HAMBURG.smoke_address, "smoke_address must be set for update.sh"
 # Attribution keys wired for every provenance-bearing dataset
 for k in ("schools", "kitas", "hospitals", "trees", "sozialmonitoring",
           "ferry", "parkzone", "standesamt", "kundenzentrum", "finanzamt"):

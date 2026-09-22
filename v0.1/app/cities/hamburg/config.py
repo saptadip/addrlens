@@ -294,4 +294,7 @@ HAMBURG = CityConfig(
     arterial_field_map={"name": "strassenname", "class": "strassenklasse"},
 
     bezirk_id_to_name=_BEZIRK_ID_TO_NAME,
+
+    # Canonical address for ops/deploy/update.sh smoke-test.
+    smoke_address="Heidenkampsweg 40, 20097",
 )
