@@ -38,6 +38,8 @@ python_functions = ["test_*"]
 addopts = "-ra --strict-markers --strict-config"
 markers = [
     "integration: hits live Berlin Geoportal WFS (opt-in via -m integration)",
+    "berlin:  tests exercising Berlin config/data (run with CITY=berlin)",
+    "hamburg: tests exercising Hamburg config/data (run with CITY=hamburg)",
 ]
 
 [tool.coverage.run]
