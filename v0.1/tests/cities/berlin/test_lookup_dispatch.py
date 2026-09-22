@@ -9,10 +9,6 @@ Pins three invariants required by the brief:
 """
 from types import SimpleNamespace
 
-import pytest
-
-pytestmark = pytest.mark.berlin
-
 from app.core.index import Index
 from app.core.geo import haversine_m
 from tests.conftest import _FakeOSMLocal
