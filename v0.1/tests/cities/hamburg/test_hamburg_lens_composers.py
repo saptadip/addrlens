@@ -3,9 +3,6 @@ hardcodes in the shared composer. Added after PR #81 review found KeyError
 on Hamburg config."""
 from app.cities.hamburg import HAMBURG
 from app.core.scorer import newcomer_lens, commuter_lens
-import pytest
-
-pytestmark = pytest.mark.hamburg
 
 
 class _StubIdx:

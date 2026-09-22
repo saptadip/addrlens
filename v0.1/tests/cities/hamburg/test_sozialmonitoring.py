@@ -4,9 +4,6 @@ from types import SimpleNamespace
 from shapely.geometry import Polygon
 
 from app.core.index import Index
-import pytest
-
-pytestmark = pytest.mark.hamburg
 
 
 def test_sozialmonitoring_at_hit():
