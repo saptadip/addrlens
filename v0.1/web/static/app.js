@@ -13,7 +13,6 @@ import { wireSuggest } from './modules/suggest.js';
 import { installTooltipHandlers } from './modules/tooltips.js';
 import { compareRefreshPill, showView, saveCurrent } from './modules/compare.js';
 import { initLifeMode } from './modules/lens/index.js';
-import { renderCitySwitch } from './modules/city-switch.js';
 
 // -- Tab switching -----------------------------------------------------------
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
@@ -164,5 +163,4 @@ fetch('/api/config').then(r=>r.ok?readJson(r).catch(()=>null):null).then(cfg=>{
     }
     $attrPrint.textContent = `${dn} Open Data: ${lines.join(' · ')}.`;
   }
-  renderCitySwitch(cfg);
 }).catch(()=>{ /* keep Berlin defaults; harmless */ });
