@@ -74,17 +74,15 @@ NEWCOMER_LENS: LensConfig = LensConfig(
         LensTileConfig(
             key="sozialmonitoring_status", label="Neighbourhood status", icon="gesix",
             thresholds={},
-            caveat=("Hamburg BSW Sozialmonitoring — 4-level Statusindex per Statistisches "
-                    "Gebiet (~2200 residents). 'Hoch' = strong socioeconomic status; "
-                    "'sehr niedrig' = neighbourhood flagged for city support. Refreshed "
-                    "annually; polygon grain is finer than Berlin's Planungsraum."),
+            caveat=("Hamburg city rating of the ~2,200-resident block on income, jobs, "
+                    "education, and family stability. Refreshed yearly. Reflects the block, "
+                    "not the building."),
         ),
         LensTileConfig(
-            key="sozialmonitoring_gesamt", label="City-watch flag", icon="gesix",
+            key="sozialmonitoring_gesamt", label="City focus area", icon="gesix",
             thresholds={},
-            caveat=("Hamburg BSW Sozialmonitoring — combined Status+Dynamik verdict. "
-                    "'Aufmerksamkeitsgebiet' = the polygon around this flat is a city-"
-                    "designated area for social monitoring. Independent of the Status tile."),
+            caveat=("Tags blocks the city has picked for extra social support — either weak "
+                    "now, or trending down. Independent of the Neighbourhood status tile."),
         ),
     ),
 )
@@ -148,13 +146,13 @@ COMMUTER_LENS: LensConfig = LensConfig(
         LensTileConfig(
             key="sozialmonitoring_status_commuter", label="Neighbourhood status", icon="gesix",
             thresholds={},
-            caveat=("Hamburg BSW Sozialmonitoring — same signal as Newcomer's status "
-                    "tile, commuter-audience framing."),
+            caveat=("Same signal as Newcomer's Neighbourhood status tile — commuter-audience "
+                    "framing."),
         ),
         LensTileConfig(
-            key="sozialmonitoring_gesamt_commuter", label="City-watch flag", icon="gesix",
+            key="sozialmonitoring_gesamt_commuter", label="City focus area", icon="gesix",
             thresholds={},
-            caveat="Hamburg BSW Sozialmonitoring — combined verdict.",
+            caveat="Same signal as Newcomer's City focus area tile — commuter-audience framing.",
         ),
     ),
 )
