@@ -26,11 +26,6 @@ Items surfaced by the PR #81 review chain that were deferred as non-launch-block
 - **Why:** if Safari 15 evaluates the dispatcher before `<body data-city>` is parsed, Hamburg's dispatcher falls back to Berlin defaults — Hamburg users see Berlin glossaries. Silent failure.
 - **How:** Playwright test loading `hamburg.addrlens.de` on Safari 15 (via BrowserStack or Playwright's `webkit` runner pinned to matching version), asserting `document.body.dataset.city === 'hamburg'` AND `constants.js` exports contain Hamburg-specific values (e.g., HVV in GLOSSARY).
 
-### Server-side filter `other_cities` in `/api/config`
-- **What:** `v0.1/app/routes/config.py` returns `other_cities` list including the current city. `web/static/modules/city-switch.js` filters client-side.
-- **Why:** minor API cleanliness; any 3rd-party consumer of `/api/config` gets a self-entry unless they filter.
-- **How:** filter in the config handler: `[c for c in cfg.other_cities if c["slug"] != cfg.slug]`.
-
 ## Data quality (ledgered from T27)
 
 ### 10 vbb_hamburg_su.csv rows carry stop_id integers as name

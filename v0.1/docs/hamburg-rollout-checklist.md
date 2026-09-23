@@ -43,7 +43,6 @@ The script will write directly to `/srv/hamburg-transit/` inside the container
 - [ ] `curl https://hamburg-staging.addrlens.de/health` → 200 `{"status":"ok"}`
 - [ ] `curl https://hamburg-staging.addrlens.de/ready` → 200 `{"status":"ready","city":"hamburg"}`
 - [ ] `curl https://hamburg-staging.addrlens.de/api/config | jq .slug` → `"hamburg"`
-- [ ] `curl https://hamburg-staging.addrlens.de/api/config | jq .other_cities` shows Berlin cross-link entry
 - [ ] `docker compose logs app` unchanged — Berlin app still serving `addrlens.de`
 - [ ] `docker compose ps` shows both `app` (port 8001) + `app-hh` (port 8002) healthy
 
@@ -92,11 +91,6 @@ Per address:
 - [ ] `/robots.txt` allows public paths, disallows `/api/*`, points at `hamburg.addrlens.de/sitemap.xml`
 - [ ] `/sitemap.xml` lists 3 Hamburg URLs only
 
-## Cross-link
-- [ ] Header shows "Also live in Berlin →" pill; click routes to `addrlens.de`
-- [ ] Berlin's header (`addrlens.de`) shows "Also live in Hamburg →" pill; click routes to `hamburg.addrlens.de`
-- [ ] Both pill hrefs use HTTPS
-
 ## SSR + CSP
 - [ ] Hamburg `<body data-city="hamburg">` — inspect HTML source
 - [ ] Hamburg hero SVG uses the Hamburg silhouette (not Berlin)
@@ -123,4 +117,3 @@ Per address:
 - [ ] All above green
 - [ ] Cloudflare `hamburg.addrlens.de` hostname flipped from staging origin to prod `app-hh:8002`
 - [ ] Blog post / social announcement drafted
-- [ ] Berlin's `other_cities` cfg block updated to advertise Hamburg
