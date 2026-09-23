@@ -3,7 +3,7 @@
 Frontend renders the 3-arc tier donut only when `tile.legend` is a
 non-empty array (`lens/index.js:118` early exit). Sozialmonitoring
 tier fns returned no legend rows → donut missing on Hamburg's
-Neighbourhood-status + City-watch-flag cards.
+Neighbourhood-status + City-focus-area cards.
 """
 from app.core.scoring.legends import _legend_for
 

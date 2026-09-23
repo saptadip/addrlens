@@ -49,8 +49,8 @@ export const LENS_TILE_EXPLANATIONS = {
   packstation: "Distance to the nearest DHL Packstation locker or Deutsche Post branch. Green ≤ 400 m walk; amber ≤ 1 km. Germany's parcel logistics assume you can retrieve mis-timed deliveries; a long walk turns weekly pickups into a chore.",
   parkzone: "Point-in-polygon check against Hamburg's Bewohnerparkgebiete (Bewohnerparken polygon layer, Hamburg Open Data). Two-tier signal, resident-friendly framing. Green when the address is inside a zone (residents can apply for a Bewohnerparkausweis) OR when it's ≥ 400 m from any zone edge (real free parking, typical in outer Hamburg). Amber when outside but within 400 m of a zone edge — visitor overflow floods your street without giving you permit priority. WFS layer does not carry fee/enforcement hours.",
   nightlife_density: "Count of tagged bars, pubs, and nightclubs within a 1 km walk (OSM community-tagged, via the weekly Geofabrik snapshot). Numeric-only — no green / amber / red verdict. Hamburg's nightlife (Reeperbahn, Schanzenviertel) is part of its draw, but the same density can turn a bedroom window into a night-noise complaint.",
-  sozialmonitoring_status: "Hamburg BSW Sozialmonitoring — 4-level Statusindex ('hoch' / 'mittel' / 'niedrig' / 'sehr niedrig') per Statistisches Gebiet. Reflects the polygon around the flat, not the building. Refreshed annually.",
-  sozialmonitoring_gesamt: "Hamburg BSW Sozialmonitoring — combined Status + Dynamik verdict. 'Aufmerksamkeitsgebiet' = area flagged for city social monitoring. Independent of the Status tile.",
+  sozialmonitoring_status: "What Hamburg's city government says about this address's block. Every small neighbourhood (~2,200 residents) gets a yearly rating on income, jobs, education, and family stability — a snapshot of how the area is doing. Your address inherits the block's rating on a 4-step scale from strong down to under strain. Reflects the block, not your specific building.",
+  sozialmonitoring_gesamt: "A city-support label — not a warning. Hamburg tags neighbourhoods that either need extra social investment right now, OR are trending in the wrong direction, as areas for city focus. This tile tells you whether your address falls inside one of those tagged areas. Independent of the neighbourhood-status tile — a well-off block can still be tagged if it's trending down.",
   // Commuter lens explanations. Voice follows Newcomer: lead with WHAT dataset
   // the tile reads and HOW it's measured, close with a short audience note.
   // Rail/bus share their feed with Newcomer transit tiles (HVV / OSM) but use
@@ -63,8 +63,8 @@ export const LENS_TILE_EXPLANATIONS = {
   car_sharing_reach:     "Count of fixed car-sharing pickup points within 500 m (OSM amenity=car_sharing — station-based schemes). Green ≥ 3 stations within 500 m; amber ≥ 1. Free-float zones are NOT modelled. A cluster of nearby stations makes occasional car access practical for the weekly IKEA run or a weekend trip.",
   ev_charging_reach:     "Count of public EV chargers within 500 m (OSM). Green ≥ 2 within 500 m; amber ≥ 1. Matters mainly if you commute with an electric car and don't have home charging — overnight top-ups at a nearby street charger keep the daily commute practical. OSM coverage and public/private status are uneven; confirm on the operator's app before relying on a specific station.",
   airport_reach:         "Straight-line distance from the flat to Hamburg Airport (HAM). Green ≤ 12 km; amber ≤ 22 km. For frequent flyers this compounds — shorter departure buffers, easier evening arrivals. Real door-to-gate time depends on the S1 schedule (S-Bahn direct to HAM) plus check-in lead time, not on crow-flight distance alone.",
-  sozialmonitoring_status_commuter: "Same signal as the Newcomer Sozialmonitoring Status tile — commuter-audience framing.",
-  sozialmonitoring_gesamt_commuter: "Same signal as the Newcomer Sozialmonitoring Aufmerksamkeitsgebiet tile — commuter-audience framing.",
+  sozialmonitoring_status_commuter: "Same signal as the Newcomer Neighbourhood status tile — commuter-audience framing.",
+  sozialmonitoring_gesamt_commuter: "Same signal as the Newcomer City focus area tile — commuter-audience framing.",
 };
 
 export const GLOSSARY = {
@@ -100,8 +100,8 @@ export const GLOSSARY = {
   'Kundenzentrum': "Hamburg's citizens' service office — equivalent to Berlin's Bürgeramt. Where you go for Anmeldung, passport renewal, and other civic services. Hamburg has 18 Kundenzentren across 7 Bezirke.",
   'Stadtteil': "Hamburg's neighbourhood unit — roughly equivalent to Berlin's Ortsteil. Hamburg has ~109 Stadtteile. Used colloquially and in official statistics.",
   'Statistisches Gebiet': "Hamburg's smallest official statistical unit, ~2,200 residents each. Sozialmonitoring scores are reported at this level. Finer-grained than a Stadtteil.",
-  'Sozialmonitoring': "Hamburg BSW Sozialmonitoring — an annual neighbourhood-wellbeing index published by the Hamburg Authority for Urban Development and Housing (BSW). Combines Status (current social situation) and Dynamik (trend over time) into a composite verdict per Statistisches Gebiet.",
-  'Aufmerksamkeitsgebiet': "Literally 'attention area' — a Statistisches Gebiet flagged by Hamburg's Sozialmonitoring as requiring heightened city attention based on the combined Status + Dynamik verdict.",
+  'Sozialmonitoring': "Hamburg's yearly neighbourhood report card — measures income, jobs, education, and family stability at the ~2,200-resident block level. Combines a current-state snapshot ('Status') with a trend-over-time signal ('Dynamik'). Published by the city's Housing & Urban Development Authority (BSW).",
+  'Aufmerksamkeitsgebiet': "City-support tag. A neighbourhood block the Hamburg government has picked for extra investment — either weak now, trending down, or both. Shown in the app as 'City focus area'.",
   'Bezirk': "One of Hamburg's 7 official boroughs (Altona, Bergedorf, Eimsbüttel, Hamburg-Mitte, Hamburg-Nord, Harburg, Wandsbek). Each administered by its own Bezirksamt.",
   'Bewohnerparkgebiet': "Hamburg's resident-parking polygon — a designated zone where Bewohnerparken rules apply. The Hamburg Open Data WFS layer provides polygon boundaries without fee or enforcement hours.",
   'Bewohnerparkausweis': "Hamburg's annual residents' parking permit — applied for at the local Bezirksamt with proof of Anmeldung. Valid within one Bewohnerparkgebiet only. Required if you own a car and live inside a resident-parking area.",
