@@ -141,6 +141,11 @@ export function renderModalLegend(legend, currentTier, tile) {
 // GLOSSARY key and adds it to the shown chip list. Case-insensitive
 // substring match — GLOSSARY is a curated whitelist, so false positives
 // only fire when a defined term legitimately appears in the tile's copy.
+//
+// Post-dedupe rule: when term A is a strict substring of term B and both
+// are in the set, drop A. Example: `§47d BImSchG` supersedes `BImSchG`
+// so the popup fires once per concept rather than twice on the same
+// underlined chunk.
 export function _detectGlossaryTerms(tile) {
   const curated = TILE_GLOSSARY_KEYS[tile.key] || [];
   const explanation = LENS_TILE_EXPLANATIONS[tile.key] || '';
@@ -151,7 +156,10 @@ export function _detectGlossaryTerms(tile) {
   for (const term of Object.keys(GLOSSARY)) {
     if (haystack.includes(term.toLowerCase())) found.add(term);
   }
-  return Array.from(found);
+  const arr = Array.from(found);
+  return arr.filter(t => !arr.some(o =>
+    o !== t && o.length > t.length && o.toLowerCase().includes(t.toLowerCase())
+  ));
 }
 
 export function renderModalGlossary(tile, terms) {
@@ -169,56 +177,97 @@ export function renderModalGlossary(tile, terms) {
     </div>`;
 }
 
-// Parse a provenance string into {publisher, department, dataset, license}.
-// Patterns handled:
-//   Berlin: "Geoportal Berlin / Kindertagesstätten (dl-de/by-2.0)"
-//           → publisher=Geoportal Berlin, dataset=Kindertagesstätten, license=dl-de/by-2.0
-//   Hamburg: "Freie und Hansestadt Hamburg / BUKEA — Straßenbaumkataster (dl-de/by-2-0)"
-//           → publisher=Freie und Hansestadt Hamburg, department=BUKEA,
-//             dataset=Straßenbaumkataster, license=dl-de/by-2-0
-//   OSM:    "© OpenStreetMap contributors (ODbL) via Geofabrik"
-//           → publisher=© OpenStreetMap contributors, dataset=via Geofabrik, license=ODbL
-// Unparseable strings degrade to {publisher: <whole string>, license: ''}.
+// Parse a provenance string into {publisher, department, dataset, license,
+// distributor, also}. Patterns handled:
+//
+//   Berlin (no dept):
+//     "Geoportal Berlin / Kindertagesstätten (dl-de/by-2.0)"
+//       → publisher=Geoportal Berlin, dataset=Kindertagesstätten,
+//         license=dl-de/by-2.0
+//
+//   Berlin (compound dataset — ` — ` is a dataset-name separator, NOT
+//   a department boundary):
+//     "Geoportal Berlin / Grünanlagen — Spielplätze (dl-de/by-2.0)"
+//       → publisher=Geoportal Berlin, dataset=Grünanlagen — Spielplätze
+//
+//   Hamburg (agency acronym between slash and em-dash IS a department):
+//     "Freie und Hansestadt Hamburg / BUKEA — Straßenbaumkataster (dl-de/by-2-0)"
+//       → publisher=Freie und Hansestadt Hamburg, department=BUKEA,
+//         dataset=Straßenbaumkataster, license=dl-de/by-2-0
+//
+//   OSM: "© OpenStreetMap contributors (ODbL) via Geofabrik — highway=cycleway (weekly snapshot)"
+//       → publisher=© OpenStreetMap contributors, distributor=Geofabrik,
+//         dataset=highway=cycleway (weekly snapshot), license=ODbL
+//
+//   Co-credit tail: "… (dl-de/by-2.0) · Betrieb: Berliner Wasserbetriebe"
+//       → also=Betrieb: Berliner Wasserbetriebe
+//
+// License paren is extracted only when its content matches a known
+// license shape (`dl-de`, `cc-`, `odbl`, `©`, `creative commons`,
+// `public domain`). Non-license parens like `(public reference)` or
+// `(service.berlin.de)` stay embedded so they don't mislabel as license.
+//
+// Em-dash split as department/dataset fires only when the token before
+// ` — ` looks like a 2–6 char all-caps agency acronym (BUKEA, LGV, BSW,
+// BVM, BSB). Otherwise the whole ` — <rest>` folds into dataset —
+// matches Berlin's dataset-name compound convention.
+const LICENSE_RE = /^(cc[- ]|dl-de|odbl|creative commons|public domain|©|attribution)/i;
+const AGENCY_RE = /^[A-ZÄÖÜ]{2,6}$/;
+
 export function _parseSource(str) {
-  if (!str) return { publisher: '', department: '', dataset: '', license: '' };
-  // Extract trailing "(license)" if present.
+  const out = { publisher: '', department: '', dataset: '', license: '',
+                distributor: '', also: '' };
+  if (!str) return out;
   let head = str.trim();
-  let license = '';
-  const licenseMatch = head.match(/^(.*?)\s*\(([^()]+)\)\s*(via\s+.+)?$/i);
-  let viaSuffix = '';
-  if (licenseMatch) {
-    head = licenseMatch[1].trim();
-    license = licenseMatch[2].trim();
-    viaSuffix = (licenseMatch[3] || '').trim();
+
+  // 1) License paren + optional trailing tail. Only accept as license
+  //    when the paren content matches a known license shape.
+  const paren = head.match(/^(.*?)\s*\(([^()]+)\)\s*(.*)$/);
+  let tail = '';
+  if (paren && LICENSE_RE.test(paren[2].trim())) {
+    head = paren[1].trim();
+    out.license = paren[2].trim();
+    tail = paren[3].trim();
   }
-  // OSM path — starts with ©, may carry "via <source>" suffix.
+
+  // 2) OSM path (leading ©). Parse tail as "via <distributor> — <dataset>".
   if (/^©/.test(head)) {
-    return {
-      publisher: head,
-      department: '',
-      dataset: viaSuffix,
-      license,
-    };
+    out.publisher = head;
+    const viaMatch = tail.match(/^via\s+(.+?)(?:\s+—\s+(.+))?$/i);
+    if (viaMatch) {
+      out.distributor = viaMatch[1].trim();
+      if (viaMatch[2]) out.dataset = viaMatch[2].trim();
+    } else if (tail) {
+      out.dataset = tail;
+    }
+    return out;
   }
-  // Split on the first " / " for publisher | rest.
+
+  // 3) Non-OSM tail handling — usually `· <co-credit>` when present.
+  if (tail.startsWith('·')) out.also = tail.replace(/^·\s*/, '').trim();
+  else if (tail) out.also = tail;
+
+  // 4) Split head on the first " / " → publisher | rest.
   const slashIdx = head.indexOf(' / ');
   if (slashIdx < 0) {
-    return { publisher: head, department: '', dataset: viaSuffix, license };
+    out.publisher = head;
+    return out;
   }
-  const publisher = head.slice(0, slashIdx).trim();
+  out.publisher = head.slice(0, slashIdx).trim();
   const rest = head.slice(slashIdx + 3).trim();
-  // Hamburg pattern: "<publisher> / <department> — <dataset>".
+
+  // 5) Department/dataset em-dash split only for agency-acronym prefix.
   const emIdx = rest.indexOf(' — ');
   if (emIdx > 0) {
-    return {
-      publisher,
-      department: rest.slice(0, emIdx).trim(),
-      dataset: rest.slice(emIdx + 3).trim(),
-      license,
-    };
+    const before = rest.slice(0, emIdx).trim();
+    if (AGENCY_RE.test(before)) {
+      out.department = before;
+      out.dataset = rest.slice(emIdx + 3).trim();
+      return out;
+    }
   }
-  // Berlin pattern: "<publisher> / <dataset>".
-  return { publisher, department: '', dataset: rest, license };
+  out.dataset = rest;
+  return out;
 }
 
 // Render the "About" tab as three labeled sections with rule dividers.
@@ -253,10 +302,12 @@ export function renderModalAbout(tile) {
   const sourcesHtml = parsedSources.length
     ? parsedSources.map((p, i) => {
         const rows =
-          sourceRow('Publisher', p.publisher) +
-          sourceRow('Department', p.department) +
-          sourceRow('Dataset',   p.dataset) +
-          sourceRow('Licence',   p.license);
+          sourceRow('Publisher',   p.publisher) +
+          sourceRow('Department',  p.department) +
+          sourceRow('Distributor', p.distributor) +
+          sourceRow('Dataset',     p.dataset) +
+          sourceRow('Licence',     p.license) +
+          sourceRow('Also',        p.also);
         const sepClass = i > 0 ? ' prov-block-alt' : '';
         return `<div class="prov-block${sepClass}">${rows || sourceRow('Source', sources[i])}</div>`;
       }).join('')
