@@ -351,6 +351,14 @@ class CityConfig:
     # smoke curl for that city.
     smoke_address: str = ""
 
+    # Descriptive alt-text for the hero photo, injected into the <img alt="">
+    # by app.main._load_index_html. Pinned per-city because a screen-reader
+    # user benefits from the specific landmark ("Siegessäule at sunset")
+    # rather than a generic ("landmark inside pin marker"). Empty string
+    # falls back to a generic "<display_name> landmark inside pin marker"
+    # phrasing at render time.
+    hero_alt: str = ""
+
 
 @dataclass(frozen=True)
 class LensTileConfig:

@@ -355,6 +355,12 @@ BERLIN = CityConfig(
     # Canonical address for ops/deploy/update.sh smoke-test.
     smoke_address="Kastanienallee 12, 10435",
 
+    # Hero image alt-text — describes the exact landmark inside the pin
+    # marker so screen-reader users get the specific visual referent
+    # (Siegessäule, Berlin's Victory Column, at sunset with car-light
+    # motion trails around the roundabout).
+    hero_alt="AddrLens Berlin — Siegessäule at sunset inside pin marker",
+
     # Parkraumbewirtschaftungszonen — 103 paid-parking polygons for the
     # Newcomer + Commuter Anwohnerparken tile.
     parking_zones_wfs_url=_WFS_PARKZONEN,

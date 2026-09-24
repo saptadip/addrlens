@@ -9,7 +9,7 @@ promotes the pod on /health won't send user traffic to a cold container.
 import base64
 import hashlib
 import os
-import re as _jsonld_re
+import re as _re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -149,12 +149,24 @@ def _load_index_html() -> str:
 
     # Hero art — per-city pin-marker landmark photo. Both cities use the
     # same shape: a single <img> pointing at /static/img/hero/<slug>.png.
-    # The alt text is city-generic; the visual language (transparent pin
-    # marker + BERLIN/HAMBURG banner) is baked into the PNG itself.
+    # Alt-text comes from CityConfig.hero_alt (per-city landmark name for
+    # screen-reader users); falls back to a generic descriptor if a city
+    # forgets to set it. The visual language (transparent pin marker +
+    # BERLIN/HAMBURG banner) is baked into the PNG itself.
+    #
+    # Boot-time existence guard: emit a stderr WARNING if the PNG file
+    # is missing so a future city that forgets to add its hero image
+    # gets an ops signal (not just a silent 404 in the browser).
+    hero_png_path = WEB_DIR / "static" / "img" / "hero" / f"{cfg.slug}.png"
+    if not hero_png_path.exists():
+        import sys as _sys
+        print(f"WARNING: hero PNG not found: {hero_png_path} — "
+              f"browser will 404 on /static/img/hero/{cfg.slug}.png", file=_sys.stderr)
+    _hero_alt = cfg.hero_alt or f"AddrLens {cfg.display_name} — landmark inside pin marker"
     _hero_img = (
         f'<img class="hero-photo" '
         f'src="/static/img/hero/{cfg.slug}.png" '
-        f'alt="AddrLens {cfg.display_name} — landmark inside pin marker" '
+        f'alt="{_hero_alt}" '
         f'width="512" height="512" loading="eager" decoding="async">'
     )
     html = html.replace("<!-- HERO-ART -->", _hero_img, 1)
@@ -371,8 +383,8 @@ def _compute_jsonld_hash(html: str) -> str:
     Returns an empty string if no JSON-LD block is found (which drops the
     hash from _SCRIPT_SRC silently — safe for pages that omit the block).
     """
-    m = _jsonld_re.search(
-        r'<script type="application/ld\+json">(.*?)</script>', html, _jsonld_re.DOTALL
+    m = _re.search(
+        r'<script type="application/ld\+json">(.*?)</script>', html, _re.DOTALL
     )
     if not m:
         return ""

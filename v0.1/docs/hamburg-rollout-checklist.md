@@ -93,7 +93,7 @@ Per address:
 
 ## SSR + CSP
 - [ ] Hamburg `<body data-city="hamburg">` — inspect HTML source
-- [ ] Hamburg hero SVG uses the Hamburg silhouette (not Berlin)
+- [ ] Hamburg hero PNG (`/static/img/hero/hamburg.png`) loads (Speicherstadt pin-marker); browser source shows `<img class="hero-photo" src="/static/img/hero/hamburg.png">` and no 404
 - [ ] Hamburg page title / meta / JSON-LD `addressLocality` all say "Hamburg"
 - [ ] Response `Content-Security-Policy: script-src ... 'sha256-<hash>'` — the hash matches Hamburg's JSON-LD content (auto-computed at boot)
 - [ ] Browser console shows no CSP violations on either page
