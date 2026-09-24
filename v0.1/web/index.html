@@ -133,45 +133,15 @@
     <span class="chip" data-q="Konrad-Wolf-Straße 44A, 13055">Konrad-Wolf-Straße 44A, 13055</span>
     <span class="chip" data-q="Sybelstrasse 59, Charlottenburg, 10629 Berlin">Sybelstrasse 59, Charlottenburg, 10629 Berlin</span>
   </div>
-  <!-- Hero art — per-city.
-       Berlin: static PNG pin-marker landmark photo (Siegessäule); the
-         SSR loader swaps the marker-bounded SVG block below for a single
-         <img>.
-       Hamburg: keeps the animated scanner — red-ringed crosshair lens
-         pans across the real city admin outline every 6 s, revealing
-         tier-graded pins (green / amber / red) as it sweeps. Pure CSS
-         animation, no JS. Outline path + pins are injected at SSR from
-         web/static/img/city-outlines/<slug>.svg + <slug>-pins.svg. -->
+  <!-- Hero art — per-city pin-marker landmark photo.
+       The <!-- HERO-ART -\-> marker is SSR-swapped by
+       app.main._load_index_html for a single <img> pointing at
+       /static/img/hero/<slug>.png. Berlin ships Siegessäule at sunset;
+       Hamburg ships Speicherstadt with the iron bridge. Both PNGs use
+       a transparent pin-marker treatment matching the app's map-pin
+       language. -->
   <div class="hero-art-slot">
-    <!-- HERO-ART-BLOCK-START -->
-    <svg class="hero-art hero-art-svg" viewBox="0 0 260 260"
-         role="img" aria-label="AddrLens scanning Berlin"
-         xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <mask id="lens-mask" maskUnits="userSpaceOnUse" x="0" y="0"
-              width="260" height="260">
-          <rect width="260" height="260" fill="#000"/>
-          <circle class="hero-scan-lens" cx="130" cy="130" r="42" fill="#fff"/>
-        </mask>
-        <clipPath id="city-clip">
-          <!-- CITY-CLIP-PATH -->
-        </clipPath>
-      </defs>
-      <!-- CITY-OUTLINE-PATH -->
-      <g mask="url(#lens-mask)" clip-path="url(#city-clip)">
-        <!-- CITY-PINS -->
-      </g>
-      <g class="hero-scan-ring-group">
-        <circle cx="130" cy="130" r="42" fill="none" stroke="#DA291C" stroke-width="3"/>
-        <circle cx="130" cy="130" r="42" fill="none" stroke="#0D0D0D" stroke-width="1"/>
-        <line x1="88"  y1="130" x2="110" y2="130" stroke="#0D0D0D" stroke-width="2"/>
-        <line x1="150" y1="130" x2="172" y2="130" stroke="#0D0D0D" stroke-width="2"/>
-        <line x1="130" y1="88"  x2="130" y2="110" stroke="#0D0D0D" stroke-width="2"/>
-        <line x1="130" y1="150" x2="130" y2="172" stroke="#0D0D0D" stroke-width="2"/>
-        <circle cx="130" cy="130" r="4" fill="#DA291C"/>
-      </g>
-    </svg>
-    <!-- HERO-ART-BLOCK-END -->
+    <!-- HERO-ART -->
   </div>
 </section>
 

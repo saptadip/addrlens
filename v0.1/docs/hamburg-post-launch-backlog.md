@@ -4,11 +4,6 @@ Items surfaced by the PR #81 review chain that were deferred as non-launch-block
 
 ## Data + integration
 
-### Replace `hamburg.svg` placeholder outline
-- **What:** the hero-scanner SVG at `v0.1/web/static/img/city-outlines/hamburg.svg` is a ~40-vertex hand-approximated silhouette. Target quality is a ~128-vertex accurate union of Bezirke polygons (the shape Berlin previously used before its scanner was retired in favour of a landmark PNG).
-- **Why:** visible on every Hamburg landing page. Placeholder is fine for staging + soft launch; replace before any marketing push where the visual quality matters.
-- **How:** simplify OSM boundary relation 62782 (Hamburg admin boundary) to ~128 vertices via `ogr2ogr` or Turf.js; save as raw `<path>` snippet. Inline comment at the top of the file documents this TODO.
-
 ### Wire Hamburg schools 2nd layer (private + international)
 - **What:** `hamburg.py:schools_layer="de.hh.up:staatliche_schulen"` only loads state schools. `gs_intl` filter (Newcomer lens) filters for "international/english/bilingual" keywords — most Hamburg internationals are private (International School Hamburg, Ida Ehre) so this list is currently empty.
 - **Why:** English-speaking newcomers looking for intl schools see no results; SEO / feature-completeness gap vs Berlin.
@@ -78,9 +73,8 @@ Items surfaced by the PR #81 review chain that were deferred as non-launch-block
 
 **Priority order for post-launch capacity:**
 1. Widen Sentry env filter (immediate — dashboards blind otherwise)
-2. Replace hamburg.svg placeholder (before marketing push)
-3. Wire schools 2nd layer for private/intl (SEO/completeness)
-4. Route oaf_geocoder through shared retry (Hamburg availability parity with Berlin)
-5. Wire `_tier_noise_band` (feature completeness)
-6. Playwright Safari 15 smoke (defensive)
-7. Rest (data-quality + composer polish + rollback dry-run) as capacity allows
+2. Wire schools 2nd layer for private/intl (SEO/completeness)
+3. Route oaf_geocoder through shared retry (Hamburg availability parity with Berlin)
+4. Wire `_tier_noise_band` (feature completeness)
+5. Playwright Safari 15 smoke (defensive)
+6. Rest (data-quality + composer polish + rollback dry-run) as capacity allows

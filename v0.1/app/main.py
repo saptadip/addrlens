@@ -147,46 +147,17 @@ def _load_index_html() -> str:
     # Always swap data-city attribute (no-op for Berlin since value matches).
     html = html.replace('data-city="berlin"', f'data-city="{cfg.slug}"', 1)
 
-    # Hero art per city:
-    #   Berlin — static PNG pin-marker landmark photo (Siegessäule).
-    #     Replace the entire marker-bounded SVG scanner block with a single
-    #     <img>. The nested CITY-OUTLINE-PATH / CITY-CLIP-PATH / CITY-PINS
-    #     placeholders vanish with the block, so the SVG loaders below are
-    #     skipped for Berlin.
-    #   Hamburg (and any future non-Berlin city) — keep the animated SVG
-    #     scanner and inject its city outline + pins into the placeholders.
-    if cfg.slug == "berlin":
-        _berlin_hero_img = (
-            '<img class="hero-berlin-photo" '
-            'src="/static/img/hero/berlin.png" '
-            'alt="AddrLens Berlin — Siegessäule at sunset inside pin marker" '
-            'width="512" height="512" loading="eager" decoding="async">'
-        )
-        html = _jsonld_re.sub(
-            r"<!-- HERO-ART-BLOCK-START -->.*?<!-- HERO-ART-BLOCK-END -->",
-            _berlin_hero_img, html, count=1, flags=_jsonld_re.DOTALL,
-        )
-    else:
-        # Inject the city outline path into both SVG slots.
-        outline_file = outlines_dir / f"{cfg.slug}.svg"
-        try:
-            outline_fragment = outline_file.read_text(encoding="utf-8")
-            html = html.replace("<!-- CITY-OUTLINE-PATH -->", outline_fragment, 1)
-            html = html.replace("<!-- CITY-CLIP-PATH -->", outline_fragment, 1)
-        except FileNotFoundError:
-            import sys as _sys
-            print(f"WARNING: city outline SVG not found: {outline_file} — "
-                  f"CITY-OUTLINE-PATH / CITY-CLIP-PATH markers not replaced", file=_sys.stderr)
-
-        # Inject the city pins.
-        pins_file = outlines_dir / f"{cfg.slug}-pins.svg"
-        try:
-            pins_fragment = pins_file.read_text(encoding="utf-8")
-            html = html.replace("<!-- CITY-PINS -->", pins_fragment, 1)
-        except FileNotFoundError:
-            import sys as _sys
-            print(f"WARNING: city pins SVG not found: {pins_file} — "
-                  f"CITY-PINS marker not replaced", file=_sys.stderr)
+    # Hero art — per-city pin-marker landmark photo. Both cities use the
+    # same shape: a single <img> pointing at /static/img/hero/<slug>.png.
+    # The alt text is city-generic; the visual language (transparent pin
+    # marker + BERLIN/HAMBURG banner) is baked into the PNG itself.
+    _hero_img = (
+        f'<img class="hero-photo" '
+        f'src="/static/img/hero/{cfg.slug}.png" '
+        f'alt="AddrLens {cfg.display_name} — landmark inside pin marker" '
+        f'width="512" height="512" loading="eager" decoding="async">'
+    )
+    html = html.replace("<!-- HERO-ART -->", _hero_img, 1)
 
     # Always inject the city attribution fragment (h4 + <p id="footer-city-attr">
     # + 4 further h4 sections). Berlin fragment is byte-identical to the pre-T29
@@ -228,7 +199,6 @@ def _load_index_html() -> str:
             "Search box for any Berlin address, Berlin map on the right",
             f"Search box for any {dn} address, {dn} map on the right",
         )
-        html = html.replace("AddrLens scanning Berlin", f"AddrLens scanning {dn}")
         # aria-label on logo anchor
         html = html.replace(
             'aria-label="AddrLens Berlin — home"',
