@@ -133,15 +133,17 @@
     <span class="chip" data-q="Konrad-Wolf-Straße 44A, 13055">Konrad-Wolf-Straße 44A, 13055</span>
     <span class="chip" data-q="Sybelstrasse 59, Charlottenburg, 10629 Berlin">Sybelstrasse 59, Charlottenburg, 10629 Berlin</span>
   </div>
-  <!-- Hero art — animated per-city scanner. A red-ringed crosshair lens
-       pans across the real city admin outline every 6 s, revealing
-       tier-graded pins (green / amber / red) as it sweeps. Reinforces
-       the "AddrLens = a lens on your neighbourhood" concept from the
-       header logo. Pure CSS animation, no JS. Outline path + pins are
-       injected at SSR from web/static/img/city-outlines/<slug>.svg +
-       <slug>-pins.svg — Berlin uses 12 Bezirke centroids; Hamburg uses
-       7 Bezirke centroids. -->
+  <!-- Hero art — per-city.
+       Berlin: static PNG pin-marker landmark photo (Siegessäule); the
+         SSR loader swaps the marker-bounded SVG block below for a single
+         <img>.
+       Hamburg: keeps the animated scanner — red-ringed crosshair lens
+         pans across the real city admin outline every 6 s, revealing
+         tier-graded pins (green / amber / red) as it sweeps. Pure CSS
+         animation, no JS. Outline path + pins are injected at SSR from
+         web/static/img/city-outlines/<slug>.svg + <slug>-pins.svg. -->
   <div class="hero-art-slot">
+    <!-- HERO-ART-BLOCK-START -->
     <svg class="hero-art hero-art-svg" viewBox="0 0 260 260"
          role="img" aria-label="AddrLens scanning Berlin"
          xmlns="http://www.w3.org/2000/svg">
@@ -169,6 +171,7 @@
         <circle cx="130" cy="130" r="4" fill="#DA291C"/>
       </g>
     </svg>
+    <!-- HERO-ART-BLOCK-END -->
   </div>
 </section>
 
