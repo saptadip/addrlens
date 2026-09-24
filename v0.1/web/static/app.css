@@ -2023,9 +2023,15 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 
 /* About tab — three labeled sections (What this tells you · Data &
    attribution · German glossary) rendered inside a single `.modal-about`
-   wrapper. Hidden on other tabs; shown when [data-tab="about"] fires. */
-.lens-modal.has-tabs .modal-about           { display:none; }
-.lens-modal.has-tabs[data-tab="about"] .modal-about { display:block; }
+   wrapper. Hidden on other tabs; shown when [data-tab="about"] fires.
+   `.modal-freshness` is a sibling of `.modal-about` (rendered separately
+   for the xmas_market tile's per-source date block) and belongs on the
+   About tab too — it was previously nested inside .modal-provenance and
+   inherited the same visibility. */
+.lens-modal.has-tabs .modal-about,
+.lens-modal.has-tabs .modal-freshness       { display:none; }
+.lens-modal.has-tabs[data-tab="about"] .modal-about,
+.lens-modal.has-tabs[data-tab="about"] .modal-freshness { display:block; }
 
 /* Section scaffolding — muted heading + hairline divider between the
    three sections. Keep the vertical rhythm consistent across every tile
@@ -2074,15 +2080,13 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
    Tab placement: About (moved from Readout in PR #25 — vocabulary lives
    with the rest of the "learn more" surface).
    ========================================================================= */
-.modal-glossary                    { margin: 12px 0 14px;
-                                     padding: 12px 14px;
+.modal-glossary                    { margin: 4px 0 0;
+                                     padding: 10px 12px;
                                      background: rgba(255,255,255,.55);
                                      border-radius: 10px; }
-.modal-glossary-title              { font: 700 11px 'Inter', sans-serif;
-                                     letter-spacing: .10em;
-                                     text-transform: uppercase;
-                                     color: rgba(30,27,75,.72);
-                                     margin-bottom: 6px; }
+/* `.modal-glossary-title` was removed — the "German glossary" heading is
+   now emitted by `renderModalAbout` as the section heading, so the
+   inline title is redundant. */
 .modal-glossary-list               { font: 500 13px 'Inter', sans-serif;
                                      color: var(--ink);
                                      line-height: 1.7; }
