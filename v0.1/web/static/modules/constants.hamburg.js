@@ -65,8 +65,8 @@ export const LENS_TILE_EXPLANATIONS = {
   airport_reach:         "Straight-line distance from the flat to Hamburg Airport (HAM). Green ≤ 12 km; amber ≤ 22 km. For frequent flyers this compounds — shorter departure buffers, easier evening arrivals. Real door-to-gate time depends on the S1 schedule (S-Bahn direct to HAM) plus check-in lead time, not on crow-flight distance alone.",
   sozialmonitoring_status_commuter: "Same signal as the Newcomer Neighbourhood status tile — commuter-audience framing.",
   sozialmonitoring_gesamt_commuter: "Same signal as the Newcomer City focus area tile — commuter-audience framing.",
-  // Quiet Living lens
-  noise_band: "Hamburg publishes noise as isoline polygons (Strategische Lärmkarten 2022, road day/evening/night) rather than per-façade points. This tile reports the band your address sits inside; the tier reflects the band's lower edge against the WHO 55 / 60 dB L_DEN cutoffs. Road-source only — rail and aircraft isoline layers are not yet wired for Hamburg.",
+  // Quiet Living lens (noise_band removed — HH publishes noise only as
+  // WMS / shapefile ZIP, no WFS; tile returns when shapefile ingest lands).
   quiet_zone: "Walking distance to the edge of the nearest Ruhige Gebiet or Ruheinsel polygon (Hamburg BUKEA, §47d BImSchG). These are officially designated recreation-and-quiet areas. Green ≤ 400 m; amber ≤ 1 km. State forests protected under other statutes are not on this list, so an address next to a forest can still read red here.",
   street_trees: "Count of registered street trees within a 200 m radius disk (Hamburg Straßenbaumkataster, BUKEA). Density fallback — the source layer carries no crown-diameter field, so this is a tree-count proxy rather than a canopy-shade measurement. Green ≥ 60 trees (mature two-sided tree lining); amber ≥ 20. Only registered street trees; park and private-garden trees are not included.",
   tempo30: "Hamburg's `Zulässige Höchstgeschwindigkeiten` WFS lists EXCEPTIONS to the general 50 km/h. Green ≤ 30 km/h; amber 31–50; red > 50. Absence of a nearby exception is reported as 'default 50 km/h', not unknown.",
@@ -74,7 +74,7 @@ export const LENS_TILE_EXPLANATIONS = {
   cobblestone_nearby: "Distance to the nearest trafficked stone-surface road (OSM `surface=sett|cobblestone|unhewn_cobblestone` on `highway=residential|unclassified|tertiary|secondary|primary|living_street`, weekly Geofabrik Hamburg extract). Inverted-distance signal: further is quieter. Green ≥ 100 m (inaudible-indoors for a passing car at ~30 km/h); amber ≥ 30 m; red < 30 m. Cobble sidewalks and paving-stones are excluded.",
   nightlife_inverted: "Count of tagged bars, pubs, and nightclubs within 300 m (OSM community-tagged via the weekly Geofabrik Hamburg extract). Inverted framing — FEWER venues is greener. Green ≤ 3; amber ≤ 8; red > 8. Same underlying dataset as the Newcomer nightlife tile, opposite audience.",
   heat: "PET (Physiological Equivalent Temperature) day-class for the residential block (Hamburg Stadtklimaanalyse 2023, BUKEA). Green: keine / geringe Belastung; amber: mäßige / starke; red: sehr starke / extreme. Hot addresses = windows shut in summer = louder outdoor noise leaks in.",
-  sozialmonitoring_status_quiet: "Same signal as the Newcomer Neighbourhood status tile — Quiet Living audience framing. Shape-only tile: tap for detail.",
+  sozialmonitoring_status_quiet: "Same signal as the Newcomer Neighbourhood status tile — Quiet Living audience framing. The Readout tab shows Stadtteil, Statusindex, Gesamtindex, and Dynamikindex from Hamburg's BSW Sozialmonitoring dataset.",
 };
 
 export const GLOSSARY = {
@@ -147,7 +147,6 @@ export const TILE_GLOSSARY_KEYS = {
   sozialmonitoring_status_commuter: ['Sozialmonitoring', 'Statistisches Gebiet', 'Stadtteil'],
   sozialmonitoring_gesamt_commuter: ['Sozialmonitoring', 'Aufmerksamkeitsgebiet'],
   // Quiet Living lens
-  noise_band:                   ['L_DEN', 'L_night', 'BImSchG'],
   quiet_zone:                   ['§47d BImSchG', 'BImSchG'],
   street_trees:                 [],
   tempo30:                      [],

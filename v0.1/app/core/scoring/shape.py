@@ -359,18 +359,25 @@ def _shape_sozialmonitoring(cfg, index, lat: float, lon: float, *,
             tier = TIER_GREEN
         else:
             tier = TIER_UNKNOWN
-        rule = "Sozialmonitoring Gesamtindex · tap for detail"
+        rule = (sm.get("gesamtindex") or "").strip() or "Sozialmonitoring Gesamtindex"
     else:
-        status = (sm.get("statusindex") or "").strip().lower()
-        if status == "hoch":
+        status = (sm.get("statusindex") or "").strip()
+        stadtteil = (sm.get("stadtteil") or "").strip()
+        status_low = status.lower()
+        if status_low == "hoch":
             tier = TIER_GREEN
-        elif status == "mittel":
+        elif status_low == "mittel":
             tier = TIER_AMBER
-        elif status in ("niedrig", "sehr niedrig"):
+        elif status_low in ("niedrig", "sehr niedrig"):
             tier = TIER_RED
         else:
             tier = TIER_UNKNOWN
-        rule = "Sozialmonitoring Statusindex · tap for detail"
+        if status and stadtteil:
+            rule = f"Statusindex: {status} · {stadtteil}"
+        elif status:
+            rule = f"Statusindex: {status}"
+        else:
+            rule = "Sozialmonitoring Statusindex"
     return {
         "key":      card_key,
         "label":    label,

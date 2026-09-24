@@ -31,9 +31,10 @@ assert len(HAMBURG.newcomer_lens.tiles) == 13
 assert HAMBURG.commuter_lens is not None
 assert len(HAMBURG.commuter_lens.tiles) == 11
 assert HAMBURG.young_family_lens is None
-# Quiet Living lens shipped in PR #99 — 9 tiles.
+# Quiet Living lens — 8 tiles (noise_band tile removed post-PR #99 because
+# Hamburg publishes Strategische Lärmkarten only as WMS/shapefile, no WFS).
 assert HAMBURG.quiet_living_lens is not None
-assert len(HAMBURG.quiet_living_lens.tiles) == 9
+assert len(HAMBURG.quiet_living_lens.tiles) == 8
 # T15: identity asserts
 assert HAMBURG.newcomer_lens is NEWCOMER_LENS
 assert HAMBURG.commuter_lens is COMMUTER_LENS
@@ -59,10 +60,10 @@ assert commuter_keys == [
     "airport_reach",
     "sozialmonitoring_status_commuter", "sozialmonitoring_gesamt_commuter",
 ], commuter_keys
-# Quiet Living tile-key order — 9 keys.
+# Quiet Living tile-key order — 8 keys.
 quiet_keys = [t.key for t in HAMBURG.quiet_living_lens.tiles]
 assert quiet_keys == [
-    "noise_band", "quiet_zone", "street_trees", "tempo30",
+    "quiet_zone", "street_trees", "tempo30",
     "arterial_road", "cobblestone_nearby", "nightlife_inverted",
     "heat", "sozialmonitoring_status_quiet",
 ], quiet_keys
