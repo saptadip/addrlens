@@ -135,23 +135,153 @@ export function renderModalLegend(legend, currentTier, tile) {
     </div>`;
 }
 
-export function renderModalGlossary(tile) {
-  const keys = TILE_GLOSSARY_KEYS[tile.key];
-  if (!Array.isArray(keys) || keys.length === 0) return '';
-  const chips = keys
-    .filter(k => GLOSSARY[k])
-    .map(k =>
+// Union of curated + auto-detected German terms for a tile.
+// Curated list lives in TILE_GLOSSARY_KEYS[tile.key]; auto-detection scans
+// the tile's user-facing text (explanation + caveat + sources) for any
+// GLOSSARY key and adds it to the shown chip list. Case-insensitive
+// substring match — GLOSSARY is a curated whitelist, so false positives
+// only fire when a defined term legitimately appears in the tile's copy.
+export function _detectGlossaryTerms(tile) {
+  const curated = TILE_GLOSSARY_KEYS[tile.key] || [];
+  const explanation = LENS_TILE_EXPLANATIONS[tile.key] || '';
+  const caveat = tile.caveat || '';
+  const sourcesText = Array.isArray(tile.sources) ? tile.sources.join(' ') : '';
+  const haystack = (explanation + ' ' + caveat + ' ' + sourcesText).toLowerCase();
+  const found = new Set(curated.filter(k => GLOSSARY[k]));
+  for (const term of Object.keys(GLOSSARY)) {
+    if (haystack.includes(term.toLowerCase())) found.add(term);
+  }
+  return Array.from(found);
+}
+
+export function renderModalGlossary(tile, terms) {
+  const keys = Array.isArray(terms) ? terms : _detectGlossaryTerms(tile);
+  const filtered = keys.filter(k => GLOSSARY[k]);
+  if (filtered.length === 0) return '';
+  const chips = filtered.map(k =>
       `<span class="glossary-word" data-glossary-term="${escapeHtml(k)}"` +
       ` tabindex="0" role="button" aria-label="Definition of ${escapeHtml(k)}">` +
       `${escapeHtml(k)}</span>`
-    )
-    .join(', ');
-  if (!chips) return '';
+    ).join(', ');
   return `
     <div class="modal-glossary" aria-label="German glossary for this tile">
-      <div class="modal-glossary-title">German glossary</div>
       <div class="modal-glossary-list">${chips}</div>
     </div>`;
+}
+
+// Parse a provenance string into {publisher, department, dataset, license}.
+// Patterns handled:
+//   Berlin: "Geoportal Berlin / Kindertagesstätten (dl-de/by-2.0)"
+//           → publisher=Geoportal Berlin, dataset=Kindertagesstätten, license=dl-de/by-2.0
+//   Hamburg: "Freie und Hansestadt Hamburg / BUKEA — Straßenbaumkataster (dl-de/by-2-0)"
+//           → publisher=Freie und Hansestadt Hamburg, department=BUKEA,
+//             dataset=Straßenbaumkataster, license=dl-de/by-2-0
+//   OSM:    "© OpenStreetMap contributors (ODbL) via Geofabrik"
+//           → publisher=© OpenStreetMap contributors, dataset=via Geofabrik, license=ODbL
+// Unparseable strings degrade to {publisher: <whole string>, license: ''}.
+export function _parseSource(str) {
+  if (!str) return { publisher: '', department: '', dataset: '', license: '' };
+  // Extract trailing "(license)" if present.
+  let head = str.trim();
+  let license = '';
+  const licenseMatch = head.match(/^(.*?)\s*\(([^()]+)\)\s*(via\s+.+)?$/i);
+  let viaSuffix = '';
+  if (licenseMatch) {
+    head = licenseMatch[1].trim();
+    license = licenseMatch[2].trim();
+    viaSuffix = (licenseMatch[3] || '').trim();
+  }
+  // OSM path — starts with ©, may carry "via <source>" suffix.
+  if (/^©/.test(head)) {
+    return {
+      publisher: head,
+      department: '',
+      dataset: viaSuffix,
+      license,
+    };
+  }
+  // Split on the first " / " for publisher | rest.
+  const slashIdx = head.indexOf(' / ');
+  if (slashIdx < 0) {
+    return { publisher: head, department: '', dataset: viaSuffix, license };
+  }
+  const publisher = head.slice(0, slashIdx).trim();
+  const rest = head.slice(slashIdx + 3).trim();
+  // Hamburg pattern: "<publisher> / <department> — <dataset>".
+  const emIdx = rest.indexOf(' — ');
+  if (emIdx > 0) {
+    return {
+      publisher,
+      department: rest.slice(0, emIdx).trim(),
+      dataset: rest.slice(emIdx + 3).trim(),
+      license,
+    };
+  }
+  // Berlin pattern: "<publisher> / <dataset>".
+  return { publisher, department: '', dataset: rest, license };
+}
+
+// Render the "About" tab as three labeled sections with rule dividers.
+// Section 1 — "What this tells you": user-facing explanation + technical
+//             caveat as a follow-on paragraph.
+// Section 2 — "Data & attribution": one row per source, parsed into
+//             Publisher / Department / Dataset / License. Absent fields
+//             are skipped rather than showing empty labels.
+// Section 3 — "German glossary": chip strip of every GLOSSARY term
+//             detected in the tile's copy (union of curated + auto).
+// Empty section 1 / 3 render a muted "—" placeholder so the 3-section
+// layout stays constant across every tile. Section 2 is always populated
+// (every tile carries at least one source).
+export function renderModalAbout(tile) {
+  const explanation = LENS_TILE_EXPLANATIONS[tile.key] || '';
+  const caveat = tile.caveat || '';
+  const sources = Array.isArray(tile.sources) ? tile.sources : [];
+  const glossaryTerms = _detectGlossaryTerms(tile);
+
+  const explBlock = explanation
+    ? `<div class="modal-explanation">${escapeHtml(explanation)}</div>` : '';
+  const caveatBlock = caveat
+    ? `<div class="modal-caveat">${escapeHtml(caveat)}</div>` : '';
+  const section1Body = (explBlock || caveatBlock)
+    ? `${explBlock}${caveatBlock}`
+    : `<div class="about-empty">—</div>`;
+
+  const sourceRow = (label, val) => val
+    ? `<div class="prov-row"><span class="prov-label">${label}</span>` +
+      `<span class="prov-val">${escapeHtml(val)}</span></div>` : '';
+  const parsedSources = sources.map(_parseSource);
+  const sourcesHtml = parsedSources.length
+    ? parsedSources.map((p, i) => {
+        const rows =
+          sourceRow('Publisher', p.publisher) +
+          sourceRow('Department', p.department) +
+          sourceRow('Dataset',   p.dataset) +
+          sourceRow('Licence',   p.license);
+        const sepClass = i > 0 ? ' prov-block-alt' : '';
+        return `<div class="prov-block${sepClass}">${rows || sourceRow('Source', sources[i])}</div>`;
+      }).join('')
+    : `<div class="about-empty">—</div>`;
+
+  const glossaryHtml = renderModalGlossary(tile, glossaryTerms)
+    || `<div class="about-empty">—</div>`;
+
+  return `
+    <section class="modal-about" aria-label="About this tile">
+      <div class="about-section">
+        <h4 class="about-heading">What this tells you</h4>
+        <div class="about-body">${section1Body}</div>
+      </div>
+      <hr class="about-divider" aria-hidden="true">
+      <div class="about-section">
+        <h4 class="about-heading">Data &amp; attribution</h4>
+        <div class="about-body modal-provenance">${sourcesHtml}</div>
+      </div>
+      <hr class="about-divider" aria-hidden="true">
+      <div class="about-section">
+        <h4 class="about-heading">German glossary</h4>
+        <div class="about-body">${glossaryHtml}</div>
+      </div>
+    </section>`;
 }
 
 export function renderLensSingle(addr) {
@@ -401,12 +531,11 @@ function renderLensModalBody(tile, lensSlug) {
   const explanation = LENS_TILE_EXPLANATIONS[tile.key] || '';
   const trees = tile.metadata && tile.metadata.trees;
 
-  const caveat = tile.caveat
-    ? `<div class="modal-caveat">${escapeHtml(tile.caveat)}</div>`
-    : '';
-  const explBlock = explanation
-    ? `<div class="modal-explanation">${escapeHtml(explanation)}</div>`
-    : '';
+  // The "About" tab (caveat, explanation, provenance, glossary) is now
+  // rendered as a single 3-section block via `renderModalAbout(tile)`.
+  // Freshness metadata (source_dates) stays outside the About block for
+  // now — its only current consumer is the xmas_market tile — but the
+  // provenance rows inside About are the primary source citation.
   let emptyBody = '';
   if (!features.length) {
     if (tier === 'red' || tier === 'unknown') {
@@ -421,11 +550,8 @@ function renderLensModalBody(tile, lensSlug) {
       }</ul>`
     : emptyBody;
   const treesHtml = renderLensTreesBlock(trees);
-  const sourcesHtml = Array.isArray(tile.sources) && tile.sources.length
-    ? `<div class="modal-provenance">${
-        tile.sources.map(escapeHtml).join(' · ')
-      }${_renderSourceFreshness(tile.source_dates)}</div>`
-    : '';
+  const aboutHtml = renderModalAbout(tile);
+  const freshnessHtml = _renderSourceFreshness(tile.source_dates);
 
   let cardRichBlock = '';
   if (tile.key === 'parkzone') {
@@ -513,13 +639,11 @@ function renderLensModalBody(tile, lensSlug) {
     <div class="modal-rule">${escapeHtml(tile.rule || '')}</div>
     ${tile.numeric ? `<div class="modal-numeric">${escapeHtml(tile.numeric)}</div>` : ''}
     ${renderModalLegend(tile.legend, tier, tile)}
-    ${caveat}
-    ${explBlock}
     ${cardRichBlock}
     ${featuresHtml}
     ${treesHtml}
-    ${sourcesHtml}
-    ${renderModalGlossary(tile)}
+    ${aboutHtml}
+    ${freshnessHtml}
   `;
 }
 
@@ -538,12 +662,11 @@ function _injectModalTabs(modal) {
     modal.querySelector('.parkzone-modal-block') ||
     modal.querySelector('.sozialmonitoring-modal-block')
   );
-  const hasAbout = !!(
-    modal.querySelector('.modal-explanation') ||
-    modal.querySelector('.modal-caveat') ||
-    modal.querySelector('.modal-provenance') ||
-    modal.querySelector('.modal-glossary')
-  );
+  // About tab is now always emitted as a single `.modal-about` wrapper
+  // (see renderModalAbout). Empty sections render `—` placeholders, so
+  // presence of the wrapper is a reliable signal that the About tab has
+  // content worth showing.
+  const hasAbout = !!modal.querySelector('.modal-about');
 
   const available = [
     hasReadout && { id: 'readout', label: 'Readout' },
