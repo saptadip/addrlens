@@ -156,16 +156,15 @@ def _load_index_html() -> str:
     #   Hamburg (and any future non-Berlin city) — keep the animated SVG
     #     scanner and inject its city outline + pins into the placeholders.
     if cfg.slug == "berlin":
-        import re as _re
         _berlin_hero_img = (
             '<img class="hero-berlin-photo" '
             'src="/static/img/hero/berlin.png" '
             'alt="AddrLens Berlin — Siegessäule at sunset inside pin marker" '
             'width="512" height="512" loading="eager" decoding="async">'
         )
-        html = _re.sub(
+        html = _jsonld_re.sub(
             r"<!-- HERO-ART-BLOCK-START -->.*?<!-- HERO-ART-BLOCK-END -->",
-            _berlin_hero_img, html, count=1, flags=_re.DOTALL,
+            _berlin_hero_img, html, count=1, flags=_jsonld_re.DOTALL,
         )
     else:
         # Inject the city outline path into both SVG slots.
