@@ -5,9 +5,9 @@ Items surfaced by the PR #81 review chain that were deferred as non-launch-block
 ## Data + integration
 
 ### Replace `hamburg.svg` placeholder outline
-- **What:** the hero-scanner SVG at `v0.1/web/static/img/city-outlines/hamburg.svg` is a ~40-vertex hand-approximated silhouette. Berlin's is a 128-vertex accurate union of Bezirke polygons.
+- **What:** the hero-scanner SVG at `v0.1/web/static/img/city-outlines/hamburg.svg` is a ~40-vertex hand-approximated silhouette. Target quality is a ~128-vertex accurate union of Bezirke polygons (the shape Berlin previously used before its scanner was retired in favour of a landmark PNG).
 - **Why:** visible on every Hamburg landing page. Placeholder is fine for staging + soft launch; replace before any marketing push where the visual quality matters.
-- **How:** simplify OSM boundary relation 62782 (Hamburg admin boundary) to ~128 vertices via `ogr2ogr` or Turf.js; save as raw `<path>` snippet matching Berlin's format. Inline comment at the top of the file documents this TODO.
+- **How:** simplify OSM boundary relation 62782 (Hamburg admin boundary) to ~128 vertices via `ogr2ogr` or Turf.js; save as raw `<path>` snippet. Inline comment at the top of the file documents this TODO.
 
 ### Wire Hamburg schools 2nd layer (private + international)
 - **What:** `hamburg.py:schools_layer="de.hh.up:staatliche_schulen"` only loads state schools. `gs_intl` filter (Newcomer lens) filters for "international/english/bilingual" keywords — most Hamburg internationals are private (International School Hamburg, Ida Ehre) so this list is currently empty.

@@ -159,8 +159,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:16px;ma
 
 /* City outline — dark slate fill + black stroke (forensic editorial
    mood, chosen over indigo / logo-palette variants during design review).
-   .hero-city is the generic class used by per-city SVG fragments. */
-.hero-berlin,.hero-city{fill:rgba(15,23,42,0.85);
+   .hero-city is the generic class used by per-city SVG fragments
+   (Hamburg today; Berlin retired its SVG scanner in favour of a PNG). */
+.hero-city{fill:rgba(15,23,42,0.85);
   stroke:#0D0D0D;stroke-width:2.4}
 
 /* Tier-graded pins revealed as the lens sweeps. Traffic-light hues so
@@ -2447,3 +2448,13 @@ details.locality-info-tip[open] > summary.locality-pill .locality-label {
 @media (max-width: 480px) {
   .tier-donut                     { display: none; }
 }
+
+
+/* Berlin hero photo — pin-marker Siegessäule PNG that replaces the
+   animated SVG scanner (Hamburg still uses the scanner). Sits inside
+   .hero-art-slot; inherits its fluid clamp(160,20vw,220) sizing.
+   drop-shadow gives the pin a subtle lift on the hero surface without
+   competing with the hero's own neumorphic shadow. */
+.hero-berlin-photo { width: 100%; height: 100%;
+                     object-fit: contain; display: block;
+                     filter: drop-shadow(0 6px 14px rgba(15,23,42,0.14)); }
