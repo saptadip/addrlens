@@ -19,14 +19,13 @@ from app.core.scoring.constants import _walk_minutes
 from app.core.scoring.legends import _legend_for
 from app.core.scoring.provenance import _lens_provenance, _sources_for
 from app.core.scoring.shape import (
-    _shape_gesix, _shape_office, _shape_osm_feature,
+    _shape_gesix, _shape_office, _shape_osm_feature, _shape_sozialmonitoring,
 )
 from app.core.scoring.tiers import (
     _tier_buergeramt_newcomer, _tier_bus_transit, _tier_coworking,
     _tier_english_clinic, _tier_ferry_transit, _tier_intl_food,
     _tier_language_school, _tier_library, _tier_nightlife_density,
     _tier_packstation, _tier_parkzone, _tier_rail_transit,
-    _tier_sozialmonitoring_gesamt, _tier_sozialmonitoring_status,
     _tier_tram_transit, _tier_wochenmarkt, _tier_xmas_market,
 )
 
@@ -179,12 +178,10 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
     wochenmarkt_feats     = [f for f in (_shape_osm_feature(o) for o in wochenmarkt_raw)     if f]
     nightlife_feats       = [f for f in (_shape_osm_feature(o) for o in nightlife_raw)       if f]
 
-    # -- Sozialmonitoring (Hamburg only) — single lookup shared by two tiles --
-    sm = None
-    if "sozialmonitoring_status" in th or "sozialmonitoring_gesamt" in th:
-        sm = index.sozialmonitoring_at(lon, lat) if hasattr(index, "sozialmonitoring_at") else None
-
     # -- Build results list conditionally (only tiles in this city's config) --
+    # Sozialmonitoring tiles moved to the shape-only tail (see below) so they
+    # mirror Berlin's `gesix_*` shape pattern instead of the earlier tiered
+    # categorical mapping.
     results = []
     if "buergeramt"            in th: results.append(("buergeramt",           _tier_buergeramt_newcomer(buergeramt_feats,   th["buergeramt"])))
     if "rail_transit"          in th: results.append(("rail_transit",         _tier_rail_transit(rail_feats,                th["rail_transit"])))
@@ -201,8 +198,6 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
     if "wochenmarkt"           in th: results.append(("wochenmarkt",          _tier_wochenmarkt(wochenmarkt_feats,           th["wochenmarkt"])))
     if "xmas_market"           in th: results.append(("xmas_market",          _tier_xmas_market(xmas_market_feats,          th["xmas_market"])))
     if "nightlife_density"     in th: results.append(("nightlife_density",    _tier_nightlife_density(nightlife_feats,       th["nightlife_density"])))
-    if "sozialmonitoring_status"  in th: results.append(("sozialmonitoring_status",  _tier_sozialmonitoring_status(sm,  th["sozialmonitoring_status"])))
-    if "sozialmonitoring_gesamt"  in th: results.append(("sozialmonitoring_gesamt",  _tier_sozialmonitoring_gesamt(sm,  th["sozialmonitoring_gesamt"])))
 
     # -- Feature payloads per tile -------------------------------------------
     feat_map: dict = {}
@@ -241,8 +236,6 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
     if "wochenmarkt"       in th: feat_map["wochenmarkt"]     = wochenmarkt_feats[:10]
     if "xmas_market"       in th: feat_map["xmas_market"]     = xmas_market_feats[:10]
     if "nightlife_density" in th: feat_map["nightlife_density"] = nightlife_feats[:10]
-    if "sozialmonitoring_status"  in th: feat_map["sozialmonitoring_status"]  = []
-    if "sozialmonitoring_gesamt"  in th: feat_map["sozialmonitoring_gesamt"]  = []
 
     tiles = []
     for key, res in results:
@@ -291,16 +284,32 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
             # "Cached at server boot: " with a trailing colon.
             if fresh["value"]:
                 tile["source_dates"] = [{"source": sources[0], **fresh}]
-        # Sozialmonitoring tiles carry the raw sm dict in metadata so the
-        # frontend modal can display stadtteil / statgeb / berichtsjahr.
-        if key in ("sozialmonitoring_status", "sozialmonitoring_gesamt") and sm:
-            tile["metadata"] = {"sozialmonitoring": sm}
         tiles.append(tile)
 
     # gesix_newcomer — Berlin only (Hamburg has no GESIx; guarded by tile key presence)
     if "gesix_newcomer" in th:
         tiles.append(_shape_gesix(cfg, index, lat, lon, card_key="gesix_newcomer",
                                   label=tile_meta["gesix_newcomer"][0]))
+
+    # Sozialmonitoring — Hamburg-only shape-only tiles, mirroring the
+    # `gesix_newcomer` shape pattern. The tail placement matches the
+    # tile-list order in `hamburg/lenses.py`. Both tiles read the same
+    # underlying sm dict; the `focus` kwarg selects which sub-signal
+    # (statusindex vs gesamtindex) drives the tier + summary line.
+    if "sozialmonitoring_status" in th:
+        tiles.append(_shape_sozialmonitoring(
+            cfg, index, lat, lon,
+            card_key="sozialmonitoring_status",
+            label=tile_meta["sozialmonitoring_status"][0],
+            focus="status",
+        ))
+    if "sozialmonitoring_gesamt" in th:
+        tiles.append(_shape_sozialmonitoring(
+            cfg, index, lat, lon,
+            card_key="sozialmonitoring_gesamt",
+            label=tile_meta["sozialmonitoring_gesamt"][0],
+            focus="gesamt",
+        ))
 
     return {
         "slug":       lens.slug,

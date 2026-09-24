@@ -49,13 +49,14 @@ red. The next weekly OSM refresh populates the bucket automatically.
 from app.core.geo import haversine_m
 from app.core.scoring.legends import _legend_for
 from app.core.scoring.provenance import _lens_provenance, _sources_for
-from app.core.scoring.shape import _shape_gesix, _shape_osm_feature
+from app.core.scoring.shape import (
+    _shape_gesix, _shape_osm_feature, _shape_sozialmonitoring,
+)
 from app.core.scoring.tiers import (
     _tier_airport_reach, _tier_car_sharing_reach, _tier_commuter_bus_transit,
     _tier_commuter_tram_transit, _tier_cycling_network,
     _tier_distance_ladder, _tier_ev_charging_reach, _tier_ferry_transit,
     _tier_parkzone, _tier_rail_transit, _tier_regional_rail_reach,
-    _tier_sozialmonitoring_gesamt, _tier_sozialmonitoring_status,
 )
 
 
@@ -200,10 +201,8 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
         d = haversine_m(lon, lat, _cfg_airport["lon"], _cfg_airport["lat"])
         airport = {**_cfg_airport, "distance_m": round(d)}
 
-    # -- Sozialmonitoring (Hamburg only) — single lookup shared by two tiles --
-    sm = None
-    if "sozialmonitoring_status_commuter" in th or "sozialmonitoring_gesamt_commuter" in th:
-        sm = index.sozialmonitoring_at(lon, lat) if hasattr(index, "sozialmonitoring_at") else None
+    # Sozialmonitoring commuter tiles moved to the shape-only tail so they
+    # mirror Berlin's `gesix_commuter` shape pattern.
 
     # -- Tier computations ------------------------------------------------
     # `bucket_missing` flag is threaded into the tier func via the
@@ -225,8 +224,6 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
     if "car_sharing_reach"               in th: results.append(("car_sharing_reach",               _tier_car_sharing_reach(carshare_feats, _th_carshare)))
     if "ev_charging_reach"               in th: results.append(("ev_charging_reach",               _tier_ev_charging_reach(ev_feats, th["ev_charging_reach"])))
     if "airport_reach"                   in th: results.append(("airport_reach",                   _tier_airport_reach(airport, th["airport_reach"])))
-    if "sozialmonitoring_status_commuter" in th: results.append(("sozialmonitoring_status_commuter", _tier_sozialmonitoring_status(sm, th["sozialmonitoring_status_commuter"])))
-    if "sozialmonitoring_gesamt_commuter" in th: results.append(("sozialmonitoring_gesamt_commuter", _tier_sozialmonitoring_gesamt(sm, th["sozialmonitoring_gesamt_commuter"])))
 
     # -- Feature payloads + metadata per tile -----------------------------
     from app.core.scoring.constants import _walk_minutes
@@ -264,8 +261,6 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
     if "car_sharing_reach"    in th: feat_map["car_sharing_reach"]    = carshare_feats[:10]
     if "ev_charging_reach"    in th: feat_map["ev_charging_reach"]    = ev_feats[:10]
     if "airport_reach"        in th: feat_map["airport_reach"]        = []
-    if "sozialmonitoring_status_commuter" in th: feat_map["sozialmonitoring_status_commuter"] = []
-    if "sozialmonitoring_gesamt_commuter" in th: feat_map["sozialmonitoring_gesamt_commuter"] = []
 
     metadata_map: dict = {}
     if "airport_reach" in th:
@@ -276,11 +271,6 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
     if "car_sharing_reach" in th: metadata_map["car_sharing_reach"] = {"bucket_missing": _carshare_missing}
     if "parkzone" in th and parkzone_info is not None:
         metadata_map["parkzone"] = {"parkzone": parkzone_info}
-    if sm:
-        if "sozialmonitoring_status_commuter" in th:
-            metadata_map["sozialmonitoring_status_commuter"] = {"sozialmonitoring": sm}
-        if "sozialmonitoring_gesamt_commuter" in th:
-            metadata_map["sozialmonitoring_gesamt_commuter"] = {"sozialmonitoring": sm}
 
     tiles = []
     for key, res in results:
@@ -306,6 +296,24 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
         tiles.append(_shape_gesix(cfg, index, lat, lon,
                                   card_key="gesix_commuter",
                                   label=tile_meta["gesix_commuter"][0]))
+
+    # Sozialmonitoring commuter tiles — Hamburg-only shape-only tiles that
+    # mirror `gesix_commuter`. Both read the same underlying sm dict; the
+    # `focus` kwarg picks which sub-signal drives the tier + summary line.
+    if "sozialmonitoring_status_commuter" in th:
+        tiles.append(_shape_sozialmonitoring(
+            cfg, index, lat, lon,
+            card_key="sozialmonitoring_status_commuter",
+            label=tile_meta["sozialmonitoring_status_commuter"][0],
+            focus="status",
+        ))
+    if "sozialmonitoring_gesamt_commuter" in th:
+        tiles.append(_shape_sozialmonitoring(
+            cfg, index, lat, lon,
+            card_key="sozialmonitoring_gesamt_commuter",
+            label=tile_meta["sozialmonitoring_gesamt_commuter"][0],
+            focus="gesamt",
+        ))
 
     return {
         "slug":       lens.slug,

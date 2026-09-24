@@ -329,6 +329,62 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
     }
 
 
+def _shape_sozialmonitoring(cfg, index, lat: float, lon: float, *,
+                            card_key: str,
+                            label: str,
+                            focus: str = "status") -> dict:
+    """Shape-only Sozialmonitoring tile — Hamburg analog of `_shape_gesix`.
+
+    `focus` selects which sub-signal the summary line surfaces:
+      - "status":  statusindex (hoch / mittel / niedrig / sehr niedrig)
+      - "gesamt":  gesamtindex (Aufmerksamkeitsgebiet flag)
+
+    Tier is derived from the focused signal (green/amber/red) so the
+    at-a-glance dot still means something, but the face carries no
+    numeric and the modal receives the full sm dict via `metadata` — same
+    contract as `_shape_gesix`. Used for QL's `sozialmonitoring_status_quiet`
+    plus Newcomer/Commuter's status + gesamt tiles.
+
+    `cfg` supplies the attribution string; `index.sozialmonitoring_at`
+    supplies the raw dict.
+    """
+    sm = (index.sozialmonitoring_at(lon, lat)
+          if hasattr(index, "sozialmonitoring_at") else None)
+    sm = sm or {}
+    if focus == "gesamt":
+        gesamt = (sm.get("gesamtindex") or "").strip().lower()
+        if "aufmerksamkeit" in gesamt:
+            tier = TIER_RED
+        elif gesamt:
+            tier = TIER_GREEN
+        else:
+            tier = TIER_UNKNOWN
+        rule = "Sozialmonitoring Gesamtindex · tap for detail"
+    else:
+        status = (sm.get("statusindex") or "").strip().lower()
+        if status == "hoch":
+            tier = TIER_GREEN
+        elif status == "mittel":
+            tier = TIER_AMBER
+        elif status in ("niedrig", "sehr niedrig"):
+            tier = TIER_RED
+        else:
+            tier = TIER_UNKNOWN
+        rule = "Sozialmonitoring Statusindex · tap for detail"
+    return {
+        "key":      card_key,
+        "label":    label,
+        "icon":     "gesix",
+        "tier":     tier,
+        "rule":     rule,
+        "numeric":  "",
+        "caveat":   "",
+        "features": [],
+        "metadata": {"sozialmonitoring": sm},
+        "sources":  [s for s in [cfg.attribution.get("sozialmonitoring")] if s],
+    }
+
+
 if __name__ == "__main__":
     assert _prune({"a": "x", "b": None, "c": "", "d": 0, "e": False, "f": [], "g": {}}) \
         == {"a": "x", "d": 0, "e": False, "f": [], "g": {}}
