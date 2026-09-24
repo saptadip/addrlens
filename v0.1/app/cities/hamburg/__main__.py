@@ -6,7 +6,9 @@ workflow keep working without an edit.
 
 Asserts every invariant the old hamburg.py `__main__` block had, plus
 an extra guard that the __init__ shim's __all__ hasn't been narrowed."""
-from app.cities.hamburg          import HAMBURG, NEWCOMER_LENS, COMMUTER_LENS, OTHERS_ADMIN_CARDS
+from app.cities.hamburg          import (
+    HAMBURG, NEWCOMER_LENS, COMMUTER_LENS, QUIET_LIVING_LENS, OTHERS_ADMIN_CARDS,
+)
 from app.cities                  import hamburg as _pkg
 
 # T12 skeleton asserts
@@ -29,10 +31,13 @@ assert len(HAMBURG.newcomer_lens.tiles) == 13
 assert HAMBURG.commuter_lens is not None
 assert len(HAMBURG.commuter_lens.tiles) == 11
 assert HAMBURG.young_family_lens is None
-assert HAMBURG.quiet_living_lens is None
+# Quiet Living lens shipped in PR #99 — 9 tiles.
+assert HAMBURG.quiet_living_lens is not None
+assert len(HAMBURG.quiet_living_lens.tiles) == 9
 # T15: identity asserts
 assert HAMBURG.newcomer_lens is NEWCOMER_LENS
 assert HAMBURG.commuter_lens is COMMUTER_LENS
+assert HAMBURG.quiet_living_lens is QUIET_LIVING_LENS
 assert HAMBURG.others_admin_cards is OTHERS_ADMIN_CARDS
 assert HAMBURG.buergeramt_wfs_url is None
 # T15: tile-key order asserts — Newcomer (13 keys)
@@ -54,6 +59,13 @@ assert commuter_keys == [
     "airport_reach",
     "sozialmonitoring_status_commuter", "sozialmonitoring_gesamt_commuter",
 ], commuter_keys
+# Quiet Living tile-key order — 9 keys.
+quiet_keys = [t.key for t in HAMBURG.quiet_living_lens.tiles]
+assert quiet_keys == [
+    "noise_band", "quiet_zone", "street_trees", "tempo30",
+    "arterial_road", "cobblestone_nearby", "nightlife_inverted",
+    "heat", "sozialmonitoring_status_quiet",
+], quiet_keys
 # No tram tile in either lens
 assert "tram_transit" not in keys
 assert "commuter_tram_transit" not in commuter_keys
@@ -74,7 +86,8 @@ for k in ("schools", "kitas", "hospitals", "trees", "sozialmonitoring",
 # Regression guard: the __init__ shim's __all__ must not be narrowed
 # below the four symbols current call-sites import by name (grep at
 # 2026-09-22: HAMBURG, NEWCOMER_LENS, COMMUTER_LENS, OTHERS_ADMIN_CARDS).
-assert set(_pkg.__all__) >= {"HAMBURG", "NEWCOMER_LENS", "COMMUTER_LENS", "OTHERS_ADMIN_CARDS"}, \
-    f"__init__.py __all__ narrowed to {sorted(_pkg.__all__)} — restore missing symbols before merge"
+assert set(_pkg.__all__) >= {
+    "HAMBURG", "NEWCOMER_LENS", "COMMUTER_LENS", "QUIET_LIVING_LENS", "OTHERS_ADMIN_CARDS",
+}, f"__init__.py __all__ narrowed to {sorted(_pkg.__all__)} — restore missing symbols before merge"
 
-print("selfcheck ok: Hamburg Newcomer + Commuter lenses wired")
+print("selfcheck ok: Hamburg Newcomer + Commuter + Quiet Living lenses wired")
