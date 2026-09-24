@@ -158,12 +158,8 @@ COMMUTER_LENS: LensConfig = LensConfig(
 )
 
 # --- Quiet Living lens ------------------------------------------------------
-# Nine tiles for someone who wants a calm, low-noise home in Hamburg. Shape
+# Eight tiles for someone who wants a calm, low-noise home in Hamburg. Shape
 # mirrors Berlin's QUIET_LIVING_LENS with per-city adjustments:
-#   - `noise_band` replaces `noise` — Hamburg publishes an isoline-polygon
-#     noise model (`_WFS_LAERM` + `strassenverkehr_tag_abend_nacht_2022`),
-#     not per-façade numeric points. The tier is derived from the band's
-#     lower edge using the same WHO 55 / 60 dB L_DEN cutoffs.
 #   - `street_trees` uses a tree-COUNT density fallback because Hamburg's
 #     `strassenbaumkataster` layer carries no `kronedurch` field, so the
 #     crown-coverage-% path always reads 0. Green anchor 60 / amber 20
@@ -179,23 +175,16 @@ COMMUTER_LENS: LensConfig = LensConfig(
 # U-Bahn is largely underground, but HH's U-Bahn (U1 / U3) has long
 # elevated stretches — the shortcut inverts on HH addresses. Rewiring is
 # a follow-up.
+# Berlin QL's `noise` tile is also omitted: Hamburg publishes Strategische
+# Lärmkarten only as WMS raster + shapefile ZIP download, no WFS. The
+# `noise_bands_at` code path + `_tier_noise_isoline` helper remain wired
+# for a future ingest, but no runtime data source exists so the tile was
+# removed from the lens config until a shapefile ingest lands.
 QUIET_LIVING_LENS: LensConfig = LensConfig(
     slug="quiet_living",
     label="Quiet Living",
     audience_hint="For someone who wants a calm, low-noise home in Hamburg",
     tiles=(
-        LensTileConfig(
-            key="noise_band", label="Façade noise", icon="noise",
-            # Same WHO 55 / 60 dB L_DEN cutoffs as Berlin, applied to the
-            # isoline band's lower edge (see `_tier_noise_isoline`).
-            thresholds={"green_db": 55, "amber_db": 60},
-            caveat=("Hamburg's Strategische Lärmkarten 2022 publish noise "
-                    "as isoline polygons (`strassenverkehr_tag_abend_nacht_2022`), "
-                    "not per-façade points. The tile reports the band your "
-                    "address sits inside; tier is driven by the band's lower "
-                    "edge. Road-source only — rail and aircraft isoline "
-                    "layers are not yet wired for Hamburg."),
-        ),
         LensTileConfig(
             key="quiet_zone", label="Nearest quiet zone", icon="refuge",
             thresholds={"green_m": 400, "amber_m": 1000},

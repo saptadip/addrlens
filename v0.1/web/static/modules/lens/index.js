@@ -475,6 +475,32 @@ function renderLensModalBody(tile, lensSlug) {
           <div class="gesix-scale"><span>Top 20%</span><span>Bottom 20%</span></div>
         </div>
       </div>`;
+  } else if (tile.key === 'sozialmonitoring_status'
+      || tile.key === 'sozialmonitoring_gesamt'
+      || tile.key === 'sozialmonitoring_status_commuter'
+      || tile.key === 'sozialmonitoring_gesamt_commuter'
+      || tile.key === 'sozialmonitoring_status_quiet') {
+    // Hamburg Sozialmonitoring shape-only tiles — render the sm dict as a
+    // definition list so the modal has real content instead of just the
+    // "tap for detail" rule string. Mirrors the `.gesix-modal-block`
+    // pattern above but without the 5-quintile bar (HH publishes 4-band
+    // Statusindex + 2-band Gesamtindex, not a quintile).
+    const sm = (tile.metadata && tile.metadata.sozialmonitoring) || null;
+    if (sm) {
+      const row = (label, val) => val
+        ? `<div class="det-row"><span class="det-label">${label}</span><span class="det-val">${escapeHtml(String(val))}</span></div>`
+        : '';
+      let rows = '';
+      rows += row('Stadtteil',    sm.stadtteil);
+      rows += row('Statusindex',  sm.statusindex);
+      rows += row('Gesamtindex',  sm.gesamtindex);
+      rows += row('Dynamikindex', sm.dynamikindex);
+      rows += row('Statistisches Gebiet', sm.statgeb);
+      rows += row('Berichtsjahr', sm.berichtsjahr);
+      if (rows) {
+        cardRichBlock = `<div class="sozialmonitoring-modal-block">${rows}</div>`;
+      }
+    }
   }
 
   return `
@@ -509,7 +535,8 @@ function _injectModalTabs(modal) {
     modal.querySelector('.modal-features-list') ||
     modal.querySelector('.modal-trees') ||
     modal.querySelector('.gesix-modal-block') ||
-    modal.querySelector('.parkzone-modal-block')
+    modal.querySelector('.parkzone-modal-block') ||
+    modal.querySelector('.sozialmonitoring-modal-block')
   );
   const hasAbout = !!(
     modal.querySelector('.modal-explanation') ||
