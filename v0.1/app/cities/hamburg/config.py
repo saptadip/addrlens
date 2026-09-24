@@ -21,7 +21,7 @@ from app.cities.hamburg.directories import (
     _FINANZAMTS,
     OTHERS_ADMIN_CARDS,
 )
-from app.cities.hamburg.lenses import NEWCOMER_LENS, COMMUTER_LENS
+from app.cities.hamburg.lenses import NEWCOMER_LENS, COMMUTER_LENS, QUIET_LIVING_LENS
 
 # ---- WFS endpoints (all verified 2026-09-20 via GetCapabilities) ------------
 _WFS_DOG_OAF        = "https://api.hamburg.de/datasets/v1/gages_vereinfacht/collections/hauskoordinaten/items"
@@ -264,7 +264,7 @@ HAMBURG = CityConfig(
 
     young_family_lens=None,       # deferred to a later release; frontend hides YF lens for Hamburg via slug filter (spec Q9)
     newcomer_lens=NEWCOMER_LENS,           # filled by Task 13
-    quiet_living_lens=None,               # deferred to a later release; frontend hides QL lens for Hamburg via slug filter (spec Q9)
+    quiet_living_lens=QUIET_LIVING_LENS,   # Hamburg QL — 9 tiles, isoline noise + tree density + heat + sozialmonitoring
     commuter_lens=COMMUTER_LENS,           # filled by Task 14
 
     bezirksgrenzen_wfs_url=_WFS_VERW,

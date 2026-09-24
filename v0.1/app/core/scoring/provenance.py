@@ -95,6 +95,9 @@ def _sources_for(cfg, key: str, tier: str) -> list:
         "sozialmonitoring_gesamt":          [attr.get("sozialmonitoring")],
         "sozialmonitoring_status_commuter": [attr.get("sozialmonitoring")],
         "sozialmonitoring_gesamt_commuter": [attr.get("sozialmonitoring")],
+        "sozialmonitoring_status_quiet":    [attr.get("sozialmonitoring")],
+        # Hamburg QL — isoline noise variant cites the same noise attribution.
+        "noise_band":                       [attr.get("noise")],
     }
     # Dedupe while preserving insertion order — some tiles cite multiple
     # attribution keys that resolve to the same string (e.g. rail_transit

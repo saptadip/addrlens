@@ -33,8 +33,8 @@ export const NOISE_TIER_LABEL={green:'Quiet',amber:'Moderate',orange:'Loud',red:
 export const LM_STATE_KEY  = 'hamburg-lens-mode-v1';       // "on" | "off"
 export const LM_SEEN_KEY   = 'hamburg-lens-mode-seen-v1';  // "1" once seen or dismissed
 export const LM_PULSE_MS   = 30000;                        // auto-stop pulse after 30 s
-export const LM_ACTIVE_KEY  = 'hamburg-lens-active-v1';    // "newcomer"|"commuter"
-export const LM_DEFAULT_LENS = 'newcomer';                 // Hamburg ships newcomer + commuter only
+export const LM_ACTIVE_KEY  = 'hamburg-lens-active-v1';    // "newcomer"|"commuter"|"quiet_living"
+export const LM_DEFAULT_LENS = 'newcomer';                 // Hamburg ships newcomer + commuter + quiet_living
 
 export const LENS_TILE_EXPLANATIONS = {
   // Newcomer lens
@@ -65,6 +65,16 @@ export const LENS_TILE_EXPLANATIONS = {
   airport_reach:         "Straight-line distance from the flat to Hamburg Airport (HAM). Green ≤ 12 km; amber ≤ 22 km. For frequent flyers this compounds — shorter departure buffers, easier evening arrivals. Real door-to-gate time depends on the S1 schedule (S-Bahn direct to HAM) plus check-in lead time, not on crow-flight distance alone.",
   sozialmonitoring_status_commuter: "Same signal as the Newcomer Neighbourhood status tile — commuter-audience framing.",
   sozialmonitoring_gesamt_commuter: "Same signal as the Newcomer City focus area tile — commuter-audience framing.",
+  // Quiet Living lens
+  noise_band: "Hamburg publishes noise as isoline polygons (Strategische Lärmkarten 2022, road day/evening/night) rather than per-façade points. This tile reports the band your address sits inside; the tier reflects the band's lower edge against the WHO 55 / 60 dB L_DEN cutoffs. Road-source only — rail and aircraft isoline layers are not yet wired for Hamburg.",
+  quiet_zone: "Walking distance to the edge of the nearest Ruhige Gebiet or Ruheinsel polygon (Hamburg BUKEA, §47d BImSchG). These are officially designated recreation-and-quiet areas. Green ≤ 400 m; amber ≤ 1 km. State forests protected under other statutes are not on this list, so an address next to a forest can still read red here.",
+  street_trees: "Count of registered street trees within a 200 m radius disk (Hamburg Straßenbaumkataster, BUKEA). Density fallback — the source layer carries no crown-diameter field, so this is a tree-count proxy rather than a canopy-shade measurement. Green ≥ 60 trees (mature two-sided tree lining); amber ≥ 20. Only registered street trees; park and private-garden trees are not included.",
+  tempo30: "Hamburg's `Zulässige Höchstgeschwindigkeiten` WFS lists EXCEPTIONS to the general 50 km/h. Green ≤ 30 km/h; amber 31–50; red > 50. Absence of a nearby exception is reported as 'default 50 km/h', not unknown.",
+  arterial_road: "Distance to the nearest arterial-class segment of the Hamburg Straßen- und Wegenetz (BVM via LGV). Inverted-distance signal: further is quieter. Green ≥ 150 m; amber ≥ 50 m; red < 50 m. Proxy for exposure to traffic noise and dust.",
+  cobblestone_nearby: "Distance to the nearest trafficked stone-surface road (OSM `surface=sett|cobblestone|unhewn_cobblestone` on `highway=residential|unclassified|tertiary|secondary|primary|living_street`, weekly Geofabrik Hamburg extract). Inverted-distance signal: further is quieter. Green ≥ 100 m (inaudible-indoors for a passing car at ~30 km/h); amber ≥ 30 m; red < 30 m. Cobble sidewalks and paving-stones are excluded.",
+  nightlife_inverted: "Count of tagged bars, pubs, and nightclubs within 300 m (OSM community-tagged via the weekly Geofabrik Hamburg extract). Inverted framing — FEWER venues is greener. Green ≤ 3; amber ≤ 8; red > 8. Same underlying dataset as the Newcomer nightlife tile, opposite audience.",
+  heat: "PET (Physiological Equivalent Temperature) day-class for the residential block (Hamburg Stadtklimaanalyse 2023, BUKEA). Green: keine / geringe Belastung; amber: mäßige / starke; red: sehr starke / extreme. Hot addresses = windows shut in summer = louder outdoor noise leaks in.",
+  sozialmonitoring_status_quiet: "Same signal as the Newcomer Neighbourhood status tile — Quiet Living audience framing. Shape-only tile: tap for detail.",
 };
 
 export const GLOSSARY = {
@@ -136,6 +146,16 @@ export const TILE_GLOSSARY_KEYS = {
   airport_reach:               ['S-Bahn', 'Regionalbahn'],
   sozialmonitoring_status_commuter: ['Sozialmonitoring', 'Statistisches Gebiet', 'Stadtteil'],
   sozialmonitoring_gesamt_commuter: ['Sozialmonitoring', 'Aufmerksamkeitsgebiet'],
+  // Quiet Living lens
+  noise_band:                   ['L_DEN', 'L_night', 'BImSchG'],
+  quiet_zone:                   ['§47d BImSchG', 'BImSchG'],
+  street_trees:                 [],
+  tempo30:                      [],
+  arterial_road:                [],
+  cobblestone_nearby:           [],
+  nightlife_inverted:           [],
+  heat:                         ['PET', 'Belastung'],
+  sozialmonitoring_status_quiet: ['Sozialmonitoring', 'Statistisches Gebiet', 'Stadtteil'],
   // parkzone is shared between Newcomer and Commuter lenses —
   // TILE_GLOSSARY_KEYS is looked up by tile key, not by lens.
 };
@@ -148,13 +168,15 @@ export const TIER_PIN_COLORS = {
   unknown: '#9CA3AF',
 };
 
-// Hamburg ships ONLY Newcomer + Commuter lenses on day-1 (spec Q9).
-// Young Family and Quiet Living are not included in the Hamburg release.
+// Hamburg ships Newcomer + Commuter + Quiet Living lenses.
+// Young Family is not yet included in the Hamburg release.
 export const LIFE_MODE_LENSES = [
   {slug: 'newcomer', label: 'Newcomer',
    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M17 4l3 3-3 3"/><path d="M14 7h6"/></svg>'},
   {slug: 'commuter', label: 'Commuter',
    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 12h14"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/><path d="M8 21l-2 2M16 21l2 2"/></svg>'},
+  {slug: 'quiet_living', label: 'Quiet Living',
+   icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-3 5-6 7-6 11a6 6 0 0 0 12 0c0-4-3-6-6-11z"/><path d="M9 15a3 3 0 0 0 3 3"/></svg>'},
 ];
 
 // -- Card drag-reorder key ------------------------------------------

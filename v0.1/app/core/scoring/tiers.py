@@ -272,6 +272,13 @@ def _tier_heat(heat: dict, t: dict) -> dict:
                 "rule": "Heat data unavailable",
                 "numeric": "no day_class on this block"}
     burden_class = day.split(" - ")[-1].strip()
+    # Hamburg's `bewertung_tag` appends a parenthetical PET range to the
+    # class label (e.g. "Geringe Belastung (23 °C bis <= 25 °C)") — strip
+    # the parenthetical suffix so the equality checks below match the
+    # bare class token the same way they do for Berlin's " - "-separated
+    # format. Prevents Hamburg heat tiles reading red by default.
+    if "(" in burden_class:
+        burden_class = burden_class.split("(", 1)[0].strip()
     burden_low = burden_class.lower()
     if any(burden_low == g.lower() for g in t["green_classes"]):
         return {"tier": TIER_GREEN, "rule": "keine / geringe Belastung",
@@ -843,6 +850,81 @@ def _tier_street_trees(trees: dict, th: dict) -> dict:
                 "numeric": numeric}
     return {"tier": TIER_RED,
             "rule": f"canopy < {th['amber_pct']}%",
+            "numeric": numeric}
+
+
+def _tier_street_trees_density(trees: dict, th: dict) -> dict:
+    """Tree-count density fallback for cities whose Straßenbaumkataster
+    lacks crown-diameter data (Hamburg's `strassenbaumkataster` has no
+    `kronedurch`, so `crown_coverage_pct` is always 0 there).
+
+    Threshold shape: {"green_count", "amber_count"}. Green ≥ green_count
+    trees inside the loader's `trees_radius_m` disk (200 m for both
+    Berlin and Hamburg), amber ≥ amber_count, else red.
+
+    Green anchor: Berlin's Hufelandstr calibration point (199 street
+    trees inside a 200 m disk, both sides mature-lined) sits well above
+    green_count=60, giving headroom for HH's typical dense-residential
+    density. Amber_count=20 marks the sparse-but-present boundary."""
+    if not trees or trees.get("count") is None:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Street-tree data unavailable",
+                "numeric": (trees or {}).get("error") or "trees WFS returned no rows"}
+    n = trees.get("count", 0)
+    r = trees.get("radius_m")
+    r_txt = f" in {int(r)} m disk" if r else ""
+    numeric = f"{n} street trees{r_txt}"
+    if n >= th["green_count"]:
+        return {"tier": TIER_GREEN,
+                "rule": f"≥ {th['green_count']} trees{r_txt}",
+                "numeric": numeric}
+    if n >= th["amber_count"]:
+        return {"tier": TIER_AMBER,
+                "rule": f"{th['amber_count']}–{th['green_count']-1} trees{r_txt}",
+                "numeric": numeric}
+    return {"tier": TIER_RED,
+            "rule": f"< {th['amber_count']} trees{r_txt}",
+            "numeric": numeric}
+
+
+def _tier_noise_band(band: Optional[str], th: dict) -> dict:
+    """Isoline-model noise tier. Threshold shape reuses the façade tile's
+    {green_db, amber_db} so the same 55 / 60 dB WHO L_DEN boundaries apply
+    whether the city ships a per-façade numeric (Berlin) or an isoline
+    band string like ``"55-59"`` / ``"<50"`` / ``">=75"`` (Hamburg).
+
+    Tier is driven by the band's LOWER edge: an address inside the ≥55
+    isophone tiers by 55. `<50` maps to 0; `>=X` maps to X; `A-B` maps
+    to A. Missing / unparseable bands → unknown."""
+    if not band:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Noise data unavailable",
+                "numeric": "no isoline band at this address"}
+    s = band.strip().replace(" ", "")
+    try:
+        if s.startswith("<"):
+            low = 0
+        elif s.startswith(">="):
+            low = int(s[2:])
+        elif "-" in s:
+            low = int(s.split("-")[0])
+        else:
+            low = int(s)
+    except ValueError:
+        return {"tier": TIER_UNKNOWN,
+                "rule": "Noise band unrecognised",
+                "numeric": band}
+    numeric = f"{band} dB L_DEN (road, 24h)"
+    if low <= th["green_db"] - 1:
+        return {"tier": TIER_GREEN,
+                "rule": f"band lower edge ≤ {th['green_db']-1} dB",
+                "numeric": numeric}
+    if low <= th["amber_db"] - 1:
+        return {"tier": TIER_AMBER,
+                "rule": f"band lower edge {th['green_db']}–{th['amber_db']-1} dB",
+                "numeric": numeric}
+    return {"tier": TIER_RED,
+            "rule": f"band lower edge ≥ {th['amber_db']} dB",
             "numeric": numeric}
 
 

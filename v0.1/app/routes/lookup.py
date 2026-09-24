@@ -239,7 +239,7 @@ def lookup(
     try:
         lens_quiet = scorer.quiet_living_lens(
             cfg, index, lon, lat,
-            air=air, noise=_noise,
+            air=air, noise=_noise, heat=heat,
             quiet_zone=quiet_zone, trees=trees_summary,
         )
     except Exception as e:

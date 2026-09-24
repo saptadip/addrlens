@@ -74,6 +74,14 @@ def _legend_for(key: str, th: dict) -> list:
             {"tier": TIER_AMBER, "text": f"{th['green_db']}–{th['amber_db']} dB"},
             {"tier": TIER_RED,   "text": f">{th['amber_db']} dB"},
         ]
+    if key == "noise_band":
+        # Isoline-band variant — same 55 / 60 dB WHO cutoffs, tier is
+        # driven by the band's lower edge.
+        return [
+            {"tier": TIER_GREEN, "text": f"band lower edge ≤{th['green_db']-1} dB"},
+            {"tier": TIER_AMBER, "text": f"{th['green_db']}–{th['amber_db']-1} dB"},
+            {"tier": TIER_RED,   "text": f"≥{th['amber_db']} dB"},
+        ]
     if key == "heat":
         return [
             {"tier": TIER_GREEN, "text": "keine / geringe"},
@@ -126,6 +134,16 @@ def _legend_for(key: str, th: dict) -> list:
     if key == "quiet_zone":
         return _dist_legend(th['green_m'], th['amber_m'])
     if key == "street_trees":
+        # Two threshold shapes coexist: Berlin ships crown-coverage %
+        # (`green_pct` / `amber_pct`); Hamburg's Baumkataster has no
+        # `kronedurch` field so QL there falls back to tree-count density
+        # (`green_count` / `amber_count`) inside the loader's 200 m disk.
+        if "green_count" in th:
+            return [
+                {"tier": TIER_GREEN, "text": f"≥ {th['green_count']} trees"},
+                {"tier": TIER_AMBER, "text": f"{th['amber_count']}–{th['green_count']-1} trees"},
+                {"tier": TIER_RED,   "text": f"< {th['amber_count']} trees"},
+            ]
         return [
             {"tier": TIER_GREEN, "text": f"≥ {th['green_pct']}% canopy"},
             {"tier": TIER_AMBER, "text": f"{th['amber_pct']}–{th['green_pct']-1}%"},
@@ -200,7 +218,8 @@ def _legend_for(key: str, th: dict) -> list:
     # 3-band (Statusindex) / 2-band (Aufmerksamkeitsgebiet flag) mapping to
     # green/amber/red. Emit a legend so the frontend's donut-arc renderer
     # fires (empty legend → no donut, per lens/index.js:118 early exit).
-    if key in ("sozialmonitoring_status", "sozialmonitoring_status_commuter"):
+    if key in ("sozialmonitoring_status", "sozialmonitoring_status_commuter",
+               "sozialmonitoring_status_quiet"):
         return [
             {"tier": TIER_GREEN, "text": "Statusindex: hoch"},
             {"tier": TIER_AMBER, "text": "Statusindex: mittel"},

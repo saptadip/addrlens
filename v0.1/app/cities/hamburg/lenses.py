@@ -1,4 +1,4 @@
-"""Hamburg lens configs — Newcomer + Commuter tile lists.
+"""Hamburg lens configs — Newcomer + Commuter + Quiet Living tile lists.
 
 Extracted from the flat `hamburg.py` into a dedicated module so lens
 changes touch only the lens file. The audience-hint prose, per-tile
@@ -153,6 +153,125 @@ COMMUTER_LENS: LensConfig = LensConfig(
             key="sozialmonitoring_gesamt_commuter", label="City focus area", icon="gesix",
             thresholds={},
             caveat="Same signal as Newcomer's City focus area tile — commuter-audience framing.",
+        ),
+    ),
+)
+
+# --- Quiet Living lens ------------------------------------------------------
+# Nine tiles for someone who wants a calm, low-noise home in Hamburg. Shape
+# mirrors Berlin's QUIET_LIVING_LENS with per-city adjustments:
+#   - `noise_band` replaces `noise` — Hamburg publishes an isoline-polygon
+#     noise model (`_WFS_LAERM` + `strassenverkehr_tag_abend_nacht_2022`),
+#     not per-façade numeric points. The tier is derived from the band's
+#     lower edge using the same WHO 55 / 60 dB L_DEN cutoffs.
+#   - `street_trees` uses a tree-COUNT density fallback because Hamburg's
+#     `strassenbaumkataster` layer carries no `kronedurch` field, so the
+#     crown-coverage-% path always reads 0. Green anchor 60 / amber 20
+#     inside the loader's 200 m disk; see `_tier_street_trees_density`.
+#   - `heat` (Stadtklimaanalyse 2023) replaces Berlin's `air` slot —
+#     Hamburg publishes no per-street NO₂ (spec Q10). Same PET-Belastung
+#     class shape as the Berlin YF heat tile, reuses `_tier_heat`.
+#   - `sozialmonitoring_status_quiet` replaces `gesix_quiet` — Hamburg has
+#     no GESIx dataset; shape-only tile mirrors Berlin's gesix_quiet
+#     pattern using the BSW Sozialmonitoring statusindex signal.
+# Berlin QL's `rail_noise` tile is intentionally omitted for Hamburg: the
+# Berlin implementation treats U-Bahn as "always green" because Berlin's
+# U-Bahn is largely underground, but HH's U-Bahn (U1 / U3) has long
+# elevated stretches — the shortcut inverts on HH addresses. Rewiring is
+# a follow-up.
+QUIET_LIVING_LENS: LensConfig = LensConfig(
+    slug="quiet_living",
+    label="Quiet Living",
+    audience_hint="For someone who wants a calm, low-noise home in Hamburg",
+    tiles=(
+        LensTileConfig(
+            key="noise_band", label="Façade noise", icon="noise",
+            # Same WHO 55 / 60 dB L_DEN cutoffs as Berlin, applied to the
+            # isoline band's lower edge (see `_tier_noise_band`).
+            thresholds={"green_db": 55, "amber_db": 60},
+            caveat=("Hamburg's Strategische Lärmkarten 2022 publish noise "
+                    "as isoline polygons (`strassenverkehr_tag_abend_nacht_2022`), "
+                    "not per-façade points. The tile reports the band your "
+                    "address sits inside; tier is driven by the band's lower "
+                    "edge. Road-source only — rail and aircraft isoline "
+                    "layers are not yet wired for Hamburg."),
+        ),
+        LensTileConfig(
+            key="quiet_zone", label="Nearest quiet zone", icon="refuge",
+            thresholds={"green_m": 400, "amber_m": 1000},
+            caveat=("Hamburg's Ruhige Gebiete + Ruheinseln (§47d BImSchG) — "
+                    "polygons combining acoustic quiet with recreation value. "
+                    "Distance is to the polygon edge."),
+        ),
+        LensTileConfig(
+            key="street_trees", label="Street tree density", icon="refuge",
+            # Count-based fallback — Hamburg's Straßenbaumkataster carries
+            # no crown-diameter field, so the Berlin crown-coverage % path
+            # would always read 0%. Green ≥ 60 trees inside a 200 m disk
+            # (mature two-sided tree lining); amber ≥ 20 (some canopy);
+            # red < 20 (sparse / no street trees).
+            thresholds={"green_count": 60, "amber_count": 20},
+            caveat=("Count of registered street trees inside a 200 m radius "
+                    "disk (Hamburg Straßenbaumkataster, BUKEA). No canopy-% "
+                    "reading because the source layer lacks a crown-diameter "
+                    "field — this tile is a density proxy, not a shade "
+                    "measurement. Only registered street trees; park and "
+                    "private-garden trees are not included."),
+        ),
+        LensTileConfig(
+            key="tempo30", label="Speed limit at your street", icon="tempo30",
+            thresholds={"green_kmh": 30, "amber_kmh": 50, "default_kmh": 50},
+            caveat=("Hamburg's `zulaessige_hoechstgeschwindigkeiten` WFS "
+                    "lists exceptions to the general 50 km/h. Absence of a "
+                    "nearby exception is reported as 'default 50 km/h', "
+                    "not unknown."),
+        ),
+        LensTileConfig(
+            key="arterial_road", label="Distance to arterial road", icon="arterial_road",
+            thresholds={"green_m": 150, "amber_m": 50},
+            caveat=("Straßen- und Wegenetz (BVM via LGV) — Hamburg's road "
+                    "network with class attribution. Distance to the nearest "
+                    "arterial-class segment is a rough proxy for exposure "
+                    "to traffic noise and dust."),
+        ),
+        LensTileConfig(
+            key="cobblestone_nearby", label="Cobblestone nearby", icon="cobblestone",
+            thresholds={"green_m": 100, "amber_m": 30},
+            caveat=("OSM `highway=residential|unclassified|tertiary|"
+                    "secondary|primary|living_street` AND `surface="
+                    "sett|cobblestone|unhewn_cobblestone` on trafficked "
+                    "roads only — cobble sidewalks and paving_stones are "
+                    "excluded. Hamburg extract from the weekly Geofabrik "
+                    "snapshot; way centroid is the query anchor."),
+        ),
+        LensTileConfig(
+            key="nightlife_inverted", label="Nightlife within 300 m", icon="nightlife",
+            thresholds={"radius_m": 300, "green_max": 3, "amber_max": 8},
+            caveat=("Inverse of the Newcomer nightlife tile — fewer bars/"
+                    "clubs/pubs within 300 m is greener here. Same OSM "
+                    "data (Hamburg Geofabrik extract), opposite framing."),
+        ),
+        LensTileConfig(
+            key="heat", label="Summer heat", icon="heat",
+            # Same PET-Belastung class strings as Berlin's YF heat tile —
+            # matched case-insensitively as substrings against Hamburg's
+            # `bewertung_tag` field (values like "Sehr starke Belastung
+            # (38 °C bis <= 41 °C)"). Hot addresses = windows shut in
+            # summer = louder outdoor noise leaks in.
+            thresholds={
+                "green_classes": ("keine Belastung", "geringe Belastung"),
+                "amber_classes": ("mäßige Belastung", "starke Belastung"),
+            },
+            caveat=("Stadtklimaanalyse 2023 (BUKEA) — PET (Physiological "
+                    "Equivalent Temperature) day-class per residential block. "
+                    "Reflects the block, not the specific building."),
+        ),
+        LensTileConfig(
+            key="sozialmonitoring_status_quiet", label="Neighbourhood profile", icon="gesix",
+            thresholds={},   # shape-only, mirrors Berlin's `gesix_quiet` tile
+            caveat=("Hamburg city rating of the ~2,200-resident block on "
+                    "income, jobs, education, and family stability. "
+                    "Reflects the block, not the specific building."),
         ),
     ),
 )
