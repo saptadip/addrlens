@@ -71,6 +71,7 @@ _LENS_TEMPLATES = {
     ("berlin",  "commuter"):     "lens_commuter_insight",
     ("hamburg", "newcomer"):     "lens_newcomer_hamburg_insight",
     ("hamburg", "commuter"):     "lens_commuter_hamburg_insight",
+    ("hamburg", "quiet_living"): "lens_quiet_living_hamburg_insight",
 }
 
 # Same cache grid as history — ~100 m cells. Env-tunable.
@@ -319,7 +320,7 @@ if __name__ == "__main__":
     assert _tiers["tram_transit"] == "unknown"
     assert _tiers["bus_transit"]  == "info"
 
-    # -- _LENS_TEMPLATES sanity: all 6 (city, lens) entries wired -----
+    # -- _LENS_TEMPLATES sanity: all 7 (city, lens) entries wired -----
     # Each entry must map (city_slug, lens_slug) → matching template name
     # registered in inference/main.py::TEMPLATES. Drift here means the
     # proxy accepts a lens but the inference service has no matching row.
@@ -330,6 +331,7 @@ if __name__ == "__main__":
         ("berlin",  "commuter"),
         ("hamburg", "newcomer"),
         ("hamburg", "commuter"),
+        ("hamburg", "quiet_living"),
     }, f"_LENS_TEMPLATES keys drifted: {set(_LENS_TEMPLATES.keys())}"
     assert _LENS_TEMPLATES == {
         ("berlin",  "young_family"): "lens_young_family_insight",
@@ -338,6 +340,7 @@ if __name__ == "__main__":
         ("berlin",  "commuter"):     "lens_commuter_insight",
         ("hamburg", "newcomer"):     "lens_newcomer_hamburg_insight",
         ("hamburg", "commuter"):     "lens_commuter_hamburg_insight",
+        ("hamburg", "quiet_living"): "lens_quiet_living_hamburg_insight",
     }, "template names must match inference/main.py::TEMPLATES rows"
 
     # -- _shape_tile_contexts drops noise + keeps schema fields -------
