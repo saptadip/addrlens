@@ -297,4 +297,10 @@ HAMBURG = CityConfig(
 
     # Canonical address for ops/deploy/update.sh smoke-test.
     smoke_address="Heidenkampsweg 40, 20097",
+
+    # Hero image alt-text — describes the exact landmark inside the pin
+    # marker so screen-reader users get the specific visual referent
+    # (Speicherstadt warehouse district with the iron canal bridge over
+    # the Zollkanal).
+    hero_alt="AddrLens Hamburg — Speicherstadt with iron canal bridge inside pin marker",
 )
