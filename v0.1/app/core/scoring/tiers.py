@@ -887,11 +887,15 @@ def _tier_street_trees_density(trees: dict, th: dict) -> dict:
             "numeric": numeric}
 
 
-def _tier_noise_band(band: Optional[str], th: dict) -> dict:
+def _tier_noise_isoline(band: Optional[str], th: dict) -> dict:
     """Isoline-model noise tier. Threshold shape reuses the façade tile's
     {green_db, amber_db} so the same 55 / 60 dB WHO L_DEN boundaries apply
     whether the city ships a per-façade numeric (Berlin) or an isoline
     band string like ``"55-59"`` / ``"<50"`` / ``">=75"`` (Hamburg).
+
+    Named `_isoline` (not `_band`) to avoid collision with the older
+    `app.core.scorer._tier_noise_band` (bare-tier-string return, used by
+    unit tests). Same signal, different return shape.
 
     Tier is driven by the band's LOWER edge: an address inside the ≥55
     isophone tiers by 55. `<50` maps to 0; `>=X` maps to X; `A-B` maps

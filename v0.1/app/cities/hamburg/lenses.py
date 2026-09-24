@@ -187,7 +187,7 @@ QUIET_LIVING_LENS: LensConfig = LensConfig(
         LensTileConfig(
             key="noise_band", label="Façade noise", icon="noise",
             # Same WHO 55 / 60 dB L_DEN cutoffs as Berlin, applied to the
-            # isoline band's lower edge (see `_tier_noise_band`).
+            # isoline band's lower edge (see `_tier_noise_isoline`).
             thresholds={"green_db": 55, "amber_db": 60},
             caveat=("Hamburg's Strategische Lärmkarten 2022 publish noise "
                     "as isoline polygons (`strassenverkehr_tag_abend_nacht_2022`), "

@@ -49,7 +49,7 @@ from app.core.scoring.shape import (
 )
 from app.core.scoring.tiers import (
     _tier_air, _tier_arterial_road, _tier_cobblestone_nearby, _tier_heat,
-    _tier_nightlife_inverted, _tier_noise, _tier_noise_band,
+    _tier_nightlife_inverted, _tier_noise, _tier_noise_isoline,
     _tier_quiet_zone_solo, _tier_rail_noise, _tier_street_trees,
     _tier_street_trees_density, _tier_tempo30,
 )
@@ -156,7 +156,7 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
         if k == "noise":
             results.append((k, _tier_noise(noise, th[k])))
         elif k == "noise_band":
-            results.append((k, _tier_noise_band(noise_band_val, th[k])))
+            results.append((k, _tier_noise_isoline(noise_band_val, th[k])))
         elif k == "air":
             results.append((k, _tier_air(air, th[k])))
         elif k == "quiet_zone":
