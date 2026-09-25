@@ -534,10 +534,11 @@ Each with matching `HTTP Host Header` in CF Additional Application Settings.
 (http.host eq "addrlens.de"
  and not http.request.uri.path in {"/" "/impressum" "/datenschutzerklaerung" "/robots.txt" "/sitemap.xml" "/health"}
  and not http.request.uri.path in {"/static/img/logo.png" "/static/img/og-image.jpg"
-                                    "/static/img/favicon.png" "/static/img/berlin-card.png"
-                                    "/static/img/hamburg-card.png"}
+                                    "/static/img/berlin-card.png"
+                                    "/static/img/hamburg-card.png"
+                                    "/static/landing.css"}
  and not starts_with(http.request.uri.path, "/static/fonts/")
- and not starts_with(http.request.uri.path, "/static/landing.css"))
+ and not http.request.uri.path eq "/static/landing.css")
 ```
 
 **Action:** Dynamic redirect

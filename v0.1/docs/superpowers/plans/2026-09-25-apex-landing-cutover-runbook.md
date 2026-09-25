@@ -107,10 +107,11 @@
   (http.host eq "addrlens.de"
    and not http.request.uri.path in {"/" "/impressum" "/datenschutzerklaerung" "/robots.txt" "/sitemap.xml" "/health"}
    and not http.request.uri.path in {"/static/img/logo.png" "/static/img/og-image.jpg"
-                                      "/static/img/favicon.png" "/static/img/berlin-card.png"
-                                      "/static/img/hamburg-card.png"}
+                                      "/static/img/berlin-card.png"
+                                      "/static/img/hamburg-card.png"
+                                      "/static/landing.css"}
    and not starts_with(http.request.uri.path, "/static/fonts/")
-   and not starts_with(http.request.uri.path, "/static/landing.css"))
+   and not http.request.uri.path eq "/static/landing.css")
   ```
 - [ ] Action: **Dynamic redirect**
   - Expression: `concat("https://berlin.addrlens.de", http.request.uri.path)`
@@ -167,6 +168,22 @@ Trigger conditions: prod smoke fails after any step; user report of broken apex.
 
 - [ ] Remove `berlin.addrlens.de` public hostname from CF Tunnel.
 - [ ] Users continue to reach Berlin via apex (Step 4 hasn't been done, or Step 4 was reverted).
+
+### Partial cutover — operator disappears mid-flip
+
+If you completed Step 4 (apex repointed to app-landing) but not Step 6 (Redirect Rule created), users hitting legacy apex paths like `addrlens.de/api/lookup`, `addrlens.de/search`, `addrlens.de/ready` get **404 from app-landing** (which has no such routes). Duration: minutes-long window until someone completes the cutover or reverts.
+
+**Preferred recovery — complete Step 6 immediately (~3 min):**
+1. Log into Cloudflare dashboard.
+2. Add the Redirect Rule per spec §12.2 (expression + destination).
+3. Verify with the smoke curl loop from Step 6 in this runbook.
+
+**Fallback recovery — revert Step 4 (~2 min):**
+1. Cloudflare Tunnel → apex hostname → Edit.
+2. Change service back to `app:8001`. Host header stays `addrlens.de`.
+3. Save. Effective within seconds. Apex serves Berlin again; landing container idle but healthy.
+
+**Session-safety tip for the next cutover:** pre-write the Redirect Rule as *disabled* before Step 4, then enable it at Step 6. Reduces the vulnerable window to a single dashboard toggle.
 
 ## Post-cutover monitoring (first 48h)
 
