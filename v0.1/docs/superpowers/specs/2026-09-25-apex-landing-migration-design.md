@@ -83,13 +83,13 @@ app = FastAPI(title="addrlens.de — landing", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
 
 # Load once at boot — inject Umami tracker if env set.
-# Symmetric with app/main.py:122 — prefer the LANDING-suffixed env,
-# fall back to the flat name. Prevents accidental collision with
-# per-city Umami IDs.
+# LANDING ONLY reads the LANDING-suffixed env vars — no fallback to
+# the flat UMAMI_WEBSITE_ID. Rationale: prevents accidental
+# cross-contamination if an operator forgets to migrate the flat name
+# during cutover. Landing gets no tracker unless explicitly configured.
 def _load_index() -> bytes:
     html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
-    umami_id = (os.environ.get("UMAMI_WEBSITE_ID_LANDING")
-                or os.environ.get("UMAMI_WEBSITE_ID", "")).strip()
+    umami_id = os.environ.get("UMAMI_WEBSITE_ID_LANDING", "").strip()
     umami_src = (os.environ.get("UMAMI_SCRIPT_URL_LANDING")
                  or os.environ.get("UMAMI_SCRIPT_URL", "")).strip()
     if umami_id and umami_src:
@@ -121,29 +121,59 @@ def sitemap():
 
 @app.get("/health", include_in_schema=False)
 def health():
-    return JSONResponse({"status": "ok", "role": "landing"})
+    # Match app/main.py /health shape. The container's `ROLE=landing`
+    # env is diagnostic-only (docker inspect / log correlation); not
+    # returned here to keep the response identical across containers.
+    return JSONResponse({"status": "ok"})
 ```
 
 ### 6.2 Import guard test — `tests/landing/test_import_isolation.py`
 
-Enforce the "minimal imports" rule so future edits don't silently couple landing to `app.core`:
+Enforce the "minimal imports" rule so future edits don't silently couple landing to any part of the `app` namespace beyond `app.landing` itself. **Whitelist, not blacklist** — a blacklist misses `app.config`, `app.deps`, or any future `app.<newmodule>` that reaches for city helpers.
+
+`app.landing.main._load_index()` reads `web/landing/index.html` at import time, which would `FileNotFoundError` if the file isn't present in CI's checkout. The test provides a fixture file (or monkeypatches `Path.read_text`) so import succeeds even in a minimal test environment.
 
 ```python
 import sys
 import importlib
+from pathlib import Path
+import pytest
 
-def test_landing_does_not_import_app_core():
+# Allowed imports under the app.* namespace.
+_ALLOWED_APP_MODULES = {"app", "app.landing", "app.landing.main"}
+
+@pytest.fixture
+def _landing_fixture(tmp_path, monkeypatch):
+    """Create a minimal web/landing/ tree so app.landing.main._load_index() succeeds."""
+    web = tmp_path / "web" / "landing"
+    web.mkdir(parents=True)
+    (web / "index.html").write_text("<!doctype html><html></html>", encoding="utf-8")
+    (web / "static").mkdir()
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    # Point WEB_DIR by chdir; app.landing.main resolves WEB_DIR relative to itself.
+    monkeypatch.chdir(tmp_path)
+    return web
+
+def test_landing_imports_only_whitelisted_app_modules(_landing_fixture):
     # Fresh import to detect coupling introduced later.
     for mod in list(sys.modules):
         if mod.startswith("app."):
             del sys.modules[mod]
+    if "app" in sys.modules:
+        del sys.modules["app"]
+
     importlib.import_module("app.landing.main")
-    coupled = [m for m in sys.modules if m.startswith(("app.core", "app.cities", "app.routes"))]
-    assert not coupled, (
-        f"app.landing must stay minimal; imported: {coupled}. "
-        "Landing exists to be snappy — do not reach for city helpers here."
+
+    imported_app_modules = {m for m in sys.modules if m == "app" or m.startswith("app.")}
+    unexpected = imported_app_modules - _ALLOWED_APP_MODULES
+    assert not unexpected, (
+        f"app.landing must stay minimal. Unexpected app.* imports: {sorted(unexpected)}. "
+        "Landing exists to be snappy — do not reach for app.core / app.cities / "
+        "app.config / app.deps / app.routes here."
     )
 ```
+
+**Fixture note:** the fixture approach is slightly awkward because `WEB_DIR` in `app/landing/main.py` uses a static `Path(__file__).resolve().parent.parent.parent / "web" / "landing"` at module-import time. Options: (a) pass `chdir` + set `PYTHONPATH` as above so a shadow `web/landing/` is discoverable; (b) monkeypatch `pathlib.Path.read_text` for the test; (c) make `WEB_DIR` overridable via env var (`LANDING_WEB_DIR`) and set it in the fixture — clean but adds a knob. Recommend (b) for simplicity.
 
 ## 7. Web Assets — `web/landing/`
 
@@ -189,13 +219,13 @@ From `web/static/app.css`:
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  [logo.png] AddrLens                             [DE | EN] │  <- header, sticky (h=64px)
+│  [logo.png] AddrLens                             [EN | DE] │  <- header, sticky (h=64px)
 ├────────────────────────────────────────────────────────────┤
 │                                                            │
-│       Straßen-Intelligenz für deutsche Städte             │  <- hero H1 (Space Grotesk)
+│       Street intelligence for German cities                │  <- hero H1 (Space Grotesk)
 │                                                            │
-│       Frei zugängliche Daten, sauber verknüpft.           │  <- tagline (Inter 400, muted)
-│       Wähle deine Stadt.                                   │
+│       Open data, cleanly connected.                        │  <- tagline (Inter 400, muted)
+│       Pick your city.                                      │
 │                                                            │
 ├────────────────────────────────────────────────────────────┤
 │                                                            │
@@ -203,46 +233,51 @@ From `web/static/app.css`:
 │   │ [berlin-card.png]    │    │ [hamburg-card.png]   │   │  <- city cards (2-col ≥768px,
 │   │                      │    │                      │   │     1-col <768px)
 │   │  Berlin       ● Live │    │  Hamburg      ● Live │   │
-│   │  Adressvergleich ·   │    │  Adressvergleich ·   │   │  <- subline (Inter 500)
-│   │  Lebenslagen-Linsen  │    │  Lebenslagen-Linsen  │   │
+│   │  Address compare ·   │    │  Address compare ·   │   │  <- subline (Inter 500)
+│   │  Life-situation lens │    │  Life-situation lens │   │
 │   │  → berlin.addrlens.de│    │  → hamburg.addrlens.de│  │  <- CTA link
 │   └──────────────────────┘    └──────────────────────┘   │
 │                                                            │
 ├────────────────────────────────────────────────────────────┤
-│  Impressum · Datenschutz · GitHub          © 2026 sapta   │  <- footer
+│  Imprint · Privacy                          © 2026 sapta   │  <- footer
 └────────────────────────────────────────────────────────────┘
 ```
 
 **Notes:**
+- **Primary language: English.** Landing targets expats — English default, DE toggle. Reverses the city-app convention (which is DE-default) intentionally: the apex is the discovery surface for non-German speakers arriving via search/social; once inside a city they're already committed and can switch to DE if wanted.
+- Footer links: **Imprint** + **Privacy** only. No GitHub link (removed per §19).
+- German footer variant: "Impressum · Datenschutz". Same two links, translated.
 - City card image = the existing `web/static/img/hero/{city}.png` hero illustration — same visual users see when they land inside each city app. Zero visual break on click-through.
 - "Live" badge = `--brand` filled dot + `● Live` in Inter 500, 12px.
-- Subline uses soft copy ("Adressvergleich · Lebenslagen-Linsen") for MVP — no dynamic numbers, no build-time coupling to `CityConfig`. Address counts removed from scope (see §19).
+- Subline uses soft copy for MVP (EN: "Address compare · Life-situation lens" / DE: "Adressvergleich · Lebenslagen-Linsen") — no dynamic numbers, no build-time coupling to `CityConfig`. Address counts removed from scope (see §19).
 - **No roadmap teaser line** — landing shows only cities that are live today (see §19). New cities are added by editing the city-cards grid, not by promising future work.
 
 ### 8.3 i18n toggle
 
-Same pattern as city apps: DE default, EN toggle. Two independent HTML fragments in one file, JS toggles `hidden` attribute on `[data-lang]` wrappers. State persists in `localStorage['addrlens.lang']`. No i18n framework.
+**English is the default** on landing (expat-focused audience — reverses city-app convention where DE is default). Two independent HTML fragments in one file, JS toggles `hidden` attribute on `[data-lang]` wrappers. State persists in `localStorage['addrlens.lang']`. No i18n framework.
+
+Detection: default to English; only auto-switch to DE if the user has previously chosen DE (stored in localStorage). Do **not** sniff `navigator.language` — a German-locale browser reaching the apex may still be an English-preferring expat, and the whole point of the apex is to be welcoming to that audience.
 
 ```html
-<div data-lang="de">…German copy…</div>
-<div data-lang="en" hidden>…English copy…</div>
-<button id="lang-toggle" type="button">EN</button>
+<div data-lang="en">…English copy…</div>
+<div data-lang="de" hidden>…German copy…</div>
+<button id="lang-toggle" type="button">DE</button>
 <script>
   const KEY = 'addrlens.lang';
-  const stored = localStorage.getItem(KEY) || 'de';
+  const stored = localStorage.getItem(KEY) || 'en';   // EN default
   document.documentElement.lang = stored;
   document.querySelectorAll('[data-lang]').forEach(el => {
     el.hidden = el.dataset.lang !== stored;
   });
-  document.getElementById('lang-toggle').textContent = stored === 'de' ? 'EN' : 'DE';
+  document.getElementById('lang-toggle').textContent = stored === 'en' ? 'DE' : 'EN';
   document.getElementById('lang-toggle').addEventListener('click', () => {
-    const next = document.documentElement.lang === 'de' ? 'en' : 'de';
+    const next = document.documentElement.lang === 'en' ? 'de' : 'en';
     document.documentElement.lang = next;
     localStorage.setItem(KEY, next);
     document.querySelectorAll('[data-lang]').forEach(el => {
       el.hidden = el.dataset.lang !== next;
     });
-    document.getElementById('lang-toggle').textContent = next === 'de' ? 'EN' : 'DE';
+    document.getElementById('lang-toggle').textContent = next === 'en' ? 'DE' : 'EN';
   });
 </script>
 ```
@@ -262,12 +297,12 @@ Inline `<script>` — no external JS file, no framework. ~30 lines total.
 ```html
 <link rel="canonical" href="https://addrlens.de/">
 <meta property="og:url" content="https://addrlens.de/">
-<meta property="og:title" content="AddrLens — Straßen-Intelligenz für deutsche Städte">
-<meta property="og:description" content="Frei zugängliche Daten, sauber verknüpft. Berlin und Hamburg live.">
+<meta property="og:title" content="AddrLens — Street intelligence for German cities">
+<meta property="og:description" content="Open data, cleanly connected. Berlin and Hamburg live.">
 <meta property="og:image" content="https://addrlens.de/static/img/og-image.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="alternate" hreflang="de-DE" href="https://addrlens.de/">
 <link rel="alternate" hreflang="en-GB" href="https://addrlens.de/">
+<link rel="alternate" hreflang="de-DE" href="https://addrlens.de/">
 <link rel="alternate" hreflang="x-default" href="https://addrlens.de/">
 <script type="application/ld+json">
 {
@@ -292,7 +327,7 @@ Inline `<script>` — no external JS file, no framework. ~30 lines total.
 - [ ] Focus states visible for keyboard nav
 - [ ] `prefers-reduced-motion` respected
 - [ ] Responsive: 375 / 768 / 1024 / 1440 tested
-- [ ] `<html lang="de">` set + updates on toggle
+- [ ] `<html lang="en">` set as default (EN-primary landing) + updates on toggle
 - [ ] Alt text on all imgs (`alt="Berlin Skyline"`, `alt="Hamburg Skyline"`, `alt=""` on decorative logo when text follows)
 
 ## 9. Berlin App Changes (`web/*` — non-hamburg)
@@ -302,15 +337,26 @@ Text/URL surgery, no logic changes:
 | File | Change |
 |---|---|
 | `web/index.html` | `og:url`, `canonical`, both `hreflang`, JSON-LD `url`, `og:image`, `twitter:image` → `https://berlin.addrlens.de/…` |
-| `web/impressum.html` | 4 occurrences of `addrlens.de` in link text + href → `berlin.addrlens.de` (both DE + EN sections). Email `sapta@addrlens.de` unchanged (apex email routing preserved). |
-| `web/datenschutzerklaerung.html` | Same shape as impressum: website URL refs → `berlin.addrlens.de`, email unchanged. |
+| `web/impressum.html` | All URL/href refs to `https://addrlens.de` → `berlin.addrlens.de` (both DE + EN sections). Email `sapta@addrlens.de` unchanged (apex email routing preserved). Verify with: `grep -cE 'https?://addrlens\.de' web/impressum.html` before/after. |
+| `web/datenschutzerklaerung.html` | Same shape as impressum: website URL refs → `berlin.addrlens.de`, email unchanged. Verify with same grep on this file. |
 | `web/sitemap.xml` | All 3 `<loc>` entries → `https://berlin.addrlens.de/…` |
 | `web/robots.txt` | Sitemap line → `https://berlin.addrlens.de/sitemap.xml` |
 | `web/static/modules/compare.js` | `print-header-site` string `addrlens.de` → `berlin.addrlens.de` (or keep as brand — see decision below) |
 
 **`compare.js` print-header decision:** print header appears on lens-comparison PDF exports. Users read this offline; the brand string helps them find the site again. **Change to `berlin.addrlens.de`** — that's where the app that made the PDF actually lives. Matches truth-in-labelling.
 
-Hamburg pages (`web/hamburg/*`) already correct — no change.
+### 9.1 Hamburg Legal Page Fixes (NOT already correct)
+
+Hamburg's canonical / og:url tags are already correct (they point at `hamburg.addrlens.de`), but the **operator "Website:" contact line inside both imprint and privacy pages still shows `https://addrlens.de`** — 4 occurrences across 2 files, both DE and EN sections. Post-cutover, that URL will serve the landing (not the Hamburg app being imprinted), which is (a) semantically wrong, and (b) risks a §5 DDG abmahnung for an imprint that names a website URL that isn't the site being imprinted.
+
+| File | Line | Change |
+|---|---|---|
+| `web/hamburg/impressum.html` | 46 | `Website: https://addrlens.de` → `https://hamburg.addrlens.de` (DE section) |
+| `web/hamburg/impressum.html` | 159 | Same (EN section) |
+| `web/hamburg/datenschutzerklaerung.html` | 46 | Same (DE section) |
+| `web/hamburg/datenschutzerklaerung.html` | 385 | Same (EN section) |
+
+Emails (`sapta@addrlens.de`) stay unchanged — apex mail routing survives the migration.
 
 ## 10. Docker Changes
 
@@ -341,8 +387,10 @@ WORKDIR /srv
 # Pin fastapi + uvicorn directly — NOT from pyproject.toml (which pulls
 # the full app dep tree). Version-align with pyproject.toml to avoid
 # skew.
+# Sync with pyproject.toml [project.dependencies] — landing tracks the
+# same fastapi/uvicorn versions the app image resolves to.
 RUN uv pip install --system --no-cache \
-        "fastapi>=0.110" "uvicorn[standard]>=0.29"
+        "fastapi>=0.115" "uvicorn[standard]>=0.32"
 
 # Copy ONLY what landing needs. Do NOT copy the full app/ package.
 COPY app/__init__.py ./app/__init__.py
@@ -358,13 +406,14 @@ ENV PORT=8000 \
     PYTHONUNBUFFERED=1
 
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)" || exit 1
+# Healthcheck is declared in docker-compose.prod.yml (matches app-hh
+# convention — see docker-compose.prod.yml `app-hh` block). Omitted
+# here to prevent Dockerfile vs compose drift.
 
 CMD ["uvicorn", "app.landing.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-**Version-alignment discipline:** the `fastapi` + `uvicorn` pins in this Dockerfile must be kept in sync with the versions resolved from `pyproject.toml` for the app image. Drift = same code running against two versions in prod. Add a comment above the `uv pip install` line: `# Sync with pyproject.toml [project.dependencies]`. Optional: add a CI check that greps both files for version match — nice-to-have, not blocking.
+**Version-alignment discipline:** the `fastapi` + `uvicorn` pins in this Dockerfile must be kept in sync with the versions in `pyproject.toml` for the app image. Drift = same code running against two versions in prod. The `# Sync with pyproject.toml` comment above the `uv pip install` line makes the obligation explicit. Optional CI check: `diff <(grep -oE '(fastapi|uvicorn[^"]+)[^"]*' pyproject.toml) <(grep -oE '(fastapi|uvicorn[^"]+)[^"]*' ops/Dockerfile.landing)` — nice-to-have, not blocking.
 
 ### 10.2 `docker-compose.prod.yml` — add `app-landing` service
 
@@ -389,7 +438,7 @@ Mirror `app-hh` block, port 8000, **distinct image + dockerfile**:
       retries: 3
       start_period: 15s
     networks:
-      - addrlens
+      - addrlens_net
 
   cloudflared:
     …
@@ -415,31 +464,38 @@ Notes:
 
 - for svc_port in "app:8001" "app-hh:8002"; do
 + for svc_port in "app:8001" "app-hh:8002" "app-landing:8000"; do
-    svc="${svc_port%:*}"
-    port="${svc_port#*:}"
+    svc="${svc_port%%:*}"
+    port="${svc_port##*:}"
     …
++   # Landing has no lookup — health-only smoke via compose exec, since
++   # app-landing has `ports: !reset []` and is not published to host.
++   if [ "$svc" = "app-landing" ]; then
++     "${COMPOSE[@]}" exec -T "$svc" python -c \
++       "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${port}/health', timeout=3)"
++     continue
++   fi
     case "$svc" in
-      app)     ADDR=$("${COMPOSE[@]}" exec -T "$svc" python -c "from app.cities.berlin import BERLIN; print(BERLIN.smoke_address)") ;;
-      app-hh)  ADDR=$("${COMPOSE[@]}" exec -T "$svc" python -c "from app.cities.hamburg import HAMBURG; print(HAMBURG.smoke_address)") ;;
-+     app-landing)
-+       # Landing has no lookup — health-only smoke.
-+       curl -fsS "http://127.0.0.1:${port}/health" >/dev/null && continue
-+       ;;
+      app)    ADDR=$("${COMPOSE[@]}" exec -T "$svc" python -c "from app.cities.berlin import BERLIN; print(BERLIN.smoke_address)") ;;
+      app-hh) ADDR=$("${COMPOSE[@]}" exec -T "$svc" python -c "from app.cities.hamburg import HAMBURG; print(HAMBURG.smoke_address)") ;;
     esac
     …
   done
 ```
 
-Landing smoke = `/health` only, no address lookup. Branch cleanly to `continue` before the address-based smoke block.
+**Why `compose exec`, not host `curl`:** `docker-compose.prod.yml:18` uses `ports: !reset []`, meaning `app-landing` (like `app` and `app-hh`) has no host-published port. A host-side `curl http://127.0.0.1:8000` would either hit nothing or a stale port from another process. The smoke must run inside the container network, matching the pattern the existing script uses for `/api/lookup` on `app`/`app-hh` at lines 58 + 75.
+
+Landing smoke = `/health` only, no address lookup. `if $svc = app-landing → run health check + continue` before the address-based smoke block.
 
 ### 11.2 `ops/deploy/rollback.sh`
+
+**Two edits, not one** — the script has both a `build` line (l.39) and a `up -d --force-recreate` line (l.40) with explicit service lists. Both must include `app-landing`; missing either leaves rollback partial (either landing image is stale, or landing runs on new-code image while Berlin rolls back). Exactly the Hamburg-omission footgun class.
 
 ```diff
 - "${COMPOSE[@]}" build app app-hh inference
 + "${COMPOSE[@]}" build app app-hh app-landing inference
+- "${COMPOSE[@]}" up -d --force-recreate app app-hh inference
++ "${COMPOSE[@]}" up -d --force-recreate app app-hh app-landing inference
 ```
-
-Same footgun class as the Hamburg-omission fix. Explicit list keeps it obvious.
 
 ### 11.3 `ops/deploy/README.md`
 
@@ -477,7 +533,11 @@ Each with matching `HTTP Host Header` in CF Additional Application Settings.
 ```
 (http.host eq "addrlens.de"
  and not http.request.uri.path in {"/" "/impressum" "/datenschutzerklaerung" "/robots.txt" "/sitemap.xml" "/health"}
- and not starts_with(http.request.uri.path, "/static/"))
+ and not http.request.uri.path in {"/static/img/logo.png" "/static/img/og-image.jpg"
+                                    "/static/img/favicon.png" "/static/img/berlin-card.png"
+                                    "/static/img/hamburg-card.png"}
+ and not starts_with(http.request.uri.path, "/static/fonts/")
+ and not starts_with(http.request.uri.path, "/static/landing.css"))
 ```
 
 **Action:** Dynamic redirect
@@ -485,7 +545,11 @@ Each with matching `HTTP Host Header` in CF Additional Application Settings.
 - **Status:** `301`
 - **Preserve query string:** ✓
 
-This catches `/api/*`, `/lookup*`, `/ready`, `/lens-insight*`, and anything else the app defines — without needing to enumerate them. Fail-safe: new app paths auto-redirect.
+**Why the tightened `/static/*` handling:** legacy inbound links + social crawlers may still point at `https://addrlens.de/static/img/hero/berlin.png`, `/static/app.js`, `/static/modules/compare.js`, `/static/img/city-outlines/*` etc. — Berlin's assets served from the old apex. A blanket `not starts_with(/static/)` allow would 404 those (landing's `/static/` mount only has 5 files). Explicit landing allow-list + fallthrough for other `/static/*` → 301 to `berlin.addrlens.de/static/*` keeps every legacy asset URL working.
+
+This catches `/api/lookup`, `/api/suggest`, `/api/amenities`, `/api/noise`, `/api/history`, `/api/config`, `/api/lens_insight`, `/ready`, and everything else the app defines — without needing to enumerate them. Fail-safe: new app paths auto-redirect.
+
+**Coupling warning:** the deny-list here is coupled to §7's landing static-asset filenames. If a filename is added or renamed in `web/landing/static/`, this rule must be updated in the same PR. Mitigation: `web/landing/README.md` (see §21 recommendations) names both surfaces.
 
 ## 13. SEO Migration
 
@@ -493,7 +557,7 @@ This catches `/api/*`, `/lookup*`, `/ready`, `/lens-insight*`, and anything else
    - Add new property `https://berlin.addrlens.de/` (DNS or HTML-tag verification).
    - Submit new sitemap `https://berlin.addrlens.de/sitemap.xml`.
    - Old property `https://addrlens.de/` stays — landing sitemap will re-verify it.
-   - GSC "Change of Address" tool **does not support subdomain moves** — skip. 301s + separate properties do the same job.
+   - **GSC "Change of Address" tool: skip.** The tool requires the old property to fully 301-redirect to the new. Not the case here — apex keeps serving landing + legal pages. 301s on non-landing paths + separate GSC properties do the same job the tool would attempt.
 2. **Umami (analytics):** create **three separate Umami websites** (`addrlens.de`, `berlin.addrlens.de`, `hamburg.addrlens.de`), each with its own website ID. The app already supports per-city env suffix (`app/main.py:122` reads `UMAMI_WEBSITE_ID_<CITY>` with fallback to `UMAMI_WEBSITE_ID`). Landing follows the same pattern with `_LANDING` suffix. Prod `.env.production` gains:
    ```
    UMAMI_WEBSITE_ID_BERLIN=<existing-id>     # if not already using suffix form, migrate
@@ -505,13 +569,15 @@ This catches `/api/*`, `/lookup*`, `/ready`, `/lens-insight*`, and anything else
 
 ## 14. Testing
 
-1. **Import guard test** — `tests/landing/test_import_isolation.py` (see 6.2). Runs in CI.
-2. **Landing route smoke** — new `tests/landing/test_routes.py`: 200 on `/`, `/impressum`, `/datenschutzerklaerung`, `/robots.txt`, `/sitemap.xml`, `/health`.
+1. **Import guard test** — `tests/landing/test_import_isolation.py` (see §6.2). Runs in CI.
+2. **Landing route smoke** — new `tests/landing/test_routes.py`: 200 on `/`, `/impressum`, `/datenschutzerklaerung`, `/robots.txt`, `/sitemap.xml`, `/health`. Also asserts landing HTML contains the Berlin + Hamburg city-card links (guards against accidental copy deletion).
 3. **HTML validity** — `web/landing/index.html` passes `tidy -e` (add to existing HTML lint job if one exists; else run manually pre-merge).
-4. **Local prod-shape smoke** — `docker compose -f docker-compose.yml -f docker-compose.prod.yml up app-landing`, then `curl -fsS http://localhost:8000/{,impressum,datenschutzerklaerung,robots.txt,sitemap.xml,health}`.
-5. **Cross-browser visual check** — Chrome + Firefox + Safari at 375/768/1024/1440. Playwright optional; manual for MVP.
-6. **Reduced-motion check** — DevTools → Rendering → Emulate CSS `prefers-reduced-motion: reduce`; verify no motion.
-7. **Contrast audit** — Chrome DevTools Lighthouse or manual axe run.
+4. **Local prod-shape smoke** — `docker compose -f docker-compose.yml -f docker-compose.prod.yml up app-landing`, then via `docker compose exec app-landing python -c "..."` on each of `/{,impressum,datenschutzerklaerung,robots.txt,sitemap.xml,health}` (no host-published port, so host-side curl is not an option — see §11.1).
+5. **CF Redirect Rule post-cutover smoke** — the scripted loop in §15 step 4. Should also be run once/day for the first week via a manual cron or as a supplementary section of `update.sh`, to catch dashboard-only rule drift.
+6. **Cross-browser visual check** — Chrome + Firefox + Safari at 375/768/1024/1440. Playwright optional; manual for MVP.
+7. **Reduced-motion check** — DevTools → Rendering → Emulate CSS `prefers-reduced-motion: reduce`; verify no motion.
+8. **Contrast audit** — Chrome DevTools Lighthouse or manual axe run.
+9. **Umami-injection smoke** — set `UMAMI_WEBSITE_ID_LANDING=test-id` + `UMAMI_SCRIPT_URL=http://example/x.js` in a local run; grep the served `/` HTML for both strings. Guards the `_load_index()` injection path.
 
 ## 15. Rollout Plan (prod cutover)
 
@@ -527,11 +593,22 @@ This catches `/api/*`, `/lookup*`, `/ready`, `/lens-insight*`, and anything else
    - Verify: `curl -fsS https://berlin.addrlens.de/health` returns `{"status":"ok"}`.
    - **State now:** Berlin app answers on BOTH `addrlens.de` and `berlin.addrlens.de`. Safe overlap.
 3. **CF Tunnel — repoint apex:**
-   - Edit apex public hostname: change service from `http://app:8001` to `http://app-landing:8000`, host header to `addrlens.de`.
+   - Edit apex public hostname: change service **only** from `http://app:8001` to `http://app-landing:8000`. Host header stays `addrlens.de` (already correct).
    - Verify: `curl -fsS https://addrlens.de/` returns landing HTML.
    - `curl -fsS https://berlin.addrlens.de/` returns Berlin app (unchanged).
-4. **Add Redirect Rule** for legacy apex paths (see 12.2). Test with `curl -sSI https://addrlens.de/api/lookup` — expect `301` to `berlin.addrlens.de`.
-5. **Update GSC** — add `berlin.addrlens.de` property, submit sitemap.
+3.5. **Purge CF edge cache for apex:**
+   - Cloudflare → Caching → Configuration → Purge Cache → **Custom Purge by URL**.
+   - URLs: `https://addrlens.de/`, `https://addrlens.de`, `https://addrlens.de/impressum`, `https://addrlens.de/datenschutzerklaerung`.
+   - Rationale: apex HTML may have been cached at edge with the pre-cutover Berlin content. Skipping this leaves users on stale HTML for the TTL window.
+4. **Add Redirect Rule** for legacy apex paths (see §12.2). Smoke set (run all before declaring cutover done):
+   ```bash
+   for path in /api/lookup /api/suggest /api/config /api/lens_insight /ready /static/app.js /static/img/hero/berlin.png; do
+     printf '%-40s ' "$path"
+     curl -sSI "https://addrlens.de${path}" | awk 'NR==1 || /^location:/i'
+   done
+   # Expect: HTTP/2 301 + location: https://berlin.addrlens.de<path>
+   ```
+5. **Update GSC** — add `berlin.addrlens.de` property (DNS or HTML-tag verification), submit sitemap.
 6. **Announce** — README + optional social post ("We moved: Berlin now lives at berlin.addrlens.de, apex is a city hub.").
 
 ## 16. Rollback Plan
@@ -584,10 +661,12 @@ This catches `/api/*`, `/lookup*`, `/ready`, `/lens-insight*`, and anything else
 
 ## 19. Decisions (resolved)
 
-1. **Address counts on city cards:** **removed from scope.** Landing subline uses soft copy ("Adressvergleich · Lebenslagen-Linsen"). No `CityConfig.public_address_count` field, no build-time bake. Not deferred to v2 — dropped entirely; if counts ever wanted, revisit as a fresh spec.
+1. **Address counts on city cards:** **removed from scope.** Landing subline uses soft copy (EN: "Address compare · Life-situation lens" / DE: "Adressvergleich · Lebenslagen-Linsen"). No `CityConfig.public_address_count` field, no build-time bake. Not deferred to v2 — dropped entirely; if counts ever wanted, revisit as a fresh spec.
 2. **Roadmap teaser line:** **skipped.** Landing shows only cities live today. Adding a city = editing the city-cards grid; no roadmap promises to keep in sync.
 3. **`og-image.jpg`:** **reuse existing `web/static/img/og-image.jpg`.** Copied verbatim to `web/landing/static/img/og-image.jpg`.
 4. **Analytics:** **three separate Umami websites** (`addrlens.de`, `berlin.addrlens.de`, `hamburg.addrlens.de`), wired via `UMAMI_WEBSITE_ID_{LANDING,BERLIN,HAMBURG}` env vars — see §13.
+5. **Primary language:** **English default**, DE toggle (reverses city-app DE-default convention). Rationale: landing is the expat-facing discovery surface. See §8.3.
+6. **Footer GitHub link:** **removed.** Footer carries Imprint + Privacy only. Rationale: reduce apex chrome, no confusion for non-technical visitors; project code remains discoverable via search.
 
 ## 20. Out of scope (deferred to future spec)
 
@@ -596,3 +675,14 @@ This catches `/api/*`, `/lookup*`, `/ready`, `/lens-insight*`, and anything else
 - Landing blog / changelog page.
 - Dark mode support on landing (city apps also don't have it).
 - Consolidated `sitemap_index.xml` across all 3 hosts (mild SEO win; not blocking).
+- Playwright visual-diff smoke across all 3 hostnames at 375+1440 (nice-to-have; MVP is manual cross-browser check per §14).
+- Codifying the CF Redirect Rule as YAML in `ops/cloudflared/redirect-rules.yaml` (source-of-truth for a dashboard-only rule; adds maintenance surface — defer unless the rule drifts in practice).
+
+## 21. Follow-ups from code review (2026-09-25)
+
+Spec revised in place. Below are the deferred items the reviewer surfaced — none block implementation, but capture them so the plan writer or a future edit doesn't lose them:
+
+1. **`web/landing/README.md`** — a one-page README under `web/landing/` naming (a) the files, (b) the coupling with the CF Redirect Rule's landing allow-list (see §12.2), (c) "how to add a city card". Included in the "Landing HTML" chunk of §17 effort estimate.
+2. **CF Redirect Rule YAML mirror** (deferred — see §20).
+3. **Playwright cross-hostname visual diff** (deferred — see §20).
+4. **CI grep-check for fastapi/uvicorn version sync** across `pyproject.toml` + `ops/Dockerfile.landing` — nice-to-have per §10.1, not blocking.
