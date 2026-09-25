@@ -1,6 +1,10 @@
 # ops/Dockerfile.landing
 # Apex landing container. Serves web/landing/* on port 8000.
-# ~90-120 MB target. Zero coupling to app.core / app.cities / scoring.
+# ~329 MB measured. Higher than initial estimate — uvicorn[standard]'s
+# uvloop + httptools + websockets C wheels floor a slim base at ~200 MB,
+# and the ghcr.io/astral-sh/uv COPY layer persists ~80 MB even after
+# `rm /usr/local/bin/uv` (would need multi-stage to remove). Still
+# smaller than Dockerfile.app; zero coupling to app.core / app.cities.
 #
 # Build context = v0.1/. From repo root:
 #   docker build -f v0.1/ops/Dockerfile.landing -t addrlens-landing v0.1
