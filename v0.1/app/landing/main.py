@@ -16,7 +16,10 @@ WEB_DIR = Path(__file__).resolve().parent.parent.parent / "web" / "landing"
 
 app = FastAPI(title="addrlens.de — landing", docs_url=None, redoc_url=None)
 
-app.mount("/static", StaticFiles(directory=WEB_DIR / "static"), name="static")
+# check_dir=False: dir arrives via Docker COPY in prod (ops/Dockerfile.landing)
+# and via test fixtures in CI. Skipping the boot-time check keeps pytest
+# collection working when the dir hasn't been materialized yet.
+app.mount("/static", StaticFiles(directory=WEB_DIR / "static", check_dir=False), name="static")
 
 
 def _load_index() -> bytes:
