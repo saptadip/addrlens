@@ -68,9 +68,9 @@ header .brand span{font-family:'Space Grotesk','Inter',sans-serif; font-size:18p
   display:block; text-decoration:none; color:inherit;
   background:var(--result-bg); border-radius:var(--radius); box-shadow:var(--sh-2);
   padding:0; overflow:hidden; cursor:pointer;
-  transition:background 200ms ease, transform 200ms ease;
 }
 @media (prefers-reduced-motion: no-preference){
+  .city-card{transition:background 200ms ease, transform 200ms ease;}
   .city-card:hover{background:var(--result-bg-hover); transform:translateY(-2px);}
 }
 .city-card:focus-visible{outline:2px solid var(--hero-accent); outline-offset:2px;}
