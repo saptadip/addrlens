@@ -78,9 +78,15 @@ will not work without swapping the Docker repo path in `bootstrap.sh` back to
 9. **Sanity-check through Cloudflare:**
 
    ```bash
-   curl -sSf https://addrlens.de/health   # {"status":"ok"}
-   curl -sSf https://addrlens.de/ready    # {"status":"ready","city":"berlin"}
+   curl -sSf https://addrlens.de/health         # {"status":"ok"}          (landing)
+   curl -sSf https://berlin.addrlens.de/health  # {"status":"ok"}          (Berlin app)
+   curl -sSf https://berlin.addrlens.de/ready   # {"status":"ready","city":"berlin"}
+   curl -sSf https://hamburg.addrlens.de/health # {"status":"ok"}          (Hamburg app)
+   curl -sSf https://hamburg.addrlens.de/ready  # {"status":"ready","city":"hamburg"}
    ```
+
+   > **NOTE:** Apex `addrlens.de` serves the landing hub (not the Berlin app). Legacy paths on
+   > apex 301-redirect to `berlin.addrlens.de` — see `ops/cloudflared/README.md`.
 
 ## Updates
 

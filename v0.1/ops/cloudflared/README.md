@@ -10,7 +10,9 @@
 
 ## Public hostname routing
 
-Wizard → **Public Hostnames** step:
+Three Public Hostnames are configured on the same tunnel, one per service. Add them via Wizard → **Public Hostnames** step.
+
+### Apex `addrlens.de` (landing hub)
 
 | Field | Value |
 |---|---|
@@ -18,7 +20,7 @@ Wizard → **Public Hostnames** step:
 | Domain | `addrlens.de` |
 | Path | *(blank — all paths)* |
 | Service Type | HTTP |
-| URL | `app:8001` |
+| URL | `app-landing:8000` |
 
 **Additional Application Settings:**
 - HTTP Host Header: `addrlens.de`
@@ -27,9 +29,32 @@ Wizard → **Public Hostnames** step:
 
 The wizard automatically creates a proxied CNAME `addrlens.de` → `<tunnel-id>.cfargotunnel.com`. If existing A/AAAA records exist on apex, accept the wizard's "replace" prompt.
 
-### Hamburg subdomain
+> **Post-cutover:** apex serves `app-landing:8000` (the landing hub), not the Berlin app.
+> Legacy paths on apex (e.g. `/search`, `/ready`) 301-redirect to `berlin.addrlens.de`
+> via the CF Redirect Rule — see [Apex → Berlin Redirect Rule](#apex--berlin-redirect-rule) below.
 
-Add a second Public Hostname on the same tunnel for Hamburg:
+### Berlin subdomain `berlin.addrlens.de`
+
+Add a Public Hostname on the same tunnel for Berlin:
+
+| Field | Value |
+|---|---|
+| Subdomain | `berlin` |
+| Domain | `addrlens.de` |
+| Path | *(blank — all paths)* |
+| Service Type | HTTP |
+| URL | `app:8001` |
+
+**Additional Application Settings:**
+- HTTP Host Header: `berlin.addrlens.de`
+- HTTP2 connection: On
+- Connection timeout: 30 s
+
+Wizard creates `berlin.addrlens.de` proxied CNAME to the same tunnel. `app` container (docker-compose.prod.yml) runs `CITY=berlin` on port 8001.
+
+### Hamburg subdomain `hamburg.addrlens.de`
+
+Add a Public Hostname on the same tunnel for Hamburg:
 
 | Field | Value |
 |---|---|
@@ -45,6 +70,14 @@ Add a second Public Hostname on the same tunnel for Hamburg:
 - Connection timeout: 30 s
 
 Wizard creates `hamburg.addrlens.de` proxied CNAME to the same tunnel. `app-hh` container (docker-compose.prod.yml) runs `CITY=hamburg` on port 8002.
+
+## Apex → Berlin Redirect Rule
+
+A Cloudflare Redirect Rule (configured in the CF dashboard under **Rules → Redirect Rules**) issues 301 redirects from legacy apex paths (e.g. `addrlens.de/search`, `addrlens.de/ready`) to the corresponding path on `berlin.addrlens.de`. This preserves existing bookmarks and integrations that pointed at the Berlin app before the apex-landing migration.
+
+The exact rule expression is defined in the spec at **§12.2** — do not reconstruct it from memory; always copy from the spec when making changes in the dashboard.
+
+> **Coupling warning:** The static-asset allow-list in this rule is coupled to `web/landing/static/img/` filenames. Adding, renaming, or removing a landing asset requires updating this rule in the SAME PR — see `web/landing/README.md`.
 
 ## Token rotation
 
