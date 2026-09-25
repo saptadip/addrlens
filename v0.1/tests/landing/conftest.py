@@ -4,6 +4,7 @@ Landing container reads web/landing/index.html at module import time
 via app.landing.main._load_index(). CI checkouts (and this fixture)
 provide a minimal web/landing/ tree so import succeeds.
 """
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,28 @@ import pytest
 # Repo root = 3 levels above this file (v0.1/tests/landing/conftest.py).
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 WEB_LANDING = REPO_ROOT / "web" / "landing"
+
+
+@pytest.fixture(autouse=True)
+def _preserve_app_sys_modules():
+    """Snapshot sys.modules['app.*'] before each landing test + restore after.
+
+    Landing tests deliberately clear + reimport app.landing.main under
+    monkeypatched env (test_import_isolation, test_routes._get_client,
+    test_umami_injection._fresh_import_with_env). Without this
+    snapshot-restore, downstream tests in tests/unit/ inherit the
+    cleared state and fail on module-level init order — specifically
+    test_noise_bands + test_trees_bbox_geometry which depend on
+    app.core.* being fully initialised.
+    """
+    snapshot = {k: v for k, v in sys.modules.items() if k == "app" or k.startswith("app.")}
+    try:
+        yield
+    finally:
+        for mod in list(sys.modules):
+            if mod == "app" or mod.startswith("app."):
+                del sys.modules[mod]
+        sys.modules.update(snapshot)
 
 
 @pytest.fixture
