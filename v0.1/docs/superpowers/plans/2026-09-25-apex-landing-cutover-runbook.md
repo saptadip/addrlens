@@ -53,7 +53,9 @@
   ```
 - [ ] Verify Umami injection worked for each host:
   ```bash
-  curl -fsS https://hamburg.addrlens.de/ | grep -c 'data-website-id="<hamburg-id>"'
+  HAMBURG_ID='<paste hamburg website-id from Step 1>'
+  curl -fsS https://hamburg.addrlens.de/ | grep -c "data-website-id=\"$HAMBURG_ID\""
+  # Expect: 1
   # (apex not yet flipped — landing will be verified after Step 4)
   ```
 
