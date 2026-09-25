@@ -80,7 +80,7 @@ def test_datenschutz_serves_html(ensure_landing_index):
     assert r.headers["content-type"].startswith("text/html")
 
 
-def test_index_html_contains_both_city_links_when_real_landing_exists():
+def test_index_html_contains_both_city_links_when_real_landing_exists(ensure_landing_index):
     """Once Task 3 has landed the real web/landing/index.html, this
     assertion guards against accidental deletion of the Berlin or
     Hamburg card. Skipped when the file is the minimal test fixture."""
