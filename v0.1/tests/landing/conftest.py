@@ -14,13 +14,12 @@ WEB_LANDING = REPO_ROOT / "web" / "landing"
 
 
 @pytest.fixture
-def ensure_landing_index(monkeypatch):
+def ensure_landing_index():
     """Ensure web/landing/index.html + static/ exist for module import.
 
     If the real files already exist (later tasks), yield without touching
     them. Otherwise write a minimal placeholder that _load_index() can
-    read. Restore state via monkeypatch's automatic cleanup where possible;
-    files created here are removed at fixture teardown.
+    read. Files created here are removed at fixture teardown.
     """
     created_files: list[Path] = []
     if not WEB_LANDING.exists():
