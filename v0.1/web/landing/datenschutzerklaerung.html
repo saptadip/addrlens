@@ -70,62 +70,13 @@
         abuse prevention).<br>
         <strong>Retention period:</strong> maximum 7 days, then automatic
         deletion or full anonymisation.</p>
-      <p>For abuse prevention, the client IP address forwarded by
-        Cloudflare in the <code>CF-Connecting-IP</code> HTTP header is
-        additionally read for per-endpoint rate limiting inside the app
-        process. This processing is in-memory only and is not persisted.</p>
-
-      <h3>3.2 When using the address lookup</h3>
-      <p>When you query an address, it is transmitted to our server and
-        matched against external data sources (Berlin Geoportal, VBB,
-        Geofabrik OSM snapshot). The queried address is held in memory
-        for the duration of the request and is <strong>not permanently
-        stored linked to your IP address</strong>. For error and
-        performance analysis, address queries may appear in server logs
-        in aggregated form that cannot be traced back to individuals.</p>
-      <p style="background:#EEF2FF;border-left:3px solid var(--brand);padding:8px 14px;margin:10px 0;font-size:14px;color:var(--ink-2);"><strong>Legal basis:</strong> Art. 6 (1) (b) GDPR
-        (performance of the service you actively requested) and Art. 6
-        (1) (f) GDPR (legitimate interest in operational and error
-        analysis).</p>
-
-      <h3>3.3 When using the AI explanations (<code>/api/lens_insight</code>, <code>/api/history</code>)</h3>
-      <p>When you request an AI-generated summary for a Life Lens view
-        (<code>/api/lens_insight</code>) or a short historical description
-        of an address's surroundings (<code>/api/history</code>), the
-        related factual data (numbers, categories, distances, borough and
-        Ortsteil, and a curated list of public OpenStreetMap features
-        within a short radius) is transmitted to a language-model service
-        and processed there. Both endpoints use Cloudflare Workers AI (see
-        section 5.5).</p>
-      <p><strong>No personal data</strong> is sent to the language-model
-        service — in particular, no IP address, no user identifier, and
-        no free-text address (street name and house number are stripped
-        before transmission). Transmitted location information is limited
-        to borough and Ortsteil level.</p>
-      <p style="background:#EEF2FF;border-left:3px solid var(--brand);padding:8px 14px;margin:10px 0;font-size:14px;color:var(--ink-2);"><strong>Legal basis:</strong> Art. 6 (1) (b) GDPR
-        (performance of the service) and Art. 6 (1) (f) GDPR (legitimate
-        interest in providing a useful supplementary offering).</p>
-
-      <h3>3.4 Caching of generated summaries</h3>
-      <p>To reduce external requests and response times, the short texts
-        generated for <code>/api/history</code> are held in a server-side
-        cache for at most seven days. The cache key is a coordinate pair
-        (latitude / longitude) rounded to approximately 100-metre grid
-        cells — there is <strong>no link</strong> to IP addresses,
-        sessions, or user identifiers. The cache is cleared automatically
-        when the TTL expires or when the service restarts.</p>
-      <p style="background:#EEF2FF;border-left:3px solid var(--brand);padding:8px 14px;margin:10px 0;font-size:14px;color:var(--ink-2);"><strong>Legal basis:</strong> Art. 6 (1) (f) GDPR
-        (legitimate interest in efficient operation and preservation of
-        external processing quotas).</p>
 
       <h2>4. Local browser storage (localStorage)</h2>
-      <p>To improve the user experience, the website stores the following
-        information exclusively locally in your browser
-        (<code>localStorage</code>):</p>
+      <p>To remember the visitor's preferred display language, this landing
+        page stores one item exclusively in your browser's local storage:</p>
       <ul>
-        <li>the most recently chosen view ("Life Mode Lens"),</li>
-        <li>a list of your most recently queried addresses (for the
-          compare and history function).</li>
+        <li><code>addrlens.lang</code> — the most recently chosen interface
+          language ("en" or "de").</li>
       </ul>
       <p>This data <strong>does not leave your browser</strong> and is not
         transmitted to our server. You can delete
@@ -164,12 +115,9 @@
       <ul>
         <li>The Sentry option <code>send_default_pii=False</code> disables
           automatic capture of IP addresses and session data.</li>
-        <li>A server-side <code>before_send</code> filter redacts all
-          address-bearing query-string parameters (<code>address</code>,
-          <code>street</code>, <code>hnr</code>, <code>plz</code>), the
-          HTTP headers <code>CF-Connecting-IP</code>,
-          <code>X-Forwarded-For</code>, <code>X-Real-IP</code>, and the
-          full request body of the internal inference service.</li>
+        <li>A server-side <code>before_send</code> filter redacts the HTTP
+          headers <code>CF-Connecting-IP</code>,
+          <code>X-Forwarded-For</code>, and <code>X-Real-IP</code>.</li>
       </ul>
       <p>Transfer to a provider based outside the EEA takes place on the
         basis of EU Standard Contractual Clauses pursuant to
@@ -230,44 +178,12 @@
         (legitimate interest in IT security, defence against attacks and
         efficient delivery).</p>
 
-      <h3>5.5 Language-model service for generated summaries (Cloudflare Workers AI)</h3>
-      <div style="background:#F3F4F6;border-radius:10px;padding:14px 18px;margin:12px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1.6;">
-        Cloudflare, Inc.<br>
-        101 Townsend Street<br>
-        San Francisco, CA 94107, USA
-      </div>
-      <p>For the endpoints <code>/api/history</code> and
-        <code>/api/lens_insight</code> (see section 3.3) we use Cloudflare's
-        <em>Workers AI</em> service.</p>
-      <ul>
-        <li>For <code>/api/history</code>, transmitted are only the Berlin
-          borough and Ortsteil of the queried address plus a structured
-          list of public OpenStreetMap features (memorials, monuments,
-          historic buildings) within approximately 500 metres.</li>
-        <li>For <code>/api/lens_insight</code>, transmitted are the Berlin
-          borough and Ortsteil plus a structured list of 9-13 aggregated
-          data points (tiles) per Life Lens view: for each tile a
-          signal class (green / amber / red), the rule, a numeric value
-          (e.g. distance in metres) and, if present, a caveat note.
-          <strong>No street names, house numbers, IP addresses, or user
-          identifiers</strong> are transmitted.</li>
-      </ul>
-      <p>Transfer to a provider based outside the EEA takes place on the
-        basis of EU Standard Contractual Clauses pursuant to
-        Art. 46 (2) (c) GDPR in combination with a data processing
-        agreement pursuant to Art. 28 GDPR.</p>
-      <p style="background:#EEF2FF;border-left:3px solid var(--brand);padding:8px 14px;margin:10px 0;font-size:14px;color:var(--ink-2);"><strong>Legal basis:</strong> Art. 6 (1) (b) GDPR
-        (performance of the AI service you actively requested) and
-        Art. 6 (1) (f) GDPR (legitimate interest in providing a useful
-        supplementary offering).</p>
-
       <h2>6. Data sources (open data)</h2>
-      <p>The information shown on the website (schools, transport,
-        environment, social indicators, etc.) originates from openly
-        licensed data sources. No personal data is processed from these
-        sources; all data sets refer to public facilities, addresses and
-        aggregates. The full list of sources and licences is provided in
-        the <a href="/impressum">Imprint</a>.</p>
+      <p>The addrlens.de landing page itself serves only static files and
+        the <code>/health</code> endpoint; it does not process any
+        city-specific open data. The city apps this landing links to
+        (berlin.addrlens.de, hamburg.addrlens.de) use openly licensed
+        public data — see their respective privacy notices for details.</p>
 
       <h2>7. Your rights</h2>
       <p>You have the following rights with respect to the personal data
@@ -382,69 +298,14 @@
         nicht vorgenommen. Wir behalten uns vor, die Daten nachträglich
         zu prüfen, wenn uns konkrete Anhaltspunkte für eine rechtswidrige
         Nutzung bekannt werden.</p>
-      <p>Zur Missbrauchsabwehr wird die von Cloudflare im HTTP-Header
-        <code>CF-Connecting-IP</code> übermittelte Client-IP-Adresse
-        zusätzlich für ein prozessinternes, endpunkt-spezifisches
-        Rate-Limiting ausgelesen. Diese Verarbeitung erfolgt ausschließlich
-        im Arbeitsspeicher und wird nicht persistiert.</p>
-
-      <h3>3.2 Bei Nutzung der Adress-Abfrage (<code>/api/lookup</code>, <code>/api/amenities</code>)</h3>
-      <p>Wenn Sie eine Adresse abfragen, wird diese an unseren Server
-        übermittelt und dort mit externen Datenquellen (Berliner
-        Geoportal, VBB, Geofabrik-OSM-Snapshot) abgeglichen. Die
-        abgefragte Adresse wird für die Dauer der Anfrage im
-        Arbeitsspeicher gehalten und <strong>nicht dauerhaft mit Ihrer
-        IP-Adresse verknüpft gespeichert</strong>. Für die Fehler- und
-        Leistungsanalyse können Adress-Anfragen in aggregierter, nicht auf
-        Einzelpersonen zurückführbarer Form in Server-Logs erscheinen.</p>
-      <p style="background:#EEF2FF;border-left:3px solid var(--brand);padding:8px 14px;margin:10px 0;font-size:14px;color:var(--ink-2);"><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1
-        lit. b DSGVO (Erfüllung des Dienstes, den Sie aktiv angefordert
-        haben) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse
-        an Betriebs- und Fehleranalyse).</p>
-
-      <h3>3.3 Bei Nutzung der KI-Erklärungen (<code>/api/lens_insight</code>, <code>/api/history</code>)</h3>
-      <p>Beim Aufruf einer KI-generierten Zusammenfassung zu einer
-        Life-Lens-Ansicht (<code>/api/lens_insight</code>) oder einer
-        historischen Kurzbeschreibung zur Umgebung einer Adresse
-        (<code>/api/history</code>) werden die zugehörigen Sachdaten
-        (Zahlen, Kategorien, Distanzen, Bezirk und Ortsteil sowie eine
-        kuratierte Liste öffentlicher OpenStreetMap-Objekte im Umkreis) an
-        einen Sprachmodell-Dienst übermittelt und dort verarbeitet. Für
-        beide Endpunkte wird der Dienst Cloudflare Workers AI (siehe
-        Abschnitt 5.5) genutzt.</p>
-      <p>Es werden <strong>keine personenbezogenen Daten</strong> an den
-        Sprachmodell-Dienst gesendet — insbesondere keine IP-Adresse,
-        kein Nutzer-Identifier und keine Adresse in Freitextform
-        (Straßenname und Hausnummer werden vor der Übermittlung entfernt).
-        Die übermittelten Standortangaben beschränken sich auf Bezirks-
-        und Ortsteil-Ebene.</p>
-      <p style="background:#EEF2FF;border-left:3px solid var(--brand);padding:8px 14px;margin:10px 0;font-size:14px;color:var(--ink-2);"><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1
-        lit. b DSGVO (Erfüllung des Dienstes) sowie Art. 6 Abs. 1 lit. f
-        DSGVO (berechtigtes Interesse an Bereitstellung eines nützlichen
-        Zusatzangebots).</p>
-
-      <h3>3.4 Zwischenspeicherung generierter Kurzbeschreibungen</h3>
-      <p>Zur Reduktion externer Anfragen und Antwortzeiten werden die für
-        <code>/api/history</code> generierten Kurztexte für maximal sieben
-        Tage in einem serverseitigen Zwischenspeicher gehalten. Der
-        Schlüssel dieses Zwischenspeichers ist ein auf ca. 100 Meter
-        Rasterweite gerundetes Koordinatenpaar (Länge/Breite) — es besteht
-        <strong>keinerlei Verknüpfung</strong> mit IP-Adressen, Sitzungen
-        oder Nutzer-Identifikatoren. Beim Ablauf der Frist bzw. beim
-        Neustart des Dienstes wird der Zwischenspeicher automatisch
-        geleert.</p>
-      <p style="background:#EEF2FF;border-left:3px solid var(--brand);padding:8px 14px;margin:10px 0;font-size:14px;color:var(--ink-2);"><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1
-        lit. f DSGVO (berechtigtes Interesse an einem effizienten Betrieb
-        und der Schonung externer Verarbeitungskontingente).</p>
 
       <h2>4. Lokale Speicherung im Browser (LocalStorage)</h2>
-      <p>Zur Verbesserung des Nutzererlebnisses speichert die Website
-        folgende Informationen ausschließlich lokal in Ihrem Browser
-        (<code>localStorage</code>):</p>
+      <p>Um die Sprachpräferenz des Besuchers zu merken, speichert diese
+        Landing-Seite einen einzigen Eintrag ausschließlich lokal im
+        Browser:</p>
       <ul>
-        <li>die zuletzt gewählte Ansicht ("Life Mode Lens"),</li>
-        <li>eine Liste der zuletzt abgefragten Adressen (für die
-          Vergleichs- und Verlaufsfunktion).</li>
+        <li><code>addrlens.lang</code> — die zuletzt gewählte
+          Anzeigesprache ("en" oder "de").</li>
       </ul>
       <p>Diese Daten verlassen Ihren Browser <strong>nicht</strong> und
         werden nicht an unseren Server übertragen. Sie können den
@@ -488,12 +349,8 @@
           unterdrückt die automatische Aufnahme von IP-Adressen und
           Sitzungsdaten.</li>
         <li>Ein serverseitiger <code>before_send</code>-Filter entfernt
-          alle Query-Parameter mit Adressbezug (<code>address</code>,
-          <code>street</code>, <code>hnr</code>, <code>plz</code>) sowie
           die HTTP-Header <code>CF-Connecting-IP</code>,
-          <code>X-Forwarded-For</code> und <code>X-Real-IP</code> und
-          redigiert den vollständigen Request-Body des internen
-          Inferenz-Dienstes.</li>
+          <code>X-Forwarded-For</code> und <code>X-Real-IP</code>.</li>
       </ul>
       <p>Die Datenübermittlung an einen Anbieter mit Sitz außerhalb des
         EWR erfolgt auf Grundlage von EU-Standardvertragsklauseln gemäß
@@ -558,47 +415,13 @@
         lit. f DSGVO (berechtigtes Interesse an IT-Sicherheit, Abwehr von
         Angriffen und effizienter Auslieferung).</p>
 
-      <h3>5.5 Sprachmodell-Dienst für generierte Kurzbeschreibungen (Cloudflare Workers AI)</h3>
-      <div style="background:#F3F4F6;border-radius:10px;padding:14px 18px;margin:12px 0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1.6;">
-        Cloudflare, Inc.<br>
-        101 Townsend Street<br>
-        San Francisco, CA 94107, USA
-      </div>
-      <p>Für die Endpunkte <code>/api/history</code> und
-        <code>/api/lens_insight</code> (siehe Abschnitt 3.3) wird der Dienst
-        <em>Workers AI</em> von Cloudflare eingesetzt.</p>
-      <ul>
-        <li>Für <code>/api/history</code> werden ausschließlich der Berliner
-          Bezirk und Ortsteil der abgefragten Adresse sowie eine
-          strukturierte Liste öffentlicher OpenStreetMap-Objekte
-          (Gedenkstätten, Denkmäler, historische Gebäude) im Umkreis von
-          ca. 500 Metern übermittelt.</li>
-        <li>Für <code>/api/lens_insight</code> werden der Berliner Bezirk
-          und Ortsteil sowie eine strukturierte Liste von 9-13
-          aggregierten Datenpunkten (Kacheln) je Life-Lens-Ansicht
-          übermittelt: pro Kachel jeweils Signalklasse (grün / gelb / rot),
-          die Regel, ein Zahlenwert (z.&nbsp;B. Entfernung in Metern) und
-          ggf. ein Hinweistext. Es werden <strong>keine Straßennamen,
-          Hausnummern, IP-Adressen oder Nutzer-Identifikatoren</strong>
-          übermittelt.</li>
-      </ul>
-      <p>Die Datenübermittlung an einen Anbieter mit Sitz außerhalb des
-        EWR erfolgt auf Grundlage von EU-Standardvertragsklauseln gemäß
-        Art. 46 Abs. 2 lit. c DSGVO in Verbindung mit einem
-        Auftragsverarbeitungsvertrag nach Art. 28 DSGVO.</p>
-      <p style="background:#EEF2FF;border-left:3px solid var(--brand);padding:8px 14px;margin:10px 0;font-size:14px;color:var(--ink-2);"><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1
-        lit. b DSGVO (Erfüllung des von Ihnen aktiv angeforderten
-        KI-Dienstes) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes
-        Interesse an einem nützlichen Zusatzangebot).</p>
-
       <h2>6. Datenquellen (offene Daten)</h2>
-      <p>Die auf der Website dargestellten Informationen (Schulen,
-        Verkehr, Umwelt, Sozialindikatoren u.a.) stammen aus offen
-        lizenzierten Datenquellen. Personenbezogene Daten werden aus
-        diesen Quellen nicht verarbeitet; sämtliche Datensätze beziehen
-        sich auf öffentliche Einrichtungen, Adressen und Aggregate. Die
-        vollständige Liste der Quellen und Lizenzen ist im
-        <a href="/impressum">Impressum</a> aufgeführt.</p>
+      <p>Die Landing-Seite addrlens.de selbst liefert ausschließlich
+        statische Dateien und den <code>/health</code>-Endpunkt; es werden
+        keine stadtspezifischen offenen Daten verarbeitet. Die
+        verlinkten Stadt-Apps (berlin.addrlens.de, hamburg.addrlens.de)
+        nutzen offen lizenzierte öffentliche Daten — Einzelheiten finden
+        sich in den jeweiligen Datenschutzerklärungen.</p>
 
       <h2>7. Ihre Rechte</h2>
       <p>Sie haben gegenüber dem Verantwortlichen folgende Rechte
