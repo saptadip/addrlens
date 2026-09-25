@@ -18,9 +18,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /srv
 
 # Sync with pyproject.toml [project.dependencies] — landing tracks the
-# same fastapi/uvicorn versions the app image resolves to.
+# same fastapi/uvicorn versions the app image resolves to. uv is a
+# build-only tool; delete it after install to keep the runtime image
+# small (~80 MB saved).
 RUN uv pip install --system --no-cache \
-        "fastapi>=0.115" "uvicorn[standard]>=0.32"
+        "fastapi>=0.115" "uvicorn[standard]>=0.32" \
+    && rm /usr/local/bin/uv
 
 # Copy ONLY what landing needs. Do NOT copy the full app/ package.
 COPY app/__init__.py ./app/__init__.py
