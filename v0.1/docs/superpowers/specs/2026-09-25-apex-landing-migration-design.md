@@ -536,7 +536,8 @@ Each with matching `HTTP Host Header` in CF Additional Application Settings.
  and not http.request.uri.path in {"/static/img/logo.png" "/static/img/og-image.jpg"
                                     "/static/img/berlin-card.png"
                                     "/static/img/hamburg-card.png"
-                                    "/static/landing.css"}
+                                    "/static/landing.css"
+                                    "/static/lang-toggle.js"}
  and not starts_with(http.request.uri.path, "/static/fonts/")
  and not http.request.uri.path eq "/static/landing.css")
 ```

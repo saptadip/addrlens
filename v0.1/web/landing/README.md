@@ -8,6 +8,7 @@ Assets served by the `app-landing` container at `addrlens.de` (apex).
 - `impressum.html`, `datenschutzerklaerung.html` — apex-scoped legal pages
 - `robots.txt`, `sitemap.xml` — apex crawler + SEO surface
 - `static/landing.css` — landing-only stylesheet
+- `static/lang-toggle.js` — EN/DE i18n toggle, shared across all 3 landing HTML files
 - `static/img/{logo,favicon,og-image,berlin-card,hamburg-card}.png` — assets
 - `static/fonts/*.woff2` — copies of `web/static/fonts/*` (Inter + Space Grotesk)
 

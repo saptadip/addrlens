@@ -46,6 +46,8 @@ def _load_index() -> bytes:
     return content.encode("utf-8")
 
 
+# Loaded once at boot. Editing web/landing/index.html requires
+# `docker compose restart app-landing` to take effect.
 _INDEX_HTML = _load_index()
 
 
