@@ -40,7 +40,7 @@ cd "$REPO/v0.1"
 # app-hh (Hamburg) shares ops/Dockerfile.app with app (Berlin) — same COPY
 # layers, different runtime CITY env. Both must be rebuilt so a source
 # change (e.g. Hamburg trees_bbox MultiPoint fix) lands on both containers.
-"${COMPOSE[@]}" build --pull app app-hh inference
+"${COMPOSE[@]}" build --pull app app-hh app-landing inference
 
 # --- 5. Recreate containers that need it ------------------------------------
 "${COMPOSE[@]}" up -d --remove-orphans
@@ -49,9 +49,16 @@ cd "$REPO/v0.1"
 # Gate on both app (:8001 = Berlin) + app-hh (:8002 = Hamburg). Either can
 # fail independently (different WFS endpoints, different Index shape) so
 # both must reach /ready before we declare success.
-for svc_port in "app:8001" "app-hh:8002"; do
+for svc_port in "app:8001" "app-hh:8002" "app-landing:8000"; do
     svc="${svc_port%%:*}"
     port="${svc_port##*:}"
+    # Landing has no lookup — health-only smoke via compose exec, since
+    # app-landing has `ports: !reset []` and is not published to host.
+    if [ "$svc" = "app-landing" ]; then
+      "${COMPOSE[@]}" exec -T "$svc" python -c \
+        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${port}/health', timeout=3)"
+      continue
+    fi
     echo "[deploy] waiting for $svc /ready on :$port"
     READY=""
     for i in $(seq 1 30); do

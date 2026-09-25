@@ -36,6 +36,6 @@ cd "$REPO/v0.1"
 # new-code image while Berlin rolled back (pre-PR#92 bug). Any change to
 # update.sh's service list must be mirrored here — keep the two scripts
 # service-symmetric.
-"${COMPOSE[@]}" build app app-hh inference
-"${COMPOSE[@]}" up -d --force-recreate app app-hh inference
+"${COMPOSE[@]}" build app app-hh app-landing inference
+"${COMPOSE[@]}" up -d --force-recreate app app-hh app-landing inference
 echo "[rollback] done. now on $TARGET"
