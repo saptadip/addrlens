@@ -1,0 +1,101 @@
+/* landing.css — reuses tokens from web/static/app.css verbatim.
+   No !important, no vendor prefixes beyond autoprefixer defaults,
+   no dark mode (landing has no theme system, per spec §20). */
+
+@font-face {font-family:'Inter';font-style:normal;font-weight:400;font-display:swap;
+  src:url('/static/fonts/inter-400.woff2') format('woff2')}
+@font-face {font-family:'Inter';font-style:normal;font-weight:500;font-display:swap;
+  src:url('/static/fonts/inter-500.woff2') format('woff2')}
+@font-face {font-family:'Inter';font-style:normal;font-weight:700;font-display:swap;
+  src:url('/static/fonts/inter-700.woff2') format('woff2')}
+@font-face {font-family:'Space Grotesk';font-style:normal;font-weight:700;font-display:swap;
+  src:url('/static/fonts/space-grotesk-700.woff2') format('woff2')}
+
+/* Design tokens — MUST stay in sync with web/static/app.css. */
+:root{
+  --hero-bg:#DCE7F3;
+  --hero-accent:#0284C7; --hero-accent-2:#38BDF8;
+  --result-bg:#EEF2FF; --result-bg-hover:#DDE7FF;
+  --ink:#111827; --ink-2:#374151; --muted:#6B7280;
+  --brand:#4F46E5; --success:#22C55E;
+  --border:#E5E7EB;
+  --sh-2:0 4px 8px rgba(17,24,39,.06),0 12px 24px rgba(17,24,39,.06);
+  --radius:16px;
+  --space-1:8px; --space-2:16px; --space-3:24px; --space-4:32px; --space-6:48px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--hero-bg); color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif; font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased; min-height:100vh;
+}
+
+/* Sticky header */
+header{position:sticky; top:0; height:64px; background:var(--hero-bg);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 var(--space-3); z-index:10; border-bottom:1px solid transparent;}
+header .brand{display:flex; align-items:center; gap:var(--space-1); font-weight:700;}
+header .brand img{width:28px; height:28px;}
+header .brand span{font-family:'Space Grotesk','Inter',sans-serif; font-size:18px;}
+#lang-toggle{
+  background:transparent; border:1px solid var(--border); border-radius:8px;
+  padding:6px 12px; cursor:pointer; font:500 13px/1 'Inter',sans-serif;
+  color:var(--ink); min-width:44px; min-height:44px;
+}
+#lang-toggle:hover{background:rgba(255,255,255,.5);}
+#lang-toggle:focus-visible{outline:2px solid var(--hero-accent); outline-offset:2px;}
+
+/* Hero */
+.hero{padding:var(--space-6) var(--space-3) var(--space-4); text-align:center; max-width:800px; margin:0 auto;}
+.hero h1{
+  font-family:'Space Grotesk','Inter',sans-serif; font-weight:700;
+  font-size:clamp(2.5rem, 5vw, 4.5rem); line-height:1.05; letter-spacing:-.02em;
+  margin:0 0 var(--space-2);
+}
+.hero p{color:var(--muted); font-size:clamp(1rem, 1.5vw, 1.15rem); margin:0;}
+
+/* City cards */
+.cities{
+  display:grid; grid-template-columns:1fr; gap:var(--space-3);
+  max-width:1000px; margin:0 auto; padding:var(--space-3);
+}
+@media (min-width: 768px){
+  .cities{grid-template-columns:1fr 1fr;}
+}
+.city-card{
+  display:block; text-decoration:none; color:inherit;
+  background:var(--result-bg); border-radius:var(--radius); box-shadow:var(--sh-2);
+  padding:0; overflow:hidden; cursor:pointer;
+  transition:background 200ms ease, transform 200ms ease;
+}
+@media (prefers-reduced-motion: no-preference){
+  .city-card:hover{background:var(--result-bg-hover); transform:translateY(-2px);}
+}
+.city-card:focus-visible{outline:2px solid var(--hero-accent); outline-offset:2px;}
+.city-card img{width:100%; height:auto; display:block;}
+.city-card .body{padding:var(--space-3);}
+.city-card h2{
+  font-family:'Inter',sans-serif; font-weight:700; font-size:24px; margin:0 0 8px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.city-card .badge{
+  display:inline-flex; align-items:center; gap:6px;
+  font:500 12px/1 'Inter',sans-serif; color:var(--brand);
+}
+.city-card .badge::before{
+  content:''; display:inline-block; width:8px; height:8px; border-radius:50%;
+  background:var(--brand);
+}
+.city-card .subline{color:var(--muted); margin:0 0 var(--space-2);}
+.city-card .cta{color:var(--hero-accent); font-weight:500;}
+
+/* Footer */
+footer{
+  padding:var(--space-4) var(--space-3); text-align:center; color:var(--muted);
+  font-size:13px; border-top:1px solid var(--border); margin-top:var(--space-6);
+}
+footer a{color:var(--muted); text-decoration:underline; margin:0 var(--space-1);}
+footer a:hover{color:var(--ink);}
+footer a:focus-visible{outline:2px solid var(--hero-accent); outline-offset:2px;}
