@@ -137,7 +137,7 @@ jobs:
           # Routes (pure asserts only — no live server)
           - app.routes.history
           - app.routes.lens_insight
-          # Inference — 4 per-lens templates + history + stability + CF parser
+          # Inference — per-lens templates + history + stability + CF parser
           - inference.runtime.cloudflare_backend
           - inference.stability_selfcheck
           - inference.templates.history
@@ -145,6 +145,7 @@ jobs:
           - inference.templates.lens_newcomer_insight
           - inference.templates.lens_quiet_living_insight
           - inference.templates.lens_young_family_insight
+          - inference.templates.lens_quiet_living_hamburg_insight
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3

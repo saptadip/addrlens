@@ -20,6 +20,7 @@ TEMPLATE_MODULES = [
     "inference.templates.lens_newcomer_insight",
     "inference.templates.lens_quiet_living_insight",
     "inference.templates.lens_commuter_insight",
+    "inference.templates.lens_quiet_living_hamburg_insight",
 ]
 
 # Pure `__main__` blocks that exercise the inference service's async /

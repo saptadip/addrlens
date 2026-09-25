@@ -201,6 +201,6 @@ export const _TITLE_SMALL = new Set([
 ]);
 
 // -- Lens AI panel constants -----------------------------------------
-export const _LENS_WITH_AI = new Set(['newcomer', 'commuter']);
+export const _LENS_WITH_AI = new Set(['newcomer', 'commuter', 'quiet_living']);
 
 export const _ICON_DOWNLOAD = '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M216,144v64a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V144a8,8,0,0,1,8-8H88l40,40,40-40h40A8,8,0,0,1,216,144Z" opacity="0.2"/><path d="M216,144v64a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V144" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="88 112 128 152 168 112" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="40" x2="128" y2="152" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>';
