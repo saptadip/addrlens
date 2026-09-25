@@ -52,11 +52,25 @@ cd "$REPO/v0.1"
 for svc_port in "app:8001" "app-hh:8002" "app-landing:8000"; do
     svc="${svc_port%%:*}"
     port="${svc_port##*:}"
-    # Landing has no lookup — health-only smoke via compose exec, since
-    # app-landing has `ports: !reset []` and is not published to host.
+    # Landing has no lookup — health-only smoke via compose exec (ports: !reset []).
+    # Retry 30 × 3s = 90s budget, matches app/app-hh readiness gate.
     if [ "$svc" = "app-landing" ]; then
-      "${COMPOSE[@]}" exec -T "$svc" python -c \
-        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${port}/health', timeout=3)"
+      echo "[deploy] waiting for $svc /health on :$port"
+      LANDING_UP=""
+      for i in $(seq 1 30); do
+        if "${COMPOSE[@]}" exec -T "$svc" python -c \
+            "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${port}/health', timeout=3)" 2>/dev/null; then
+          echo "[deploy] $svc: /health OK after ~$((i*3))s"
+          LANDING_UP="1"
+          break
+        fi
+        sleep 3
+      done
+      if [ -z "$LANDING_UP" ]; then
+        echo "[deploy] FATAL: $svc /health never came up in 90s"
+        echo "[deploy] Rollback with: ./ops/deploy/rollback.sh $PREV_SHA"
+        exit 1
+      fi
       continue
     fi
     echo "[deploy] waiting for $svc /ready on :$port"
