@@ -7,7 +7,19 @@ from fastapi.testclient import TestClient
 
 
 def _get_client():
-    """Lazy client initialization to allow fixture setup before import."""
+    """Return a TestClient bound to a freshly-imported app.landing.main.
+
+    Clears app.* from sys.modules first so route tests never inherit
+    module state from test_umami_injection.py (which does its own
+    sys.modules manipulation under monkeypatched env vars).
+    Every caller has the ensure_landing_index fixture in its signature,
+    so web/landing/index.html exists before the re-import triggers
+    _load_index().
+    """
+    import sys
+    for mod in list(sys.modules):
+        if mod == "app" or mod.startswith("app."):
+            del sys.modules[mod]
     from app.landing.main import app
     return TestClient(app)
 

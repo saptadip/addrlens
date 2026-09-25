@@ -5,7 +5,6 @@ with a real <script> tag. When unset, the marker is left as-is.
 Both env vars must be set to trigger injection — either alone is a no-op
 (fail-safe against half-configured envs).
 """
-import importlib
 import sys
 
 
