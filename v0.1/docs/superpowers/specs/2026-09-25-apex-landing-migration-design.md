@@ -413,7 +413,7 @@ EXPOSE 8000
 CMD ["uvicorn", "app.landing.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-**Version-alignment discipline:** the `fastapi` + `uvicorn` pins in this Dockerfile must be kept in sync with the versions in `pyproject.toml` for the app image. Drift = same code running against two versions in prod. The `# Sync with pyproject.toml` comment above the `uv pip install` line makes the obligation explicit. Optional CI check: `diff <(grep -oE '(fastapi|uvicorn[^"]+)[^"]*' pyproject.toml) <(grep -oE '(fastapi|uvicorn[^"]+)[^"]*' ops/Dockerfile.landing)` — nice-to-have, not blocking.
+**Version-alignment discipline:** the `fastapi` + `uvicorn` pins in this Dockerfile must be kept in sync with the versions in `pyproject.toml` for the app image. Drift = same code running against two versions in prod. The `# Sync with pyproject.toml` comment above the `uv pip install` line makes the obligation explicit. Optional CI check: `diff <(grep -oE '(fastapi|uvicorn[^"]+)[^"]*' pyproject.toml) <(grep -oE '(fastapi|uvicorn[^"]+)[^"]*' ops/Dockerfile.landing)` — nice-to-have, not blocking. The `ghcr.io/astral-sh/uv` image tag is pinned (currently `0.12.2`) and matches `Dockerfile.app` — bump both together when moving to a newer uv.
 
 ### 10.2 `docker-compose.prod.yml` — add `app-landing` service
 
