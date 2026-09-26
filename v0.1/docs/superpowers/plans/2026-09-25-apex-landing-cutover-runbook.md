@@ -1,8 +1,8 @@
 # Apex Landing Cutover Runbook
 
-**Prereq:** PR for `feat/apex-landing-migration` merged to `main`. `ops/deploy/update.sh` completed on prod (Hetzner box), all 3 app containers healthy per `docker compose ps`.
+**Prereq:** PR for `feat/apex-landing-migration` merged to `main`. `ops/deploy/update.sh` completed on prod (Hetzner box), all 3 app containers healthy per `dc ps`.
 
-**Target duration:** 15 minutes wall-clock. **Downtime:** 0. **Rollback:** dashboard-only, 2-3 min.
+**Target duration:** 15 minutes wall-clock. **Downtime:** see Phase 2 Step 2 restart window below. **Rollback:** `rollback.sh` (no-arg) + optional dashboard undo; 2-3 min.
 
 ## Phase overview
 
@@ -12,7 +12,7 @@ The full production deploy has 6 phases. This runbook is the definitive step-by-
 |---|---|---|---|
 | 0. Pre-merge review | Before merging PR to `main` | ~15 min | No |
 | 1. Prep window | Any time post-merge; can be same day or later | ~10 min | No (containers dormant) |
-| 2. Cutover window | Scheduled — see picking rules below | ~20 min | Yes (0 downtime) |
+| 2. Cutover window | Scheduled — see picking rules below | ~20 min | Yes (see Step 2 restart window) |
 | 3. First 60 min monitoring | Immediately after Phase 2 | 60 min | Watching only |
 | 4. First 48h monitoring | Passive after hour 1 | 48h | Passive |
 | 5. Weeks 1-4 stabilization | SEO reallocation window | 2-4 weeks | Traffic patterns settle |
@@ -32,31 +32,36 @@ Do this BEFORE merging the PR to `main`. Fresh eyes on the diff catch things rev
 
 ## Phase 1 — Prep window (~10 min, no user impact)
 
-Get new code onto prod but leave it dormant. Fully reversible via `./ops/deploy/rollback.sh <PREV_SHA>`.
+Get new code onto prod but leave it dormant. Fully reversible via `./ops/deploy/rollback.sh` (no arg needed).
+
+```bash
+# On the prod box, once per session:
+cd /srv/addrlens/repo/v0.1
+alias dc='docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file /srv/addrlens/.env.production'
+
+# Every `dc <cmd>` in the runbook below is shorthand for that full form.
+# Every path in the runbook is relative to /srv/addrlens/repo/v0.1
+# UNLESS prefixed with /srv/addrlens/ (deploy volume, holds .env.production + data).
+```
 
 - [ ] SSH to Hetzner prod box.
-- [ ] Pull main:
+- [ ] Run deploy script (fetches + fast-forwards + rebuilds + smoke-tests all 3 app containers):
   ```bash
-  cd /srv/addrlens
-  git pull origin main
-  ```
-- [ ] Run deploy script:
-  ```bash
+  cd /srv/addrlens/repo/v0.1
   ./ops/deploy/update.sh
   ```
-  Builds all 3 app images (app + app-hh + app-landing) + inference. Brings up all containers with the compose overlay. Runs smoke gate on all three (Berlin `/api/lookup` on smoke_address; Hamburg `/api/lookup`; Landing `/health` via compose exec with 90s retry budget).
 - [ ] Verify:
   ```bash
-  docker compose ps app app-hh app-landing
+  dc ps app app-hh app-landing
   # All 3: STATUS = "Up X (healthy)"
-  docker compose logs app-landing --tail=20
+  dc logs app-landing --tail=20
   # uvicorn startup log; no tracebacks
   ```
 - [ ] **State at end of Phase 1:** `app-landing` running + healthy inside docker network. NO Cloudflare hostname points at it yet. Users see zero change. Berlin still serves apex. This is the reversible checkpoint before Phase 2.
 
-**Rollback from Phase 1:** if anything misbehaves, `./ops/deploy/rollback.sh <PREV_SHA>` reverts. Landing container disappears; users see no change.
+**Rollback from Phase 1:** if anything misbehaves, `./ops/deploy/rollback.sh` (reads `/srv/addrlens/last-deployed.sha` automatically) reverts. Landing container disappears; users see no change.
 
-## Phase 2 — Cutover window (~20 min, 0 downtime)
+## Phase 2 — Cutover window (~20 min)
 
 The 8-step CF Tunnel + Redirect Rule dance. **Session-safety tip:** pre-write the Step 6 Redirect Rule as *disabled* BEFORE you touch the apex tunnel in Step 4. Then Step 6 becomes a single toggle instead of form-filling. Halves the vulnerable window.
 
@@ -67,27 +72,51 @@ Have three tabs/windows open:
 
 ## Pre-flight (5 min, on box)
 
-- [ ] SSH to prod box, verify state:
+```bash
+# On the prod box, once per session:
+cd /srv/addrlens/repo/v0.1
+alias dc='docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file /srv/addrlens/.env.production'
+
+# Every `dc <cmd>` in the runbook below is shorthand for that full form.
+# Every path in the runbook is relative to /srv/addrlens/repo/v0.1
+# UNLESS prefixed with /srv/addrlens/ (deploy volume, holds .env.production + data).
+```
+
+- [ ] SSH to prod box, verify state (all on-box checks use `dc exec`):
   ```bash
-  cd /srv/addrlens
-  docker compose ps app app-hh app-landing
+  dc ps app app-hh app-landing
   # All 3 must show STATUS = "Up X (healthy)"
+  ```
+- [ ] Verify containers haven't recently auto-restarted (which would suggest a crash loop):
+  ```bash
+  dc ps --format 'table {{.Name}}\t{{.Status}}\t{{.RunningFor}}' app app-hh app-landing
+  ```
+  Expected: RUNNING FOR = at least several minutes. If < 30s, check logs before proceeding:
+  ```bash
+  dc logs app-landing --tail=50
   ```
 - [ ] Verify landing is reachable inside docker network:
   ```bash
-  docker compose exec app-landing python -c \
+  dc exec app-landing python -c \
     "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read())"
   # Expect: b'{"status":"ok"}'
   ```
 - [ ] Verify Berlin app still healthy:
   ```bash
-  docker compose exec app python -c \
+  dc exec app python -c \
     "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3).read())"
   ```
-- [ ] Verify Hamburg untouched:
+- [ ] Verify Hamburg from any machine (full-stack sanity):
   ```bash
   curl -fsS https://hamburg.addrlens.de/health
+  # Expect: {"status":"ok"}
   ```
+- [ ] Sentry release-tracking uses `GIT_SHA` env — verify it matches the deployed commit:
+  ```bash
+  grep '^GIT_SHA=' /srv/addrlens/.env.production
+  git -C /srv/addrlens/repo rev-parse HEAD
+  ```
+  Both should print the same SHA. If they diverge, run Phase 1's `update.sh` again — Sentry release-tracking will attribute incidents to the wrong commit.
 
 ## Step 1: Umami websites (2 min, Umami dashboard)
 
@@ -98,27 +127,53 @@ Have three tabs/windows open:
 
 ## Step 2: Prod env vars (2 min, SSH on box)
 
-- [ ] Edit `/srv/addrlens/.env.production` (as root):
+- [ ] SSH to prod box; check current Umami env state:
   ```bash
-  sudo vim /srv/addrlens/.env.production
+  grep -E '^UMAMI_WEBSITE_ID(_BERLIN|_HAMBURG|_LANDING)?=' /srv/addrlens/.env.production
   ```
-- [ ] Rename the existing `UMAMI_WEBSITE_ID=…` line to `UMAMI_WEBSITE_ID_BERLIN=…` (same value).
-- [ ] Add `UMAMI_WEBSITE_ID_LANDING=<landing-id from Step 1>`.
-- [ ] Add `UMAMI_WEBSITE_ID_HAMBURG=<hamburg-id from Step 1>` (if not already present).
-- [ ] Save file.
-- [ ] Restart the 3 app containers to pick up new env:
+  Expected output: one or more lines matching the pattern. Note which suffixed forms already exist.
+
+- [ ] Edit `/srv/addrlens/.env.production` (as root, preserving perms):
   ```bash
-  docker compose -f docker-compose.yml -f docker-compose.prod.yml \
-    --env-file /srv/addrlens/.env.production \
-    up -d --force-recreate app app-hh app-landing
+  sudo -e /srv/addrlens/.env.production
   ```
-- [ ] Verify Umami injection worked for each host:
+  Apply based on Step 2's grep result:
+  - If you see `UMAMI_WEBSITE_ID=<id>` (flat form): rename to `UMAMI_WEBSITE_ID_BERLIN=<same-id>`.
+  - If you see `UMAMI_WEBSITE_ID_BERLIN=` already: leave it alone.
+  - If NO `UMAMI_WEBSITE_ID_HAMBURG=` line exists: add `UMAMI_WEBSITE_ID_HAMBURG=<hamburg-id from Step 1>`.
+  - Always ADD (never rename): `UMAMI_WEBSITE_ID_LANDING=<landing-id from Step 1>`.
+  - Also verify: `grep '^GIT_SHA=' /srv/addrlens/.env.production` — expected: the SHA of the merge commit shipping this cutover. If wrong, Phase 1 `update.sh` didn't run cleanly.
+
+- [ ] Verify env file post-edit:
   ```bash
-  HAMBURG_ID='<paste hamburg website-id from Step 1>'
-  curl -fsS https://hamburg.addrlens.de/ | grep -c "data-website-id=\"$HAMBURG_ID\""
-  # Expect: 1
-  # (apex not yet flipped — landing will be verified after Step 4)
+  grep -E '^UMAMI_WEBSITE_ID' /srv/addrlens/.env.production
   ```
+  Expected: exactly 3 lines — `_BERLIN`, `_HAMBURG`, `_LANDING` — each with a non-empty value.
+  Expected NOT to see: bare `UMAMI_WEBSITE_ID=` (unsuffixed) — if present, Berlin will fall back to it, potentially serving Berlin's ID on all sites.
+
+- [ ] Restart the 3 app containers to pick up new env. **Warning: `--force-recreate` restarts serially and each takes 15-45s to become healthy. Apex `addrlens.de/` returns 502 Bad Gateway during Berlin's restart window (before Step 4 flips apex to landing). This is the ONE downtime moment in the cutover. Schedule accordingly.**
+  ```bash
+  dc up -d --force-recreate app app-hh app-landing
+  # Wait for all healthy:
+  for i in 1 2 3 4 5 6; do
+    dc ps app app-hh app-landing --format 'table {{.Name}}\t{{.Status}}'
+    echo '---'
+    sleep 10
+  done
+  ```
+  Expected: within 60s, all 3 show `Up X (healthy)`.
+
+- [ ] Verify Umami injection worked. From ANY machine (not just the box):
+  ```bash
+  BERLIN_ID='<paste UMAMI_WEBSITE_ID_BERLIN value>'
+  HAMBURG_ID='<paste UMAMI_WEBSITE_ID_HAMBURG value>'
+  # Apex still serves Berlin until Step 4, so this checks Berlin's Umami:
+  curl -fsS https://addrlens.de/ | grep -q "data-website-id=\"$BERLIN_ID\"" && echo BERLIN_OK
+  # Hamburg via its own subdomain (unchanged):
+  curl -fsS https://hamburg.addrlens.de/ | grep -q "data-website-id=\"$HAMBURG_ID\"" && echo HAMBURG_OK
+  # Landing verification comes after Step 4.
+  ```
+  Expected: `BERLIN_OK` and `HAMBURG_OK`. If either is missing, STOP — Umami env didn't take; fix before proceeding.
 
 ## Step 3: CF Tunnel — add berlin.addrlens.de (3 min, CF dashboard)
 
@@ -139,6 +194,10 @@ Have three tabs/windows open:
   ```
 - [ ] **State check:** Berlin app now answers on BOTH `addrlens.de` AND `berlin.addrlens.de`. Overlap is intentional and safe.
 
+> **⚠️ Vulnerable window:** between saving Step 4 and deploying Step 6, any traffic to legacy apex paths (`/api/lookup`, `/api/suggest`, `/api/config`, `/api/lens_insight`, `/ready`, `/search`, any `/static/*` not in the landing allow-list) returns **404 from app-landing** — landing has no such routes. Duration: ~30s if Step 6 rule was pre-written as disabled (recommended); ~2-3 min if you fill out the rule form fresh.
+>
+> **Compress this window:** BEFORE starting Step 4, do Step 6 up to (but not including) enabling the rule. Save it in "disabled" state. Then post-Step 4, Step 6 collapses to a single toggle.
+
 ## Step 4: CF Tunnel — repoint apex to landing (2 min, CF dashboard)
 
 - [ ] Same tunnel page → click the existing apex public hostname (`addrlens.de`) → Edit.
@@ -146,9 +205,11 @@ Have three tabs/windows open:
 - [ ] Save.
 - [ ] Verify:
   ```bash
-  curl -fsS https://addrlens.de/ | grep -c "AddrLens.*Street intelligence"    # expect >=1
+  curl -fsS https://addrlens.de/ | grep -q '<title>AddrLens.*Street intelligence' && echo LANDING_OK
+  # Expected: LANDING_OK
   curl -fsS https://addrlens.de/health   # expect {"status":"ok"}
-  curl -fsS https://berlin.addrlens.de/ | grep -c "canonical.*berlin.addrlens.de"  # expect 1
+  curl -fsS https://berlin.addrlens.de/ | grep -q "canonical.*berlin.addrlens.de" && echo BERLIN_CANONICAL_OK
+  # Expected: BERLIN_CANONICAL_OK
   ```
 
 ## Step 5: Purge CF edge cache (1 min, CF dashboard)
@@ -159,6 +220,12 @@ Have three tabs/windows open:
   - `https://addrlens.de`
   - `https://addrlens.de/impressum`
   - `https://addrlens.de/datenschutzerklaerung`
+  - `https://addrlens.de/static/landing.css`
+  - `https://addrlens.de/static/lang-toggle.js`
+  - `https://addrlens.de/static/img/logo.png`
+  - `https://addrlens.de/static/img/og-image.jpg`
+  - `https://addrlens.de/static/img/berlin-card.png`
+  - `https://addrlens.de/static/img/hamburg-card.png`
 - [ ] Purge.
 
 ## Step 6: Add CF Redirect Rule (3 min, CF dashboard)
@@ -174,9 +241,9 @@ Have three tabs/windows open:
                                       "/static/img/hamburg-card.png"
                                       "/static/landing.css"
                                       "/static/lang-toggle.js"}
-   and not starts_with(http.request.uri.path, "/static/fonts/")
-   and not http.request.uri.path eq "/static/landing.css")
+   and not starts_with(http.request.uri.path, "/static/fonts/"))
   ```
+  Note: follow-up ticket filed to fix the duplicate `/static/landing.css` clause in spec §12.2.
 - [ ] Action: **Dynamic redirect**
   - Expression: `concat("https://berlin.addrlens.de", http.request.uri.path)`
   - Status: `301`
@@ -214,6 +281,24 @@ Have three tabs/windows open:
 
 Trigger conditions: prod smoke fails after any step; user report of broken apex.
 
+### Full deploy revert (Phase 1 failed, or Phase 2 not yet started)
+
+If Phase 1's `update.sh` succeeded but you discover a bug BEFORE starting Phase 2 (or Phase 2's Step 2 broke the app containers), revert the whole deploy:
+
+- [ ] On box:
+  ```bash
+  cd /srv/addrlens/repo/v0.1
+  ./ops/deploy/rollback.sh
+  # No arg needed — reads /srv/addrlens/last-deployed.sha (SHA before update.sh).
+  # For a specific target SHA: ./ops/deploy/rollback.sh <sha>
+  ```
+- [ ] Verify all containers back on old SHA:
+  ```bash
+  dc ps app app-hh app-landing
+  ```
+  If app-landing service isn't declared in the target SHA's compose file, `rollback.sh` auto-detects and omits it (see rollback.sh:44).
+- [ ] No CF dashboard change needed — the CF apex was never flipped in this scenario.
+
 ### If Step 4 (apex repoint) or Step 6 (Redirect Rule) is the problem
 
 - [ ] CF dashboard → Tunnels → `addrlens-prod` → Public Hostnames → apex → Edit.
@@ -224,9 +309,17 @@ Trigger conditions: prod smoke fails after any step; user report of broken apex.
 
 ### If landing container is broken
 
-- [ ] `docker compose ps app-landing` → confirm unhealthy.
-- [ ] `docker compose logs app-landing --tail=100` → identify cause.
-- [ ] If unrecoverable: rollback CF apex per above (users hit Berlin app on apex, works fine).
+**Pre-Step 4 (apex NOT yet flipped):**
+Users still see Berlin on apex — no user-visible break. Run the Full deploy revert (above) to remove the broken landing image.
+
+**Post-Step 4 (apex already flipped):**
+Users see landing container errors. TWO actions required:
+1. CF apex undo: dashboard → tunnel → apex hostname → change service back to `http://app:8001`. Effective in seconds. Users see Berlin on apex again.
+2. Full deploy revert (above) to remove the broken landing image from prod.
+
+Diagnose before deciding:
+- [ ] `dc ps app-landing` → confirm unhealthy.
+- [ ] `dc logs app-landing --tail=100` → identify cause.
 
 ### If Berlin subdomain broken but apex still fine
 
@@ -253,8 +346,8 @@ If you completed Step 4 (apex repointed to app-landing) but not Step 6 (Redirect
 
 **Stay at your terminal.** What to watch:
 
-- [ ] `docker compose logs app-landing --tail=100 --follow` — look for tracebacks, unusual 4xx patterns.
-- [ ] `docker compose logs cloudflared --tail=100 --follow` — look for tunnel disconnects.
+- [ ] `dc logs app-landing --tail=100 --follow` — look for tracebacks, unusual 4xx patterns.
+- [ ] `dc logs cloudflared --tail=100 --follow` — look for tunnel disconnects.
 - [ ] Manual sanity from another machine:
   ```bash
   curl -fsS https://addrlens.de/                                       # landing HTML
@@ -264,7 +357,7 @@ If you completed Step 4 (apex repointed to app-landing) but not Step 6 (Redirect
   ```
 - [ ] Umami dashboard: verify all 3 websites are receiving traffic within 5 min. **Landing especially** — if landing shows 0 pageviews at 15 min, injection failed (check `UMAMI_WEBSITE_ID_LANDING` in `.env.production` matches the ID Umami issued).
 
-**If anything breaks in this hour:** trigger Rollback (above). The runbook rollback subsections cover all three failure modes (landing container, Berlin subdomain, Redirect Rule loop).
+**If anything breaks in this hour:** trigger Rollback (above). The runbook rollback subsections cover all failure modes (landing container pre/post-flip, Berlin subdomain, Redirect Rule loop).
 
 ## Phase 4 — First 48h monitoring (passive)
 
@@ -289,6 +382,7 @@ None blocking cutover; all captured in PR body. File as separate issues:
 - CI grep-check for fastapi/uvicorn version sync between `pyproject.toml` + `ops/Dockerfile.landing`.
 - German article grammar copyedit in `web/landing/datenschutzerklaerung.html` DE preamble.
 - `env_file` scalar vs list form consistency across compose services.
+- Fix duplicate `/static/landing.css` clause in spec §12.2 Redirect Rule expression.
 
 ## The one rule for cutover day
 
