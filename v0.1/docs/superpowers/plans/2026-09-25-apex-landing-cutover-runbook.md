@@ -4,6 +4,67 @@
 
 **Target duration:** 15 minutes wall-clock. **Downtime:** 0. **Rollback:** dashboard-only, 2-3 min.
 
+## Phase overview
+
+The full production deploy has 6 phases. This runbook is the definitive step-by-step for all of them.
+
+| Phase | When | Duration | User-visible? |
+|---|---|---|---|
+| 0. Pre-merge review | Before merging PR to `main` | ~15 min | No |
+| 1. Prep window | Any time post-merge; can be same day or later | ~10 min | No (containers dormant) |
+| 2. Cutover window | Scheduled — see picking rules below | ~20 min | Yes (0 downtime) |
+| 3. First 60 min monitoring | Immediately after Phase 2 | 60 min | Watching only |
+| 4. First 48h monitoring | Passive after hour 1 | 48h | Passive |
+| 5. Weeks 1-4 stabilization | SEO reallocation window | 2-4 weeks | Traffic patterns settle |
+
+**Picking the cutover window:** weekday morning (Tue-Thu), low-traffic hour. Avoid Friday afternoon, holiday weekends, anything you cannot fully attend for the next 48h. Rollback is 2-3 min but you need to be RESPONSIVE for the first hour to catch anything the smoke tests miss.
+
+## Phase 0 — Pre-merge review (~15 min)
+
+Do this BEFORE merging the PR to `main`. Fresh eyes on the diff catch things reviewers miss.
+
+- [ ] Re-read the PR diff on GitHub (https://github.com/saptadip/addrlens/pull/104) with fresh eyes. Focus especially on:
+  - **Landing legal pages** (`web/landing/impressum.html` + `datenschutzerklaerung.html`) — the copy is what a hypothetical German data-protection auditor will actually read.
+  - **This runbook** — anything unclear now will be unclear at 3am next Wednesday. Fix wording before merge.
+  - **CF Redirect Rule expression** (Step 6 below) — every path the app serves should either match the deny-list or 301 to berlin.
+- [ ] Approve + merge PR to `main`. Squash or merge-commit per project convention.
+- [ ] **Do NOT deploy immediately after merge.** Deploy is Phase 1 below — a separate, deliberate step.
+
+## Phase 1 — Prep window (~10 min, no user impact)
+
+Get new code onto prod but leave it dormant. Fully reversible via `./ops/deploy/rollback.sh <PREV_SHA>`.
+
+- [ ] SSH to Hetzner prod box.
+- [ ] Pull main:
+  ```bash
+  cd /srv/addrlens
+  git pull origin main
+  ```
+- [ ] Run deploy script:
+  ```bash
+  ./ops/deploy/update.sh
+  ```
+  Builds all 3 app images (app + app-hh + app-landing) + inference. Brings up all containers with the compose overlay. Runs smoke gate on all three (Berlin `/api/lookup` on smoke_address; Hamburg `/api/lookup`; Landing `/health` via compose exec with 90s retry budget).
+- [ ] Verify:
+  ```bash
+  docker compose ps app app-hh app-landing
+  # All 3: STATUS = "Up X (healthy)"
+  docker compose logs app-landing --tail=20
+  # uvicorn startup log; no tracebacks
+  ```
+- [ ] **State at end of Phase 1:** `app-landing` running + healthy inside docker network. NO Cloudflare hostname points at it yet. Users see zero change. Berlin still serves apex. This is the reversible checkpoint before Phase 2.
+
+**Rollback from Phase 1:** if anything misbehaves, `./ops/deploy/rollback.sh <PREV_SHA>` reverts. Landing container disappears; users see no change.
+
+## Phase 2 — Cutover window (~20 min, 0 downtime)
+
+The 8-step CF Tunnel + Redirect Rule dance. **Session-safety tip:** pre-write the Step 6 Redirect Rule as *disabled* BEFORE you touch the apex tunnel in Step 4. Then Step 6 becomes a single toggle instead of form-filling. Halves the vulnerable window.
+
+Have three tabs/windows open:
+1. Cloudflare dashboard
+2. Local terminal (for smoke curls)
+3. This runbook file
+
 ## Pre-flight (5 min, on box)
 
 - [ ] SSH to prod box, verify state:
@@ -188,9 +249,47 @@ If you completed Step 4 (apex repointed to app-landing) but not Step 6 (Redirect
 
 **Session-safety tip for the next cutover:** pre-write the Redirect Rule as *disabled* before Step 4, then enable it at Step 6. Reduces the vulnerable window to a single dashboard toggle.
 
-## Post-cutover monitoring (first 48h)
+## Phase 3 — First 60 min monitoring
+
+**Stay at your terminal.** What to watch:
+
+- [ ] `docker compose logs app-landing --tail=100 --follow` — look for tracebacks, unusual 4xx patterns.
+- [ ] `docker compose logs cloudflared --tail=100 --follow` — look for tunnel disconnects.
+- [ ] Manual sanity from another machine:
+  ```bash
+  curl -fsS https://addrlens.de/                                       # landing HTML
+  curl -fsSI https://addrlens.de/api/lookup?address=foo | head -3      # HTTP/2 301 → berlin.addrlens.de
+  curl -fsS https://berlin.addrlens.de/health                           # {"status":"ok"}
+  curl -fsS https://hamburg.addrlens.de/health                          # {"status":"ok"}
+  ```
+- [ ] Umami dashboard: verify all 3 websites are receiving traffic within 5 min. **Landing especially** — if landing shows 0 pageviews at 15 min, injection failed (check `UMAMI_WEBSITE_ID_LANDING` in `.env.production` matches the ID Umami issued).
+
+**If anything breaks in this hour:** trigger Rollback (above). The runbook rollback subsections cover all three failure modes (landing container, Berlin subdomain, Redirect Rule loop).
+
+## Phase 4 — First 48h monitoring (passive)
 
 - [ ] Re-run Step 6 smoke every 12h — catches any dashboard-only rule drift.
 - [ ] GSC Coverage → check for spike in 4xx on the old apex property.
 - [ ] Umami — verify 3 separate websites are receiving traffic; landing gets any signal at all (proves injection worked).
 - [ ] Watch for 2-4wk SEO stabilization: apex + berlin property authority split; ranks may dip 5-15% during transition.
+
+## Phase 5 — Weeks 1-4 stabilization
+
+- [ ] **Week 1:** watch GSC + Umami. Traffic patterns start stabilizing.
+- [ ] **Week 2:** if any Umami dashboard is weird (e.g., landing showing 0 despite prod traffic), debug now while the change is fresh in your memory. Common causes: `UMAMI_WEBSITE_ID_LANDING` ID mismatch, ad-blocker suppression, CSP header conflict.
+- [ ] **Week 4:** SEO settled. Landing = discovery surface for new users; berlin. + hamburg. = returning users + direct-link traffic. If landing bounce rate is unexpectedly high (>80%), the city cards' CTAs may need copy tweaks — file as a v2 spec.
+
+## Follow-up tickets (file AFTER cutover succeeds)
+
+None blocking cutover; all captured in PR body. File as separate issues:
+
+- Landing-container-only CI job (`pytest tests/landing/` in isolation on every PR).
+- Multi-stage `Dockerfile.landing` to recover the ~80 MB uv layer (saves push time, not runtime).
+- Playwright cross-hostname visual-diff smoke.
+- CI grep-check for fastapi/uvicorn version sync between `pyproject.toml` + `ops/Dockerfile.landing`.
+- German article grammar copyedit in `web/landing/datenschutzerklaerung.html` DE preamble.
+- `env_file` scalar vs list form consistency across compose services.
+
+## The one rule for cutover day
+
+**Never skip a runbook step because "it's obvious."** Every checkbox exists because someone thought about a specific failure mode. Skipping to "save time" is exactly how prod incidents happen.
