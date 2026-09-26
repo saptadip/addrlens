@@ -1,0 +1,108 @@
+"""Shared fixtures for landing container tests.
+
+Landing container reads web/landing/index.html at module import time
+via app.landing.main._load_index(). CI checkouts (and this fixture)
+provide a minimal web/landing/ tree so import succeeds.
+"""
+import sys
+from pathlib import Path
+
+import pytest
+
+# Repo root = 3 levels above this file (v0.1/tests/landing/conftest.py).
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+WEB_LANDING = REPO_ROOT / "web" / "landing"
+
+
+@pytest.fixture(autouse=True)
+def _preserve_app_sys_modules():
+    """Snapshot sys.modules['app.*'] before each landing test + restore after.
+
+    Landing tests deliberately clear + reimport app.landing.main under
+    monkeypatched env (test_import_isolation, test_routes._get_client,
+    test_umami_injection._fresh_import_with_env). Without this
+    snapshot-restore, downstream tests in tests/unit/ inherit the
+    cleared state and fail on module-level init order — specifically
+    test_noise_bands + test_trees_bbox_geometry which depend on
+    app.core.* being fully initialised.
+    """
+    snapshot = {k: v for k, v in sys.modules.items() if k == "app" or k.startswith("app.")}
+    try:
+        yield
+    finally:
+        for mod in list(sys.modules):
+            if mod == "app" or mod.startswith("app."):
+                del sys.modules[mod]
+        sys.modules.update(snapshot)
+
+
+@pytest.fixture
+def ensure_landing_index():
+    """Ensure web/landing/index.html + static/ exist for module import.
+
+    Snapshot-and-restore of file *content* (not just paths). Route tests
+    write stubs into real file paths (robots.txt, sitemap.xml, impressum,
+    datenschutzerklaerung) — those writes clobber real Task 4 content
+    unless we restore original bytes at teardown. Paths-only snapshots
+    couldn't distinguish "same path, corrupted content" from "same path,
+    unchanged".
+    """
+    web_landing_created = False
+    if not WEB_LANDING.exists():
+        WEB_LANDING.mkdir(parents=True)
+        web_landing_created = True
+
+    # Idempotent stub creation for imports.
+    if not (WEB_LANDING / "index.html").exists():
+        (WEB_LANDING / "index.html").write_text(
+            "<!doctype html><html><body><!-- UMAMI-INJECT --></body></html>",
+            encoding="utf-8",
+        )
+    if not (WEB_LANDING / "static").exists():
+        (WEB_LANDING / "static").mkdir()
+
+    # Snapshot bytes for every regular file under WEB_LANDING. Directories
+    # are tracked separately so we can prune ones created by tests.
+    snapshot_files: dict[Path, bytes] = {}
+    snapshot_dirs: set[Path] = set()
+    for p in WEB_LANDING.rglob("*"):
+        if p.is_file():
+            snapshot_files[p] = p.read_bytes()
+        elif p.is_dir():
+            snapshot_dirs.add(p)
+
+    yield WEB_LANDING
+
+    # Teardown.
+    if not WEB_LANDING.exists():
+        return
+
+    # (1+2) Restore snapshot files.
+    for p, original in snapshot_files.items():
+        try:
+            if not p.exists() or p.read_bytes() != original:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(original)
+        except OSError:
+            pass
+
+    # (3) Remove files that appeared during the test.
+    for p in WEB_LANDING.rglob("*"):
+        if p.is_file() and p not in snapshot_files:
+            try:
+                p.unlink()
+            except OSError:
+                pass
+
+    # (4) Prune directories not in snapshot, deepest-first.
+    current_dirs = [p for p in WEB_LANDING.rglob("*") if p.is_dir()]
+    for p in sorted(current_dirs, key=lambda x: len(x.parts), reverse=True):
+        if p not in snapshot_dirs:
+            try:
+                p.rmdir()
+            except OSError:
+                pass  # not empty — fine
+
+    # (5) If we created WEB_LANDING itself and it's empty, remove it.
+    if web_landing_created and WEB_LANDING.exists() and not any(WEB_LANDING.iterdir()):
+        WEB_LANDING.rmdir()

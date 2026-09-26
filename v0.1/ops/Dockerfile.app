@@ -15,7 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # uv is the fastest resolver + installer; the copy comes from the official image
 # so no pip bootstrap on top of the slim base.
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# uv pinned for reproducible builds. Bump this line AND the matching
+# line in ops/Dockerfile.{app,landing} together when moving to a newer
+# uv. Do NOT use :latest — silent drift breaks build reproducibility.
+COPY --from=ghcr.io/astral-sh/uv:0.12.2 /uv /usr/local/bin/uv
 
 WORKDIR /srv
 

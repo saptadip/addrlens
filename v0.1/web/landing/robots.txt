@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://addrlens.de/sitemap.xml

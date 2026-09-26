@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 
 # Sitemap for search + LLM answer-engine crawlers.
-Sitemap: https://addrlens.de/sitemap.xml
+Sitemap: https://berlin.addrlens.de/sitemap.xml
