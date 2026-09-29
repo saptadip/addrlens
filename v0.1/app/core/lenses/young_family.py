@@ -216,7 +216,7 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
         if key == "supermarket" and "gesix" in th:
             tiles.append(_shape_gesix(cfg, index, lat, lon, card_key="gesix",
                                       label=tile_meta["gesix"][0],
-                                      caveat=tile_meta["gesix"][2] or ""))
+                                      caveat=tile_meta["gesix"][2]))
 
     # Hamburg shape-only trailing tile — appended at the tail to match the
     # `lens.tiles` order in hamburg/lenses.py (last entry).
@@ -226,7 +226,7 @@ def young_family_lens(cfg, index, lon: float, lat: float, *,
             card_key="sozialmonitoring_status_young_family",
             label=tile_meta["sozialmonitoring_status_young_family"][0],
             focus="status",
-            caveat=tile_meta["sozialmonitoring_status_young_family"][2] or "",
+            caveat=tile_meta["sozialmonitoring_status_young_family"][2],
         ))
 
     return {

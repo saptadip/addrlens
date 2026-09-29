@@ -485,7 +485,45 @@ if __name__ == "__main__":
     assert _sg_none["metadata"] == {"gesix": {}}
     assert _sg_none["features"] == []
 
+    # `caveat` kwarg is surfaced verbatim (PR #106 fix). Default "" for
+    # callers that don't pass — verified by the earlier _sg / _sg2 asserts
+    # which never pass caveat and see caveat == "".
+    _sg_cav = _shape_gesix(_StubCfg(), _StubGesix(), 52.5, 13.4,
+                            caveat="Senate GESIx composite — refreshed every 3-5 years")
+    assert _sg_cav["caveat"] == "Senate GESIx composite — refreshed every 3-5 years", \
+        f"caveat kwarg not surfaced: {_sg_cav['caveat']!r}"
+
     print("scorer.py: _shape_gesix selfcheck OK")
+
+    # -- _shape_sozialmonitoring caveat kwarg (PR #106). Symmetric fix
+    # to _shape_gesix so Hamburg newcomer/commuter/QL/YF sozialmon tiles
+    # render their config caveats. Uses a minimal stub since the tier
+    # logic is exercised by full-lens tests; this asserts only the caveat
+    # pass-through contract that composers rely on.
+    from app.core.scoring.shape import _shape_sozialmonitoring
+    class _StubSMCfg:
+        attribution = {"sozialmonitoring": "Hamburg BSW — Sozialmonitoring · dl-de/by-2-0"}
+    class _StubSM:
+        def sozialmonitoring_at(self, lon, lat):
+            return {"statusindex": "hoch", "stadtteil": "Ottensen"}
+    _sm_cav = _shape_sozialmonitoring(
+        _StubSMCfg(), _StubSM(), 53.5, 9.9,
+        card_key="sozialmonitoring_status_young_family",
+        label="Neighbourhood profile",
+        focus="status",
+        caveat="Hamburg city rating of the ~2,200-resident block — refreshed yearly")
+    assert _sm_cav["caveat"] == \
+        "Hamburg city rating of the ~2,200-resident block — refreshed yearly", \
+        f"caveat kwarg not surfaced: {_sm_cav['caveat']!r}"
+    # No-caveat default still empty (backward-compat check for callers
+    # that don't pass the kwarg — newcomer/commuter/QL before PR #106).
+    _sm_nocav = _shape_sozialmonitoring(
+        _StubSMCfg(), _StubSM(), 53.5, 9.9,
+        card_key="sozialmonitoring_status", label="X", focus="status")
+    assert _sm_nocav["caveat"] == "", \
+        f"default caveat should be empty: {_sm_nocav['caveat']!r}"
+
+    print("scorer.py: _shape_sozialmonitoring caveat selfcheck OK")
 
     # ==============================================================
     # Newcomer tier + composer selfchecks.

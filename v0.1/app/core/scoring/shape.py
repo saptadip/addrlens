@@ -304,6 +304,11 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
 
     `cfg` is required so that `sources` resolves to the full licence text
     string from cfg.attribution rather than the bare dataset key "gesix".
+
+    `caveat` is surfaced verbatim in the return dict's `caveat` field so
+    the tile modal's "What this tells you" section renders it. Callers
+    typically pass the tile's `LensTileConfig.caveat`. Default `""`
+    keeps existing callers who don't pass the kwarg silent.
     """
     g = index.gesix_at(lon, lat) if hasattr(index, "gesix_at") else None
     g = g or {}
@@ -349,6 +354,11 @@ def _shape_sozialmonitoring(cfg, index, lat: float, lon: float, *,
 
     `cfg` supplies the attribution string; `index.sozialmonitoring_at`
     supplies the raw dict.
+
+    `caveat` is surfaced verbatim in the return dict's `caveat` field so
+    the tile modal's "What this tells you" section renders it. Callers
+    typically pass the tile's `LensTileConfig.caveat`. Default `""`
+    keeps existing callers who don't pass the kwarg silent.
     """
     sm = (index.sozialmonitoring_at(lon, lat)
           if hasattr(index, "sozialmonitoring_at") else None)
