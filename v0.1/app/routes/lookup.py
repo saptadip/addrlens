@@ -182,12 +182,16 @@ def lookup(
     except Exception:
         conn["ferry"] = None
 
-    # -- Young Family lens (Spec A) ----------------------------------------
-    # The lens needs playgrounds + gps (pediatricians) + noise, none of
-    # which /api/lookup exposes today. We fetch them here purely for the
-    # lens — they do NOT leak into the /api/lookup response shape (the
-    # frontend still calls /api/amenities and /api/noise for the raw
-    # views; both helpers are cache-backed so second calls are ~ms).
+    # -- Young Family lens (Specs A + Hamburg-YF adaptation) --------------
+    # Ships for Berlin (10 tiles) AND Hamburg (8 tiles — no air, no refuge;
+    # see docs/superpowers/plans/... and app/cities/hamburg/lenses.py header
+    # for why). The composer at app/core/lenses/young_family.py iterates
+    # cfg.young_family_lens.tiles and branches by key, so this call is
+    # city-agnostic. The lens needs playgrounds + gps (pediatricians) +
+    # noise, none of which /api/lookup exposes today. We fetch them here
+    # purely for the lens — they do NOT leak into the /api/lookup response
+    # shape (the frontend still calls /api/amenities and /api/noise for the
+    # raw views; both helpers are cache-backed so second calls are ~ms).
     try:
         _amen  = amenities_near(index, cfg, lon, lat, 800)
         _noise = noise_at(cfg, lon, lat)
