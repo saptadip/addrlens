@@ -56,7 +56,7 @@ YOUNG_FAMILY_LENS: LensConfig = LensConfig(
                     "expect a small kiosk to look identical to a Rewe until you visit."),
         ),
         LensTileConfig(
-            key="noise", label="Façade noise", icon="noise",
+            key="noise_band", label="Façade noise", icon="noise",
             # HH BUKEA Lärmkarten 2022 — isoline model. Threshold shape is
             # identical to Berlin YF's dB keys ({green_db, amber_db}) because
             # `_tier_noise_isoline` parses the band-string lower edge and
