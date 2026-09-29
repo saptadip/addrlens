@@ -1,4 +1,4 @@
-"""Hamburg lens configs — Newcomer + Commuter + Quiet Living tile lists.
+"""Hamburg lens configs — Young Family + Newcomer + Commuter + Quiet Living tile lists.
 
 Extracted from the flat `hamburg.py` into a dedicated module so lens
 changes touch only the lens file. The audience-hint prose, per-tile
@@ -7,6 +7,91 @@ file; only imports changed.
 """
 from app.cities.base import LensConfig, LensTileConfig
 
+
+# ---------------------------------------------------------------------------
+# Young Family lens — 8 tiles (subset of Berlin's 10-tile YF lens)
+#
+# SKIPPED tiles vs Berlin YF (do NOT add):
+#   - `air`    — Hamburg publishes no per-street NO₂ WFS; the Berlin
+#                Umweltatlas NO₂ layer has no Hamburg equivalent at this
+#                time (spec Q10).
+#   - `refuge` — Hamburg's Straßenbaumkataster carries no crown-diameter
+#                field, so the Berlin crown-coverage-% composite leg always
+#                reads 0 %; the tree-density fallback used by QL's
+#                `street_trees` tile is a separate tile type and cannot
+#                substitute the OR-composite logic of `refuge` without a
+#                scorer rewrite that is deferred to a later release.
+# ---------------------------------------------------------------------------
+YOUNG_FAMILY_LENS: LensConfig = LensConfig(
+    slug="young_family",
+    label="Young Family (0–6)",
+    audience_hint="For a family with kids under 6",
+    tiles=(
+        LensTileConfig(
+            key="kita", label="Kita reachability", icon="kita",
+            thresholds={"green_count": 3, "green_m": 400, "amber_m": 800},
+        ),
+        LensTileConfig(
+            key="playground", label="Playground within stroller walk", icon="playground",
+            thresholds={"green_m": 400, "amber_m": 800},
+        ),
+        LensTileConfig(
+            key="pediatrician", label="Pediatrician within walk", icon="pediatrician",
+            thresholds={"green_m": 800, "amber_m": 1500},
+            caveat=("OSM community-tagged — inner-district coverage is good; "
+                    "outer districts may under-report."),
+        ),
+        LensTileConfig(
+            key="transit", label="Transit stop within walk", icon="transit",
+            thresholds={"green_min": 5, "amber_min": 10},
+            caveat=("Combines S-Bahn / U-Bahn (HVV vendored) plus the nearest "
+                    "OSM-tagged bus stop. Tier is the shortest walk across all "
+                    "modes. Hamburg has no tram network (abolished 1978); the "
+                    "Berlin YF Tram leg is dropped."),
+        ),
+        LensTileConfig(
+            key="supermarket", label="Supermarket within walk", icon="cart",
+            thresholds={"green_min": 5, "amber_min": 10},
+            caveat=("OSM community-tagged — brand + hours coverage varies; "
+                    "expect a small kiosk to look identical to a Rewe until you visit."),
+        ),
+        LensTileConfig(
+            key="noise_band", label="Façade noise", icon="noise",
+            # HH BUKEA Lärmkarten 2022 — isoline model. Threshold shape is
+            # identical to Berlin YF's dB keys ({green_db, amber_db}) because
+            # `_tier_noise_isoline` parses the band-string lower edge and
+            # compares against these same anchors (55 / 60 dB L_DEN).
+            thresholds={"green_db": 55, "amber_db": 60},
+            caveat=("Hamburg BUKEA Strategische Lärmkarte 2022 — road-traffic "
+                    "isoline model (L_DEN). Band lower edge is used for the "
+                    "tier; rail and aircraft isoline layers are not yet wired."),
+        ),
+        LensTileConfig(
+            key="heat", label="Summer heat", icon="heat",
+            # Stadtklimaanalyse 2023 (BUKEA) — PET-Belastung class strings
+            # matched case-insensitively against `bewertung_tag`. Day-class
+            # only: Hamburg's Stadtklimaanalyse publishes no night_class.
+            # Same class strings as Berlin YF heat tile and Hamburg QL heat
+            # tile; reuses `_tier_heat`.
+            thresholds={
+                "green_classes": ("keine Belastung", "geringe Belastung"),
+                "amber_classes": ("mäßige Belastung", "starke Belastung"),
+            },
+            caveat=("Stadtklimaanalyse 2023 (BUKEA) — PET (Physiological "
+                    "Equivalent Temperature) day-class per residential block. "
+                    "No night_class available for Hamburg. Reflects the block, "
+                    "not the specific building."),
+        ),
+        LensTileConfig(
+            key="sozialmonitoring_status_young_family",
+            label="Neighbourhood profile", icon="gesix",
+            thresholds={},   # shape-only, mirrors Berlin's `gesix` tile pattern
+            caveat=("Hamburg city rating of the ~2,200-resident block on "
+                    "income, jobs, education, and family stability. "
+                    "Refreshed yearly. Reflects the block, not the building."),
+        ),
+    ),
+)
 
 NEWCOMER_LENS: LensConfig = LensConfig(
     slug="newcomer",

@@ -69,9 +69,10 @@ _LENS_TEMPLATES = {
     ("berlin",  "newcomer"):     "lens_newcomer_insight",
     ("berlin",  "quiet_living"): "lens_quiet_living_insight",
     ("berlin",  "commuter"):     "lens_commuter_insight",
-    ("hamburg", "newcomer"):     "lens_newcomer_hamburg_insight",
-    ("hamburg", "commuter"):     "lens_commuter_hamburg_insight",
-    ("hamburg", "quiet_living"): "lens_quiet_living_hamburg_insight",
+    ("hamburg", "newcomer"):      "lens_newcomer_hamburg_insight",
+    ("hamburg", "commuter"):      "lens_commuter_hamburg_insight",
+    ("hamburg", "quiet_living"):  "lens_quiet_living_hamburg_insight",
+    ("hamburg", "young_family"):  "lens_young_family_hamburg_insight",
 }
 
 # Same cache grid as history — ~100 m cells. Env-tunable.
@@ -320,7 +321,7 @@ if __name__ == "__main__":
     assert _tiers["tram_transit"] == "unknown"
     assert _tiers["bus_transit"]  == "info"
 
-    # -- _LENS_TEMPLATES sanity: all 7 (city, lens) entries wired -----
+    # -- _LENS_TEMPLATES sanity: all 8 (city, lens) entries wired -----
     # Each entry must map (city_slug, lens_slug) → matching template name
     # registered in inference/main.py::TEMPLATES. Drift here means the
     # proxy accepts a lens but the inference service has no matching row.
@@ -332,16 +333,34 @@ if __name__ == "__main__":
         ("hamburg", "newcomer"),
         ("hamburg", "commuter"),
         ("hamburg", "quiet_living"),
+        ("hamburg", "young_family"),
     }, f"_LENS_TEMPLATES keys drifted: {set(_LENS_TEMPLATES.keys())}"
     assert _LENS_TEMPLATES == {
-        ("berlin",  "young_family"): "lens_young_family_insight",
-        ("berlin",  "newcomer"):     "lens_newcomer_insight",
-        ("berlin",  "quiet_living"): "lens_quiet_living_insight",
-        ("berlin",  "commuter"):     "lens_commuter_insight",
-        ("hamburg", "newcomer"):     "lens_newcomer_hamburg_insight",
-        ("hamburg", "commuter"):     "lens_commuter_hamburg_insight",
-        ("hamburg", "quiet_living"): "lens_quiet_living_hamburg_insight",
+        ("berlin",  "young_family"):  "lens_young_family_insight",
+        ("berlin",  "newcomer"):      "lens_newcomer_insight",
+        ("berlin",  "quiet_living"):  "lens_quiet_living_insight",
+        ("berlin",  "commuter"):      "lens_commuter_insight",
+        ("hamburg", "newcomer"):      "lens_newcomer_hamburg_insight",
+        ("hamburg", "commuter"):      "lens_commuter_hamburg_insight",
+        ("hamburg", "quiet_living"):  "lens_quiet_living_hamburg_insight",
+        ("hamburg", "young_family"):  "lens_young_family_hamburg_insight",
     }, "template names must match inference/main.py::TEMPLATES rows"
+
+    # -- Cross-module contract: every template name we route to MUST be
+    # registered in inference/main.py::TEMPLATES. This catches the class
+    # of drift where an app-side route mapping references a template the
+    # inference service doesn't know — which surfaces as 400 "unknown
+    # template" at request time (see inference/main.py:334-337). PR #105
+    # review found this exact bug: lens_young_family_hamburg_insight was
+    # added to _LENS_TEMPLATES but not registered in inference/main.py.
+    from inference.main import TEMPLATES as _INF_TEMPLATES
+    _missing = set(_LENS_TEMPLATES.values()) - set(_INF_TEMPLATES.keys())
+    assert not _missing, (
+        f"_LENS_TEMPLATES references templates not registered in "
+        f"inference/main.py::TEMPLATES: {sorted(_missing)}. Every "
+        "template name here must have a matching row in TEMPLATES + "
+        "an import at the top of inference/main.py."
+    )
 
     # -- _shape_tile_contexts drops noise + keeps schema fields -------
     _tiles = [

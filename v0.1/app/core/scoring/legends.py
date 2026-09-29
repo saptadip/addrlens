@@ -219,7 +219,8 @@ def _legend_for(key: str, th: dict) -> list:
     # green/amber/red. Emit a legend so the frontend's donut-arc renderer
     # fires (empty legend → no donut, per lens/index.js:118 early exit).
     if key in ("sozialmonitoring_status", "sozialmonitoring_status_commuter",
-               "sozialmonitoring_status_quiet"):
+               "sozialmonitoring_status_quiet",
+               "sozialmonitoring_status_young_family"):
         return [
             {"tier": TIER_GREEN, "text": "Statusindex: hoch"},
             {"tier": TIER_AMBER, "text": "Statusindex: mittel"},

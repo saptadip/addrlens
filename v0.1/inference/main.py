@@ -75,6 +75,7 @@ from inference.templates import lens_newcomer_hamburg_insight as lens_newcomer_h
 from inference.templates import lens_newcomer_insight as lens_newcomer_insight_tpl
 from inference.templates import lens_quiet_living_hamburg_insight as lens_quiet_living_hamburg_insight_tpl
 from inference.templates import lens_quiet_living_insight as lens_quiet_living_insight_tpl
+from inference.templates import lens_young_family_hamburg_insight as lens_young_family_hamburg_insight_tpl
 from inference.templates import lens_young_family_insight as lens_young_family_insight_tpl
 
 # ---------- Sentry (production error tracking) ----------
@@ -166,7 +167,7 @@ REMOTE_TEMPLATES = {
         "lens_young_family_insight,lens_newcomer_insight,"
         "lens_quiet_living_insight,lens_commuter_insight,"
         "lens_newcomer_hamburg_insight,lens_commuter_hamburg_insight,"
-        "lens_quiet_living_hamburg_insight",
+        "lens_quiet_living_hamburg_insight,lens_young_family_hamburg_insight",
     ).split(",")
     if t.strip()
 }
@@ -186,6 +187,7 @@ TEMPLATES = {
     "lens_newcomer_hamburg_insight":    lens_newcomer_hamburg_insight_tpl.run,
     "lens_commuter_hamburg_insight":    lens_commuter_hamburg_insight_tpl.run,
     "lens_quiet_living_hamburg_insight": lens_quiet_living_hamburg_insight_tpl.run,
+    "lens_young_family_hamburg_insight": lens_young_family_hamburg_insight_tpl.run,
 }
 
 # ---------------------------------------------------------------------- state

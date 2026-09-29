@@ -33,8 +33,8 @@ export const NOISE_TIER_LABEL={green:'Quiet',amber:'Moderate',orange:'Loud',red:
 export const LM_STATE_KEY  = 'hamburg-lens-mode-v1';       // "on" | "off"
 export const LM_SEEN_KEY   = 'hamburg-lens-mode-seen-v1';  // "1" once seen or dismissed
 export const LM_PULSE_MS   = 30000;                        // auto-stop pulse after 30 s
-export const LM_ACTIVE_KEY  = 'hamburg-lens-active-v1';    // "newcomer"|"commuter"|"quiet_living"
-export const LM_DEFAULT_LENS = 'newcomer';                 // Hamburg ships newcomer + commuter + quiet_living
+export const LM_ACTIVE_KEY  = 'hamburg-lens-active-v1';    // "newcomer"|"commuter"|"quiet_living"|"young_family"
+export const LM_DEFAULT_LENS = 'newcomer';                 // Hamburg ships newcomer + commuter + quiet_living + young_family; default stays newcomer
 
 export const LENS_TILE_EXPLANATIONS = {
   // Newcomer lens
@@ -167,9 +167,10 @@ export const TIER_PIN_COLORS = {
   unknown: '#9CA3AF',
 };
 
-// Hamburg ships Newcomer + Commuter + Quiet Living lenses.
-// Young Family is not yet included in the Hamburg release.
+// Hamburg ships Newcomer + Commuter + Quiet Living + Young Family lenses.
 export const LIFE_MODE_LENSES = [
+  {slug: 'young_family', label: 'Young Family',
+   icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="2.5"/><path d="M4 21v-4a5 5 0 0 1 10 0v4"/><circle cx="17" cy="10" r="1.8"/><path d="M13.5 21v-3a3 3 0 0 1 6 0v3"/></svg>'},
   {slug: 'newcomer', label: 'Newcomer',
    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M17 4l3 3-3 3"/><path d="M14 7h6"/></svg>'},
   {slug: 'commuter', label: 'Commuter',
@@ -201,6 +202,6 @@ export const _TITLE_SMALL = new Set([
 ]);
 
 // -- Lens AI panel constants -----------------------------------------
-export const _LENS_WITH_AI = new Set(['newcomer', 'commuter', 'quiet_living']);
+export const _LENS_WITH_AI = new Set(['newcomer', 'commuter', 'quiet_living', 'young_family']);
 
 export const _ICON_DOWNLOAD = '<svg viewBox="0 0 256 256" aria-hidden="true"><path d="M216,144v64a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V144a8,8,0,0,1,8-8H88l40,40,40-40h40A8,8,0,0,1,216,144Z" opacity="0.2"/><path d="M216,144v64a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V144" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><polyline points="88 112 128 152 168 112" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="128" y1="40" x2="128" y2="152" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>';

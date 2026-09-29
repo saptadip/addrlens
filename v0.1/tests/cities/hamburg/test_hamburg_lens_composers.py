@@ -2,7 +2,7 @@
 hardcodes in the shared composer. Added after PR #81 review found KeyError
 on Hamburg config."""
 from app.cities.hamburg import HAMBURG
-from app.core.scorer import newcomer_lens, commuter_lens
+from app.core.scorer import newcomer_lens, commuter_lens, young_family_lens
 
 
 class _StubIdx:
@@ -21,6 +21,9 @@ class _StubIdx:
     def parking_zone_at(self, *a, **kw): return None
     def sozialmonitoring_at(self, *a, **kw): return None
     def nearest_ferry(self, *a, **kw): return None
+    def noise_bands_at(self, *a, **kw): return {}
+    def kitas_near_bod(self, *a, **kw): return []
+    def nearest_station(self, *a, **kw): return None
 
 
 def test_hamburg_newcomer_composer_runs():
@@ -91,3 +94,28 @@ def test_berlin_composers_still_produce_all_tiles():
                      "regional_rail_reach", "cycling_network", "parkzone",
                      "car_sharing_reach", "ev_charging_reach", "airport_reach", "gesix_commuter"):
         assert expected in keys_c, f"Berlin commuter tile {expected!r} lost"
+    out_yf = young_family_lens(BERLIN, _StubIdx(), 13.4, 52.5,
+                                air={}, heat={}, noise={}, amenities={},
+                                trees={}, quiet_zone={})
+    keys_yf = [t["key"] for t in out_yf["tiles"]]
+    # Berlin YF must still produce all 10 in this exact order
+    assert keys_yf == [
+        "kita", "playground", "pediatrician", "transit", "supermarket",
+        "gesix", "noise", "heat", "air", "refuge",
+    ], f"Berlin YF order changed: {keys_yf}"
+
+
+def test_hamburg_young_family_composer_runs():
+    # young_family composer takes named args: air, heat, noise, amenities, trees, quiet_zone
+    out = young_family_lens(HAMBURG, _StubIdx(), 9.99, 53.55,
+                             air=None, heat={}, noise={}, amenities={},
+                             trees={}, quiet_zone={})
+    assert out["slug"] == "young_family"
+    tile_keys = {t["key"] for t in out["tiles"]}
+    # Hamburg YF must ship these 8
+    for expected in ("kita", "playground", "pediatrician", "transit", "supermarket",
+                     "noise_band", "heat", "sozialmonitoring_status_young_family"):
+        assert expected in tile_keys, f"Hamburg YF tile {expected!r} missing: {tile_keys}"
+    # Berlin-only YF keys must NOT appear
+    for banned in ("air", "refuge", "gesix", "noise"):
+        assert banned not in tile_keys, f"Berlin key {banned!r} leaked into Hamburg YF: {tile_keys}"
