@@ -290,7 +290,8 @@ def _shape_refuge_trees(t: dict) -> dict:
 
 def _shape_gesix(cfg, index, lat: float, lon: float, *,
                  card_key: str = "gesix",
-                 label: str = "Neighbourhood profile") -> dict:
+                 label: str = "Neighbourhood profile",
+                 caveat: str = "") -> dict:
     """Shape-only GESIx tile. No numeric on face.
     Face renders label + one-line hint; modal renders the 5-segment
     quintile bar (frontend responsibility). Metadata carries the raw
@@ -322,7 +323,7 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
         "tier":     tier,
         "rule":     "socioeconomic band of this Planungsraum · tap for detail",
         "numeric":  "",
-        "caveat":   "",
+        "caveat":   caveat,
         "features": [],
         "metadata": {"gesix": g},
         "sources":  [s for s in [cfg.attribution.get("gesix")] if s],
@@ -332,7 +333,8 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
 def _shape_sozialmonitoring(cfg, index, lat: float, lon: float, *,
                             card_key: str,
                             label: str,
-                            focus: str = "status") -> dict:
+                            focus: str = "status",
+                            caveat: str = "") -> dict:
     """Shape-only Sozialmonitoring tile — Hamburg analog of `_shape_gesix`.
 
     `focus` selects which sub-signal the summary line surfaces:
@@ -385,7 +387,7 @@ def _shape_sozialmonitoring(cfg, index, lat: float, lon: float, *,
         "tier":     tier,
         "rule":     rule,
         "numeric":  "",
-        "caveat":   "",
+        "caveat":   caveat,
         "features": [],
         "metadata": {"sozialmonitoring": sm},
         "sources":  [s for s in [cfg.attribution.get("sozialmonitoring")] if s],
