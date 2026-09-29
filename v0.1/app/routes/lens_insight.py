@@ -346,6 +346,22 @@ if __name__ == "__main__":
         ("hamburg", "young_family"):  "lens_young_family_hamburg_insight",
     }, "template names must match inference/main.py::TEMPLATES rows"
 
+    # -- Cross-module contract: every template name we route to MUST be
+    # registered in inference/main.py::TEMPLATES. This catches the class
+    # of drift where an app-side route mapping references a template the
+    # inference service doesn't know — which surfaces as 400 "unknown
+    # template" at request time (see inference/main.py:334-337). PR #105
+    # review found this exact bug: lens_young_family_hamburg_insight was
+    # added to _LENS_TEMPLATES but not registered in inference/main.py.
+    from inference.main import TEMPLATES as _INF_TEMPLATES
+    _missing = set(_LENS_TEMPLATES.values()) - set(_INF_TEMPLATES.keys())
+    assert not _missing, (
+        f"_LENS_TEMPLATES references templates not registered in "
+        f"inference/main.py::TEMPLATES: {sorted(_missing)}. Every "
+        "template name here must have a matching row in TEMPLATES + "
+        "an import at the top of inference/main.py."
+    )
+
     # -- _shape_tile_contexts drops noise + keeps schema fields -------
     _tiles = [
         {"key": "buergeramt", "label": "Bürgeramt reach",
