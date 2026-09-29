@@ -115,6 +115,8 @@ export const GLOSSARY = {
   'Bezirk': "One of Hamburg's 7 official boroughs (Altona, Bergedorf, Eimsbüttel, Hamburg-Mitte, Hamburg-Nord, Harburg, Wandsbek). Each administered by its own Bezirksamt.",
   'Bewohnerparkgebiet': "Hamburg's resident-parking polygon — a designated zone where Bewohnerparken rules apply. The Hamburg Open Data WFS layer provides polygon boundaries without fee or enforcement hours.",
   'Bewohnerparkausweis': "Hamburg's annual residents' parking permit — applied for at the local Bezirksamt with proof of Anmeldung. Valid within one Bewohnerparkgebiet only. Required if you own a car and live inside a resident-parking area.",
+  'Spielplätze': "Playgrounds. Hamburg's BUKEA wfs_spielplaetze dataset lists every registered municipal playground; supplemented by parks in the Grünplan.",
+  'Grünplan': "Hamburg's official green-space plan — BUKEA's inventory of parks, meadows, and other public green areas across the city.",
 };
 
 // Tile → glossary keys. Only add words that actually surface in that tile's
@@ -155,6 +157,14 @@ export const TILE_GLOSSARY_KEYS = {
   nightlife_inverted:           [],
   heat:                         ['PET', 'Belastung'],
   sozialmonitoring_status_quiet: ['Sozialmonitoring', 'Statistisches Gebiet', 'Stadtteil'],
+  // Young Family lens
+  kita:                         ['Kita', 'Bezirk'],
+  playground:                   ['Spielplätze', 'Grünplan'],
+  pediatrician:                 ['Kinderarzt'],
+  transit:                      ['S-Bahn', 'U-Bahn', 'HVV'],
+  supermarket:                  [],
+  noise_band:                   ['L_DEN'],
+  sozialmonitoring_status_young_family: ['Sozialmonitoring', 'Statistisches Gebiet', 'Stadtteil'],
   // parkzone is shared between Newcomer and Commuter lenses —
   // TILE_GLOSSARY_KEYS is looked up by tile key, not by lens.
 };

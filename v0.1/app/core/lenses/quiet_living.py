@@ -283,13 +283,15 @@ def quiet_living_lens(cfg, index, lon: float, lat: float, *,
     if "gesix_quiet" in th:
         tiles.append(_shape_gesix(cfg, index, lat, lon,
                                   card_key="gesix_quiet",
-                                  label=tile_meta["gesix_quiet"][0]))
+                                  label=tile_meta["gesix_quiet"][0],
+                                  caveat=tile_meta["gesix_quiet"][2]))
     if "sozialmonitoring_status_quiet" in th:
         tiles.append(_shape_sozialmonitoring(
             cfg, index, lat, lon,
             card_key="sozialmonitoring_status_quiet",
             label=tile_meta["sozialmonitoring_status_quiet"][0],
             focus="status",
+            caveat=tile_meta["sozialmonitoring_status_quiet"][2],
         ))
 
     return {

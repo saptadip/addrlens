@@ -77,7 +77,7 @@ def lookup(
             raise HTTPException(404, f"Address '{street} {hnr}, {plz}' not recognised — check street number.")
         raise HTTPException(502, f"Geocoder unavailable, please retry.")
     if not geo:
-        raise HTTPException(404, f"Address '{street} {hnr}, {plz}' not found in Berlin.")
+        raise HTTPException(404, f"Address '{street} {hnr}, {plz}' not found in {cfg.display_name}.")
 
     lon, lat = geo["lon"], geo["lat"]
     esb_props, polygon, schools = index.catchment(lon, lat)

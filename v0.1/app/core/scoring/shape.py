@@ -290,7 +290,8 @@ def _shape_refuge_trees(t: dict) -> dict:
 
 def _shape_gesix(cfg, index, lat: float, lon: float, *,
                  card_key: str = "gesix",
-                 label: str = "Neighbourhood profile") -> dict:
+                 label: str = "Neighbourhood profile",
+                 caveat: str = "") -> dict:
     """Shape-only GESIx tile. No numeric on face.
     Face renders label + one-line hint; modal renders the 5-segment
     quintile bar (frontend responsibility). Metadata carries the raw
@@ -303,6 +304,11 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
 
     `cfg` is required so that `sources` resolves to the full licence text
     string from cfg.attribution rather than the bare dataset key "gesix".
+
+    `caveat` is surfaced verbatim in the return dict's `caveat` field so
+    the tile modal's "What this tells you" section renders it. Callers
+    typically pass the tile's `LensTileConfig.caveat`. Default `""`
+    keeps existing callers who don't pass the kwarg silent.
     """
     g = index.gesix_at(lon, lat) if hasattr(index, "gesix_at") else None
     g = g or {}
@@ -322,7 +328,7 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
         "tier":     tier,
         "rule":     "socioeconomic band of this Planungsraum · tap for detail",
         "numeric":  "",
-        "caveat":   "",
+        "caveat":   caveat,
         "features": [],
         "metadata": {"gesix": g},
         "sources":  [s for s in [cfg.attribution.get("gesix")] if s],
@@ -332,7 +338,8 @@ def _shape_gesix(cfg, index, lat: float, lon: float, *,
 def _shape_sozialmonitoring(cfg, index, lat: float, lon: float, *,
                             card_key: str,
                             label: str,
-                            focus: str = "status") -> dict:
+                            focus: str = "status",
+                            caveat: str = "") -> dict:
     """Shape-only Sozialmonitoring tile — Hamburg analog of `_shape_gesix`.
 
     `focus` selects which sub-signal the summary line surfaces:
@@ -347,6 +354,11 @@ def _shape_sozialmonitoring(cfg, index, lat: float, lon: float, *,
 
     `cfg` supplies the attribution string; `index.sozialmonitoring_at`
     supplies the raw dict.
+
+    `caveat` is surfaced verbatim in the return dict's `caveat` field so
+    the tile modal's "What this tells you" section renders it. Callers
+    typically pass the tile's `LensTileConfig.caveat`. Default `""`
+    keeps existing callers who don't pass the kwarg silent.
     """
     sm = (index.sozialmonitoring_at(lon, lat)
           if hasattr(index, "sozialmonitoring_at") else None)
@@ -385,7 +397,7 @@ def _shape_sozialmonitoring(cfg, index, lat: float, lon: float, *,
         "tier":     tier,
         "rule":     rule,
         "numeric":  "",
-        "caveat":   "",
+        "caveat":   caveat,
         "features": [],
         "metadata": {"sozialmonitoring": sm},
         "sources":  [s for s in [cfg.attribution.get("sozialmonitoring")] if s],

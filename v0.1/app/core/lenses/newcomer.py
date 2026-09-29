@@ -289,7 +289,8 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
     # gesix_newcomer — Berlin only (Hamburg has no GESIx; guarded by tile key presence)
     if "gesix_newcomer" in th:
         tiles.append(_shape_gesix(cfg, index, lat, lon, card_key="gesix_newcomer",
-                                  label=tile_meta["gesix_newcomer"][0]))
+                                  label=tile_meta["gesix_newcomer"][0],
+                                  caveat=tile_meta["gesix_newcomer"][2]))
 
     # Sozialmonitoring — Hamburg-only shape-only tiles, mirroring the
     # `gesix_newcomer` shape pattern. The tail placement matches the
@@ -302,6 +303,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
             card_key="sozialmonitoring_status",
             label=tile_meta["sozialmonitoring_status"][0],
             focus="status",
+            caveat=tile_meta["sozialmonitoring_status"][2],
         ))
     if "sozialmonitoring_gesamt" in th:
         tiles.append(_shape_sozialmonitoring(
@@ -309,6 +311,7 @@ def newcomer_lens(cfg, index, lon: float, lat: float, *,
             card_key="sozialmonitoring_gesamt",
             label=tile_meta["sozialmonitoring_gesamt"][0],
             focus="gesamt",
+            caveat=tile_meta["sozialmonitoring_gesamt"][2],
         ))
 
     return {

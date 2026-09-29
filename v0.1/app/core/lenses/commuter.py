@@ -295,7 +295,8 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
     if "gesix_commuter" in th:
         tiles.append(_shape_gesix(cfg, index, lat, lon,
                                   card_key="gesix_commuter",
-                                  label=tile_meta["gesix_commuter"][0]))
+                                  label=tile_meta["gesix_commuter"][0],
+                                  caveat=tile_meta["gesix_commuter"][2]))
 
     # Sozialmonitoring commuter tiles — Hamburg-only shape-only tiles that
     # mirror `gesix_commuter`. Both read the same underlying sm dict; the
@@ -306,6 +307,7 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
             card_key="sozialmonitoring_status_commuter",
             label=tile_meta["sozialmonitoring_status_commuter"][0],
             focus="status",
+            caveat=tile_meta["sozialmonitoring_status_commuter"][2],
         ))
     if "sozialmonitoring_gesamt_commuter" in th:
         tiles.append(_shape_sozialmonitoring(
@@ -313,6 +315,7 @@ def commuter_lens(cfg, index, lon: float, lat: float, *,
             card_key="sozialmonitoring_gesamt_commuter",
             label=tile_meta["sozialmonitoring_gesamt_commuter"][0],
             focus="gesamt",
+            caveat=tile_meta["sozialmonitoring_gesamt_commuter"][2],
         ))
 
     return {
