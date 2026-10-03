@@ -70,3 +70,53 @@ If the token is compromised or you want to rotate:
   ```
 
 - **Want to bypass CF for debugging:** you can't — the box has no public port other than SSH. Debug via `curl -sSf http://localhost:8001/health` from inside the box (or `docker compose exec app curl -sSf http://127.0.0.1:8001/health`).
+
+## CSP {#csp}
+
+### Symptom
+
+Browser console on `berlin.addrlens.de` / `hamburg.addrlens.de` reports:
+
+```
+Executing inline script violates the following Content Security Policy directive
+'script-src 'self' https://unpkg.com https://umami.addrlens.de 'sha256-...''.
+Either the 'unsafe-inline' keyword, a hash ('sha256-M3cFExag...'),
+or a nonce ('nonce-...') is required to enable inline execution.
+```
+
+The blocked script is at the bottom of the served HTML and looks like:
+
+```js
+(function(){function c(){var b=a.contentDocument||...
+window.__CF$cv$params={r:'<token>',t:'<token>'};
+...challenge-platform/scripts/jsd/main.js...})();
+```
+
+### Root cause
+
+**Cloudflare's edge injects this inline script**, not AddrLens's code. It's part of Cloudflare's **JavaScript Detections** feature (sometimes exposed as "Bot Fight Mode"), which inserts a per-request browser-fingerprinting tracker. The injection happens AFTER FastAPI serves the HTML, so the server's `Content-Security-Policy` header does not — and cannot — cover it.
+
+The injected script's content includes per-request tokens (`r` and `t`), so its SHA-256 hash changes on every response. A hash-based CSP whitelist is impossible.
+
+### Fix
+
+Disable Cloudflare's JavaScript Detections / Bot Fight Mode for the AddrLens zone:
+
+1. Cloudflare dashboard → select the `addrlens.de` zone
+2. **Security → Bots → Configure Bot Fight Mode** → toggle **off**
+3. Also check **Security → Settings → Browser Integrity Check** — leave on (that's an HTTP-header check, not an inline-script injection)
+4. Also check **Security → Settings → JavaScript Detections** if present as a separate toggle — turn **off**
+5. Hard-refresh `https://berlin.addrlens.de/` and confirm the browser console no longer reports the CSP violation
+
+Why this is safe for AddrLens: the site is a stateless public read-only API with no login, no form submissions, and no abuse surface that JavaScript Detections would help defend. Cloudflare's own documentation lists these features as targeted at sites with user accounts, comment forms, or e-commerce flows — none of which apply here.
+
+### Why not add CF to the CSP?
+
+- **By hash:** per-request tokens make the hash change every response. Impossible.
+- **By `'unsafe-inline'`:** defeats the entire CSP. Rejected.
+- **By origin:** the injected script has no `src=` — it's a true inline `<script>...</script>` block. Origin-based `script-src` entries don't cover it.
+- **By CF Response Header Transform rule:** Cloudflare does support rewriting response headers, including CSP. If you need the JS Detections feature AND strict CSP, the only path is a Transform Rule that strips the injected script before it reaches the browser. More complexity than disabling the feature.
+
+### Related
+
+The `JSON-LD` inline script in `web/index.html` IS covered by a SHA-256 hash computed at FastAPI boot (`_compute_jsonld_hash` in `app/main.py`) — that's a separate inline script and not the one triggering the CF error above. See `app/main.py` CSP block for the full rationale.

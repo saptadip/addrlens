@@ -88,7 +88,7 @@ The active tree is [`v0.1/`](v0.1/). Historical prototypes (`phase0/`–`phase3/
 | [`v0.1/web/`](v0.1/web/) | Single-page frontend (no bundler, no build step) — `index.html` + legal pages + `static/app.js` (126-LOC ES-module bootstrap) + 20 modules under `static/modules/` (api, state, dom, maps, lens/, panels/) |
 | [`v0.1/scripts/`](v0.1/scripts/) | Weekly OSM refresh (extracts amenities + addresses from Geofabrik) |
 | [`v0.1/ops/`](v0.1/ops/) | Dockerfiles, Cloudflare Tunnel config, systemd units, deploy scripts |
-| [`v0.1/docs/`](v0.1/docs/) | Deploy playbook, WAF setup, social-embed playbook |
+| [`v0.1/docs/`](v0.1/docs/) | Deploy playbook, WAF setup, social-embed playbook, [HTTP API reference](v0.1/docs/API.md) |
 | [`legal/`](legal/) | Impressum + Datenschutzerklärung (bilingual DE/EN, DDG §5 + DSGVO Art. 13 compliant) |
 
 ## Local development
