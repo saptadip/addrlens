@@ -108,6 +108,32 @@ services:
     networks:
       - addrlens_net
 
+  # Apex landing container. Serves web/landing/* at addrlens.de after
+  # cutover. Cloudflare Tunnel routes addrlens.de → app-landing:8000
+  # (see ops/cloudflared/README.md). Runs on port 8000 so `docker logs
+  # app-landing` and any host-network debug are visually distinguished
+  # from Berlin's :8001 and Hamburg's :8002.
+  app-landing:
+    build:
+      context: .
+      dockerfile: ops/Dockerfile.landing
+    image: addrlens-landing:latest
+    container_name: addrlens-app-landing
+    restart: unless-stopped
+    env_file: /srv/addrlens/.env.production
+    environment:
+      PORT: 8000
+      ROLE: landing
+    ports: !reset []
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - addrlens_net
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     command: tunnel --no-autoupdate run
@@ -119,6 +145,8 @@ services:
       app:
         condition: service_healthy
       app-hh:
+        condition: service_healthy
+      app-landing:
         condition: service_healthy
     networks:
       - addrlens_net

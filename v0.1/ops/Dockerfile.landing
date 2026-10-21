@@ -1,0 +1,52 @@
+# ops/Dockerfile.landing
+# Apex landing container. Serves web/landing/* on port 8000.
+# ~329 MB measured. Higher than initial estimate — uvicorn[standard]'s
+# uvloop + httptools + websockets C wheels floor a slim base at ~200 MB,
+# and the ghcr.io/astral-sh/uv COPY layer persists ~80 MB even after
+# `rm /usr/local/bin/uv` (would need multi-stage to remove). Still
+# smaller than Dockerfile.app; zero coupling to app.core / app.cities.
+#
+# Build context = v0.1/. From repo root:
+#   docker build -f v0.1/ops/Dockerfile.landing -t addrlens-landing v0.1
+
+FROM python:3.11-slim AS base
+
+# ca-certificates: outbound HTTPS if ever needed. tzdata: log timestamps.
+# Deliberately no libexpat1 (shapely-adjacent) — landing has no XML parsing.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# uv pinned for reproducible builds. Bump this line AND the matching
+# line in ops/Dockerfile.{app,landing} together when moving to a newer
+# uv. Do NOT use :latest — silent drift breaks build reproducibility.
+COPY --from=ghcr.io/astral-sh/uv:0.12.2 /uv /usr/local/bin/uv
+
+WORKDIR /srv
+
+# Sync with pyproject.toml [project.dependencies] — landing tracks the
+# same fastapi/uvicorn versions the app image resolves to. uv is a
+# build-only tool; delete it after install to keep the runtime image
+# small (~80 MB saved).
+RUN uv pip install --system --no-cache \
+        "fastapi>=0.115" "uvicorn[standard]>=0.32" \
+    && rm /usr/local/bin/uv
+
+# Copy ONLY what landing needs. Do NOT copy the full app/ package.
+COPY app/__init__.py ./app/__init__.py
+COPY app/landing ./app/landing
+COPY web/landing ./web/landing
+
+RUN useradd -u 10001 -m -s /sbin/nologin addrlens \
+    && chown -R addrlens:addrlens /srv
+USER addrlens
+
+ENV PORT=8000 \
+    ROLE=landing \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+# Healthcheck is declared in docker-compose.prod.yml (matches app-hh
+# convention). Omitted here to prevent Dockerfile vs compose drift.
+
+CMD ["uvicorn", "app.landing.main:app", "--host", "0.0.0.0", "--port", "8000"]

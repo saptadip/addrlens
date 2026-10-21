@@ -227,7 +227,7 @@ export function renderCompare(){
       </div>
       <div class="print-header-meta">
         <span class="print-header-date">${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span>
-        <span class="print-header-site">addrlens.de</span>
+        <span class="print-header-site">berlin.addrlens.de</span>
       </div>
     </div>
     <div class="print-header-rule" aria-hidden="true"></div>
