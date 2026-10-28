@@ -109,7 +109,7 @@ services:
       - addrlens_net
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.10.5
     command: tunnel --no-autoupdate run
     env_file:
       - /srv/addrlens/.env.production
